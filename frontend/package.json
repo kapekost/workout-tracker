@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "resolve-demos": "node scripts/resolve-demos.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
