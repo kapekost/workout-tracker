@@ -104,6 +104,25 @@ _Last updated: 2026-06-28._
 - **PWA**: installable (manifest + barbell icon + apple-touch-icon), `autoUpdate`
   service worker, offline-read (NetworkFirst cache of `GET /api/*`),
   `navigateFallback` to `index.html`. Verified served with correct MIME types.
+- **Workout timer**: sticky bar with session clock (counts up from `created_at`)
+  + 90s rest countdown that auto-starts on each logged set (±30s / Skip, beep +
+  flash at zero). Timestamp-derived so iOS background throttling stays accurate;
+  no Vibration API (unsupported on iOS PWA).
+- **Session tracking**: `sessions.ended_at` column (idempotent migration, set via
+  COALESCE on completion). Finish screen shows duration / sets / volume /
+  exercises / PRs; History shows per-session duration.
+- **Inline exercise demos**: keyless — `frontend/scripts/resolve-demos.mjs` maps
+  our exercises to yuhonas/free-exercise-db (CC0) and writes the committed
+  `frontend/src/data/exerciseDemos.json` (start/end frame URLs on jsDelivr). The
+  Exercise page alternates the two frames (~900ms) to animate; falls back to the
+  YouTube link if a demo is missing or an image fails. Re-run `npm run
+  resolve-demos` to refresh.
+- **Tests**: Vitest (frontend pure logic) + pytest (backend) added — `npm test`
+  in `frontend/`, `pytest` in `backend/` (deps in `requirements-dev.txt`).
+- NOTE: `backend/requirements.txt` bumped (fastapi 0.138 / uvicorn 0.49 /
+  pydantic 2.13.4) so it builds on local Python 3.14; validated in-container on
+  `python:3.11-slim` (build + PATCH smoke) before deploy.
+- `.gitignore` `data/` rule anchored to `/data/` so `frontend/src/data/` is tracked.
 
 **Data persistence & backup**
 - DB at `~/workout-tracker/data/workouts.db` (host bind mount `./data:/app/data`).
