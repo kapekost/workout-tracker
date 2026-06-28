@@ -4,7 +4,8 @@ services:
   workout-tracker:
     build: .
     ports:
-      - "80:8000"
+      # host:container — 8080 avoids colliding with anything on :80 alongside Home Assistant
+      - "8080:8000"
     volumes:
       - ./data:/app/data
     restart: unless-stopped
