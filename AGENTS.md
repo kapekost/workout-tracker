@@ -101,8 +101,27 @@ _Last updated: 2026-06-28._
 - Runs alongside Home Assistant (healthy) + Tailscale; reachable on LAN `:8080`
   and over Tailscale at `100.64.119.1:8080`.
 - Registry-free: Docker Hub repo removed; `pull_policy: never`, no `build:` key.
+- **PWA**: installable (manifest + barbell icon + apple-touch-icon), `autoUpdate`
+  service worker, offline-read (NetworkFirst cache of `GET /api/*`),
+  `navigateFallback` to `index.html`. Verified served with correct MIME types.
+
+**Data persistence & backup**
+- DB at `~/workout-tracker/data/workouts.db` (host bind mount `./data:/app/data`).
+  Survives container restart/recreate, `compose down`, image updates, and all
+  `docker ... prune`. Does NOT survive deleting that folder or **SD-card death**.
+- Backup: **not yet set up** (deferred by decision on 2026-06-28). Options on the
+  table — nightly Pi→Google Drive (rclone), nightly Pi→Mac (rsync), or an on-demand
+  `/api/export` endpoint. Revisit; SD cards do fail.
+
+**Domain (HTTPS) — in progress**
+- Target: `https://rpi-homeassistant.tailce23b4.ts.net` via Tailscale Serve.
+- BLOCKED: tailnet HTTPS certs not enabled ("account does not support getting TLS
+  certs"). User must enable: Tailscale admin → DNS → MagicDNS → "Enable HTTPS".
+- Once enabled, run: `docker exec tailscale tailscale serve --bg 8080`
+  (host-network container → proxies HTTPS root to `127.0.0.1:8080`).
 
 **Next / ideas**
+- Finish the HTTPS domain (above) once certs are enabled.
+- Decide on a backup mechanism.
 - Set up a scripted one-command deploy (build + transfer + restart) on the Mac.
-- Back up `~/workout-tracker/data/workouts.db` (currently manual).
 - Optional: pin the image to a version tag instead of `:latest` for rollbacks.
