@@ -1,11 +1,53 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon-64.png', 'apple-touch-icon-180x180.png'],
+      manifest: {
+        name: 'Gym Tracker',
+        short_name: 'Gym',
+        description: 'Log your sets, track progress, hit PRs.',
+        theme_color: '#0a0a12',
+        background_color: '#0a0a12',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        // SPA: serve the app shell for client-side routes when offline / on refresh
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            // Offline-read: last-seen history/progress still render without a connection.
+            // Only GETs are cached; writes (POST/PATCH/DELETE) always need the Pi reachable.
+            urlPattern: ({ url, request }) => url.pathname.startsWith('/api/') && request.method === 'GET',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-reads',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
+  ],
   server: {
     proxy: {
-      '/api': 'http://localhost:8000'
-    }
-  }
+      '/api': 'http://localhost:8000',
+    },
+  },
 })
