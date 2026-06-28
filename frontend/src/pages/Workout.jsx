@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
@@ -54,6 +54,7 @@ export default function Workout() {
   const [session, setSession] = useState(null)
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
+  const prsAtStart = useRef({})
   const [toast, setToast] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [weight, setWeight] = useState(20)
@@ -75,6 +76,7 @@ export default function Workout() {
         const prog = await api.get(`/progress/${ex.exercise_id}`)
         if (prog.length) prMap[ex.exercise_id] = Math.max(...prog.map(p => p.max_weight))
       }))
+      prsAtStart.current = prMap
       setPrs(prMap)
     }).catch(() => {})
   }, [sessionId])
@@ -144,7 +146,7 @@ export default function Workout() {
     try {
       const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
       const { summarize } = await import('../lib/sessionStats')
-      const stats = summarize(sets, prs)
+      const stats = summarize(sets, prsAtStart.current)
       const durSec = updated.ended_at && session.created_at
         ? Math.max(0, Math.round(
             (Date.parse(updated.ended_at.replace(' ', 'T') + 'Z') -
