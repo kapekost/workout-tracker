@@ -1,5 +1,9 @@
 services:
   workout-tracker:
+    # Pi pulls this prebuilt arm64 image — it never builds locally (1 GB RAM).
+    # Build + push from a beefier machine: docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --push .
+    image: kapekost/workout-tracker:latest
+    # `build:` kept so `docker compose build` still works on the Mac for local dev.
     build: .
     ports:
       # host:container — 8080 avoids colliding with anything on :80 alongside Home Assistant

@@ -5,31 +5,43 @@ Mobile-first workout tracker: logs sets/reps/weight, tracks progress, shows form
 ## Stack
 - **Backend**: Python FastAPI + SQLite (ARM64 compatible)
 - **Frontend**: React + Tailwind + Recharts
-- **Deploy**: Single Docker container, `docker compose up`
+- **Deploy**: Single Docker container — **built off-device, pulled & run on the Pi**
+
+> **Don't build on the Pi.** A 1 GB Raspberry Pi can't compile the React/Vite
+> frontend without thrashing swap (and starving anything else it's running, like
+> Home Assistant). Build the image on a beefier machine, push it to a registry,
+> and have the Pi only ever *pull* the finished image.
 
 ---
 
-## 1. Deploy on Raspberry Pi
+## 1. Build & publish the image (on the Mac / a beefy machine)
+
+Apple Silicon is `arm64`, the same architecture as the Pi, so it builds the
+Pi's image natively and fast:
 
 ```bash
-# Copy the project to your Pi
-scp -r workout-tracker/ pi@YOUR_PI_IP:~/workout-tracker
-
-# SSH in
-ssh pi@YOUR_PI_IP
-
-# Deploy
-cd ~/workout-tracker
-docker compose up -d --build
+# from the repo root
+docker buildx build --platform linux/arm64 \
+  -t kapekost/workout-tracker:latest --push .
 ```
 
-App is now at `http://YOUR_PI_IP` on your home network.
+## 2. Run it on the Raspberry Pi (pull only — never builds)
+
+```bash
+ssh kapekost@YOUR_PI_IP
+cd ~/workout-tracker
+git pull                       # get the latest docker-compose.yml
+docker compose pull            # pull the prebuilt image
+docker compose up -d           # run it (no --build)
+```
+
+App is now at `http://YOUR_PI_IP:8080` on your home network.
 
 Your workout data lives in `~/workout-tracker/data/workouts.db` — back this file up.
 
 ---
 
-## 2. Access from your phone at the gym (Tailscale VPN)
+## 3. Access from your phone at the gym (Tailscale VPN)
 
 Tailscale is the easiest zero-config VPN. Free for personal use.
 
@@ -46,18 +58,23 @@ Note the Tailscale IP shown (e.g. `100.x.x.x`)
 - Enable Tailscale
 
 ### Access the app at the gym:
-Open your phone browser → `http://100.x.x.x` (your Pi's Tailscale IP)
+Open your phone browser → `http://100.x.x.x:8080` (your Pi's Tailscale IP)
 
 ---
 
-## 3. Updates
+## 4. Updates
 
-To update after changing files:
+After changing the app, rebuild + push from the Mac, then pull on the Pi:
+
 ```bash
-docker compose up -d --build
+# On the Mac
+docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --push .
+
+# On the Pi
+cd ~/workout-tracker && docker compose pull && docker compose up -d
 ```
 
-Data persists across rebuilds (stored in `./data/` volume).
+Data persists across updates (stored in the `./data/` volume).
 
 ---
 
