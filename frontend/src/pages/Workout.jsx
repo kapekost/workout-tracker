@@ -4,6 +4,7 @@ import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
 import { formatClock, elapsedSeconds } from '../lib/timer'
+import { useWakeLock } from '../lib/useWakeLock'
 
 function Stat({ label, value }) {
   return (
@@ -64,6 +65,7 @@ export default function Workout() {
   const [summary, setSummary] = useState(null)
   const [restStartMs, setRestStartMs] = useState(null)
   const [restTargetSec, setRestTargetSec] = useState(90)
+  const { held: wakeLockHeld } = useWakeLock(true)
 
   useEffect(() => {
     api.get(`/sessions/${sessionId}`).then(s => {
@@ -178,6 +180,7 @@ export default function Workout() {
         onAddRest={(d) => setRestTargetSec(t => Math.max(0, t + d))}
         onSkipRest={() => setRestStartMs(null)}
         color={color}
+        wakeLockHeld={wakeLockHeld}
       />
 
       {/* Header */}
