@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import { getDemoUrl } from '../lib/demos'
 
 export default function Exercise() {
   const { workoutDay, exerciseId } = useParams()
@@ -7,6 +9,8 @@ export default function Exercise() {
   const plan = PLAN[workoutDay]
   const ex = plan?.exercises.find(e => e.id === exerciseId)
   const color = DAY_COLORS[workoutDay] ?? '#6ee7b7'
+  const [demoFailed, setDemoFailed] = useState(false)
+  const demoUrl = getDemoUrl(exerciseId)
 
   if (!ex) return (
     <div style={{ padding: 24 }}>
@@ -79,21 +83,33 @@ export default function Exercise() {
         </ol>
       </div>
 
-      {/* Video demo */}
-      <a href={ex.ytUrl} target="_blank" rel="noopener noreferrer"
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          background: '#1e1e32', border: `1px solid ${color}44`,
-          borderRadius: 12, padding: '16px 20px', color,
-          textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem'
-        }}>
-        <span style={{ fontSize: '1.4rem' }}>▶</span>
-        Watch form demo on YouTube
-      </a>
-
-      <p style={{ color: '#4a5568', fontSize: '0.7rem', textAlign: 'center', marginTop: 10 }}>
-        Opens a YouTube search — pick a video from Jeff Nippard or Alan Thrall for evidence-based technique
-      </p>
+      {/* Demo */}
+      {demoUrl && !demoFailed ? (
+        <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+          <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+            Demo
+          </p>
+          <img src={demoUrl} alt={`${ex.name} demonstration`} loading="lazy"
+            onError={() => setDemoFailed(true)}
+            style={{ width: '100%', borderRadius: 10, display: 'block', background: '#1e1e32' }} />
+        </div>
+      ) : (
+        <>
+          <a href={ex.ytUrl} target="_blank" rel="noopener noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              background: '#1e1e32', border: `1px solid ${color}44`,
+              borderRadius: 12, padding: '16px 20px', color,
+              textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem'
+            }}>
+            <span style={{ fontSize: '1.4rem' }}>▶</span>
+            Watch form demo on YouTube
+          </a>
+          <p style={{ color: '#4a5568', fontSize: '0.7rem', textAlign: 'center', marginTop: 10 }}>
+            Opens a YouTube search — pick a video from Jeff Nippard or Alan Thrall for evidence-based technique
+          </p>
+        </>
+      )}
     </div>
   )
 }
