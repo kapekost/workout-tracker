@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  workout-tracker:
+    build: .
+    ports:
+      - "80:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=/app/data/workouts.db
