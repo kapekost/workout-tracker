@@ -93,3 +93,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+.timer-bar {
+  position: fixed; left: 0; right: 0; bottom: 64px; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 16px; max-width: 480px; margin: 0 auto;
+  background: #14142a; border-top: 1px solid #1e1e32;
+  font-family: 'JetBrains Mono', monospace;
+}
+.timer-bar.flash { animation: timerflash 0.4s ease-in-out 3; }
+@keyframes timerflash { 50% { background: #234d34; } }
