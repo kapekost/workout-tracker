@@ -5,6 +5,7 @@ import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
 import { formatClock, elapsedSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
+import { nextIncompleteExerciseId, prefillFor } from '../lib/workoutFlow'
 
 function Stat({ label, value }) {
   return (
@@ -38,14 +39,16 @@ function SetRow({ s, onDelete }) {
   )
 }
 
-function NumControl({ value, onChange, step = 1, min = 0 }) {
+function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button className="btn-icon" onClick={() => onChange(Math.max(min, value - step))}>−</button>
-      <input type="number" value={value} readOnly
+      <button className="btn-icon" aria-label="decrease" onClick={() => onChange(Math.max(min, value - step))}>−</button>
+      <input type="number" value={value} inputMode={mode}
+        onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
+        onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
         style={{ width: 72, textAlign: 'center', background: '#1e1e32', border: 'none', borderRadius: 8,
           color: '#fff', fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: 700, padding: '8px 0' }} />
-      <button className="btn-icon" onClick={() => onChange(value + step)}>+</button>
+      <button className="btn-icon" aria-label="increase" onClick={() => onChange(value + step)}>+</button>
     </div>
   )
 }
@@ -71,6 +74,12 @@ export default function Workout() {
   useEffect(() => {
     api.get(`/sessions/${sessionId}`).then(s => {
       setSession(s); setSets(s.sets || [])
+      const firstId = nextIncompleteExerciseId(PLAN[s.workout_day].exercises, s.sets || [])
+      if (firstId) {
+        setExpanded(firstId)
+        const pf = prefillFor(firstId, s.sets || [], {})
+        setWeight(pf.weight); setReps(pf.reps)
+      }
     }).catch(() => nav('/'))
     // Load PRs
     api.get('/progress').then(async exercises => {
@@ -122,7 +131,8 @@ export default function Workout() {
         reps,
         weight_kg: weight
       })
-      setSets(prev => [...prev, newSet])
+      const newSets = [...sets, newSet]
+      setSets(newSets)
       // PR detection
       if (!prs[ex.id] || weight > prs[ex.id]) {
         setPrs(prev => ({ ...prev, [ex.id]: weight }))
@@ -132,6 +142,16 @@ export default function Workout() {
       }
       setRestStartMs(Date.now())
       setRestTargetSec(90)
+      // auto-advance when this exercise reached its target
+      const doneForEx = newSets.filter(s => s.exercise_id === ex.id).length
+      if (doneForEx >= ex.sets) {
+        const nextId = nextIncompleteExerciseId(plan.exercises, newSets)
+        if (nextId && nextId !== ex.id) {
+          setExpanded(nextId)
+          const pf = prefillFor(nextId, newSets, prs)
+          setWeight(pf.weight); setReps(pf.reps)
+        }
+      }
     } catch (e) { showToast('Failed to log set', 'error') }
     setLogging(false)
   }
@@ -211,7 +231,14 @@ export default function Workout() {
           <div key={ex.id} className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
             {/* Exercise header */}
             <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              onClick={() => setExpanded(isOpen ? null : ex.id)}>
+              onClick={() => {
+                const opening = !isOpen
+                setExpanded(opening ? ex.id : null)
+                if (opening) {
+                  const pf = prefillFor(ex.id, sets, prs)
+                  setWeight(pf.weight); setReps(pf.reps)
+                }
+              }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ex.name}</span>
@@ -256,7 +283,7 @@ export default function Workout() {
                   <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14 }}>
                     <div style={{ textAlign: 'center' }}>
                       <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Weight (kg)</p>
-                      <NumControl value={weight} onChange={setWeight} step={2.5} min={0} />
+                      <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Reps</p>
