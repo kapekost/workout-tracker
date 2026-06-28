@@ -35,32 +35,36 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   useEffect(() => {
     if (resting && rem === 0 && !firedRef.current) {
       firedRef.current = true
-      beep()
-      navigator.vibrate?.([300, 150, 300])
-      setFlash(true)
-      setTimeout(() => setFlash(false), 1300)
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      beep(); navigator.vibrate?.([300,150,300])
+      if (!reduce) { setFlash(true); setTimeout(() => setFlash(false), 1300) }
     }
   }, [resting, rem])
 
   return (
     <div className={`timer-bar${flash ? ' flash' : ''}`}>
-      <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-        ⏱ <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{sessionStr}</span>
+      <div style={{ color: '#9ca3af', fontSize: '0.8rem' }}>
+        ⏱ <span style={{ color: '#9ca3af', fontWeight: 700 }}>{sessionStr}</span>
         {wakeLockHeld && (
           <span style={{ color: '#6ee7b7', fontSize: '0.6rem', fontWeight: 700, marginLeft: 8 }}>🔆 On</span>
         )}
       </div>
       {resting ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn-icon" onClick={() => onAddRest(-30)}>−30</button>
-          <span style={{ color: rem === 0 ? '#6ee7b7' : color, fontWeight: 700, fontSize: '1.1rem', minWidth: 56, textAlign: 'center' }}>
-            {formatClock(rem)}
-          </span>
-          <button className="btn-icon" onClick={() => onAddRest(30)}>+30</button>
-          <button className="btn-secondary" style={{ fontSize: '0.75rem', padding: '4px 10px' }} onClick={onSkipRest}>Skip</button>
+          <button className="btn-icon" aria-label="subtract 30 seconds" onClick={() => onAddRest(-30)}>−30</button>
+          <div style={{ textAlign: 'center', minWidth: 88 }}>
+            <div style={{ color: rem === 0 ? '#6ee7b7' : '#9ca3af', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+              {rem === 0 ? 'GO' : 'REST'}
+            </div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '2.2rem', lineHeight: 1 }}>
+              {formatClock(rem)}
+            </div>
+          </div>
+          <button className="btn-icon" aria-label="add 30 seconds" onClick={() => onAddRest(30)}>+30</button>
+          <button className="btn-secondary" aria-label="skip rest" style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onSkipRest}>Skip</button>
         </div>
       ) : (
-        <span style={{ color: '#4a5568', fontSize: '0.75rem' }}>Log a set to start rest timer</span>
+        <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Log a set to start rest timer</span>
       )}
     </div>
   )
