@@ -15,7 +15,7 @@ function beep() {
   } catch { /* audio not available */ }
 }
 
-export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color }) {
+export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld }) {
   const [now, setNow] = useState(Date.now())
   const [flash, setFlash] = useState(false)
   const firedRef = useRef(false)
@@ -44,6 +44,9 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
     <div className={`timer-bar${flash ? ' flash' : ''}`}>
       <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
         ⏱ <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{sessionStr}</span>
+        {wakeLockHeld && (
+          <span style={{ color: '#6ee7b7', fontSize: '0.6rem', fontWeight: 700, marginLeft: 8 }}>🔆 On</span>
+        )}
       </div>
       {resting ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
