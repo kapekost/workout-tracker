@@ -20,7 +20,7 @@ export default function Exercise() {
     if (!frames || frames.length < 2) return
     const id = setInterval(() => setFrameIdx(i => (i + 1) % frames.length), 900)
     return () => clearInterval(id)
-  }, [exerciseId])
+  }, [exerciseId, frames])
 
   if (!ex) return (
     <div style={{ padding: 24 }}>
