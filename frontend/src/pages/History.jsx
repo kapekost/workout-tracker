@@ -15,6 +15,8 @@ export default function History() {
   const [details, setDetails] = useState({})
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [confirmId, setConfirmId] = useState(null)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
@@ -32,18 +34,27 @@ export default function History() {
   }
 
   async function deleteSession(id) {
-    if (!confirm('Delete this session?')) return
+    if (confirmId !== id) {
+      setConfirmId(id)
+      setTimeout(() => setConfirmId(c => (c === id ? null : c)), 3000)
+      return
+    }
+    setConfirmId(null)
     try {
       await api.delete(`/sessions/${id}`)
       setSessions(prev => prev.filter(s => s.id !== id))
       if (expanded === id) setExpanded(null)
-    } catch { alert('Failed to delete.') }
+    } catch {
+      setToast('Failed to delete')
+      setTimeout(() => setToast(null), 2500)
+    }
   }
 
   if (loading) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#4a5568' }}>Loading…</div>
 
   return (
     <div style={{ paddingTop: 32 }}>
+      {toast && <div className="toast error">{toast}</div>}
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>History</h1>
       <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 28 }}>
         {sessions.length} session{sessions.length !== 1 ? 's' : ''} logged
@@ -125,7 +136,7 @@ export default function History() {
                   style={{ background: 'none', border: '1px solid #2a1a1a', borderRadius: 8,
                     color: '#ef4444', cursor: 'pointer', padding: '8px 16px', fontSize: '0.78rem',
                     fontWeight: 600, marginTop: 8 }}>
-                  Delete session
+                  {confirmId === s.id ? 'Tap again to confirm' : 'Delete session'}
                 </button>
               </div>
             )}

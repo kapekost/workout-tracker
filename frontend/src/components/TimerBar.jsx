@@ -35,7 +35,9 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   useEffect(() => {
     if (resting && rem === 0 && !firedRef.current) {
       firedRef.current = true
-      beep(); setFlash(true)
+      beep()
+      navigator.vibrate?.([300, 150, 300])
+      setFlash(true)
       setTimeout(() => setFlash(false), 1300)
     }
   }, [resting, rem])

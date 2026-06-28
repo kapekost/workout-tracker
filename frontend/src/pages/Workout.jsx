@@ -56,7 +56,7 @@ export default function Workout() {
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
   const prsAtStart = useRef({})
-  const [toast, setToast] = useState(null)
+  const [toast, setToast] = useState(null) // { msg, type }
   const [expanded, setExpanded] = useState(null)
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(8)
@@ -131,7 +131,7 @@ export default function Workout() {
       }
       setRestStartMs(Date.now())
       setRestTargetSec(90)
-    } catch (e) { alert('Failed to log set.') }
+    } catch (e) { showToast('Failed to log set', 'error') }
     setLogging(false)
   }
 
@@ -139,7 +139,7 @@ export default function Workout() {
     try {
       await api.delete(`/sessions/${sessionId}/sets/${setId}`)
       setSets(prev => prev.filter(s => s.id !== setId))
-    } catch (e) { alert('Failed to delete set.') }
+    } catch (e) { showToast('Failed to delete set', 'error') }
   }
 
   async function finishWorkout() {
@@ -156,13 +156,13 @@ export default function Workout() {
         : elapsedSeconds(sessionStartMs, Date.now())
       setSummary({ ...stats, durSec })
     } catch (e) {
-      alert('Failed to finish session.')
+      showToast('Failed to finish session', 'error')
       setFinishing(false)
     }
   }
 
-  function showToast(msg) {
-    setToast(msg)
+  function showToast(msg, type = 'success') {
+    setToast({ msg, type })
     setTimeout(() => setToast(null), 2500)
   }
 
@@ -172,7 +172,7 @@ export default function Workout() {
 
   return (
     <div style={{ paddingTop: 24, paddingBottom: 96 }}>
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className={`toast${toast.type === 'error' ? ' error' : ''}`}>{toast.msg}</div>}
       <TimerBar
         sessionStartMs={sessionStartMs}
         restStartMs={restStartMs}

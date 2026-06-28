@@ -7,6 +7,7 @@ export default function Home() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [toast, setToast] = useState(null)
   const nav = useNavigate()
 
   useEffect(() => {
@@ -26,7 +27,8 @@ export default function Home() {
       const s = await api.post('/sessions', { workout_day: nextId })
       nav(`/workout/${s.id}`)
     } catch (e) {
-      alert('Failed to start session. Is the backend running?')
+      setToast('Failed to start — is the backend up?')
+      setTimeout(() => setToast(null), 2500)
       setStarting(false)
     }
   }
@@ -37,6 +39,7 @@ export default function Home() {
 
   return (
     <div style={{ paddingTop: 32 }}>
+      {toast && <div className="toast error">{toast}</div>}
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <p style={{ color: '#6ee7b7', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
