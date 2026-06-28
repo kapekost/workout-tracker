@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 
+function sessionDuration(s) {
+  if (!s.completed || !s.ended_at || !s.created_at) return null
+  const ms = Date.parse(s.ended_at.replace(' ', 'T') + 'Z') - Date.parse(s.created_at.replace(' ', 'T') + 'Z')
+  if (ms <= 0) return null
+  const m = Math.round(ms / 60000)
+  return m < 60 ? `${m} min` : `${Math.floor(m/60)}h ${m%60}m`
+}
+
 export default function History() {
   const [sessions, setSessions] = useState([])
   const [details, setDetails] = useState({})
@@ -74,6 +82,7 @@ export default function History() {
                 </p>
                 <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 2 }}>
                   {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
+                  {sessionDuration(s) ? ` · ⏱ ${sessionDuration(s)}` : ''}
                 </p>
               </div>
               <span style={{ color: '#4a5568', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>

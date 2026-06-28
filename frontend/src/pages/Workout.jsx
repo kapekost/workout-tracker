@@ -3,6 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
+import { formatClock, elapsedSeconds } from '../lib/timer'
+
+function Stat({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1e1e32' }}>
+      <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{label}</span>
+      <span className="font-mono" style={{ color: '#fff', fontWeight: 700 }}>{value}</span>
+    </div>
+  )
+}
 
 function SetRow({ s, onDelete }) {
   return (
@@ -50,6 +60,7 @@ export default function Workout() {
   const [reps, setReps] = useState(8)
   const [logging, setLogging] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [summary, setSummary] = useState(null)
   const [restStartMs, setRestStartMs] = useState(null)
   const [restTargetSec, setRestTargetSec] = useState(90)
 
@@ -69,6 +80,24 @@ export default function Workout() {
   }, [sessionId])
 
   if (!session) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#4a5568' }}>Loading…</div>
+
+  if (summary) return (
+    <div style={{ paddingTop: 48 }}>
+      <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: 16 }}>Workout complete 🎉</h1>
+      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+        <Stat label="Duration" value={formatClock(summary.durSec)} />
+        <Stat label="Sets" value={summary.totalSets} />
+        <Stat label="Volume" value={`${summary.totalVolume.toLocaleString()} kg`} />
+        <Stat label="Exercises" value={summary.exerciseCount} />
+        {summary.prs.length > 0 && (
+          <p style={{ color: '#fbbf24', fontSize: '0.85rem', marginTop: 12 }}>
+            🏆 {summary.prs.length} PR{summary.prs.length !== 1 ? 's' : ''}: {summary.prs.map(p => `${p.name} ${p.weight}kg`).join(', ')}
+          </p>
+        )}
+      </div>
+      <button className="btn-primary" onClick={() => nav('/')}>Done → Home</button>
+    </div>
+  )
 
   const plan = PLAN[session.workout_day]
   if (!plan) return <div style={{ padding: 24, color: '#ef4444' }}>Unknown workout day.</div>
@@ -113,8 +142,15 @@ export default function Workout() {
     if (finishing) return
     setFinishing(true)
     try {
-      await api.patch(`/sessions/${sessionId}`, { completed: true })
-      nav('/')
+      const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
+      const { summarize } = await import('../lib/sessionStats')
+      const stats = summarize(sets, prs)
+      const durSec = updated.ended_at && session.created_at
+        ? Math.max(0, Math.round(
+            (Date.parse(updated.ended_at.replace(' ', 'T') + 'Z') -
+             Date.parse(session.created_at.replace(' ', 'T') + 'Z')) / 1000))
+        : elapsedSeconds(sessionStartMs, Date.now())
+      setSummary({ ...stats, durSec })
     } catch (e) {
       alert('Failed to finish session.')
       setFinishing(false)
