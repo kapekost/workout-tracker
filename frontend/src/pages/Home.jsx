@@ -34,7 +34,7 @@ export default function Home() {
   }
 
   if (loading) return (
-    <div style={{ paddingTop: 80, textAlign: 'center', color: '#4a5568' }}>Loading…</div>
+    <div style={{ paddingTop: 80, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
   )
 
   return (
@@ -89,9 +89,9 @@ export default function Home() {
             onClick={() => nav('/history')}>
             <div>
               <p style={{ fontWeight: 600 }}>{lastPlan.emoji} {lastPlan.name}</p>
-              <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: 2 }}>{lastSession.date}</p>
+              <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 2 }}>{lastSession.date}</p>
             </div>
-            <span style={{ color: '#4a5568', fontSize: '1.2rem' }}>›</span>
+            <span style={{ color: '#9ca3af', fontSize: '1.2rem' }}>›</span>
           </div>
         </div>
       )}
@@ -99,7 +99,7 @@ export default function Home() {
       {sessions.length === 0 && (
         <div className="card" style={{ padding: 24, textAlign: 'center' }}>
           <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No sessions logged yet.</p>
-          <p style={{ color: '#4a5568', fontSize: '0.8rem', marginTop: 4 }}>Start your first workout above 💪</p>
+          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 4 }}>Start your first workout above 💪</p>
         </div>
       )}
     </div>

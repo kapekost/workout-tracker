@@ -50,7 +50,7 @@ export default function History() {
     }
   }
 
-  if (loading) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#4a5568' }}>Loading…</div>
+  if (loading) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
 
   return (
     <div style={{ paddingTop: 32 }}>
@@ -63,7 +63,7 @@ export default function History() {
       {sessions.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
           <p style={{ color: '#6b7280' }}>No sessions yet.</p>
-          <p style={{ color: '#4a5568', fontSize: '0.8rem', marginTop: 4 }}>Your workout history will appear here.</p>
+          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 4 }}>Your workout history will appear here.</p>
         </div>
       ) : sessions.map(s => {
         const plan = PLAN[s.workout_day]
@@ -91,12 +91,12 @@ export default function History() {
                 <p style={{ fontWeight: 600, fontSize: '0.95rem' }}>
                   {plan?.emoji} {plan?.name ?? s.workout_day}
                 </p>
-                <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 2 }}>
+                <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: 2 }}>
                   {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
                   {sessionDuration(s) ? ` · ⏱ ${sessionDuration(s)}` : ''}
                 </p>
               </div>
-              <span style={{ color: '#4a5568', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
+              <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
             </div>
 
             {isOpen && (
@@ -117,7 +117,7 @@ export default function History() {
                               display: 'flex', justifyContent: 'space-between',
                               padding: '5px 0', borderBottom: '1px solid #1a1a2e'
                             }}>
-                              <span style={{ color: '#4a5568', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem' }}>Set {st.set_number}</span>
+                              <span style={{ color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem' }}>Set {st.set_number}</span>
                               <span className="font-mono" style={{
                                 fontSize: '0.85rem', fontWeight: 700,
                                 color: st.weight_kg === best ? '#fbbf24' : '#e2e8f0'
