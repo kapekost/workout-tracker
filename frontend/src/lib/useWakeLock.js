@@ -10,8 +10,13 @@ export function useWakeLock(active) {
   useEffect(() => {
     if (!active || !supported) return
     let cancelled = false
+    let acquiring = false
 
     const acquire = async () => {
+      // Skip if a request is already in-flight or we already hold a lock —
+      // prevents a hide→show race from creating (and leaking) a second lock.
+      if (acquiring || lockRef.current) return
+      acquiring = true
       try {
         const lock = await navigator.wakeLock.request('screen')
         if (cancelled) { lock.release().catch(() => {}); return }
@@ -19,6 +24,7 @@ export function useWakeLock(active) {
         setHeld(true)
         lock.addEventListener('release', () => setHeld(false))
       } catch { setHeld(false) }
+      finally { acquiring = false }
     }
     const onVisible = () => { if (document.visibilityState === 'visible') acquire() }
 
