@@ -1,11 +1,12 @@
 services:
   workout-tracker:
     # Run only — never builds here. A 1 GB Pi can't compile the Vite frontend.
-    # Build + push from the Mac, then `docker compose pull` here:
-    #   docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --push .
-    # NOTE: deliberately no `build:` key, so a failed pull can't trigger an
-    # on-device build that thrashes the Pi.
+    # The image is built on the Mac and transferred straight to the Pi (no registry):
+    #   docker save kapekost/workout-tracker:latest | gzip | ssh PI 'gunzip | docker load'
+    # NOTE: no `build:` key (a failed pull must not trigger an on-device build),
+    # and pull_policy: never (the image is loaded locally, not fetched from a registry).
     image: kapekost/workout-tracker:latest
+    pull_policy: never
     ports:
       # host:container — 8080 avoids colliding with anything on :80 alongside Home Assistant
       - "8080:8000"

@@ -14,7 +14,7 @@ Mobile-first workout tracker: logs sets/reps/weight, tracks progress, shows form
 
 ---
 
-## 1. Build & publish the image (on the Mac / a beefy machine)
+## 1. Build the image (on the Mac / a beefy machine)
 
 Apple Silicon is `arm64`, the same architecture as the Pi, so it builds the
 Pi's image natively and fast:
@@ -22,17 +22,27 @@ Pi's image natively and fast:
 ```bash
 # from the repo root
 docker buildx build --platform linux/arm64 \
-  -t kapekost/workout-tracker:latest --push .
+  -t kapekost/workout-tracker:latest --load .
 ```
 
-## 2. Run it on the Raspberry Pi (pull only — never builds)
+## 2. Send it to the Pi (no registry needed)
+
+Stream the built image straight to the Pi over SSH and load it there:
+
+```bash
+docker save kapekost/workout-tracker:latest | gzip | \
+  ssh kapekost@YOUR_PI_IP 'gunzip | docker load'
+```
+
+No Docker Hub, no login, no tokens — the Pi just receives the finished image.
+
+## 3. Run it on the Raspberry Pi (never builds, never pulls)
 
 ```bash
 ssh kapekost@YOUR_PI_IP
 cd ~/workout-tracker
 git pull                       # get the latest docker-compose.yml
-docker compose pull            # pull the prebuilt image
-docker compose up -d           # run it (no --build)
+docker compose up -d           # run the loaded image (no build, no pull)
 ```
 
 App is now at `http://YOUR_PI_IP:8080` on your home network.
@@ -41,7 +51,7 @@ Your workout data lives in `~/workout-tracker/data/workouts.db` — back this fi
 
 ---
 
-## 3. Access from your phone at the gym (Tailscale VPN)
+## 4. Access from your phone at the gym (Tailscale VPN)
 
 Tailscale is the easiest zero-config VPN. Free for personal use.
 
@@ -62,16 +72,18 @@ Open your phone browser → `http://100.x.x.x:8080` (your Pi's Tailscale IP)
 
 ---
 
-## 4. Updates
+## 5. Updates
 
-After changing the app, rebuild + push from the Mac, then pull on the Pi:
+After changing the app, rebuild on the Mac, stream it to the Pi, and restart:
 
 ```bash
-# On the Mac
-docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --push .
+# On the Mac — rebuild and send
+docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --load .
+docker save kapekost/workout-tracker:latest | gzip | \
+  ssh kapekost@YOUR_PI_IP 'gunzip | docker load'
 
-# On the Pi
-cd ~/workout-tracker && docker compose pull && docker compose up -d
+# On the Pi — restart onto the new image
+cd ~/workout-tracker && docker compose up -d
 ```
 
 Data persists across updates (stored in the `./data/` volume).
