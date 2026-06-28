@@ -18,6 +18,7 @@ export default function Exercise() {
     setFrameIdx(0)
     setDemoFailed(false)
     if (!frames || frames.length < 2) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const id = setInterval(() => setFrameIdx(i => (i + 1) % frames.length), 900)
     return () => clearInterval(id)
   }, [exerciseId, frames])
@@ -102,7 +103,7 @@ export default function Exercise() {
           <img src={frames[frameIdx % frames.length]} alt={`${ex.name} demonstration`} loading="lazy"
             onError={() => setDemoFailed(true)}
             style={{ width: '100%', borderRadius: 10, display: 'block', background: '#1e1e32' }} />
-          <p style={{ color: '#4a5568', fontSize: '0.65rem', textAlign: 'center', marginTop: 8 }}>
+          <p style={{ color: '#9ca3af', fontSize: '0.65rem', textAlign: 'center', marginTop: 8 }}>
             Animated form demo · free-exercise-db (CC0)
           </p>
         </div>
@@ -118,7 +119,7 @@ export default function Exercise() {
             <span style={{ fontSize: '1.4rem' }}>▶</span>
             Watch form demo on YouTube
           </a>
-          <p style={{ color: '#4a5568', fontSize: '0.7rem', textAlign: 'center', marginTop: 10 }}>
+          <p style={{ color: '#9ca3af', fontSize: '0.7rem', textAlign: 'center', marginTop: 10 }}>
             Opens a YouTube search — pick a video from Jeff Nippard or Alan Thrall for evidence-based technique
           </p>
         </>

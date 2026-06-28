@@ -48,7 +48,7 @@ export default function Progress() {
       {exercises.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
           <p style={{ color: '#6b7280' }}>No data yet.</p>
-          <p style={{ color: '#4a5568', fontSize: '0.8rem', marginTop: 4 }}>Complete a workout to see progress here.</p>
+          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 4 }}>Complete a workout to see progress here.</p>
         </div>
       ) : (
         <>
@@ -94,9 +94,9 @@ export default function Progress() {
               <div className="card" style={{ padding: '20px 8px 12px 0' }}>
                 <p style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 600, paddingLeft: 20, marginBottom: 16 }}>{selectedName}</p>
                 {loading ? (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5568' }}>Loading…</div>
+                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Loading…</div>
                 ) : data.length < 2 ? (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5568', fontSize: '0.875rem' }}>
+                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>
                     Log at least 2 sessions to see a trend
                   </div>
                 ) : (

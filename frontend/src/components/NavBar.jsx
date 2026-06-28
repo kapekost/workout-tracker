@@ -27,16 +27,16 @@ export default function NavBar() {
             style={{
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', gap: 3, background: 'none', border: 'none',
-              cursor: 'pointer', padding: '4px 0'
+              cursor: 'pointer', padding: '4px 0', minHeight: 48
             }}
           >
             <span style={{
               fontSize: '1.35rem', lineHeight: 1,
-              color: isActive ? '#6ee7b7' : '#4a5568'
+              color: isActive ? '#6ee7b7' : '#9ca3af'
             }}>{tab.icon}</span>
             <span style={{
               fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.05em',
-              color: isActive ? '#6ee7b7' : '#4a5568',
+              color: isActive ? '#6ee7b7' : '#9ca3af',
               textTransform: 'uppercase'
             }}>{tab.label}</span>
           </button>

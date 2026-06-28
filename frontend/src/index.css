@@ -8,6 +8,8 @@
   --border: #1e1e32;
   --mint: #6ee7b7;
   --amber: #fbbf24;
+  --muted: #9ca3af;
+  --muted-2: #6b7280;
 }
 
 * { -webkit-tap-highlight-color: transparent; }
@@ -58,7 +60,7 @@ body {
   color: #fff;
   border: none;
   border-radius: 8px;
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   font-size: 1.25rem;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;

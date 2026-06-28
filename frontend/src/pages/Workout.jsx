@@ -21,15 +21,16 @@ function SetRow({ s, onDelete }) {
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       padding: '8px 0', borderBottom: '1px solid #1e1e32'
     }}>
-      <span style={{ color: '#6b7280', fontSize: '0.8rem', fontFamily: 'JetBrains Mono, monospace' }}>
+      <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontFamily: 'JetBrains Mono, monospace' }}>
         Set {s.set_number}
       </span>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         <span className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
           {s.weight_kg}kg × {s.reps}
         </span>
-        <button onClick={() => onDelete(s.id)}
-          style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px' }}>
+        <button onClick={() => onDelete(s.id)} aria-label="delete set"
+          style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer',
+            fontSize: '1.1rem', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           ×
         </button>
       </div>
@@ -83,7 +84,7 @@ export default function Workout() {
     }).catch(() => {})
   }, [sessionId])
 
-  if (!session) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#4a5568' }}>Loading…</div>
+  if (!session) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
 
   if (summary) return (
     <div style={{ paddingTop: 48 }}>
@@ -190,7 +191,7 @@ export default function Workout() {
             Active session
           </p>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 700 }}>{plan.emoji} {plan.name}</h1>
-          <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: 2 }}>{session.date}</p>
+          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 2 }}>{session.date}</p>
         </div>
         <button className="btn-secondary" onClick={finishWorkout} disabled={finishing}
           style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
@@ -230,7 +231,7 @@ export default function Workout() {
                     }} />
                   ))}
                 </div>
-                <span style={{ color: '#4a5568', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
+                <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
               </div>
             </div>
 
