@@ -13,7 +13,8 @@ __pycache__/
 venv/
 
 # Runtime data (SQLite DB + volume) — never commit workout data
-data/
+# Anchored to repo root so it does NOT match frontend/src/data/ (app source).
+/data/
 *.db
 *.sqlite
 *.sqlite3
