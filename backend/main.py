@@ -39,6 +39,9 @@ def init():
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         );
     """)
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+    if "ended_at" not in cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN ended_at TEXT")
     conn.commit(); conn.close()
 
 init()
@@ -88,7 +91,13 @@ def get_session(sid: int):
 def patch_session(sid: int, p: SessionPatch):
     conn = db()
     if p.completed is not None:
-        conn.execute("UPDATE sessions SET completed = ? WHERE id = ?", (int(p.completed), sid))
+        if p.completed:
+            conn.execute(
+                "UPDATE sessions SET completed = 1, "
+                "ended_at = COALESCE(ended_at, datetime('now')) WHERE id = ?",
+                (sid,))
+        else:
+            conn.execute("UPDATE sessions SET completed = 0 WHERE id = ?", (sid,))
     conn.commit()
     row = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
     conn.close(); return dict(row)
