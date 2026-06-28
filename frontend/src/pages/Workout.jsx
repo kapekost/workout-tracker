@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import TimerBar from '../components/TimerBar'
 
 function SetRow({ s, onDelete }) {
   return (
@@ -49,6 +50,8 @@ export default function Workout() {
   const [reps, setReps] = useState(8)
   const [logging, setLogging] = useState(false)
   const [finishing, setFinishing] = useState(false)
+  const [restStartMs, setRestStartMs] = useState(null)
+  const [restTargetSec, setRestTargetSec] = useState(90)
 
   useEffect(() => {
     api.get(`/sessions/${sessionId}`).then(s => {
@@ -93,6 +96,8 @@ export default function Workout() {
           showToast(`🏆 PR! ${weight}kg on ${ex.name}`)
         }
       }
+      setRestStartMs(Date.now())
+      setRestTargetSec(90)
     } catch (e) { alert('Failed to log set.') }
     setLogging(false)
   }
@@ -121,9 +126,21 @@ export default function Workout() {
     setTimeout(() => setToast(null), 2500)
   }
 
+  const sessionStartMs = session.created_at
+    ? Date.parse(session.created_at.replace(' ', 'T') + 'Z')
+    : Date.now()
+
   return (
-    <div style={{ paddingTop: 24 }}>
+    <div style={{ paddingTop: 24, paddingBottom: 96 }}>
       {toast && <div className="toast">{toast}</div>}
+      <TimerBar
+        sessionStartMs={sessionStartMs}
+        restStartMs={restStartMs}
+        restTargetSec={restTargetSec}
+        onAddRest={(d) => setRestTargetSec(t => Math.max(0, t + d))}
+        onSkipRest={() => setRestStartMs(null)}
+        color={color}
+      />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
