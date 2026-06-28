@@ -1,10 +1,11 @@
 services:
   workout-tracker:
-    # Pi pulls this prebuilt arm64 image — it never builds locally (1 GB RAM).
-    # Build + push from a beefier machine: docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --push .
+    # Run only — never builds here. A 1 GB Pi can't compile the Vite frontend.
+    # Build + push from the Mac, then `docker compose pull` here:
+    #   docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --push .
+    # NOTE: deliberately no `build:` key, so a failed pull can't trigger an
+    # on-device build that thrashes the Pi.
     image: kapekost/workout-tracker:latest
-    # `build:` kept so `docker compose build` still works on the Mac for local dev.
-    build: .
     ports:
       # host:container — 8080 avoids colliding with anything on :80 alongside Home Assistant
       - "8080:8000"
