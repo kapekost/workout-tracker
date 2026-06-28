@@ -1,6 +1,8 @@
 import DEMOS from '../data/exerciseDemos.json'
 
-export function getDemoUrl(exerciseId, demos = DEMOS) {
-  const url = demos[exerciseId]
-  return url ? url : null
+// Returns the array of demo frame URLs for an exercise, or null when none
+// exist (caller falls back to the YouTube link).
+export function getDemoFrames(exerciseId, demos = DEMOS) {
+  const frames = demos[exerciseId]
+  return Array.isArray(frames) && frames.length ? frames : null
 }

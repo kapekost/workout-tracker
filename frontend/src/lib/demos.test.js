@@ -1,14 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { getDemoUrl } from './demos'
+import { getDemoFrames } from './demos'
 
-const demos = { bench_press: 'https://cdn.example/bench.gif' }
+const demos = {
+  bench_press: ['https://cdn.example/bench/0.jpg', 'https://cdn.example/bench/1.jpg'],
+  single: ['https://cdn.example/x/0.jpg'],
+  empty: [],
+}
 
-describe('getDemoUrl', () => {
-  it('returns the url when present', () => {
-    expect(getDemoUrl('bench_press', demos)).toBe('https://cdn.example/bench.gif')
+describe('getDemoFrames', () => {
+  it('returns the frame array when present', () => {
+    expect(getDemoFrames('bench_press', demos)).toEqual([
+      'https://cdn.example/bench/0.jpg',
+      'https://cdn.example/bench/1.jpg',
+    ])
+  })
+  it('returns a single-frame array as-is', () => {
+    expect(getDemoFrames('single', demos)).toEqual(['https://cdn.example/x/0.jpg'])
   })
   it('returns null when missing or empty', () => {
-    expect(getDemoUrl('unknown', demos)).toBeNull()
-    expect(getDemoUrl('x', { x: '' })).toBeNull()
+    expect(getDemoFrames('unknown', demos)).toBeNull()
+    expect(getDemoFrames('empty', demos)).toBeNull()
   })
 })
