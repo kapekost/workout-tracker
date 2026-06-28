@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
-import { getDemoUrl } from '../lib/demos'
+import { getDemoFrames } from '../lib/demos'
 
 export default function Exercise() {
   const { workoutDay, exerciseId } = useParams()
@@ -10,7 +10,17 @@ export default function Exercise() {
   const ex = plan?.exercises.find(e => e.id === exerciseId)
   const color = DAY_COLORS[workoutDay] ?? '#6ee7b7'
   const [demoFailed, setDemoFailed] = useState(false)
-  const demoUrl = getDemoUrl(exerciseId)
+  const [frameIdx, setFrameIdx] = useState(0)
+  const frames = getDemoFrames(exerciseId)
+
+  // Alternate the start/end frames to animate the movement.
+  useEffect(() => {
+    setFrameIdx(0)
+    setDemoFailed(false)
+    if (!frames || frames.length < 2) return
+    const id = setInterval(() => setFrameIdx(i => (i + 1) % frames.length), 900)
+    return () => clearInterval(id)
+  }, [exerciseId])
 
   if (!ex) return (
     <div style={{ padding: 24 }}>
@@ -84,14 +94,17 @@ export default function Exercise() {
       </div>
 
       {/* Demo */}
-      {demoUrl && !demoFailed ? (
+      {frames && !demoFailed ? (
         <div className="card" style={{ padding: 12, marginBottom: 12 }}>
           <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
             Demo
           </p>
-          <img src={demoUrl} alt={`${ex.name} demonstration`} loading="lazy"
+          <img src={frames[frameIdx % frames.length]} alt={`${ex.name} demonstration`} loading="lazy"
             onError={() => setDemoFailed(true)}
             style={{ width: '100%', borderRadius: 10, display: 'block', background: '#1e1e32' }} />
+          <p style={{ color: '#4a5568', fontSize: '0.65rem', textAlign: 'center', marginTop: 8 }}>
+            Animated form demo · free-exercise-db (CC0)
+          </p>
         </div>
       ) : (
         <>
