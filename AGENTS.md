@@ -123,6 +123,18 @@ _Last updated: 2026-06-28._
   pydantic 2.13.4) so it builds on local Python 3.14; validated in-container on
   `python:3.11-slim` (build + PATCH smoke) before deploy.
 - `.gitignore` `data/` rule anchored to `/data/` so `frontend/src/data/` is tracked.
+- **UX pass**: Screen Wake Lock (screen stays on during a workout), non-blocking
+  toasts + inline two-tap delete (replaced `alert`/`confirm`), vibration at rest 0,
+  big REST/GO countdown, WCAG-AA contrast, ≥44px tap targets, `prefers-reduced-motion`,
+  and a faster logging loop (auto-expand/advance, per-exercise prefill, typeable weight).
+- **Workout intelligence**: new `exercise_notes` table + `GET/PUT` notes endpoints;
+  `GET /api/exercises/{id}/last` (previous workout's sets) and
+  `GET /api/sessions/{id}/prs` (weight / reps@weight / Epley 1RM / session volume).
+  Frontend shows previous performance + a deterministic progressive-overload hint,
+  prefills weight from the last workout, comprehensive PRs in the summary, editable
+  per-exercise notes, rest-timer pause + remembered duration (localStorage),
+  loading skeletons. NOTE: `/api/progress` has no `completed` filter, so the live
+  in-set PR toast can differ from the (completed-only, authoritative) summary PRs.
 
 **Data persistence & backup**
 - DB at `~/workout-tracker/data/workouts.db` (host bind mount `./data:/app/data`).
