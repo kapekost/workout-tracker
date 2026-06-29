@@ -222,7 +222,7 @@ def session_prs(sid: int):
         if not psets or cur_1rm > max(epley(p["weight_kg"], p["reps"]) for p in psets):
             prs.append({"type": "1rm", "exercise_name": info["name"], "value": cur_1rm, "unit": "kg"})
 
-    cur_vol = next((row["v"] for row in vol_rows if row["session_id"] == sid), 0) or 0
+    cur_vol = sum(r["weight_kg"] * r["reps"] for r in cur_sets)
     prior_vols = [row["v"] for row in vol_rows if row["session_id"] != sid]
     if cur_vol and (not prior_vols or cur_vol > max(prior_vols)):
         prs.append({"type": "volume", "exercise_name": None, "value": cur_vol, "unit": "kg"})
