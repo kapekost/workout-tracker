@@ -6,6 +6,7 @@ import TimerBar from '../components/TimerBar'
 import { formatClock, elapsedSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
 import { nextIncompleteExerciseId, prefillFor } from '../lib/workoutFlow'
+import { overloadSuggestion } from '../lib/overload'
 
 function Stat({ label, value }) {
   return (
@@ -70,14 +71,25 @@ export default function Workout() {
   const [restStartMs, setRestStartMs] = useState(null)
   const [restTargetSec, setRestTargetSec] = useState(90)
   const { held: wakeLockHeld } = useWakeLock(true)
+  const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
+
+  async function ensureLastPerf(exId) {
+    if (exId in lastPerf) return lastPerf[exId]
+    try {
+      const data = await api.get(`/exercises/${exId}/last?exclude_session=${sessionId}`)
+      setLastPerf(prev => ({ ...prev, [exId]: data }))
+      return data
+    } catch { setLastPerf(prev => ({ ...prev, [exId]: null })); return null }
+  }
 
   useEffect(() => {
-    api.get(`/sessions/${sessionId}`).then(s => {
+    api.get(`/sessions/${sessionId}`).then(async s => {
       setSession(s); setSets(s.sets || [])
       const firstId = nextIncompleteExerciseId(PLAN[s.workout_day].exercises, s.sets || [])
       if (firstId) {
         setExpanded(firstId)
-        const pf = prefillFor(firstId, s.sets || [], {})
+        const data = await ensureLastPerf(firstId)
+        const pf = prefillFor(firstId, s.sets || [], {}, data?.sets)
         setWeight(pf.weight); setReps(pf.reps)
       }
     }).catch(() => nav('/'))
@@ -148,7 +160,8 @@ export default function Workout() {
         const nextId = nextIncompleteExerciseId(plan.exercises, newSets)
         if (nextId && nextId !== ex.id) {
           setExpanded(nextId)
-          const pf = prefillFor(nextId, newSets, prs)
+          const data = await ensureLastPerf(nextId)
+          const pf = prefillFor(nextId, newSets, prs, data?.sets)
           setWeight(pf.weight); setReps(pf.reps)
         }
       }
@@ -231,11 +244,12 @@ export default function Workout() {
           <div key={ex.id} className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
             {/* Exercise header */}
             <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              onClick={() => {
+              onClick={async () => {
                 const opening = !isOpen
                 setExpanded(opening ? ex.id : null)
                 if (opening) {
-                  const pf = prefillFor(ex.id, sets, prs)
+                  const data = await ensureLastPerf(ex.id)
+                  const pf = prefillFor(ex.id, sets, prs, data?.sets)
                   setWeight(pf.weight); setReps(pf.reps)
                 }
               }}>
@@ -272,6 +286,27 @@ export default function Workout() {
                     fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
                   📋 Form cues + demo →
                 </button>
+
+                {/* Last workout + overload hint */}
+                {!(ex.id in lastPerf) && (
+                  <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginBottom: 12 }}>…</p>
+                )}
+                {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ color: '#9ca3af', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Last workout</p>
+                    {lastPerf[ex.id].sets.map(s => (
+                      <p key={s.set_number} className="font-mono" style={{ color: '#9ca3af', fontSize: '0.8rem' }}>{s.weight_kg}kg × {s.reps}</p>
+                    ))}
+                    {(() => {
+                      const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
+                      return sug ? (
+                        <p style={{ color: '#6ee7b7', fontSize: '0.75rem', marginTop: 6 }}>
+                          Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
+                        </p>
+                      ) : null
+                    })()}
+                  </div>
+                )}
 
                 {/* Logged sets */}
                 {exSets.map(s => (
