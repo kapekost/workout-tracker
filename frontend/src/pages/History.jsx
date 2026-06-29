@@ -11,7 +11,7 @@ function sessionDuration(s) {
   return m < 60 ? `${m} min` : `${Math.floor(m/60)}h ${m%60}m`
 }
 
-function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
+export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
   const grouped = useMemo(() => {
     const g = {}
     if (detail?.sets) {
@@ -23,12 +23,15 @@ function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
     return g
   }, [detail])
 
-  if (!detail) return <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>Loading…</p>
-  if (Object.keys(grouped).length === 0) return <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>No sets logged in this session.</p>
+  if (!detail) return <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Loading…</p>
+
+  const groups = Object.entries(grouped)
 
   return (
     <>
-      {Object.entries(grouped).map(([name, exSets]) => {
+      {groups.length === 0 ? (
+        <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: 8 }}>No sets logged in this session.</p>
+      ) : groups.map(([name, exSets]) => {
         const best = Math.max(...exSets.map(s => s.weight_kg))
         return (
           <div key={name} style={{ marginBottom: 14 }}>
