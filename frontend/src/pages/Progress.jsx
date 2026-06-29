@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
+import Skeleton from '../components/Skeleton'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
@@ -94,7 +95,9 @@ export default function Progress() {
               <div className="card" style={{ padding: '20px 8px 12px 0' }}>
                 <p style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 600, paddingLeft: 20, marginBottom: 16 }}>{selectedName}</p>
                 {loading ? (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Loading…</div>
+                  <div style={{ padding: '12px 20px' }}>
+                    <Skeleton height={180} />
+                  </div>
                 ) : data.length < 2 ? (
                   <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>
                     Log at least 2 sessions to see a trend

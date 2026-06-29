@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import Skeleton from '../components/Skeleton'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -8,6 +9,56 @@ function sessionDuration(s) {
   if (ms <= 0) return null
   const m = Math.round(ms / 60000)
   return m < 60 ? `${m} min` : `${Math.floor(m/60)}h ${m%60}m`
+}
+
+function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
+  const grouped = useMemo(() => {
+    const g = {}
+    if (detail?.sets) {
+      detail.sets.forEach(st => {
+        if (!g[st.exercise_name]) g[st.exercise_name] = []
+        g[st.exercise_name].push(st)
+      })
+    }
+    return g
+  }, [detail])
+
+  if (!detail) return <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>Loading…</p>
+  if (Object.keys(grouped).length === 0) return <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>No sets logged in this session.</p>
+
+  return (
+    <>
+      {Object.entries(grouped).map(([name, exSets]) => {
+        const best = Math.max(...exSets.map(s => s.weight_kg))
+        return (
+          <div key={name} style={{ marginBottom: 14 }}>
+            <p style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>{name}</p>
+            {exSets.map(st => (
+              <div key={st.id} style={{
+                display: 'flex', justifyContent: 'space-between',
+                padding: '5px 0', borderBottom: '1px solid #1a1a2e'
+              }}>
+                <span style={{ color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem' }}>Set {st.set_number}</span>
+                <span className="font-mono" style={{
+                  fontSize: '0.85rem', fontWeight: 700,
+                  color: st.weight_kg === best ? '#fbbf24' : '#e2e8f0'
+                }}>
+                  {st.weight_kg}kg × {st.reps}
+                  {st.weight_kg === best && ' 🏆'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )
+      })}
+      <button onClick={() => onDelete(sessionId)}
+        style={{ background: 'none', border: '1px solid #2a1a1a', borderRadius: 8,
+          color: '#ef4444', cursor: 'pointer', padding: '8px 16px', fontSize: '0.78rem',
+          fontWeight: 600, marginTop: 8 }}>
+        {confirmId === sessionId ? 'Tap again to confirm' : 'Delete session'}
+      </button>
+    </>
+  )
 }
 
 export default function History() {
@@ -50,7 +101,13 @@ export default function History() {
     }
   }
 
-  if (loading) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
+  if (loading) return (
+    <div style={{ paddingTop: 80 }}>
+      <Skeleton height={72} style={{ marginBottom: 10 }} />
+      <Skeleton height={72} style={{ marginBottom: 10 }} />
+      <Skeleton height={72} />
+    </div>
+  )
 
   return (
     <div style={{ paddingTop: 32 }}>
@@ -70,15 +127,6 @@ export default function History() {
         const color = DAY_COLORS[s.workout_day] ?? '#6ee7b7'
         const isOpen = expanded === s.id
         const detail = details[s.id]
-
-        // Group sets by exercise for detail view
-        const grouped = {}
-        if (detail?.sets) {
-          detail.sets.forEach(st => {
-            if (!grouped[st.exercise_name]) grouped[st.exercise_name] = []
-            grouped[st.exercise_name].push(st)
-          })
-        }
 
         return (
           <div key={s.id} className="card" style={{ marginBottom: 10, overflow: 'hidden' }}>
@@ -101,43 +149,7 @@ export default function History() {
 
             {isOpen && (
               <div style={{ borderTop: '1px solid #1e1e32', padding: '14px 16px' }}>
-                {!detail ? (
-                  <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>Loading…</p>
-                ) : Object.keys(grouped).length === 0 ? (
-                  <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>No sets logged in this session.</p>
-                ) : (
-                  <>
-                    {Object.entries(grouped).map(([name, exSets]) => {
-                      const best = Math.max(...exSets.map(s => s.weight_kg))
-                      return (
-                        <div key={name} style={{ marginBottom: 14 }}>
-                          <p style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>{name}</p>
-                          {exSets.map(st => (
-                            <div key={st.id} style={{
-                              display: 'flex', justifyContent: 'space-between',
-                              padding: '5px 0', borderBottom: '1px solid #1a1a2e'
-                            }}>
-                              <span style={{ color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem' }}>Set {st.set_number}</span>
-                              <span className="font-mono" style={{
-                                fontSize: '0.85rem', fontWeight: 700,
-                                color: st.weight_kg === best ? '#fbbf24' : '#e2e8f0'
-                              }}>
-                                {st.weight_kg}kg × {st.reps}
-                                {st.weight_kg === best && ' 🏆'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-                <button onClick={() => deleteSession(s.id)}
-                  style={{ background: 'none', border: '1px solid #2a1a1a', borderRadius: 8,
-                    color: '#ef4444', cursor: 'pointer', padding: '8px 16px', fontSize: '0.78rem',
-                    fontWeight: 600, marginTop: 8 }}>
-                  {confirmId === s.id ? 'Tap again to confirm' : 'Delete session'}
-                </button>
+                <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
               </div>
             )}
           </div>
