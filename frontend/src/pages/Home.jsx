@@ -34,11 +34,11 @@ export default function Home() {
   }
 
   if (loading) return (
-    <div style={{ paddingTop: 80, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
+    <div style={{ paddingTop: 32, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
   )
 
   return (
-    <div style={{ paddingTop: 32 }}>
+    <div style={{ paddingTop: 16 }}>
       {toast && <div className="toast error">{toast}</div>}
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
