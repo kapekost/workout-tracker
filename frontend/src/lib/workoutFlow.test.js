@@ -31,3 +31,14 @@ describe('prefillFor', () => {
     expect(prefillFor('a', [], {})).toEqual({ weight: 20, reps: 8 })
   })
 })
+
+describe('prefillFor with lastSets', () => {
+  it('uses previous workout first set when no this-session sets', () => {
+    const last = [{ weight_kg: 75, reps: 10 }, { weight_kg: 80, reps: 8 }]
+    expect(prefillFor('a', [], {}, last)).toEqual({ weight: 75, reps: 10 })
+  })
+  it('prefers this-session last set over lastSets', () => {
+    const sets = [{ exercise_id: 'a', weight_kg: 60, reps: 8 }]
+    expect(prefillFor('a', sets, {}, [{ weight_kg: 75, reps: 10 }])).toEqual({ weight: 60, reps: 8 })
+  })
+})
