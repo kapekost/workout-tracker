@@ -171,6 +171,63 @@ def put_note(exercise_id: str, n: NoteIn):
         conn.execute("DELETE FROM exercise_notes WHERE exercise_id = ?", (exercise_id,))
     conn.commit(); conn.close(); return {"exercise_id": exercise_id, "note": note}
 
+def epley(weight, reps):
+    return round(weight * (1 + reps / 30) * 2) / 2
+
+@app.get("/api/exercises/{exercise_id}/last")
+def last_performance(exercise_id: str, exclude_session: int | None = None):
+    conn = db()
+    row = conn.execute(
+        "SELECT s.id, s.date FROM sessions s "
+        "JOIN sets st ON st.session_id = s.id "
+        "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? "
+        "ORDER BY s.created_at DESC LIMIT 1",
+        (exercise_id, exclude_session if exclude_session is not None else -1)).fetchone()
+    if not row:
+        conn.close(); return None
+    sets = conn.execute(
+        "SELECT set_number, weight_kg, reps FROM sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number",
+        (row["id"], exercise_id)).fetchall()
+    conn.close()
+    return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
+
+@app.get("/api/sessions/{sid}/prs")
+def session_prs(sid: int):
+    conn = db()
+    cur_sets = conn.execute("SELECT exercise_id, exercise_name, weight_kg, reps FROM sets WHERE session_id = ?", (sid,)).fetchall()
+    prior = conn.execute(
+        "SELECT st.exercise_id, st.weight_kg, st.reps FROM sets st "
+        "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.id != ?", (sid,)).fetchall()
+    # session volumes for the volume PR
+    vol_rows = conn.execute(
+        "SELECT st.session_id, SUM(st.weight_kg*st.reps) v FROM sets st "
+        "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 GROUP BY st.session_id").fetchall()
+    conn.close()
+
+    prs = []
+    by_ex = {}
+    for r in cur_sets:
+        by_ex.setdefault(r["exercise_id"], {"name": r["exercise_name"], "sets": []})["sets"].append(r)
+    for ex_id, info in by_ex.items():
+        psets = [p for p in prior if p["exercise_id"] == ex_id]
+        cur_w = max(s["weight_kg"] for s in info["sets"])
+        if not psets or cur_w > max(p["weight_kg"] for p in psets):
+            prs.append({"type": "weight", "exercise_name": info["name"], "value": cur_w, "unit": "kg"})
+        # reps at the session's top weight for this exercise
+        cur_reps = max(s["reps"] for s in info["sets"] if s["weight_kg"] == cur_w)
+        prior_reps_at_w = [p["reps"] for p in psets if p["weight_kg"] == cur_w]
+        if not prior_reps_at_w or cur_reps > max(prior_reps_at_w):
+            prs.append({"type": "reps", "exercise_name": info["name"], "value": cur_reps, "unit": f"@{cur_w}kg"})
+        cur_1rm = max(epley(s["weight_kg"], s["reps"]) for s in info["sets"])
+        if not psets or cur_1rm > max(epley(p["weight_kg"], p["reps"]) for p in psets):
+            prs.append({"type": "1rm", "exercise_name": info["name"], "value": cur_1rm, "unit": "kg"})
+
+    cur_vol = next((row["v"] for row in vol_rows if row["session_id"] == sid), 0) or 0
+    prior_vols = [row["v"] for row in vol_rows if row["session_id"] != sid]
+    if cur_vol and (not prior_vols or cur_vol > max(prior_vols)):
+        prs.append({"type": "volume", "exercise_name": None, "value": cur_vol, "unit": "kg"})
+    return prs
+
 # Serve React — MUST be last
 if os.path.exists("static"):
     app.mount("/", StaticFiles(directory="static", html=True), name="static")
