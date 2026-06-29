@@ -33,7 +33,7 @@ export default function Exercise() {
   )
 
   return (
-    <div style={{ paddingTop: 24 }}>
+    <div style={{ paddingTop: 16 }}>
       {/* Back */}
       <button onClick={() => nav(-1)}
         style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: '0.9rem',

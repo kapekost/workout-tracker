@@ -44,6 +44,8 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
     }
   }, [resting, rem])
 
+  // The controls row always renders at the same size — disabled/dimmed when not resting —
+  // so logging a set never resizes the bar or moves a button.
   return (
     <div className={`timer-bar${flash ? ' flash' : ''}`}>
       <div style={{ color: '#9ca3af', fontSize: '0.8rem' }}>
@@ -52,24 +54,24 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
           <span style={{ color: '#6ee7b7', fontSize: '0.6rem', fontWeight: 700, marginLeft: 8 }}>🔆 On</span>
         )}
       </div>
-      {resting ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn-icon" aria-label="subtract 30 seconds" onClick={() => onAddRest(-30)}>−30</button>
-          <div style={{ textAlign: 'center', minWidth: 88 }}>
-            <div style={{ color: rem === 0 ? '#6ee7b7' : '#9ca3af', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em' }}>
-              {rem === 0 ? 'GO' : 'REST'}
-            </div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: '2.2rem', lineHeight: 1 }}>
-              {formatClock(rem)}
-            </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        opacity: resting ? 1 : 0.4,
+        pointerEvents: resting ? 'auto' : 'none'
+      }}>
+        <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => onAddRest(-30)}>−30</button>
+        <div style={{ textAlign: 'center', minWidth: 88 }}>
+          <div style={{ color: resting && rem === 0 ? '#6ee7b7' : '#9ca3af', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+            {resting ? (rem === 0 ? 'GO' : 'REST') : 'REST'}
           </div>
-          <button className="btn-icon" aria-label="add 30 seconds" onClick={() => onAddRest(30)}>+30</button>
-          <button className="btn-secondary" aria-label={paused ? 'resume rest timer' : 'pause rest timer'} style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onTogglePause}>{paused ? '▶' : '⏸'}</button>
-          <button className="btn-secondary" aria-label="skip rest" style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onSkipRest}>Skip</button>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: '2.2rem', lineHeight: 1 }}>
+            {formatClock(resting ? rem : 0)}
+          </div>
         </div>
-      ) : (
-        <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Log a set to start rest timer</span>
-      )}
+        <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => onAddRest(30)}>+30</button>
+        <button className="btn-secondary" disabled={!resting} aria-label={paused ? 'resume rest timer' : 'pause rest timer'} style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onTogglePause}>{paused ? '▶' : '⏸'}</button>
+        <button className="btn-secondary" disabled={!resting} aria-label="skip rest" style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onSkipRest}>Skip</button>
+      </div>
     </div>
   )
 }

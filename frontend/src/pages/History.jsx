@@ -105,7 +105,7 @@ export default function History() {
   }
 
   if (loading) return (
-    <div style={{ paddingTop: 80 }}>
+    <div style={{ paddingTop: 32 }}>
       <Skeleton height={72} style={{ marginBottom: 10 }} />
       <Skeleton height={72} style={{ marginBottom: 10 }} />
       <Skeleton height={72} />
@@ -113,7 +113,7 @@ export default function History() {
   )
 
   return (
-    <div style={{ paddingTop: 32 }}>
+    <div style={{ paddingTop: 16 }}>
       {toast && <div className="toast error">{toast}</div>}
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>History</h1>
       <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 28 }}>

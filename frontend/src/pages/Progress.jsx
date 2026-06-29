@@ -42,7 +42,7 @@ export default function Progress() {
   const pr = data.length ? Math.max(...data.map(d => d.weight)) : null
 
   return (
-    <div style={{ paddingTop: 32 }}>
+    <div style={{ paddingTop: 16 }}>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>Progress</h1>
       <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 28 }}>Max weight per session</p>
 

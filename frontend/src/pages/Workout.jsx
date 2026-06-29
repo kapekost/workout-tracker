@@ -122,7 +122,7 @@ export default function Workout() {
   }, [sessionId])
 
   if (!session) return (
-    <div style={{ paddingTop: 80 }}>
+    <div style={{ paddingTop: 24 }}>
       <Skeleton height={32} width="60%" style={{ marginBottom: 16 }} />
       <Skeleton height={96} style={{ marginBottom: 12 }} />
       <Skeleton height={96} />
@@ -130,7 +130,7 @@ export default function Workout() {
   )
 
   if (summary) return (
-    <div style={{ paddingTop: 48 }}>
+    <div style={{ paddingTop: 24 }}>
       <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: 16 }}>Workout complete 🎉</h1>
       <div className="card" style={{ padding: 20, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
@@ -250,7 +250,7 @@ export default function Workout() {
     : Date.now()
 
   return (
-    <div style={{ paddingTop: 24, paddingBottom: 96 }}>
+    <div style={{ paddingTop: 16, paddingBottom: 96 }}>
       {toast && <div className={`toast${toast.type === 'error' ? ' error' : ''}`}>{toast.msg}</div>}
       <TimerBar
         sessionStartMs={sessionStartMs}
