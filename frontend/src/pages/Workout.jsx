@@ -256,7 +256,7 @@ export default function Workout() {
         sessionStartMs={sessionStartMs}
         restStartMs={restStartMs}
         restTargetSec={restTargetSec}
-        onAddRest={(d) => setRestTargetSec(Math.max(0, restTargetSec + d))}
+        onAddRest={(d) => setRestTargetSec(t => Math.max(0, t + d))}
         onSkipRest={() => { setRestStartMs(null); setPausedRem(null) }}
         color={color}
         wakeLockHeld={wakeLockHeld}
