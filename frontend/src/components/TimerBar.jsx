@@ -26,7 +26,10 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   }, [])
 
   // reset the "done" latch whenever a new rest period starts
-  useEffect(() => { firedRef.current = false; setFlash(false) }, [restStartMs])
+  useEffect(() => {
+    if (restStartMs == null) return // pause/end — don't reset the beep latch
+    firedRef.current = false; setFlash(false)
+  }, [restStartMs])
 
   const sessionStr = formatClock(elapsedSeconds(sessionStartMs, now))
   const resting = restStartMs != null || paused
