@@ -38,6 +38,11 @@ def init():
             logged_at TEXT DEFAULT (datetime('now')),
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         );
+        CREATE TABLE IF NOT EXISTS exercise_notes (
+            exercise_id TEXT PRIMARY KEY,
+            note TEXT NOT NULL,
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
     """)
     cols = [r[1] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
     if "ended_at" not in cols:
@@ -59,6 +64,9 @@ class SetIn(BaseModel):
 
 class SessionPatch(BaseModel):
     completed: Optional[bool] = None
+
+class NoteIn(BaseModel):
+    note: str
 
 # --- API Routes ---
 @app.get("/api/health")
@@ -143,6 +151,25 @@ def all_progress():
     conn = db()
     rows = conn.execute("SELECT DISTINCT exercise_id, exercise_name FROM sets ORDER BY exercise_name").fetchall()
     conn.close(); return [dict(r) for r in rows]
+
+@app.get("/api/notes")
+def get_notes():
+    conn = db()
+    rows = conn.execute("SELECT exercise_id, note FROM exercise_notes").fetchall()
+    conn.close(); return {r["exercise_id"]: r["note"] for r in rows}
+
+@app.put("/api/exercises/{exercise_id}/note")
+def put_note(exercise_id: str, n: NoteIn):
+    note = n.note.strip()
+    conn = db()
+    if note:
+        conn.execute(
+            "INSERT INTO exercise_notes (exercise_id, note, updated_at) VALUES (?,?,datetime('now')) "
+            "ON CONFLICT(exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
+            (exercise_id, note))
+    else:
+        conn.execute("DELETE FROM exercise_notes WHERE exercise_id = ?", (exercise_id,))
+    conn.commit(); conn.close(); return {"exercise_id": exercise_id, "note": note}
 
 # Serve React — MUST be last
 if os.path.exists("static"):
