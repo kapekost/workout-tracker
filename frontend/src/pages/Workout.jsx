@@ -54,6 +54,15 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
   )
 }
 
+function prLabel(p) {
+  const who = p.exercise_name ? `${p.exercise_name} ` : ''
+  if (p.type === 'weight')  return `Highest ${who}weight: ${p.value}kg`
+  if (p.type === 'reps')    return `Most ${who}reps ${p.unit}: ${p.value}`
+  if (p.type === '1rm')     return `Highest ${who}est. 1RM: ${p.value}kg`
+  if (p.type === 'volume')  return `Highest session volume: ${p.value.toLocaleString()}kg`
+  return 'New record'
+}
+
 export default function Workout() {
   const { sessionId } = useParams()
   const nav = useNavigate()
@@ -72,6 +81,8 @@ export default function Workout() {
   const [restTargetSec, setRestTargetSec] = useState(90)
   const { held: wakeLockHeld } = useWakeLock(true)
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
+  const [notes, setNotes] = useState({})
+  const [editingNote, setEditingNote] = useState(null)
 
   async function ensureLastPerf(exId) {
     if (exId in lastPerf) return lastPerf[exId]
@@ -93,6 +104,8 @@ export default function Workout() {
         setWeight(pf.weight); setReps(pf.reps)
       }
     }).catch(() => nav('/'))
+    // Load notes
+    api.get('/notes').then(setNotes).catch(() => {})
     // Load PRs
     api.get('/progress').then(async exercises => {
       const prMap = {}
@@ -115,10 +128,14 @@ export default function Workout() {
         <Stat label="Sets" value={summary.totalSets} />
         <Stat label="Volume" value={`${summary.totalVolume.toLocaleString()} kg`} />
         <Stat label="Exercises" value={summary.exerciseCount} />
-        {summary.prs.length > 0 && (
-          <p style={{ color: '#fbbf24', fontSize: '0.85rem', marginTop: 12 }}>
-            🏆 {summary.prs.length} PR{summary.prs.length !== 1 ? 's' : ''}: {summary.prs.map(p => `${p.name} ${p.weight}kg`).join(', ')}
-          </p>
+        {summary.serverPrs?.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            {summary.serverPrs.map((p, i) => (
+              <p key={i} style={{ color: '#fbbf24', fontSize: '0.8rem' }}>
+                🎉 New PR — {prLabel(p)}
+              </p>
+            ))}
+          </div>
         )}
       </div>
       <button className="btn-primary" onClick={() => nav('/')}>Done → Home</button>
@@ -176,19 +193,28 @@ export default function Workout() {
     } catch (e) { showToast('Failed to delete set', 'error') }
   }
 
+  async function saveNote(exId, text) {
+    setNotes(prev => ({ ...prev, [exId]: text }))
+    setEditingNote(null)
+    try { await api.put(`/exercises/${exId}/note`, { note: text }) }
+    catch { showToast('Failed to save note', 'error') }
+  }
+
   async function finishWorkout() {
     if (finishing) return
     setFinishing(true)
     try {
       const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
       const { summarize } = await import('../lib/sessionStats')
+      let serverPrs = []
+      try { serverPrs = await api.get(`/sessions/${sessionId}/prs`) } catch {}
       const stats = summarize(sets, prsAtStart.current)
       const durSec = updated.ended_at && session.created_at
         ? Math.max(0, Math.round(
             (Date.parse(updated.ended_at.replace(' ', 'T') + 'Z') -
              Date.parse(session.created_at.replace(' ', 'T') + 'Z')) / 1000))
         : elapsedSeconds(sessionStartMs, Date.now())
-      setSummary({ ...stats, durSec })
+      setSummary({ ...stats, durSec, serverPrs })
     } catch (e) {
       showToast('Failed to finish session', 'error')
       setFinishing(false)
@@ -286,6 +312,17 @@ export default function Workout() {
                     fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
                   📋 Form cues + demo →
                 </button>
+
+                {/* Per-exercise note */}
+                {editingNote === ex.id ? (
+                  <textarea defaultValue={notes[ex.id] || ''} autoFocus
+                    onBlur={e => saveNote(ex.id, e.target.value.trim())}
+                    style={{ width: '100%', background: '#1e1e32', border: 'none', borderRadius: 8, color: '#e2e8f0', fontSize: '0.8rem', padding: 8, resize: 'vertical' }} />
+                ) : notes[ex.id] ? (
+                  <p onClick={() => setEditingNote(ex.id)} style={{ color: '#9ca3af', fontSize: '0.78rem', fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
+                ) : (
+                  <button onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.72rem', padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
+                )}
 
                 {/* Last workout + overload hint */}
                 {!(ex.id in lastPerf) && (
