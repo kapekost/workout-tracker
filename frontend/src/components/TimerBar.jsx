@@ -15,7 +15,7 @@ function beep() {
   } catch { /* audio not available */ }
 }
 
-export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld }) {
+export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld, paused, pausedRem, onTogglePause }) {
   const [now, setNow] = useState(Date.now())
   const [flash, setFlash] = useState(false)
   const firedRef = useRef(false)
@@ -29,8 +29,8 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   useEffect(() => { firedRef.current = false; setFlash(false) }, [restStartMs])
 
   const sessionStr = formatClock(elapsedSeconds(sessionStartMs, now))
-  const resting = restStartMs != null
-  const rem = resting ? remainingSeconds(restStartMs, restTargetSec, now) : 0
+  const resting = restStartMs != null || paused
+  const rem = paused ? (pausedRem ?? 0) : (restStartMs != null ? remainingSeconds(restStartMs, restTargetSec, now) : 0)
 
   useEffect(() => {
     if (resting && rem === 0 && !firedRef.current) {
@@ -61,6 +61,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
             </div>
           </div>
           <button className="btn-icon" aria-label="add 30 seconds" onClick={() => onAddRest(30)}>+30</button>
+          <button className="btn-secondary" aria-label={paused ? 'resume rest timer' : 'pause rest timer'} style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onTogglePause}>{paused ? '▶' : '⏸'}</button>
           <button className="btn-secondary" aria-label="skip rest" style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onSkipRest}>Skip</button>
         </div>
       ) : (

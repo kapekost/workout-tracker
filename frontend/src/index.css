@@ -111,3 +111,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   .timer-bar.flash { animation: none; }
   .toast { animation: none; }
 }
+
+.skeleton { background: linear-gradient(90deg,#1a1a2e 25%,#23233a 37%,#1a1a2e 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+@keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+@media (prefers-reduced-motion: reduce){ .skeleton{ animation: none } }

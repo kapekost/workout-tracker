@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
-import { formatClock, elapsedSeconds } from '../lib/timer'
+import Skeleton from '../components/Skeleton'
+import { formatClock, elapsedSeconds, remainingSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
+import { useRestPreference } from '../lib/useRestPreference'
 import { nextIncompleteExerciseId, prefillFor } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
 
@@ -78,7 +80,8 @@ export default function Workout() {
   const [finishing, setFinishing] = useState(false)
   const [summary, setSummary] = useState(null)
   const [restStartMs, setRestStartMs] = useState(null)
-  const [restTargetSec, setRestTargetSec] = useState(90)
+  const [restTargetSec, setRestTargetSec] = useRestPreference(90)
+  const [pausedRem, setPausedRem] = useState(null)
   const { held: wakeLockHeld } = useWakeLock(true)
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
@@ -118,7 +121,13 @@ export default function Workout() {
     }).catch(() => {})
   }, [sessionId])
 
-  if (!session) return <div style={{ paddingTop: 80, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
+  if (!session) return (
+    <div style={{ paddingTop: 80 }}>
+      <Skeleton height={32} width="60%" style={{ marginBottom: 16 }} />
+      <Skeleton height={96} style={{ marginBottom: 12 }} />
+      <Skeleton height={96} />
+    </div>
+  )
 
   if (summary) return (
     <div style={{ paddingTop: 48 }}>
@@ -170,7 +179,7 @@ export default function Workout() {
         }
       }
       setRestStartMs(Date.now())
-      setRestTargetSec(90)
+      setPausedRem(null)
       // auto-advance when this exercise reached its target
       const doneForEx = newSets.filter(s => s.exercise_id === ex.id).length
       if (doneForEx >= ex.sets) {
@@ -226,6 +235,16 @@ export default function Workout() {
     setTimeout(() => setToast(null), 2500)
   }
 
+  function togglePause() {
+    if (pausedRem == null) {
+      const rem = remainingSeconds(restStartMs, restTargetSec, Date.now())
+      setPausedRem(rem); setRestStartMs(null)
+    } else {
+      setRestStartMs(Date.now() - (restTargetSec - pausedRem) * 1000)
+      setPausedRem(null)
+    }
+  }
+
   const sessionStartMs = session.created_at
     ? Date.parse(session.created_at.replace(' ', 'T') + 'Z')
     : Date.now()
@@ -237,10 +256,13 @@ export default function Workout() {
         sessionStartMs={sessionStartMs}
         restStartMs={restStartMs}
         restTargetSec={restTargetSec}
-        onAddRest={(d) => setRestTargetSec(t => Math.max(0, t + d))}
-        onSkipRest={() => setRestStartMs(null)}
+        onAddRest={(d) => setRestTargetSec(Math.max(0, restTargetSec + d))}
+        onSkipRest={() => { setRestStartMs(null); setPausedRem(null) }}
         color={color}
         wakeLockHeld={wakeLockHeld}
+        paused={pausedRem != null}
+        pausedRem={pausedRem}
+        onTogglePause={togglePause}
       />
 
       {/* Header */}
