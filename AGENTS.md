@@ -93,7 +93,20 @@ actually updates the running app.
 
 ## Status
 
-_Last updated: 2026-06-28._
+_Last updated: 2026-06-30._
+
+**Pending deploy → Pi** (committed + pushed to GitHub `main`, NOT yet on the Pi)
+- `8405eb1` — sticky top bar (`components/TopBar.jsx`, wired in `App.jsx`) + fixed-height
+  "stable" workout timer (`components/TimerBar.jsx`: rest controls always render at the
+  same size, dimmed when idle, so logging a set no longer resizes the bar / moves buttons)
+  + page top-padding trims. Spec: `docs/superpowers/specs/2026-06-29-sticky-nav-stable-workout-design.md`.
+- `74e5e54` — committed the previously-untracked `frontend/src/data/workoutPlan.js`
+  (imported by every page; build was broken in a fresh clone without it).
+- 25 frontend tests + `npm run build` pass. **Deploy blocked off the home LAN** — over
+  Tailscale the Pi is view-only on `:8080`; SSH (22) isn't exposed and `tailscale ssh`
+  isn't enabled, so build→`save|ssh|load`→`compose up` needs the home network. Do the
+  deploy + visual review (sticky bar on scroll; timer no longer shifting buttons) next
+  time on-LAN. (Access details in project memory `pi-remote-access.md`.)
 
 **Done**
 - App containerised; image builds on Mac (`arm64`), transfers to Pi via `save|load`.
@@ -156,3 +169,13 @@ _Last updated: 2026-06-28._
 - Decide on a backup mechanism.
 - Set up a scripted one-command deploy (build + transfer + restart) on the Mac.
 - Optional: pin the image to a version tag instead of `:latest` for rollbacks.
+- Enable `tailscale up --ssh` on the Pi (while physically on it) so deploys work over
+  the VPN from anywhere — currently deploy needs the home LAN.
+
+**Deferred UI cleanups** (from the 2026-06-29 sticky-bar/timer pass)
+- Duplicate "Finish" in `Workout.jsx` — small top-right `Finish ✓` + big bottom
+  `✓ Finish Workout`; consolidate to one clear spot.
+- Auto-advance scroll jump — finishing an exercise's last set auto-opens/scrolls to the
+  next exercise; could be calmed so the page doesn't jump under the thumb.
+- Idle rest-timer hint — the old "Log a set to start rest timer" text was dropped when the
+  bar became fixed-height; consider a subtle idle hint back if discoverability matters.
