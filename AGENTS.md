@@ -133,6 +133,13 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
   plan: `docs/superpowers/plans/2026-06-30-responsive-audit-pr-baseline.md`.
 
 **Done**
+- `4bd1355` (resume in-progress workout session: global `ResumeBanner` +
+  `ActiveSession` context — link back to a live session from any page, Home
+  resumes instead of starting a duplicate, discard/finish clear the active
+  state) **deployed to the Pi off-LAN** via Raspberry Pi Connect + GitHub
+  release asset `deploy-20260630-4bd1355`. Verified live: `/api/health` ok and
+  the served `index-CXVPjZZ7.js` bundle hash matches the just-built image.
+  Spec/plan: `docs/superpowers/{specs,plans}/2026-06-30-resume-in-progress-session*`.
 - `8405eb1` (sticky top bar + fixed-height "stable" timer) + `74e5e54` (tracked
   `workoutPlan.js`) **deployed to the Pi off-LAN** via Raspberry Pi Connect +
   GitHub release asset `deploy-20260630`. Verified live: `/api/health` ok and the
