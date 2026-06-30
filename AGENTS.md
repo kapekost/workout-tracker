@@ -77,10 +77,39 @@ ssh kapekost@192.168.1.170 'docker compose -f ~/workout-tracker/docker-compose.y
   docker ps --format "{{.Names}} {{.Status}}" | grep homeassistant'    # HA still healthy
 ```
 
+### Deploy off the home LAN (Raspberry Pi Connect — no SSH)
+SSH (22) isn't reachable over Tailscale (the Pi is view-only on `:8080`), and
+Raspberry Pi Connect is a **browser shell only** — no SSH/`scp`/pipe. So when
+off-LAN, transfer the image as a **GitHub release asset** the Pi pulls over
+HTTPS. The no-registry design is preserved: it's a file artifact, compose still
+loads a local image (`pull_policy: never`). The built image is just compiled
+public code on stock base images — no secrets/DB baked in — so a public asset
+is safe.
+
+On the Mac (build first, as above):
+```bash
+DATE=$(date +%Y%m%d); HEAD=$(git rev-parse --short HEAD)
+docker save kapekost/workout-tracker:latest | gzip > /tmp/workout-tracker-$DATE.tar.gz
+gh release create "deploy-$DATE" /tmp/workout-tracker-$DATE.tar.gz \
+  -t "Deploy image $DATE ($HEAD)" -n "arm64 image, commit $HEAD"
+gh release view "deploy-$DATE" --json assets -q '.assets[].url'   # asset URL
+```
+In the Pi's Connect browser shell (connect.raspberrypi.com → Pi → shell):
+```bash
+cd ~/workout-tracker && git pull && \
+  curl -L <asset-url> | gunzip | docker load && docker compose up -d
+docker image prune -f   # optional: drop the old image
+```
+Verify from anywhere on the tailnet (read-only `:8080`): `curl -s
+http://100.64.119.1:8080/api/health` → `{"status":"ok"}`, and the live
+`/assets/index-*.js` hash matches the just-built `frontend/dist` bundle
+(Vite content-hashes, so equal filename = byte-identical build).
+
 ### Typical change loop
 Edit code on the Mac → commit & push → **Build** → **Transfer** → **Run/update** on
 the Pi → **Verify**. The git push keeps source history; the image transfer is what
-actually updates the running app.
+actually updates the running app. On-LAN use `save | ssh | load`; off-LAN use the
+release-asset path above.
 
 ## Gotchas learned the hard way
 
@@ -95,20 +124,19 @@ actually updates the running app.
 
 _Last updated: 2026-06-30._
 
-**Pending deploy → Pi** (committed + pushed to GitHub `main`, NOT yet on the Pi)
-- `8405eb1` — sticky top bar (`components/TopBar.jsx`, wired in `App.jsx`) + fixed-height
-  "stable" workout timer (`components/TimerBar.jsx`: rest controls always render at the
-  same size, dimmed when idle, so logging a set no longer resizes the bar / moves buttons)
-  + page top-padding trims. Spec: `docs/superpowers/specs/2026-06-29-sticky-nav-stable-workout-design.md`.
-- `74e5e54` — committed the previously-untracked `frontend/src/data/workoutPlan.js`
-  (imported by every page; build was broken in a fresh clone without it).
-- 25 frontend tests + `npm run build` pass. **Deploy blocked off the home LAN** — over
-  Tailscale the Pi is view-only on `:8080`; SSH (22) isn't exposed and `tailscale ssh`
-  isn't enabled, so build→`save|ssh|load`→`compose up` needs the home network. Do the
-  deploy + visual review (sticky bar on scroll; timer no longer shifting buttons) next
-  time on-LAN. (Access details in project memory `pi-remote-access.md`.)
+**Pending deploy → Pi:** none. Off-LAN deploy is now unblocked via the
+Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
+
+**Planned (spec + plan written, NOT yet implemented)**
+- Personal-best baseline fix + responsive UI audit. Spec:
+  `docs/superpowers/specs/2026-06-30-responsive-audit-pr-baseline-design.md`;
+  plan: `docs/superpowers/plans/2026-06-30-responsive-audit-pr-baseline.md`.
 
 **Done**
+- `8405eb1` (sticky top bar + fixed-height "stable" timer) + `74e5e54` (tracked
+  `workoutPlan.js`) **deployed to the Pi off-LAN** via Raspberry Pi Connect +
+  GitHub release asset `deploy-20260630`. Verified live: `/api/health` ok and the
+  served `index-DnoJc6xD.js` bundle hash matches the just-built `frontend/dist`.
 - App containerised; image builds on Mac (`arm64`), transfers to Pi via `save|load`.
 - Deployed and verified on the Pi: `HTTP 200`, serving `Gym Tracker`, ~12 MiB RAM.
 - Runs alongside Home Assistant (healthy) + Tailscale; reachable on LAN `:8080`
