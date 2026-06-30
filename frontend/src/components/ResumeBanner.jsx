@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useActiveSession } from '../lib/activeSession'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
@@ -8,6 +8,8 @@ export default function ResumeBanner() {
   const { pathname } = useLocation()
   const nav = useNavigate()
   const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => { setConfirming(false) }, [active?.id])
 
   if (!active) return null
   if (pathname === `/workout/${active.id}`) return null

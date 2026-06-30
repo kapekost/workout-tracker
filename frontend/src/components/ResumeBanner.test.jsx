@@ -55,4 +55,20 @@ describe('ResumeBanner', () => {
     expect(screen.queryByText('Discard?')).not.toBeInTheDocument()
     expect(discard).not.toHaveBeenCalled()
   })
+
+  it('resets confirming state when the active session id changes', () => {
+    const { rerender } = renderBanner(activeVal())
+    // open the confirm dialog
+    fireEvent.click(screen.getByRole('button', { name: 'discard session' }))
+    expect(screen.getByText('Discard?')).toBeInTheDocument()
+    // rerender with a different active session
+    rerender(
+      <MemoryRouter initialEntries={['/progress']}>
+        <ActiveSessionContext.Provider value={activeVal({ active: { id: 12, workout_day: 'lower_a' } })}>
+          <ResumeBanner />
+        </ActiveSessionContext.Provider>
+      </MemoryRouter>
+    )
+    expect(screen.queryByText('Discard?')).not.toBeInTheDocument()
+  })
 })

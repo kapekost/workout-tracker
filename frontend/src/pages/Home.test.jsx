@@ -1,6 +1,19 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { StartOrResumeButton } from './Home'
+import { StartOrResumeButton, planForDay } from './Home'
+import { PLAN } from '../data/workoutPlan'
+
+describe('planForDay', () => {
+  it('returns the real PLAN entry for a known day', () => {
+    expect(planForDay('upper_a')).toBe(PLAN.upper_a)
+  })
+
+  it('returns a fallback with name Workout and empty exercises for an unknown day', () => {
+    const result = planForDay('bogus_day')
+    expect(result.name).toBe('Workout')
+    expect(result.exercises).toEqual([])
+  })
+})
 
 describe('StartOrResumeButton', () => {
   it('renders Start and calls onStart when no active session', () => {
