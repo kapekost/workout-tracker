@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, getNextWorkoutId, DAY_COLORS } from '../data/workoutPlan'
+import { useActiveSession } from '../lib/activeSession'
+
+export function StartOrResumeButton({ active, plan, color, starting, onStart, onResume }) {
+  if (active) {
+    return (
+      <button className="btn-primary" onClick={onResume}
+        style={{ background: color, marginBottom: 32 }}>
+        Resume {plan.name}
+      </button>
+    )
+  }
+  return (
+    <button className="btn-primary" onClick={onStart} disabled={starting}
+      style={{ background: color, marginBottom: 32 }}>
+      {starting ? 'Starting…' : `Start ${plan.name}`}
+    </button>
+  )
+}
 
 export default function Home() {
   const [sessions, setSessions] = useState([])
@@ -9,14 +27,16 @@ export default function Home() {
   const [starting, setStarting] = useState(false)
   const [toast, setToast] = useState(null)
   const nav = useNavigate()
+  const { active, refresh } = useActiveSession()
 
   useEffect(() => {
     api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const nextId = getNextWorkoutId(sessions)
-  const next = PLAN[nextId]
-  const color = DAY_COLORS[nextId]
+  const displayId = active ? active.workout_day : nextId
+  const next = PLAN[displayId]
+  const color = DAY_COLORS[displayId]
 
   const lastSession = sessions[0]
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null
@@ -25,6 +45,7 @@ export default function Home() {
     setStarting(true)
     try {
       const s = await api.post('/sessions', { workout_day: nextId })
+      await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
       setToast('Failed to start — is the backend up?')
@@ -43,7 +64,7 @@ export default function Home() {
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <p style={{ color: '#6ee7b7', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-          Next up
+          {active ? 'In progress' : 'Next up'}
         </p>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.1 }}>
           {next.emoji} {next.name}
@@ -74,10 +95,14 @@ export default function Home() {
       </div>
 
       {/* Start button */}
-      <button className="btn-primary" onClick={startWorkout} disabled={starting}
-        style={{ background: color, marginBottom: 32 }}>
-        {starting ? 'Starting…' : `Start ${next.name}`}
-      </button>
+      <StartOrResumeButton
+        active={active}
+        plan={next}
+        color={color}
+        starting={starting}
+        onStart={startWorkout}
+        onResume={() => active && nav(`/workout/${active.id}`)}
+      />
 
       {/* Last session */}
       {lastSession && lastPlan && (
