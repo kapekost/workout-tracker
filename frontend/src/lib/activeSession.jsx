@@ -8,12 +8,14 @@ export function findActiveSession(sessions) {
 
 export const ActiveSessionContext = createContext({
   active: null,
+  ready: false,
   refresh: async () => {},
   discard: async () => {},
 })
 
 export function ActiveSessionProvider({ children }) {
   const [active, setActive] = useState(null)
+  const [ready, setReady] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -21,6 +23,8 @@ export function ActiveSessionProvider({ children }) {
       setActive(findActiveSession(sessions))
     } catch {
       setActive(null)
+    } finally {
+      setReady(true)
     }
   }, [])
 
@@ -32,7 +36,7 @@ export function ActiveSessionProvider({ children }) {
   useEffect(() => { refresh() }, [refresh])
 
   return (
-    <ActiveSessionContext.Provider value={{ active, refresh, discard }}>
+    <ActiveSessionContext.Provider value={{ active, ready, refresh, discard }}>
       {children}
     </ActiveSessionContext.Provider>
   )

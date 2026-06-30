@@ -4,6 +4,10 @@ import { api } from '../api'
 import { PLAN, getNextWorkoutId, DAY_COLORS } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
 
+export function planForDay(workoutDay) {
+  return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
+}
+
 export function StartOrResumeButton({ active, plan, color, starting, onStart, onResume }) {
   if (active) {
     return (
@@ -27,7 +31,7 @@ export default function Home() {
   const [starting, setStarting] = useState(false)
   const [toast, setToast] = useState(null)
   const nav = useNavigate()
-  const { active, refresh } = useActiveSession()
+  const { active, refresh, ready } = useActiveSession()
 
   useEffect(() => {
     api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
@@ -35,8 +39,8 @@ export default function Home() {
 
   const nextId = getNextWorkoutId(sessions)
   const displayId = active ? active.workout_day : nextId
-  const next = PLAN[displayId]
-  const color = DAY_COLORS[displayId]
+  const next = planForDay(displayId)
+  const color = DAY_COLORS[displayId] || '#9ca3af'
 
   const lastSession = sessions[0]
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null
@@ -54,7 +58,7 @@ export default function Home() {
     }
   }
 
-  if (loading) return (
+  if (loading || !ready) return (
     <div style={{ paddingTop: 32, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
   )
 
@@ -73,26 +77,28 @@ export default function Home() {
       </div>
 
       {/* Exercise preview */}
-      <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        <p style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-          {next.exercises.length} exercises
-        </p>
-        {next.exercises.map((ex, i) => (
-          <div key={ex.id} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '10px 0',
-            borderBottom: i < next.exercises.length - 1 ? '1px solid #1e1e32' : 'none'
-          }}>
-            <div>
-              <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{ex.name}</p>
-              {ex.alt && <p style={{ color: '#6b7280', fontSize: '0.75rem' }}>{ex.alt}</p>}
+      {next.exercises.length > 0 && (
+        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+          <p style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+            {next.exercises.length} exercises
+          </p>
+          {next.exercises.map((ex, i) => (
+            <div key={ex.id} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 0',
+              borderBottom: i < next.exercises.length - 1 ? '1px solid #1e1e32' : 'none'
+            }}>
+              <div>
+                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{ex.name}</p>
+                {ex.alt && <p style={{ color: '#6b7280', fontSize: '0.75rem' }}>{ex.alt}</p>}
+              </div>
+              <p className="font-mono" style={{ color, fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', marginLeft: 12 }}>
+                {ex.sets}×{ex.repsLow}–{ex.repsHigh}
+              </p>
             </div>
-            <p className="font-mono" style={{ color, fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', marginLeft: 12 }}>
-              {ex.sets}×{ex.repsLow}–{ex.repsHigh}
-            </p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Start button */}
       <StartOrResumeButton
