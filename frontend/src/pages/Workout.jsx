@@ -9,6 +9,7 @@ import { useWakeLock } from '../lib/useWakeLock'
 import { useRestPreference } from '../lib/useRestPreference'
 import { nextIncompleteExerciseId, prefillFor } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
+import { useActiveSession } from '../lib/activeSession'
 
 function Stat({ label, value }) {
   return (
@@ -68,6 +69,7 @@ function prLabel(p) {
 export default function Workout() {
   const { sessionId } = useParams()
   const nav = useNavigate()
+  const { refresh } = useActiveSession()
   const [session, setSession] = useState(null)
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
@@ -214,6 +216,7 @@ export default function Workout() {
     setFinishing(true)
     try {
       const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
+      refresh()
       const { summarize } = await import('../lib/sessionStats')
       let serverPrs = []
       try { serverPrs = await api.get(`/sessions/${sessionId}/prs`) } catch {}

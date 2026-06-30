@@ -15,7 +15,6 @@ export default function TopBar() {
 
   return (
     <div style={{
-      position: 'sticky', top: 0, zIndex: 45,
       background: '#0a0a12', borderBottom: '1px solid #1e1e32'
     }}>
       <div className="max-w-md mx-auto" style={{
