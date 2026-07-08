@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, getNextWorkoutId, DAY_COLORS } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
+import { track } from '../lib/analytics'
 
 export function planForDay(workoutDay) {
   return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
@@ -49,6 +50,7 @@ export default function Home() {
     setStarting(true)
     try {
       const s = await api.post('/sessions', { workout_day: nextId })
+      track('session_start', { day: nextId })
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
