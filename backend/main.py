@@ -8,6 +8,7 @@ import sqlite3, os, json
 from datetime import datetime
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
+TABLES = ["sessions", "sets", "exercise_notes", "events"]
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -299,6 +300,13 @@ def analytics_summary(days: int = 30):
             "SELECT screen, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND screen IS NOT NULL "
             "GROUP BY screen ORDER BY c DESC", (window,)).fetchall()
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
+
+@app.get("/api/export")
+def export_data():
+    with db() as conn:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
+    return {"exported_at": datetime.utcnow().isoformat() + "Z", "schema_version": version, "tables": tables}
 
 # Serve React — MUST be last
 if os.path.exists("static"):

@@ -89,3 +89,14 @@ def test_health_reports_no_backup_then_ok(client):
     client.post("/api/events", json=[{"name": "backup_completed", "props": {"bytes": 1024}}])
     h = client.get("/api/health").json()
     assert h["last_backup_status"] == "ok" and h["last_backup_at"] is not None
+
+def test_export_envelope_shape(client):
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    client.post(f"/api/sessions/{sid}/sets",
+                json={"exercise_id": "bench_press", "exercise_name": "Bench",
+                      "set_number": 1, "reps": 8, "weight_kg": 80})
+    exp = client.get("/api/export").json()
+    assert set(exp["tables"].keys()) == {"sessions", "sets", "exercise_notes", "events"}
+    assert exp["schema_version"] == 2
+    assert exp["exported_at"].endswith("Z")
+    assert len(exp["tables"]["sessions"]) == 1 and len(exp["tables"]["sets"]) == 1
