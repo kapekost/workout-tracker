@@ -122,10 +122,12 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-06-30._
+_Last updated: 2026-07-08._
 
-**Pending deploy → Pi:** none. Off-LAN deploy is now unblocked via the
-Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
+**Pending deploy → Pi:** branch `feat/vnext-phase1-foundations` (v-next Phase 1,
+head `13bd3b5`) — built, reviewed, ready. After deploy, run the one-time rclone +
+crontab setup (see "Nightly off-site backup" runbook) and confirm `/api/health`
+shows a recent `last_backup_at`.
 
 **Planned (spec + plan written, NOT yet implemented)**
 - Personal-best baseline fix + responsive UI audit. Spec:
@@ -133,6 +135,19 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
   plan: `docs/superpowers/plans/2026-06-30-responsive-audit-pr-baseline.md`.
 
 **Done**
+- **v-next Phase 1 — Foundations & Data Safety** (`ccc0ea2..13bd3b5`, 18 commits,
+  spec `docs/superpowers/specs/2026-07-08-vnext-phase1-foundations-data-safety-design.md`):
+  DB hardening (contextmanager `db()`, WAL, `busy_timeout`, `foreign_keys=ON`, conn-leak
+  fixes), `PRAGMA user_version` migration runner (v2: `events` table + 4 indexes;
+  additive/idempotent, live-prod-shape regression-tested), pydantic `Field` validation
+  (422 on bad writes), usage analytics (`POST /api/events` batch, `GET
+  /api/analytics/summary`, frontend `track()`/`flush()` + `ScreenTracker` + action
+  events), backup/restore (`GET /api/export`, guarded atomic `POST /api/import` with
+  pre-import snapshot + column allowlist, `scripts/backup.sh` container-exec VACUUM →
+  rclone → heartbeat, `/api/health` surfaces `last_backup_at/status`), "Export my data"
+  link on Home (SW never caches `/api/export`). Tests: backend 21/21, frontend 50/50,
+  build clean. Per-task + final whole-branch review (fix wave `13bd3b5`) — APPROVED.
+  NOT yet deployed; one-time Pi rclone/cron setup pending.
 - `4bd1355` (resume in-progress workout session: global `ResumeBanner` +
   `ActiveSession` context — link back to a live session from any page, Home
   resumes instead of starting a duplicate, discard/finish clear the active
