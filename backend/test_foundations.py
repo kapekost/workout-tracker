@@ -145,3 +145,5 @@ def test_import_rejects_non_numeric_schema_version(client):
     bad = {"schema_version": "abc", "tables": {t: [] for t in ["sessions","sets","exercise_notes","events"]}}
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": bad})
     assert r.status_code == 400
+    # seeded data untouched — the parse guard runs before snapshot/wipe
+    assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
