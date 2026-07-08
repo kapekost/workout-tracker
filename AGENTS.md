@@ -188,9 +188,32 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
 - DB at `~/workout-tracker/data/workouts.db` (host bind mount `./data:/app/data`).
   Survives container restart/recreate, `compose down`, image updates, and all
   `docker ... prune`. Does NOT survive deleting that folder or **SD-card death**.
-- Backup: **not yet set up** (deferred by decision on 2026-06-28). Options on the
-  table — nightly Pi→Google Drive (rclone), nightly Pi→Mac (rsync), or an on-demand
-  `/api/export` endpoint. Revisit; SD cards do fail.
+- Backup: implemented — nightly Pi→Google Drive via `scripts/backup.sh` (rclone).
+  See the runbook below for setup and restore.
+
+### Backup / restore (Phase 1)
+
+- **On-demand snapshot (agent):** `GET /api/export` returns a full JSON snapshot.
+  Before ANY schema-changing deploy, save one as a pre-deploy safety copy:
+  `curl -s http://203.0.113.10:8080/api/export > pre-deploy-$(date +%F).json`.
+- **Restore (agent, destructive):** `POST /api/import` with
+  `{"mode":"replace","confirm":true,"envelope":<export-json>}`. It auto-snapshots
+  the live DB to `data/pre-import-*.db` first and is atomic (rolls back on error).
+  Without `confirm:true` it is a no-op `400`.
+- **Manual file restore:** stop the container, drop a backup `.db` into
+  `data/workouts.db`, restart.
+
+### Nightly off-site backup — one-time Pi host setup
+
+1. `sudo apt-get install -y rclone sqlite3` (or `rclone` static binary).
+2. `rclone config` → new remote named `gdrive` (Google Drive), authorise once.
+3. Test: `bash ~/workout-tracker/scripts/backup.sh` → check the file appears in
+   Drive and `GET /api/health` shows a recent `last_backup_at`.
+4. Cron (host, not container): `crontab -e` →
+   `30 3 * * * /bin/bash $HOME/workout-tracker/scripts/backup.sh >> $HOME/backup.log 2>&1`
+
+Verify health: `curl -s http://203.0.113.10:8080/api/health` →
+`{"status":"ok","last_backup_at":"…","last_backup_status":"ok"}`.
 
 **Domain (HTTPS) — in progress**
 - Target: `https://example-pi-host.tailnet.ts.net` via Tailscale Serve.
