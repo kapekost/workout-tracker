@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, getNextWorkoutId, DAY_COLORS } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
+import { track } from '../lib/analytics'
+import { downloadExport } from '../lib/exportData'
 
 export function planForDay(workoutDay) {
   return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
@@ -49,6 +51,7 @@ export default function Home() {
     setStarting(true)
     try {
       const s = await api.post('/sessions', { workout_day: nextId })
+      track('session_start', { day: nextId })
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
@@ -133,6 +136,17 @@ export default function Home() {
           <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 4 }}>Start your first workout above 💪</p>
         </div>
       )}
+
+      <button
+        onClick={async () => {
+          try { await downloadExport() }
+          catch { setToast('Export failed — is the backend up?'); setTimeout(() => setToast(null), 2500) }
+        }}
+        style={{ marginTop: 24, background: 'none', border: 'none', color: '#6b7280',
+                 fontSize: '0.8rem', textDecoration: 'underline', cursor: 'pointer' }}
+      >
+        Export my data
+      </button>
     </div>
   )
 }

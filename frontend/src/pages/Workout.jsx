@@ -10,6 +10,7 @@ import { useRestPreference } from '../lib/useRestPreference'
 import { nextIncompleteExerciseId, prefillFor } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
 import { useActiveSession } from '../lib/activeSession'
+import { track } from '../lib/analytics'
 
 function Stat({ label, value }) {
   return (
@@ -171,6 +172,7 @@ export default function Workout() {
         reps,
         weight_kg: weight
       })
+      track('set_logged', { exercise_id: ex.id })
       const newSets = [...sets, newSet]
       setSets(newSets)
       // PR detection
@@ -200,6 +202,7 @@ export default function Workout() {
   async function deleteSet(setId) {
     try {
       await api.delete(`/sessions/${sessionId}/sets/${setId}`)
+      track('set_delete')
       setSets(prev => prev.filter(s => s.id !== setId))
     } catch (e) { showToast('Failed to delete set', 'error') }
   }
@@ -216,6 +219,7 @@ export default function Workout() {
     setFinishing(true)
     try {
       const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
+      track('session_finish', { session_id: sessionId })
       refresh()
       const { summarize } = await import('../lib/sessionStats')
       let serverPrs = []

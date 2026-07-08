@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import { getDemoFrames } from '../lib/demos'
+import { track } from '../lib/analytics'
 
 export default function Exercise() {
   const { workoutDay, exerciseId } = useParams()
@@ -17,11 +18,17 @@ export default function Exercise() {
   useEffect(() => {
     setFrameIdx(0)
     setDemoFailed(false)
+    if (frames) track('demo_view', { exercise_id: exerciseId })
     if (!frames || frames.length < 2) return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const id = setInterval(() => setFrameIdx(i => (i + 1) % frames.length), 900)
     return () => clearInterval(id)
   }, [exerciseId, frames])
+
+  // Form cues render statically (no distinct "open" interaction) — track on mount/exercise change.
+  useEffect(() => {
+    if (ex) track('cues_open', { exercise_id: exerciseId })
+  }, [exerciseId, ex])
 
   if (!ex) return (
     <div style={{ padding: 24 }}>
