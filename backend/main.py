@@ -3,7 +3,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3, os
+from contextlib import contextmanager
+import sqlite3, os, json
 from datetime import datetime
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
@@ -11,43 +12,50 @@ DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+@contextmanager
 def db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA foreign_keys=ON")
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 def init():
-    conn = db()
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            workout_day TEXT NOT NULL,
-            completed INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-        CREATE TABLE IF NOT EXISTS sets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER NOT NULL,
-            exercise_id TEXT NOT NULL,
-            exercise_name TEXT NOT NULL,
-            set_number INTEGER NOT NULL,
-            reps INTEGER NOT NULL,
-            weight_kg REAL NOT NULL,
-            logged_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-        );
-        CREATE TABLE IF NOT EXISTS exercise_notes (
-            exercise_id TEXT PRIMARY KEY,
-            note TEXT NOT NULL,
-            updated_at TEXT DEFAULT (datetime('now'))
-        );
-    """)
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
-    if "ended_at" not in cols:
-        conn.execute("ALTER TABLE sessions ADD COLUMN ended_at TEXT")
-    conn.commit(); conn.close()
+    with db() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                workout_day TEXT NOT NULL,
+                completed INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS sets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                exercise_id TEXT NOT NULL,
+                exercise_name TEXT NOT NULL,
+                set_number INTEGER NOT NULL,
+                reps INTEGER NOT NULL,
+                weight_kg REAL NOT NULL,
+                logged_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS exercise_notes (
+                exercise_id TEXT PRIMARY KEY,
+                note TEXT NOT NULL,
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+        """)
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+        if "ended_at" not in cols:
+            conn.execute("ALTER TABLE sessions ADD COLUMN ended_at TEXT")
+        conn.commit()
 
 init()
 
@@ -74,135 +82,137 @@ def health(): return {"status": "ok"}
 
 @app.post("/api/sessions")
 def create_session(s: SessionIn):
-    conn = db()
-    cur = conn.execute("INSERT INTO sessions (date, workout_day) VALUES (?, ?)",
-                       (datetime.now().strftime("%Y-%m-%d"), s.workout_day))
-    conn.commit()
-    row = conn.execute("SELECT * FROM sessions WHERE id = ?", (cur.lastrowid,)).fetchone()
-    conn.close(); return dict(row)
+    with db() as conn:
+        cur = conn.execute("INSERT INTO sessions (date, workout_day) VALUES (?, ?)",
+                           (datetime.now().strftime("%Y-%m-%d"), s.workout_day))
+        conn.commit()
+        row = conn.execute("SELECT * FROM sessions WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
 
 @app.get("/api/sessions")
 def list_sessions():
-    conn = db()
-    rows = conn.execute("SELECT * FROM sessions ORDER BY created_at DESC LIMIT 60").fetchall()
-    conn.close(); return [dict(r) for r in rows]
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM sessions ORDER BY created_at DESC LIMIT 60").fetchall()
+        return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}")
 def get_session(sid: int):
-    conn = db()
-    s = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
-    if not s: raise HTTPException(404)
-    sets = conn.execute("SELECT * FROM sets WHERE session_id = ? ORDER BY logged_at", (sid,)).fetchall()
-    conn.close(); return {**dict(s), "sets": [dict(x) for x in sets]}
+    with db() as conn:
+        s = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
+        if not s:
+            raise HTTPException(404)
+        sets = conn.execute("SELECT * FROM sets WHERE session_id = ? ORDER BY logged_at", (sid,)).fetchall()
+        return {**dict(s), "sets": [dict(x) for x in sets]}
 
 @app.patch("/api/sessions/{sid}")
 def patch_session(sid: int, p: SessionPatch):
-    conn = db()
-    if p.completed is not None:
-        if p.completed:
-            conn.execute(
-                "UPDATE sessions SET completed = 1, "
-                "ended_at = COALESCE(ended_at, datetime('now')) WHERE id = ?",
-                (sid,))
-        else:
-            conn.execute("UPDATE sessions SET completed = 0 WHERE id = ?", (sid,))
-    conn.commit()
-    row = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
-    conn.close(); return dict(row)
+    with db() as conn:
+        if p.completed is not None:
+            if p.completed:
+                conn.execute(
+                    "UPDATE sessions SET completed = 1, "
+                    "ended_at = COALESCE(ended_at, datetime('now')) WHERE id = ?",
+                    (sid,))
+            else:
+                conn.execute("UPDATE sessions SET completed = 0 WHERE id = ?", (sid,))
+        conn.commit()
+        row = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
+        return dict(row)
 
 @app.delete("/api/sessions/{sid}")
 def delete_session(sid: int):
-    conn = db()
-    conn.execute("DELETE FROM sets WHERE session_id = ?", (sid,))
-    conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
-    conn.commit(); conn.close(); return {"deleted": True}
+    with db() as conn:
+        conn.execute("DELETE FROM sets WHERE session_id = ?", (sid,))
+        conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
+        conn.commit()
+        return {"deleted": True}
 
 @app.post("/api/sessions/{sid}/sets")
 def add_set(sid: int, s: SetIn):
-    conn = db()
-    if not conn.execute("SELECT id FROM sessions WHERE id = ?", (sid,)).fetchone():
-        raise HTTPException(404)
-    cur = conn.execute(
-        "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg) VALUES (?,?,?,?,?,?)",
-        (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg))
-    conn.commit()
-    row = conn.execute("SELECT * FROM sets WHERE id = ?", (cur.lastrowid,)).fetchone()
-    conn.close(); return dict(row)
+    with db() as conn:
+        if not conn.execute("SELECT id FROM sessions WHERE id = ?", (sid,)).fetchone():
+            raise HTTPException(404)
+        cur = conn.execute(
+            "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg) VALUES (?,?,?,?,?,?)",
+            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg))
+        conn.commit()
+        row = conn.execute("SELECT * FROM sets WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
 
 @app.delete("/api/sessions/{sid}/sets/{set_id}")
 def delete_set(sid: int, set_id: int):
-    conn = db()
-    conn.execute("DELETE FROM sets WHERE id = ? AND session_id = ?", (set_id, sid))
-    conn.commit(); conn.close(); return {"deleted": True}
+    with db() as conn:
+        conn.execute("DELETE FROM sets WHERE id = ? AND session_id = ?", (set_id, sid))
+        conn.commit()
+        return {"deleted": True}
 
 @app.get("/api/progress/{exercise_id}")
 def get_progress(exercise_id: str):
-    conn = db()
-    rows = conn.execute("""
-        SELECT s.date, MAX(st.weight_kg) as max_weight, st.reps as reps
-        FROM sets st JOIN sessions s ON st.session_id = s.id
-        WHERE st.exercise_id = ?
-        GROUP BY s.id, s.date ORDER BY s.date ASC LIMIT 60
-    """, (exercise_id,)).fetchall()
-    conn.close(); return [dict(r) for r in rows]
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT s.date, MAX(st.weight_kg) as max_weight, st.reps as reps
+            FROM sets st JOIN sessions s ON st.session_id = s.id
+            WHERE st.exercise_id = ?
+            GROUP BY s.id, s.date ORDER BY s.date ASC LIMIT 60
+        """, (exercise_id,)).fetchall()
+        return [dict(r) for r in rows]
 
 @app.get("/api/progress")
 def all_progress():
-    conn = db()
-    rows = conn.execute("SELECT DISTINCT exercise_id, exercise_name FROM sets ORDER BY exercise_name").fetchall()
-    conn.close(); return [dict(r) for r in rows]
+    with db() as conn:
+        rows = conn.execute("SELECT DISTINCT exercise_id, exercise_name FROM sets ORDER BY exercise_name").fetchall()
+        return [dict(r) for r in rows]
 
 @app.get("/api/notes")
 def get_notes():
-    conn = db()
-    rows = conn.execute("SELECT exercise_id, note FROM exercise_notes").fetchall()
-    conn.close(); return {r["exercise_id"]: r["note"] for r in rows}
+    with db() as conn:
+        rows = conn.execute("SELECT exercise_id, note FROM exercise_notes").fetchall()
+        return {r["exercise_id"]: r["note"] for r in rows}
 
 @app.put("/api/exercises/{exercise_id}/note")
 def put_note(exercise_id: str, n: NoteIn):
     note = n.note.strip()
-    conn = db()
-    if note:
-        conn.execute(
-            "INSERT INTO exercise_notes (exercise_id, note, updated_at) VALUES (?,?,datetime('now')) "
-            "ON CONFLICT(exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
-            (exercise_id, note))
-    else:
-        conn.execute("DELETE FROM exercise_notes WHERE exercise_id = ?", (exercise_id,))
-    conn.commit(); conn.close(); return {"exercise_id": exercise_id, "note": note}
+    with db() as conn:
+        if note:
+            conn.execute(
+                "INSERT INTO exercise_notes (exercise_id, note, updated_at) VALUES (?,?,datetime('now')) "
+                "ON CONFLICT(exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
+                (exercise_id, note))
+        else:
+            conn.execute("DELETE FROM exercise_notes WHERE exercise_id = ?", (exercise_id,))
+        conn.commit()
+        return {"exercise_id": exercise_id, "note": note}
 
 def epley(weight, reps):
     return round(weight * (1 + reps / 30) * 2) / 2
 
 @app.get("/api/exercises/{exercise_id}/last")
 def last_performance(exercise_id: str, exclude_session: int | None = None):
-    conn = db()
-    row = conn.execute(
-        "SELECT s.id, s.date FROM sessions s "
-        "JOIN sets st ON st.session_id = s.id "
-        "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? "
-        "ORDER BY s.created_at DESC LIMIT 1",
-        (exercise_id, exclude_session if exclude_session is not None else -1)).fetchone()
-    if not row:
-        conn.close(); return None
-    sets = conn.execute(
-        "SELECT set_number, weight_kg, reps FROM sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number",
-        (row["id"], exercise_id)).fetchall()
-    conn.close()
-    return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
+    with db() as conn:
+        row = conn.execute(
+            "SELECT s.id, s.date FROM sessions s "
+            "JOIN sets st ON st.session_id = s.id "
+            "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? "
+            "ORDER BY s.created_at DESC LIMIT 1",
+            (exercise_id, exclude_session if exclude_session is not None else -1)).fetchone()
+        if not row:
+            return None
+        sets = conn.execute(
+            "SELECT set_number, weight_kg, reps FROM sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number",
+            (row["id"], exercise_id)).fetchall()
+        return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
 
 @app.get("/api/sessions/{sid}/prs")
 def session_prs(sid: int):
-    conn = db()
-    cur_sets = conn.execute("SELECT exercise_id, exercise_name, weight_kg, reps FROM sets WHERE session_id = ?", (sid,)).fetchall()
-    prior = conn.execute(
-        "SELECT st.exercise_id, st.weight_kg, st.reps FROM sets st "
-        "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.id != ?", (sid,)).fetchall()
-    # session volumes for the volume PR
-    vol_rows = conn.execute(
-        "SELECT st.session_id, SUM(st.weight_kg*st.reps) v FROM sets st "
-        "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 GROUP BY st.session_id").fetchall()
-    conn.close()
+    with db() as conn:
+        cur_sets = conn.execute("SELECT exercise_id, exercise_name, weight_kg, reps FROM sets WHERE session_id = ?", (sid,)).fetchall()
+        prior = conn.execute(
+            "SELECT st.exercise_id, st.weight_kg, st.reps FROM sets st "
+            "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.id != ?", (sid,)).fetchall()
+        # session volumes for the volume PR
+        vol_rows = conn.execute(
+            "SELECT st.session_id, SUM(st.weight_kg*st.reps) v FROM sets st "
+            "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 GROUP BY st.session_id").fetchall()
 
     prs = []
     by_ex = {}
