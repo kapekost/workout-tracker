@@ -130,3 +130,18 @@ def test_import_rejects_malformed_and_newer_schema(client):
     assert client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": {"nope": 1}}).status_code == 400
     bad = {"schema_version": 999, "tables": {t: [] for t in ["sessions","sets","exercise_notes","events"]}}
     assert client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": bad}).status_code == 400
+
+def test_import_rejects_unknown_columns(client):
+    _seed(client)
+    envelope = client.get("/api/export").json()
+    envelope["tables"]["sessions"][0]["bogus_col"] = 1
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    # existing data untouched, still exportable
+    assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_import_rejects_non_numeric_schema_version(client):
+    _seed(client)
+    bad = {"schema_version": "abc", "tables": {t: [] for t in ["sessions","sets","exercise_notes","events"]}}
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": bad})
+    assert r.status_code == 400
