@@ -32,7 +32,12 @@ export default defineConfig({
           {
             // Offline-read: last-seen history/progress still render without a connection.
             // Only GETs are cached; writes (POST/PATCH/DELETE) always need the Pi reachable.
-            urlPattern: ({ url, request }) => url.pathname.startsWith('/api/') && request.method === 'GET',
+            // /api/export is excluded: it's a data-safety/export endpoint that must never
+            // be served stale from the service-worker cache.
+            urlPattern: ({ url, request }) =>
+              url.pathname.startsWith('/api/') &&
+              !url.pathname.startsWith('/api/export') &&
+              request.method === 'GET',
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-reads',

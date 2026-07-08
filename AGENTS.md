@@ -205,7 +205,16 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
 
 ### Nightly off-site backup — one-time Pi host setup
 
-1. `sudo apt-get install -y rclone sqlite3` (or `rclone` static binary).
+No host `sqlite3` is required — `scripts/backup.sh` does the DB read (`VACUUM
+INTO`) **inside the app container** via `docker compose exec` and copies the
+snapshot out with `docker cp`, rather than opening the DB file directly from
+the host. Why: the container runs as root and switches the DB to WAL mode,
+which produces root-owned `-shm`/`-wal` sidecar files; the host cron user
+(`kapekost` — docker group, no sudo) can't open those directly, and
+`python:3.11-slim` has no `sqlite3` CLI anyway (it does have Python, which the
+script uses instead). Only `rclone` needs to be installed on the host.
+
+1. `sudo apt-get install -y rclone` (or the `rclone` static binary).
 2. `rclone config` → new remote named `gdrive` (Google Drive), authorise once.
 3. Test: `bash ~/workout-tracker/scripts/backup.sh` → check the file appears in
    Drive and `GET /api/health` shows a recent `last_backup_at`.
@@ -224,7 +233,8 @@ Verify health: `curl -s http://192.168.1.170:8080/api/health` →
 
 **Next / ideas**
 - Finish the HTTPS domain (above) once certs are enabled.
-- Decide on a backup mechanism.
+- ~~Decide on a backup mechanism.~~ Resolved: nightly `scripts/backup.sh` (rclone
+  → Google Drive), see "Nightly off-site backup" above.
 - Set up a scripted one-command deploy (build + transfer + restart) on the Mac.
 - Optional: pin the image to a version tag instead of `:latest` for rollbacks.
 - Enable `tailscale up --ssh` on the Pi (while physically on it) so deploys work over
