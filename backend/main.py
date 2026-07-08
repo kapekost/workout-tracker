@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from contextlib import contextmanager
 import sqlite3, os, json
-from datetime import datetime
+from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["sessions", "sets", "exercise_notes", "events"]
@@ -106,6 +106,11 @@ class EventIn(BaseModel):
     name: str = Field(max_length=64)
     screen: Optional[str] = Field(default=None, max_length=64)
     props: Optional[dict] = None
+
+class ImportIn(BaseModel):
+    mode: str = "replace"
+    confirm: bool = False
+    envelope: dict
 
 # --- API Routes ---
 @app.get("/api/health")
@@ -307,6 +312,39 @@ def export_data():
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
     return {"exported_at": datetime.utcnow().isoformat() + "Z", "schema_version": version, "tables": tables}
+
+@app.post("/api/import")
+def import_data(payload: ImportIn):
+    if payload.mode != "replace" or not payload.confirm:
+        raise HTTPException(400, "import requires mode='replace' and confirm=true")
+    env = payload.envelope
+    if not isinstance(env, dict) or "tables" not in env or "schema_version" not in env:
+        raise HTTPException(400, "malformed envelope")
+    if not isinstance(env["tables"], dict) or any(t not in env["tables"] for t in TABLES):
+        raise HTTPException(400, "envelope missing expected tables")
+    with db() as conn:
+        cur_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        if int(env["schema_version"]) > cur_version:
+            raise HTTPException(400, "envelope schema_version newer than app")
+        # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a txn)
+        snap = os.path.join(os.path.dirname(DB_PATH),
+                            f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.db")
+        conn.execute(f"VACUUM INTO '{snap}'")
+        try:
+            conn.execute("BEGIN")
+            for t in TABLES:
+                conn.execute(f"DELETE FROM {t}")
+                for r in env["tables"].get(t, []):
+                    cols = list(r.keys())
+                    placeholders = ",".join("?" * len(cols))
+                    conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
+                                 [r[c] for c in cols])
+            conn.execute(f"PRAGMA user_version = {int(env['schema_version'])}")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise HTTPException(400, "import failed; rolled back, live DB unchanged")
+    return {"restored": {t: len(env["tables"].get(t, [])) for t in TABLES}}
 
 # Serve React — MUST be last
 if os.path.exists("static"):

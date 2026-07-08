@@ -100,3 +100,33 @@ def test_export_envelope_shape(client):
     assert exp["schema_version"] == 2
     assert exp["exported_at"].endswith("Z")
     assert len(exp["tables"]["sessions"]) == 1 and len(exp["tables"]["sets"]) == 1
+
+def _seed(client):
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    client.post(f"/api/sessions/{sid}/sets",
+                json={"exercise_id": "bench_press", "exercise_name": "Bench",
+                      "set_number": 1, "reps": 8, "weight_kg": 80})
+    return sid
+
+def test_import_round_trip(client):
+    _seed(client)
+    envelope = client.get("/api/export").json()
+    # wipe by importing an empty-but-valid envelope? No — verify replace restores same data:
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    assert r.json()["restored"]["sessions"] == 1 and r.json()["restored"]["sets"] == 1
+    again = client.get("/api/export").json()
+    assert again["tables"]["sessions"] == envelope["tables"]["sessions"]
+    assert again["tables"]["sets"] == envelope["tables"]["sets"]
+
+def test_import_requires_confirm(client):
+    _seed(client)
+    envelope = client.get("/api/export").json()
+    assert client.post("/api/import", json={"mode": "replace", "confirm": False, "envelope": envelope}).status_code == 400
+    # data untouched
+    assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_import_rejects_malformed_and_newer_schema(client):
+    assert client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": {"nope": 1}}).status_code == 400
+    bad = {"schema_version": 999, "tables": {t: [] for t in ["sessions","sets","exercise_notes","events"]}}
+    assert client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": bad}).status_code == 400
