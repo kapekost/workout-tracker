@@ -25,6 +25,18 @@ def db():
     finally:
         conn.close()
 
+def _column_exists(conn, table, col):
+    return col in [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+def _migrate(conn):
+    v = conn.execute("PRAGMA user_version").fetchone()[0]
+    # --- v0 -> v1: baseline + ended_at (guarded; existing prod DBs already have it) ---
+    if v < 1:
+        if not _column_exists(conn, "sessions", "ended_at"):
+            conn.execute("ALTER TABLE sessions ADD COLUMN ended_at TEXT")
+        conn.execute("PRAGMA user_version = 1")
+    # (v1 -> v2 added in Task 4: events table + indexes)
+
 def init():
     with db() as conn:
         conn.executescript("""
@@ -52,9 +64,7 @@ def init():
                 updated_at TEXT DEFAULT (datetime('now'))
             );
         """)
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()]
-        if "ended_at" not in cols:
-            conn.execute("ALTER TABLE sessions ADD COLUMN ended_at TEXT")
+        _migrate(conn)
         conn.commit()
 
 init()
