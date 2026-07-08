@@ -35,7 +35,22 @@ def _migrate(conn):
         if not _column_exists(conn, "sessions", "ended_at"):
             conn.execute("ALTER TABLE sessions ADD COLUMN ended_at TEXT")
         conn.execute("PRAGMA user_version = 1")
-    # (v1 -> v2 added in Task 4: events table + indexes)
+    # --- v1 -> v2: usage analytics events + hot-path indexes ---
+    if v < 2:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id     INTEGER PRIMARY KEY AUTOINCREMENT,
+                name   TEXT NOT NULL,
+                screen TEXT,
+                props  TEXT,
+                ts     TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_events_ts   ON events(ts)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_events_name ON events(name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sets_session  ON sets(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id)")
+        conn.execute("PRAGMA user_version = 2")
 
 def init():
     with db() as conn:
@@ -85,6 +100,11 @@ class SessionPatch(BaseModel):
 
 class NoteIn(BaseModel):
     note: str = Field(max_length=2000)
+
+class EventIn(BaseModel):
+    name: str = Field(max_length=64)
+    screen: Optional[str] = Field(default=None, max_length=64)
+    props: Optional[dict] = None
 
 # --- API Routes ---
 @app.get("/api/health")
@@ -247,6 +267,28 @@ def session_prs(sid: int):
     if cur_vol and (not prior_vols or cur_vol > max(prior_vols)):
         prs.append({"type": "volume", "exercise_name": None, "value": cur_vol, "unit": "kg"})
     return prs
+
+@app.post("/api/events", status_code=204)
+def ingest_events(events: list[EventIn]):
+    if not events:
+        return
+    with db() as conn:
+        conn.executemany(
+            "INSERT INTO events (name, screen, props) VALUES (?,?,?)",
+            [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None) for e in events])
+        conn.commit()
+
+@app.get("/api/analytics/summary")
+def analytics_summary(days: int = 30):
+    window = f"-{int(days)} days"
+    with db() as conn:
+        by_name = conn.execute(
+            "SELECT name, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) "
+            "GROUP BY name ORDER BY c DESC", (window,)).fetchall()
+        by_screen = conn.execute(
+            "SELECT screen, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND screen IS NOT NULL "
+            "GROUP BY screen ORDER BY c DESC", (window,)).fetchall()
+    return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 # Serve React — MUST be last
 if os.path.exists("static"):
