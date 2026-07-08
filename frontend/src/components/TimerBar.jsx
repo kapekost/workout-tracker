@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { remainingSeconds, elapsedSeconds, formatClock } from '../lib/timer'
+import { track } from '../lib/analytics'
 
 function beep() {
   try {
@@ -38,6 +39,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   useEffect(() => {
     if (resting && rem === 0 && !firedRef.current) {
       firedRef.current = true
+      track('rest_actual_vs_target', { target: restTargetSec, actual: restStartMs != null ? elapsedSeconds(restStartMs, now) : restTargetSec })
       const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       beep(); navigator.vibrate?.([300,150,300])
       if (!reduce) { setFlash(true); setTimeout(() => setFlash(false), 1300) }
@@ -59,7 +61,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
         opacity: resting ? 1 : 0.4,
         pointerEvents: resting ? 'auto' : 'none'
       }}>
-        <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => onAddRest(-30)}>−30</button>
+        <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => { track('rest_adjust', { delta: -30 }); onAddRest(-30) }}>−30</button>
         <div style={{ textAlign: 'center', minWidth: 88 }}>
           <div style={{ color: resting && rem === 0 ? '#6ee7b7' : '#9ca3af', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em' }}>
             {resting ? (rem === 0 ? 'GO' : 'REST') : 'REST'}
@@ -68,9 +70,9 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
             {formatClock(resting ? rem : 0)}
           </div>
         </div>
-        <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => onAddRest(30)}>+30</button>
+        <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => { track('rest_adjust', { delta: 30 }); onAddRest(30) }}>+30</button>
         <button className="btn-secondary" disabled={!resting} aria-label={paused ? 'resume rest timer' : 'pause rest timer'} style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onTogglePause}>{paused ? '▶' : '⏸'}</button>
-        <button className="btn-secondary" disabled={!resting} aria-label="skip rest" style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={onSkipRest}>Skip</button>
+        <button className="btn-secondary" disabled={!resting} aria-label="skip rest" style={{ minHeight: 44, fontSize: '0.75rem', padding: '4px 12px' }} onClick={() => { track('rest_skip'); onSkipRest() }}>Skip</button>
       </div>
     </div>
   )

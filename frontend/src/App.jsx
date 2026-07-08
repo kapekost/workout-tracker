@@ -7,12 +7,14 @@ import History from './pages/History'
 import NavBar from './components/NavBar'
 import TopBar from './components/TopBar'
 import ResumeBanner from './components/ResumeBanner'
+import ScreenTracker from './components/ScreenTracker'
 import { ActiveSessionProvider } from './lib/activeSession'
 
 export default function App() {
   return (
     <BrowserRouter>
       <ActiveSessionProvider>
+        <ScreenTracker />
         <div style={{ background: '#0a0a12', minHeight: '100dvh' }}>
           <div style={{ position: 'sticky', top: 0, zIndex: 45 }}>
             <TopBar />
