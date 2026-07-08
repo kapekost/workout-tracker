@@ -15,8 +15,8 @@ export function flush(useBeacon = false) {
   if (queue.length === 0) return
   const batch = queue
   queue = []
-  const body = JSON.stringify(batch)
   try {
+    const body = JSON.stringify(batch)
     if (useBeacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {
       navigator.sendBeacon('/api/events', new Blob([body], { type: 'application/json' }))
     } else {
