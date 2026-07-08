@@ -122,10 +122,12 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-06-30._
+_Last updated: 2026-07-08._
 
-**Pending deploy → Pi:** none. Off-LAN deploy is now unblocked via the
-Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
+**Pending deploy → Pi:** branch `feat/vnext-phase1-foundations` (v-next Phase 1,
+head `13bd3b5`) — built, reviewed, ready. After deploy, run the one-time rclone +
+crontab setup (see "Nightly off-site backup" runbook) and confirm `/api/health`
+shows a recent `last_backup_at`.
 
 **Planned (spec + plan written, NOT yet implemented)**
 - Personal-best baseline fix + responsive UI audit. Spec:
@@ -133,6 +135,19 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
   plan: `docs/superpowers/plans/2026-06-30-responsive-audit-pr-baseline.md`.
 
 **Done**
+- **v-next Phase 1 — Foundations & Data Safety** (`ccc0ea2..13bd3b5`, 18 commits,
+  spec `docs/superpowers/specs/2026-07-08-vnext-phase1-foundations-data-safety-design.md`):
+  DB hardening (contextmanager `db()`, WAL, `busy_timeout`, `foreign_keys=ON`, conn-leak
+  fixes), `PRAGMA user_version` migration runner (v2: `events` table + 4 indexes;
+  additive/idempotent, live-prod-shape regression-tested), pydantic `Field` validation
+  (422 on bad writes), usage analytics (`POST /api/events` batch, `GET
+  /api/analytics/summary`, frontend `track()`/`flush()` + `ScreenTracker` + action
+  events), backup/restore (`GET /api/export`, guarded atomic `POST /api/import` with
+  pre-import snapshot + column allowlist, `scripts/backup.sh` container-exec VACUUM →
+  rclone → heartbeat, `/api/health` surfaces `last_backup_at/status`), "Export my data"
+  link on Home (SW never caches `/api/export`). Tests: backend 21/21, frontend 50/50,
+  build clean. Per-task + final whole-branch review (fix wave `13bd3b5`) — APPROVED.
+  NOT yet deployed; one-time Pi rclone/cron setup pending.
 - `4bd1355` (resume in-progress workout session: global `ResumeBanner` +
   `ActiveSession` context — link back to a live session from any page, Home
   resumes instead of starting a duplicate, discard/finish clear the active
@@ -188,9 +203,41 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
 - DB at `~/workout-tracker/data/workouts.db` (host bind mount `./data:/app/data`).
   Survives container restart/recreate, `compose down`, image updates, and all
   `docker ... prune`. Does NOT survive deleting that folder or **SD-card death**.
-- Backup: **not yet set up** (deferred by decision on 2026-06-28). Options on the
-  table — nightly Pi→Google Drive (rclone), nightly Pi→Mac (rsync), or an on-demand
-  `/api/export` endpoint. Revisit; SD cards do fail.
+- Backup: implemented — nightly Pi→Google Drive via `scripts/backup.sh` (rclone).
+  See the runbook below for setup and restore.
+
+### Backup / restore (Phase 1)
+
+- **On-demand snapshot (agent):** `GET /api/export` returns a full JSON snapshot.
+  Before ANY schema-changing deploy, save one as a pre-deploy safety copy:
+  `curl -s http://192.168.1.170:8080/api/export > pre-deploy-$(date +%F).json`.
+- **Restore (agent, destructive):** `POST /api/import` with
+  `{"mode":"replace","confirm":true,"envelope":<export-json>}`. It auto-snapshots
+  the live DB to `data/pre-import-*.db` first and is atomic (rolls back on error).
+  Without `confirm:true` it is a no-op `400`.
+- **Manual file restore:** stop the container, drop a backup `.db` into
+  `data/workouts.db`, restart.
+
+### Nightly off-site backup — one-time Pi host setup
+
+No host `sqlite3` is required — `scripts/backup.sh` does the DB read (`VACUUM
+INTO`) **inside the app container** via `docker compose exec` and copies the
+snapshot out with `docker cp`, rather than opening the DB file directly from
+the host. Why: the container runs as root and switches the DB to WAL mode,
+which produces root-owned `-shm`/`-wal` sidecar files; the host cron user
+(`kapekost` — docker group, no sudo) can't open those directly, and
+`python:3.11-slim` has no `sqlite3` CLI anyway (it does have Python, which the
+script uses instead). Only `rclone` needs to be installed on the host.
+
+1. `sudo apt-get install -y rclone` (or the `rclone` static binary).
+2. `rclone config` → new remote named `gdrive` (Google Drive), authorise once.
+3. Test: `bash ~/workout-tracker/scripts/backup.sh` → check the file appears in
+   Drive and `GET /api/health` shows a recent `last_backup_at`.
+4. Cron (host, not container): `crontab -e` →
+   `30 3 * * * /bin/bash $HOME/workout-tracker/scripts/backup.sh >> $HOME/backup.log 2>&1`
+
+Verify health: `curl -s http://192.168.1.170:8080/api/health` →
+`{"status":"ok","last_backup_at":"…","last_backup_status":"ok"}`.
 
 **Domain (HTTPS) — in progress**
 - Target: `https://rpi-homeassistant.tailce23b4.ts.net` via Tailscale Serve.
@@ -201,7 +248,8 @@ Raspberry Pi Connect + release-asset path (see "Deploy off the home LAN" above).
 
 **Next / ideas**
 - Finish the HTTPS domain (above) once certs are enabled.
-- Decide on a backup mechanism.
+- ~~Decide on a backup mechanism.~~ Resolved: nightly `scripts/backup.sh` (rclone
+  → Google Drive), see "Nightly off-site backup" above.
 - Set up a scripted one-command deploy (build + transfer + restart) on the Mac.
 - Optional: pin the image to a version tag instead of `:latest` for rollbacks.
 - Enable `tailscale up --ssh` on the Pi (while physically on it) so deploys work over

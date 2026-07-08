@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
+import { track } from '../lib/analytics'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -96,6 +97,7 @@ export default function History() {
     setConfirmId(null)
     try {
       await api.delete(`/sessions/${id}`)
+      track('session_delete')
       setSessions(prev => prev.filter(s => s.id !== id))
       if (expanded === id) setExpanded(null)
     } catch {
