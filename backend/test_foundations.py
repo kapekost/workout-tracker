@@ -48,7 +48,7 @@ def test_migrate_skips_realter_when_column_preexists(mainmod):
         conn.commit()
     mainmod.init()  # must not raise "duplicate column name: ended_at"
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
 
 def test_set_validation_rejects_bad_input(client):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
@@ -60,3 +60,23 @@ def test_set_validation_rejects_bad_input(client):
 
 def test_session_validation_rejects_long_day(client):
     assert client.post("/api/sessions", json={"workout_day": "x" * 100}).status_code == 422
+
+def test_events_ingest_and_summary(client):
+    r = client.post("/api/events", json=[
+        {"name": "screen_view", "screen": "Home"},
+        {"name": "screen_view", "screen": "Workout"},
+        {"name": "set_logged", "screen": "Workout", "props": {"reps": 8}},
+    ])
+    assert r.status_code == 204
+    summ = client.get("/api/analytics/summary?days=30").json()
+    names = {row["name"]: row["c"] for row in summ["by_name"]}
+    screens = {row["screen"]: row["c"] for row in summ["by_screen"]}
+    assert names["screen_view"] == 2 and names["set_logged"] == 1
+    assert screens["Workout"] == 2 and screens["Home"] == 1
+
+def test_events_rejects_malformed_batch(client):
+    assert client.post("/api/events", json=[{"screen": "Home"}]).status_code == 422  # missing name
+
+def test_analytics_summary_empty(client):
+    summ = client.get("/api/analytics/summary").json()
+    assert summ["by_name"] == [] and summ["by_screen"] == []
