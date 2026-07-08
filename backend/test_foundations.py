@@ -80,3 +80,12 @@ def test_events_rejects_malformed_batch(client):
 def test_analytics_summary_empty(client):
     summ = client.get("/api/analytics/summary").json()
     assert summ["by_name"] == [] and summ["by_screen"] == []
+
+def test_health_reports_no_backup_then_ok(client):
+    h = client.get("/api/health").json()
+    assert h["status"] == "ok"
+    assert h["last_backup_at"] is None and h["last_backup_status"] == "none"
+
+    client.post("/api/events", json=[{"name": "backup_completed", "props": {"bytes": 1024}}])
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "ok" and h["last_backup_at"] is not None

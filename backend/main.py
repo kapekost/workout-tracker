@@ -108,7 +108,17 @@ class EventIn(BaseModel):
 
 # --- API Routes ---
 @app.get("/api/health")
-def health(): return {"status": "ok"}
+def health():
+    with db() as conn:
+        row = conn.execute(
+            "SELECT name, ts FROM events WHERE name IN ('backup_completed','backup_failed') "
+            "ORDER BY ts DESC, id DESC LIMIT 1").fetchone()
+    if row:
+        last_at = row["ts"]
+        last_status = "ok" if row["name"] == "backup_completed" else "failed"
+    else:
+        last_at, last_status = None, "none"
+    return {"status": "ok", "last_backup_at": last_at, "last_backup_status": last_status}
 
 @app.post("/api/sessions")
 def create_session(s: SessionIn):
