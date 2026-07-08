@@ -122,11 +122,23 @@ Invalid input yields FastAPI's default `422`. Covered by pytest.
 
 ### 4. Backup (A1)
 
+Export/import are **operational endpoints for agents and the host cron**, not
+gym-floor features — with one small exception: a low-key phone "Export data"
+download link (below). Import is agent-only (destructive). The agent runbook
+(when to export, how to restore) is documented in `AGENTS.md`.
+
 **Layer A — on-demand export.** `GET /api/export` returns a consistent JSON
 snapshot of all tables (`sessions`, `sets`, `exercise_notes`, `events`) with a
 top-level `{ "exported_at", "schema_version", "tables": {…} }` envelope.
-Read-only, streams from a single connection. Tappable from the phone; the file
-leaving the Pi is what makes it durable.
+Read-only, streams from a single connection. Primary consumers: an agent taking a
+pre-deploy safety snapshot before any schema-changing migration, and the tiny UI
+link. `AGENTS.md` runbook: *"before a migration/deploy, `GET /api/export` and
+save the JSON as a pre-deploy snapshot."*
+
+**Layer A' — tiny UI download.** A small, unobtrusive "Export my data" link
+(placed in a minimal spot — e.g. a Home footer; a full Settings tab arrives in
+Phase 4 and will absorb it). Tapping it fetches `GET /api/export` and triggers a
+file download to the phone via a Blob + `<a download>`. No import in the UI.
 
 **Layer B — automated off-site copy.** `scripts/backup.sh`, run on the Pi
 **host** via cron (never in the container, so it can't trigger a build):
@@ -134,12 +146,23 @@ leaving the Pi is what makes it durable.
 1. `sqlite3 workouts.db "VACUUM INTO '/tmp/workout-YYYYMMDD-HHMM.db'"` — a
    consistent copy of the live DB (safe under WAL; `cp` is not).
 2. `rclone copy` the file to a Google Drive remote.
-3. Prune local temp copies older than 14 days.
+3. Prune local temp copies older than 14 days, and prune `events` older than 12
+   months on the live DB.
+4. **Emit a heartbeat**: `POST /api/events` to localhost with `backup_completed`
+   (props: `bytes`, `remote`, `duration_s`) on success, or `backup_failed`
+   (props: `error`) on any failure. Reuses the analytics pipeline — no new
+   mechanism — and doubles as an end-to-end check that ingestion works.
 
 The rclone remote auth + `crontab` entry are a one-time host setup, documented as
 a runbook step in `AGENTS.md` (`docs/superpowers` note + AGENTS Status). The
 script is committed; the secrets (rclone token) live only on the Pi host, never
 in the repo or image.
+
+**Backup observability.** `GET /api/health` is extended from `{status}` to also
+return `last_backup_at` and `last_backup_status`, derived from the most recent
+`backup_completed`/`backup_failed` event. A single `curl …/api/health` — already
+the deploy-verify step — now confirms the backup chain is alive; the verify gate
+asserts `last_backup_at` is within ~24h so a silently-broken backup is caught.
 
 **Layer C — restore via import.** `POST /api/import` restores a DB from an
 export envelope (the exact JSON `GET /api/export` produces), so backup and
@@ -216,6 +239,11 @@ actually use"; no dashboard UI this phase.
 | `cues_open` | Form-cues opened |
 | `note_edit` | note saved |
 | `set_delete`, `session_delete` | delete actions |
+| `backup_completed`, `backup_failed` | `backup.sh` heartbeat (host cron, not UI) |
+
+System events (`backup_*`) share the `events` table but originate from the host
+cron, not `track()`; `analytics/summary` can filter them out or a caller can
+query them directly for backup health.
 
 **Privacy:** single user, self-hosted, no PII, no third party — no consent flow
 needed.
@@ -226,9 +254,10 @@ needed.
 |---|---|---|
 | App startup | `init()` runs versioned migrations | schema forward, existing rows intact |
 | Any write (set/session/note) | Pydantic validates → insert | bad input → `422` |
-| User taps Export | `GET /api/export` | JSON snapshot downloaded to phone |
-| Restore from export | `POST /api/import {mode,confirm,envelope}` | auto-snapshot → atomic wipe+reload |
-| Nightly (Pi host cron) | `backup.sh`: VACUUM INTO → rclone → prune | off-site copy on Google Drive |
+| Agent/user exports | `GET /api/export` | JSON snapshot (pre-deploy safety / phone download) |
+| Agent restores | `POST /api/import {mode,confirm,envelope}` | auto-snapshot → atomic wipe+reload |
+| Nightly (Pi host cron) | `backup.sh`: VACUUM INTO → rclone → prune → heartbeat | off-site copy + `backup_completed` event |
+| Verify backup | `GET /api/health` | `{status, last_backup_at, last_backup_status}` |
 | User uses the app | `track()` queues → batched `POST /api/events` | rows in `events` |
 | Review usage | `GET /api/analytics/summary` | counts by name/screen |
 
@@ -251,6 +280,9 @@ needed.
   (`pre-import-*.db`) remains as a manual recovery point.
 - **Export → import round-trip:** re-importing an export reproduces identical row
   counts and ids.
+- **No backup event yet (fresh install):** `/api/health` returns
+  `last_backup_at: null`, `last_backup_status: "none"` — not an error; the verify
+  gate treats "none" as a warning on a brand-new deploy, failure thereafter.
 
 ## Testing (TDD)
 
@@ -264,19 +296,25 @@ needed.
   - `POST /api/events`: batch insert, `204`, rows persisted; malformed batch →
     `422`.
   - `GET /api/analytics/summary`: correct grouped counts over a window.
+  - `GET /api/health`: returns `last_backup_at`/`last_backup_status` from the
+    latest `backup_*` event; `"none"` when no backup event exists.
   - **Migration idempotency:** run `init()` twice on a temp DB → no error, schema
     stable, `user_version` correct; seeded rows survive.
   - Regression: existing session/set/notes/PR endpoints still pass.
 - **Vitest (frontend):**
   - `analytics.js`: `track()` queues; flush batches and POSTs; flush on
     `visibilitychange`/`pagehide`; a failing POST doesn't throw.
+  - Export-download helper: fetches `/api/export` and builds a Blob download
+    (mock `fetch` + `URL.createObjectURL`); a fetch error surfaces a toast, not a
+    crash.
 - **Not unit-tested:** `scripts/backup.sh` (host/cron/rclone) — validated
   manually during the one-time Pi setup and documented in `AGENTS.md`.
 
 ## Deploy gate
 
 Full pytest + Vitest green → `/code-review` → append progress report to
-`AGENTS.md` Status → build (Mac, arm64) → transfer to Pi → verify (`/api/health`
-ok, bundle hash matches, Home Assistant still healthy). One-time: run the rclone
-+ crontab setup on the Pi host and confirm the first nightly backup lands in
-Google Drive.
+`AGENTS.md` Status → build (Mac, arm64) → transfer to Pi → verify: `/api/health`
+ok, bundle hash matches, Home Assistant still healthy, and (after the one-time
+setup) `last_backup_at` within ~24h. One-time: run the rclone + crontab setup on
+the Pi host, add the export/restore runbook to `AGENTS.md`, and confirm the first
+nightly backup lands in Google Drive and emits a `backup_completed` event.
