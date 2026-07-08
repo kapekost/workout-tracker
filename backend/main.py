@@ -322,9 +322,13 @@ def import_data(payload: ImportIn):
         raise HTTPException(400, "malformed envelope")
     if not isinstance(env["tables"], dict) or any(t not in env["tables"] for t in TABLES):
         raise HTTPException(400, "envelope missing expected tables")
+    try:
+        env_version = int(env["schema_version"])
+    except (ValueError, TypeError):
+        raise HTTPException(400, "malformed envelope")
     with db() as conn:
         cur_version = conn.execute("PRAGMA user_version").fetchone()[0]
-        if int(env["schema_version"]) > cur_version:
+        if env_version > cur_version:
             raise HTTPException(400, "envelope schema_version newer than app")
         # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a txn)
         snap = os.path.join(os.path.dirname(DB_PATH),
@@ -333,13 +337,16 @@ def import_data(payload: ImportIn):
         try:
             conn.execute("BEGIN")
             for t in TABLES:
+                valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
                 conn.execute(f"DELETE FROM {t}")
                 for r in env["tables"].get(t, []):
+                    if not set(r.keys()) <= valid:
+                        raise ValueError(f"unknown column in {t} row")
                     cols = list(r.keys())
                     placeholders = ",".join("?" * len(cols))
                     conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
                                  [r[c] for c in cols])
-            conn.execute(f"PRAGMA user_version = {int(env['schema_version'])}")
+            conn.execute(f"PRAGMA user_version = {env_version}")
             conn.commit()
         except Exception:
             conn.rollback()
