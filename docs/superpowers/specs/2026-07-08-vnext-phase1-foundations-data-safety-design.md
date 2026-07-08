@@ -50,9 +50,6 @@ The app is **live** with real workout data, yet:
 
 ## Non-goals (YAGNI)
 
-- No `POST /api/import` / restore endpoint yet — JSON export + a documented
-  manual restore path is enough for Phase 1 (restore is rare, manual, and can be
-  built when first needed).
 - No analytics **UI/dashboard** — a query endpoint is enough; a dashboard is a
   later, data-informed decision.
 - No third-party analytics SaaS. Single-user, self-hosted only.
@@ -144,9 +141,29 @@ a runbook step in `AGENTS.md` (`docs/superpowers` note + AGENTS Status). The
 script is committed; the secrets (rclone token) live only on the Pi host, never
 in the repo or image.
 
-**Restore (manual, documented):** stop the container, drop a backup `.db` into
-`data/workouts.db` (or re-import the JSON via a future endpoint), restart.
-Documented in `AGENTS.md`; no code this phase.
+**Layer C — restore via import.** `POST /api/import` restores a DB from an
+export envelope (the exact JSON `GET /api/export` produces), so backup and
+restore are symmetric and testable end-to-end. Semantics — **safe
+replace-restore**:
+
+1. **Validate** the envelope: shape, presence of expected tables, and
+   `schema_version` compatibility (reject if the payload's `schema_version` is
+   newer than the running app's `user_version`).
+2. **Auto-snapshot** the current live DB first (`VACUUM INTO
+   data/pre-import-YYYYMMDD-HHMM.db`) so a bad restore is itself recoverable.
+3. **Atomic swap** in one transaction: `DELETE FROM` each table, re-insert every
+   row from the payload preserving ids, then set `user_version` to the payload's.
+   On any error the transaction rolls back — the live DB is untouched.
+4. Return `{ restored: { <table>: count } }`.
+
+**Guard:** the wipe only runs with an explicit confirm — body
+`{ "mode": "replace", "confirm": true, "envelope": {…} }`. Without
+`confirm: true` the endpoint returns `400` and does nothing. This is a
+deliberate, destructive, single-user restore action, not a merge (merge-style
+seeding is Phase 4's personal-best import, a separate concern).
+
+**Manual file-level restore** (fallback, documented in `AGENTS.md`): stop the
+container, drop a backup `.db` into `data/workouts.db`, restart.
 
 ### 5. Usage analytics (B7 — screens + actions + timings)
 
@@ -210,6 +227,7 @@ needed.
 | App startup | `init()` runs versioned migrations | schema forward, existing rows intact |
 | Any write (set/session/note) | Pydantic validates → insert | bad input → `422` |
 | User taps Export | `GET /api/export` | JSON snapshot downloaded to phone |
+| Restore from export | `POST /api/import {mode,confirm,envelope}` | auto-snapshot → atomic wipe+reload |
 | Nightly (Pi host cron) | `backup.sh`: VACUUM INTO → rclone → prune | off-site copy on Google Drive |
 | User uses the app | `track()` queues → batched `POST /api/events` | rows in `events` |
 | Review usage | `GET /api/analytics/summary` | counts by name/screen |
@@ -226,6 +244,13 @@ needed.
   re-queues valid ones on next flush; ingest stays all-or-nothing per request.
 - **Empty `events` table:** `analytics/summary` returns empty groups, not an
   error.
+- **Import without `confirm: true`:** `400`, live DB untouched.
+- **Import of an incompatible / malformed envelope:** rejected before any wipe;
+  live DB untouched.
+- **Import failure mid-transaction:** rolls back atomically; the auto-snapshot
+  (`pre-import-*.db`) remains as a manual recovery point.
+- **Export → import round-trip:** re-importing an export reproduces identical row
+  counts and ids.
 
 ## Testing (TDD)
 
@@ -233,6 +258,9 @@ needed.
   - Validation: negative/zero weight, reps < 1, oversized strings → `422`; valid
     payloads → `200/201`.
   - `GET /api/export`: envelope shape, all tables present, row counts match.
+  - `POST /api/import`: round-trip (export → import → identical rows/ids);
+    missing `confirm` → `400` and no change; malformed/incompatible envelope →
+    rejected, no change; failure mid-import rolls back leaving the original data.
   - `POST /api/events`: batch insert, `204`, rows persisted; malformed batch →
     `422`.
   - `GET /api/analytics/summary`: correct grouped counts over a window.
