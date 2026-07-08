@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from contextlib import contextmanager
 import sqlite3, os, json
@@ -71,20 +71,20 @@ init()
 
 # --- Models ---
 class SessionIn(BaseModel):
-    workout_day: str
+    workout_day: str = Field(max_length=64)
 
 class SetIn(BaseModel):
-    exercise_id: str
-    exercise_name: str
-    set_number: int
-    reps: int
-    weight_kg: float
+    exercise_id: str = Field(max_length=64)
+    exercise_name: str = Field(max_length=128)
+    set_number: int = Field(ge=1)
+    reps: int = Field(ge=1)
+    weight_kg: float = Field(ge=0, le=1000)
 
 class SessionPatch(BaseModel):
     completed: Optional[bool] = None
 
 class NoteIn(BaseModel):
-    note: str
+    note: str = Field(max_length=2000)
 
 # --- API Routes ---
 @app.get("/api/health")

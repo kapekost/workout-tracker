@@ -49,3 +49,14 @@ def test_migrate_skips_realter_when_column_preexists(mainmod):
     mainmod.init()  # must not raise "duplicate column name: ended_at"
     with mainmod.db() as conn:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+
+def test_set_validation_rejects_bad_input(client):
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    base = {"exercise_id": "bench_press", "exercise_name": "Bench", "set_number": 1}
+    assert client.post(f"/api/sessions/{sid}/sets", json={**base, "reps": 0, "weight_kg": 80}).status_code == 422
+    assert client.post(f"/api/sessions/{sid}/sets", json={**base, "reps": 8, "weight_kg": -5}).status_code == 422
+    assert client.post(f"/api/sessions/{sid}/sets", json={**base, "reps": 8, "weight_kg": 5000}).status_code == 422
+    assert client.post(f"/api/sessions/{sid}/sets", json={**base, "reps": 8, "weight_kg": 80}).status_code == 200
+
+def test_session_validation_rejects_long_day(client):
+    assert client.post("/api/sessions", json={"workout_day": "x" * 100}).status_code == 422
