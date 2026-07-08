@@ -31,3 +31,21 @@ def test_existing_rows_survive_reinit(client, mainmod):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
     mainmod.init()  # re-run migrations on a populated DB
     assert client.get(f"/api/sessions/{sid}").json()["id"] == sid
+
+def test_migrate_skips_realter_when_column_preexists(mainmod):
+    # The mainmod fixture's reload already ran init() once, so sessions exists
+    # and user_version is already 1. Rebuild the table to mimic the live-prod
+    # shape: ended_at already present, user_version reset to 0 (never set).
+    with mainmod.db() as conn:
+        conn.executescript(
+            "DROP TABLE IF EXISTS sessions;"
+            "CREATE TABLE sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "date TEXT NOT NULL, workout_day TEXT NOT NULL, "
+            "completed INTEGER DEFAULT 0, "
+            "created_at TEXT DEFAULT (datetime('now')), ended_at TEXT);"
+        )
+        conn.execute("PRAGMA user_version = 0")
+        conn.commit()
+    mainmod.init()  # must not raise "duplicate column name: ended_at"
+    with mainmod.db() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
