@@ -55,9 +55,13 @@ cues for a 4-day Upper/Lower split.
 ### Build (Mac)
 ```bash
 cd ~/dev/workout-tracker
-docker buildx build --pull --platform linux/arm64 -t kapekost/workout-tracker:latest --load .
+docker buildx build --pull --platform linux/arm64 \
+  --build-arg APP_COMMIT=$(git rev-parse --short HEAD) \
+  -t kapekost/workout-tracker:latest --load .
 ```
-(`--pull` refreshes the `python:3.11-slim` base so patched CVEs are picked up.)
+(`--pull` refreshes the `python:3.11-slim` base so patched CVEs are picked up;
+`APP_COMMIT` is the version stamp shown in the UI and `/api/health` — build
+from a clean, committed tree so the stamp names what actually shipped.)
 
 ### Pre-deploy safety snapshot (any schema-changing deploy)
 ```bash
@@ -82,14 +86,17 @@ docker compose up -d   # uses the loaded image; never builds, never pulls
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://192.168.1.170:8080/      # expect 200
 curl -s http://192.168.1.170:8080/api/health
-#   expect {"status":"ok", "last_backup_at":"<recent>", "last_backup_status":"ok"}
+#   expect {"status":"ok", "version":"<the commit you just deployed>",
+#           "last_backup_at":"<recent>", "last_backup_status":"ok"}
+#   version != your HEAD short-SHA → the old image is still running.
 #   "stale" = the ok-heartbeat is >26h old → the backup chain stopped running; investigate.
 #   (warn-only on a fresh install where no backup has ever run: "none")
 ssh kapekost@192.168.1.170 'docker compose -f ~/workout-tracker/docker-compose.yml ps; \
   docker ps --format "{{.Names}} {{.Status}}" | grep homeassistant'      # HA still healthy
 ```
-Also confirm the served `/assets/index-*.js` hash matches the just-built
-`frontend/dist` (Vite content-hashes, so equal filename = byte-identical build).
+The Home page footer shows the same `v <sha>` stamp — a phone-side check that
+the PWA has picked up the new build. (Bundle-hash comparison against
+`frontend/dist` still works as a secondary check.)
 
 ### Deploy off the home LAN (Raspberry Pi Connect — no SSH)
 SSH (22) isn't reachable over Tailscale (the Pi is view-only on `:8080`), and

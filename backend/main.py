@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["sessions", "sets", "exercise_notes", "events"]
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
+# Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
+# outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
+APP_VERSION = os.environ.get("APP_COMMIT", "dev")
 
 # No CORS middleware on purpose: prod serves the frontend same-origin and dev
 # uses the Vite proxy, so any cross-origin browser request is a foreign page
@@ -141,7 +144,8 @@ def health(response: Response):
             pass
     else:
         last_at, last_status = None, "none"
-    return {"status": "ok", "last_backup_at": last_at, "last_backup_status": last_status}
+    return {"status": "ok", "version": APP_VERSION,
+            "last_backup_at": last_at, "last_backup_status": last_status}
 
 @app.post("/api/sessions")
 def create_session(s: SessionIn):
