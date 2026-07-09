@@ -10,7 +10,9 @@
 set -euo pipefail
 
 # cron runs with a minimal environment — pin PATH so docker/rclone/curl resolve.
-PATH=/usr/local/bin:/usr/bin:/bin
+# $HOME/.local/bin included: rclone is installed there as a static binary
+# (no passwordless sudo on the Pi, so no apt / /usr/local/bin install).
+PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 COMPOSE_FILE="${COMPOSE_FILE:-$HOME/workout-tracker/docker-compose.yml}"
 # shellcheck disable=SC2086  # intentional word-splitting: COMPOSE is a multi-word command
