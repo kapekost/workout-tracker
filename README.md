@@ -1,102 +1,85 @@
-# Gym Tracker — Pi Deployment
+# Gym Tracker
 
-Mobile-first workout tracker: logs sets/reps/weight, tracks progress, shows form cues for your 4-day Upper/Lower split.
+Mobile-first workout tracker PWA: logs sets/reps/weight, tracks progress, shows
+form cues for a 4-day Upper/Lower split (Upper A → Lower A → Upper B → Lower B).
+
+Runs as a single Docker container on a Raspberry Pi 3 B+ next to Home Assistant.
+**Ops truth lives in [AGENTS.md](AGENTS.md)** — runbook, hard rules, backup &
+restore, status. This file is the newcomer intro.
 
 ## Stack
-- **Backend**: Python FastAPI + SQLite (ARM64 compatible)
-- **Frontend**: React + Tailwind + Recharts
-- **Deploy**: Single Docker container — **built off-device, pulled & run on the Pi**
 
-> **Don't build on the Pi.** A 1 GB Raspberry Pi can't compile the React/Vite
-> frontend without thrashing swap (and starving anything else it's running, like
-> Home Assistant). Build the image on a beefier machine, push it to a registry,
-> and have the Pi only ever *pull* the finished image.
+- **Backend**: Python FastAPI + SQLite (WAL, `user_version` migrations, pytest)
+- **Frontend**: React + Vite + Tailwind + Recharts (Vitest), installable PWA
+  with offline reads (service worker, self-hosted fonts)
+- **Deploy**: one multi-stage arm64 image, **built off-device and streamed to
+  the Pi over SSH** (`docker save | ssh | docker load`) — no registry, on
+  purpose; compose has `pull_policy: never` and no `build:` key
 
----
-
-## 1. Build the image (on the Mac / a beefy machine)
-
-Apple Silicon is `arm64`, the same architecture as the Pi, so it builds the
-Pi's image natively and fast:
-
-```bash
-# from the repo root
-docker buildx build --platform linux/arm64 \
-  -t kapekost/workout-tracker:latest --load .
-```
-
-## 2. Send it to the Pi (no registry needed)
-
-Stream the built image straight to the Pi over SSH and load it there:
-
-```bash
-docker save kapekost/workout-tracker:latest | gzip | \
-  ssh kapekost@YOUR_PI_IP 'gunzip | docker load'
-```
-
-No Docker Hub, no login, no tokens — the Pi just receives the finished image.
-
-## 3. Run it on the Raspberry Pi (never builds, never pulls)
-
-```bash
-ssh kapekost@YOUR_PI_IP
-cd ~/workout-tracker
-git pull                       # get the latest docker-compose.yml
-docker compose up -d           # run the loaded image (no build, no pull)
-```
-
-App is now at `http://YOUR_PI_IP:8080` on your home network.
-
-Your workout data lives in `~/workout-tracker/data/workouts.db` — back this file up.
-
----
-
-## 4. Access from your phone at the gym (Tailscale VPN)
-
-Tailscale is the easiest zero-config VPN. Free for personal use.
-
-### On the Pi:
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-```
-Note the Tailscale IP shown (e.g. `100.x.x.x`)
-
-### On your phone:
-- Install **Tailscale** app (iOS/Android)
-- Sign in with the same account
-- Enable Tailscale
-
-### Access the app at the gym:
-Open your phone browser → `http://100.x.x.x:8080` (your Pi's Tailscale IP)
-
----
-
-## 5. Updates
-
-After changing the app, rebuild on the Mac, stream it to the Pi, and restart:
-
-```bash
-# On the Mac — rebuild and send
-docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --load .
-docker save kapekost/workout-tracker:latest | gzip | \
-  ssh kapekost@YOUR_PI_IP 'gunzip | docker load'
-
-# On the Pi — restart onto the new image
-cd ~/workout-tracker && docker compose up -d
-```
-
-Data persists across updates (stored in the `./data/` volume).
-
----
+> **Don't build on the Pi.** A 1 GB Pi can't compile the Vite frontend without
+> thrashing swap and starving Home Assistant. Build on the Mac, stream the
+> finished image over.
 
 ## Features
-- 📋 4-day Upper/Lower split pre-loaded with form cues
-- ⚡ +/- controls for weight (2.5kg steps) and reps
-- 🏆 PR detection — highlights new personal records
-- 📈 Progress charts per exercise
-- 📅 Session history with best sets highlighted
-- 🎬 YouTube form demo link per exercise (opens on phone)
 
-## Workout Cycle
-Upper A → Lower A → Upper B → Lower B → repeat
+- 📋 4-day Upper/Lower split with per-exercise form cues and inline two-frame
+  exercise demos (CC0, YouTube fallback)
+- ⏱ Sticky session clock + auto-starting 90s rest countdown (±30s, pause,
+  skip; beep + flash at zero; iOS-safe timestamp math)
+- 🏆 PR detection (weight / reps@weight / est. 1RM / session volume) with a
+  quiet "baseline" note for first-ever entries instead of fake PRs
+- 📈 Progress charts per exercise (completed sessions, most recent 60)
+- 🧠 Previous-workout panel, progressive-overload hint, weight prefill,
+  per-exercise notes
+- ▶️ Resume an in-progress workout from any page; screen stays awake mid-workout
+- 📊 Usage analytics (`/api/events` → `/api/analytics/summary`)
+- 💾 "Export my data" on Home; guarded `POST /api/import` restore; nightly
+  rclone backup to Google Drive with health heartbeat (`/api/health`)
+
+## Development (Mac)
+
+```bash
+# backend — http://localhost:8000
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+DATABASE_URL=/tmp/dev-workouts.db .venv/bin/uvicorn main:app --reload
+
+# frontend — http://localhost:5173 (proxies /api to :8000)
+cd frontend
+npm install
+npm run dev
+
+# tests
+cd backend && .venv/bin/python -m pytest
+cd frontend && npm test
+```
+
+## Deploy
+
+Short version (full runbook + verify steps in [AGENTS.md](AGENTS.md)):
+
+```bash
+# Mac: build (arm64, native on Apple Silicon) and stream to the Pi
+docker buildx build --pull --platform linux/arm64 -t kapekost/workout-tracker:latest --load .
+docker save kapekost/workout-tracker:latest | gzip | \
+  ssh kapekost@192.168.1.170 'gunzip | docker load'
+
+# Pi: run the loaded image (never builds, never pulls)
+cd ~/workout-tracker && git pull && docker compose up -d
+```
+
+App: `http://192.168.1.170:8080` on the LAN.
+
+## Access from the gym
+
+Tailscale already runs on the Pi (as a container in host network mode — don't
+install it on the host). With the Tailscale app on your phone signed into the
+same tailnet, the app is at `http://100.64.119.1:8080`.
+
+## Data & backups
+
+SQLite at `~/workout-tracker/data/workouts.db` on the Pi (bind-mounted volume;
+survives container updates). Backups are automated: nightly `scripts/backup.sh`
+snapshots the DB and uploads to Google Drive; `GET /api/health` shows the last
+backup status. Restore options and the drill log are in
+[AGENTS.md](AGENTS.md#restore).

@@ -1,7 +1,7 @@
 # v-next Phase 1 — Foundations & Data Safety — Design
 
 **Date:** 2026-07-08
-**Status:** Approved (pending implementation plan)
+**Status:** Implemented & deployed 2026-07-09 — see docs/CHANGELOG.md. As-built deviation: Layer B's host-sqlite3 backup was replaced by a container-exec VACUUM INTO (commit 13bd3b5) — the container's root-owned WAL sidecars aren't readable by the host cron user.
 
 ## Context — the v-next roadmap
 

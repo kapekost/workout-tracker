@@ -1,7 +1,7 @@
 # Responsive UI Audit + Personal-Best Baseline Fix — Design
 
 **Date:** 2026-06-30
-**Status:** Approved (brainstorm) — pending implementation plan
+**Status:** Part A implemented & deployed 2026-07-09 (feat/review-fixes). Part B trimmed and parked in the AGENTS.md backlog (audit 320/390/768px, Workout+Home first); the full-matrix sweep below is superseded.
 
 Two independent pieces of work, planned together in one spec but kept as
 separate sections. Part A is a narrow backend logic fix; Part B is a broad
