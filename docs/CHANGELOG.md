@@ -3,6 +3,12 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-07-09 — Version stamp (`4243f77`)
+
+Git short SHA baked into the image (`--build-arg APP_COMMIT=...`): shown as a
+muted `v <sha>` footer on Home and as `version` in `/api/health`. Deploy
+verification is now "health version == HEAD short-SHA" (runbook updated).
+
 ## 2026-07-09 — Review-of-review fast-follow
 
 Independent second-pass review of the review-fixes wave found 6 real issues,

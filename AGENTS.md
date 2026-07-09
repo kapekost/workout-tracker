@@ -185,12 +185,14 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-07-09 (review-fixes wave)._
+_Last updated: 2026-07-10 00:10 BST._
 
-**Running now:** review-fixes image (282 MB, was 572) deployed from
-`feat/review-fixes`; backup chain live (first snapshot verified restorable);
-Pi cleaned up — disk 57%, audio/desktop daemons masked, bluetoothd kept for HA.
-Shipped history: `docs/CHANGELOG.md`.
+**Running now:** commit `4243f77` (review-fixes wave + review-of-review
+fast-follow + version stamp), verified live via `/api/health` `version` —
+that's also how you check what's deployed. Image 282 MB (was 572); tests 42
+backend + 62 frontend. Backup chain live (2 snapshots on Drive, restore drill
+passed); Pi cleaned up — disk 57%, audio/desktop daemons masked, bluetoothd
+kept for HA. Shipped history: `docs/CHANGELOG.md`.
 
 **Dated action items**
 - **Before ~2026-Q4 — rclone client_id** (user + agent): rclone's shared Google
@@ -200,8 +202,9 @@ Shipped history: `docs/CHANGELOG.md`.
   Google login, ~10 min), then on the Pi: `rclone config update gdrive
   client_id <id> client_secret <secret>` → `rclone config reconnect gdrive:` →
   one manual `backup.sh` run to verify.
-- **2026-07-10 — first real cron run**: confirm `~/backup.log` exists, a second
-  snapshot landed in Drive, `/api/health` `last_backup_at` advanced past 03:30.
+- **2026-07-10, after 03:30 — first real cron run** (unverified as of 00:10):
+  confirm `~/backup.log` exists, a third snapshot landed in Drive (two exist
+  from manual runs), `/api/health` `last_backup_at` advanced past 03:30 BST.
 - **Whenever physically at the Pi** (needs interactive sudo): `sudo apt update
   && sudo apt full-upgrade` (lists were 16 days stale), install
   `unattended-upgrades` (security pocket), and check `vcgencmd get_throttled`
