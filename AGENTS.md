@@ -122,12 +122,12 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-07-08._
+_Last updated: 2026-07-09._
 
-**Pending deploy → Pi:** branch `feat/vnext-phase1-foundations` (v-next Phase 1,
-head `13bd3b5`) — built, reviewed, ready. After deploy, run the one-time rclone +
-crontab setup (see "Nightly off-site backup" runbook) and confirm `/api/health`
-shows a recent `last_backup_at`.
+**Pending deploy → Pi:** none. One manual step outstanding: the one-time rclone +
+crontab setup on the Pi host (see "Nightly off-site backup" runbook) — rclone is
+NOT yet installed there. Until then `/api/health` correctly reports
+`last_backup_status: "none"`.
 
 **Planned (spec + plan written, NOT yet implemented)**
 - Personal-best baseline fix + responsive UI audit. Spec:
@@ -147,7 +147,13 @@ shows a recent `last_backup_at`.
   rclone → heartbeat, `/api/health` surfaces `last_backup_at/status`), "Export my data"
   link on Home (SW never caches `/api/export`). Tests: backend 21/21, frontend 50/50,
   build clean. Per-task + final whole-branch review (fix wave `13bd3b5`) — APPROVED.
-  NOT yet deployed; one-time Pi rclone/cron setup pending.
+  **Deployed to the Pi on-LAN 2026-07-09** (image built on Mac, `save|ssh|load`):
+  verified `/api/health` ok, live migration v0→v2 with real rows intact
+  (schema_version 2; sessions/sets preserved), served bundle `index-DdLwN__4.js`
+  matches the built image, Home Assistant healthy. Pre-deploy safety snapshot
+  taken (`data/pre-phase1-deploy.db` on the Pi). Container-exec backup mechanics
+  (VACUUM INTO → docker cp) validated on the Pi; only rclone install/auth + cron
+  remain (manual, one-time).
 - `4bd1355` (resume in-progress workout session: global `ResumeBanner` +
   `ActiveSession` context — link back to a live session from any page, Home
   resumes instead of starting a duplicate, discard/finish clear the active
