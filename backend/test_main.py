@@ -2,14 +2,6 @@ import os, tempfile, importlib
 import pytest
 from fastapi.testclient import TestClient
 
-@pytest.fixture
-def client(monkeypatch):
-    tmp = tempfile.mkdtemp()
-    monkeypatch.setenv("DATABASE_URL", os.path.join(tmp, "test.db"))
-    import main
-    importlib.reload(main)  # re-run init() against the temp DB
-    return TestClient(main.app)
-
 def test_completing_session_sets_ended_at(client):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
 

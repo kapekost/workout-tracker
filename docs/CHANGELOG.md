@@ -3,6 +3,21 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-07-09 — Review-of-review fast-follow
+
+Independent second-pass review of the review-fixes wave found 6 real issues,
+all fixed same-day: Log Set button label matched count+1 while the POST used
+max+1; the new jsDelivr SW rule cached opaque responses CacheFirst (quota-
+padded ~7 MB each — could evict the whole origin cache; captive-portal pages
+could be pinned as "demos" for 180 days) — now `crossorigin="anonymous"` on
+the demo img + `statuses: [200]` only; failed imports skipped the snapshot
+prune (now pruned at snapshot time); `/api/health` could 500 on a
+non-standard imported `ts`; `/api/progress` listed picker chips whose charts
+were permanently empty (now completed-only, mirroring `get_progress`); the
+PR toast treated a legitimate 0 kg max as "no record". Plus: the five
+copy-pasted backend test fixtures consolidated into `conftest.py`. Tests
+40 backend + 61 frontend.
+
 ## 2026-07-09 — Review-fixes wave (`feat/review-fixes`)
 
 Triple review (running app, Pi system, repo/docs) triaged via review board;

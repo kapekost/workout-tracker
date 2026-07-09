@@ -144,17 +144,14 @@ export default function Workout() {
         <Stat label="Exercises" value={summary.exerciseCount} />
         {summary.serverPrs?.length > 0 && (
           <div style={{ marginTop: 12 }}>
-            {summary.serverPrs.map((p, i) => (
-              p.type === 'baseline' ? (
-                <p key={i} style={{ color: '#9ca3af', fontSize: '0.8rem' }}>
-                  {prLabel(p)}
-                </p>
-              ) : (
-                <p key={i} style={{ color: '#fbbf24', fontSize: '0.8rem' }}>
-                  🎉 New PR — {prLabel(p)}
+            {summary.serverPrs.map((p, i) => {
+              const isBaseline = p.type === 'baseline'
+              return (
+                <p key={i} style={{ color: isBaseline ? '#9ca3af' : '#fbbf24', fontSize: '0.8rem' }}>
+                  {isBaseline ? prLabel(p) : `🎉 New PR — ${prLabel(p)}`}
                 </p>
               )
-            ))}
+            })}
           </div>
         )}
       </div>
@@ -183,10 +180,12 @@ export default function Workout() {
       track('set_logged', { exercise_id: ex.id })
       const newSets = [...sets, newSet]
       setSets(newSets)
-      // PR detection
-      if (!prs[ex.id] || weight > prs[ex.id]) {
+      // PR detection — null-safe: a completed max of 0kg (bodyweight work)
+      // is a real record to beat, not "no record".
+      const prevMax = prs[ex.id]
+      if (prevMax == null || weight > prevMax) {
         setPrs(prev => ({ ...prev, [ex.id]: weight }))
-        if (prs[ex.id]) { // Only show if there was a previous record
+        if (prevMax != null) { // Only show if there was a previous record
           showToast(`🏆 PR! ${weight}kg on ${ex.name}`)
         }
       }
@@ -406,7 +405,7 @@ export default function Workout() {
                   </div>
                   <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
                     style={{ background: color, fontSize: '0.9rem', padding: '12px' }}>
-                    {logging ? 'Logging…' : `Log Set ${exSets.length + 1}`}
+                    {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
                   </button>
                 </div>
 

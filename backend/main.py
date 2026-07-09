@@ -89,6 +89,9 @@ init()
 
 # --- Models ---
 class SessionIn(BaseModel):
+    # Must match the PLAN/CYCLE keys in frontend/src/data/workoutPlan.js —
+    # adding or renaming a day there requires updating this Literal in the
+    # same deploy, or Start Workout 422s.
     workout_day: Literal["upper_a", "lower_a", "upper_b", "lower_b"]
 
 class SetIn(BaseModel):
@@ -126,11 +129,16 @@ def health(response: Response):
         last_at = row["ts"]
         last_status = "ok" if row["name"] == "backup_completed" else "failed"
         # A "successful" heartbeat older than ~26h means the chain stopped
-        # running (e.g. app down at cron time) — surface it as stale.
-        age = (datetime.now(timezone.utc)
-               - datetime.fromisoformat(last_at + "+00:00")).total_seconds()
-        if last_status == "ok" and age > 26 * 3600:
-            last_status = "stale"
+        # running (e.g. app down at cron time) — surface it as stale. Imported
+        # envelopes can carry arbitrary ts strings; never let a bad one 500
+        # the monitoring endpoint.
+        try:
+            age = (datetime.now(timezone.utc)
+                   - datetime.fromisoformat(last_at + "+00:00")).total_seconds()
+            if last_status == "ok" and age > 26 * 3600:
+                last_status = "stale"
+        except ValueError:
+            pass
     else:
         last_at, last_status = None, "none"
     return {"status": "ok", "last_backup_at": last_at, "last_backup_status": last_status}
@@ -222,13 +230,15 @@ def get_progress(exercise_id: str):
 
 @app.get("/api/progress")
 def all_progress():
-    # max_weight (completed sessions only) lets the workout page build its PR
-    # baseline from this one call instead of one request per exercise.
+    # Completed sessions only, mirroring get_progress — otherwise the Progress
+    # page lists picker chips whose charts are permanently empty. max_weight
+    # lets the workout page build its PR baseline from this one call instead
+    # of one request per exercise.
     with db() as conn:
         rows = conn.execute("""
-            SELECT st.exercise_id, st.exercise_name,
-                   MAX(CASE WHEN s.completed = 1 THEN st.weight_kg END) as max_weight
+            SELECT st.exercise_id, st.exercise_name, MAX(st.weight_kg) as max_weight
             FROM sets st JOIN sessions s ON st.session_id = s.id
+            WHERE s.completed = 1
             GROUP BY st.exercise_id, st.exercise_name ORDER BY st.exercise_name
         """).fetchall()
         return [dict(r) for r in rows]
@@ -368,6 +378,13 @@ def import_data(payload: ImportIn):
         snap = os.path.join(snap_dir,
                             f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S-%f}.db")
         conn.execute(f"VACUUM INTO '{snap}'")
+        # Prune here, not after the import: failed imports also leave a
+        # snapshot behind and must not accumulate them unbounded.
+        for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
         try:
             conn.execute("BEGIN")
             for t in TABLES:
@@ -385,11 +402,6 @@ def import_data(payload: ImportIn):
         except Exception:
             conn.rollback()
             raise HTTPException(400, "import failed; rolled back, live DB unchanged")
-    for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
-        try:
-            os.remove(old)
-        except OSError:
-            pass
     return {"restored": {t: len(env["tables"].get(t, [])) for t in TABLES}}
 
 # Serve React — MUST be last
