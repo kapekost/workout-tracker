@@ -1,7 +1,7 @@
 # Resume in-progress workout session — Design
 
 **Date:** 2026-06-30
-**Status:** Approved (pending implementation plan)
+**Status:** Implemented & deployed 2026-06-30 — see docs/CHANGELOG.md
 
 ## Problem
 

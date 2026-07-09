@@ -1,5 +1,7 @@
 # Responsive UI Audit + Personal-Best Baseline Fix — Implementation Plan
 
+> **2026-07-09:** Part A executed and deployed (tests + code as written below, via feat/review-fixes). Part B NOT executed — trimmed and parked in the AGENTS.md backlog. Note the Global Constraints below predate the off-LAN release-asset deploy path, branch-per-feature flow, and the current test counts; refresh before executing anything else from here.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop first-ever entries from being celebrated as personal records (treat them as a silent baseline with a quiet note), and sweep every page for cut-off/overflow UI across the phone-to-tablet range.
