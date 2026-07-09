@@ -107,8 +107,11 @@ export default function Exercise() {
           <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
             Demo
           </p>
+          {/* crossOrigin makes the SW see a real CORS response (jsDelivr sends
+              ACAO:*) instead of an opaque one — opaque entries can't be cached
+              safely (quota-padded ~7MB each, hide errors). */}
           <img src={frames[frameIdx % frames.length]} alt={`${ex.name} demonstration`} loading="lazy"
-            onError={() => setDemoFailed(true)}
+            crossOrigin="anonymous" onError={() => setDemoFailed(true)}
             style={{ width: '100%', borderRadius: 10, display: 'block', background: '#1e1e32' }} />
           <p style={{ color: '#9ca3af', fontSize: '0.65rem', textAlign: 'center', marginTop: 8 }}>
             Animated form demo · free-exercise-db (CC0)

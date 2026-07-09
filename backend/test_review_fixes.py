@@ -139,3 +139,43 @@ def test_health_reports_stale_when_last_backup_is_old(client, mainmod):
 def test_health_reports_ok_for_fresh_backup(client):
     client.post("/api/events", json=[{"name": "backup_completed"}])
     assert client.get("/api/health").json()["last_backup_status"] == "ok"
+
+
+# --- review-of-review findings (2026-07-09 second pass) ---
+
+def test_failed_imports_also_prune_snapshots(client, mainmod):
+    _completed_session(client, "bench", 60)
+    envelope = client.get("/api/export").json()
+    bad = json_deepcopy(envelope)
+    bad["tables"]["sessions"][0]["bogus_col"] = 1  # passes shape check, fails on insert
+    for _ in range(5):
+        r = client.post("/api/import",
+                        json={"mode": "replace", "confirm": True, "envelope": bad})
+        assert r.status_code == 400
+    snaps = glob.glob(os.path.join(os.path.dirname(mainmod.DB_PATH), "pre-import-*.db"))
+    assert len(snaps) <= 3
+
+
+def json_deepcopy(obj):
+    import json
+    return json.loads(json.dumps(obj))
+
+
+def test_health_survives_nonstandard_backup_ts(client, mainmod):
+    with mainmod.db() as conn:
+        conn.execute(
+            "INSERT INTO events (name, ts) VALUES ('backup_completed', '2026-07-09T10:00:00Z')")
+        conn.commit()
+    r = client.get("/api/health")
+    assert r.status_code == 200  # unparseable ts must not 500 the monitoring endpoint
+
+
+def test_all_progress_lists_only_exercises_with_completed_history(client):
+    _completed_session(client, "bench", 60)
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    client.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "set_number": 1, "reps": 8, "weight_kg": 100})  # only in an incomplete session
+    ids = [r["exercise_id"] for r in client.get("/api/progress").json()]
+    assert "bench" in ids
+    assert "squat" not in ids  # would be a picker chip with a permanently empty chart

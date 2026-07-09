@@ -60,6 +60,7 @@ describe('Workout page', () => {
     api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
     renderWorkout()
     const btn = await screen.findByRole('button', { name: /log set/i })
+    expect(btn).toHaveTextContent('Log Set 3') // label must match what will be logged
     await act(async () => { fireEvent.click(btn) })
     await waitFor(() => expect(api.post).toHaveBeenCalled())
     expect(api.post.mock.calls[0][1].set_number).toBe(3)
@@ -106,5 +107,30 @@ describe('Workout page', () => {
     await screen.findByText(/workout complete/i)
     expect(screen.getByText(new RegExp(`${ex1.name}.*baseline`, 'i'))).toBeInTheDocument()
     expect(screen.queryByText(/new pr/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('PR toast with a zero-weight baseline', () => {
+  it('fires when beating a legitimate 0kg completed max', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') {
+        return [{ exercise_id: ex1.id, exercise_name: ex1.name, max_weight: 0 }]
+      }
+      if (path.startsWith('/exercises/')) return null
+      throw new Error(`unmocked GET ${path}`)
+    })
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByRole('button', { name: /log set/i })
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    fireEvent.change(weightInput, { target: { value: '10' } })
+    const btn = screen.getByRole('button', { name: /log set/i })
+    await act(async () => { fireEvent.click(btn) })
+    expect(await screen.findByText(/PR! 10kg/)).toBeInTheDocument()
   })
 })

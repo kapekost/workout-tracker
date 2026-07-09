@@ -32,14 +32,18 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // Exercise-demo frames (CC0, content-addressed on jsDelivr) —
-            // cache-first so demos work on flaky gym wifi.
+            // Exercise-demo frames (CC0) — cache-first so demos work on flaky
+            // gym wifi. NOTE: the URLs pin the mutable @main ref, so a cached
+            // frame can lag upstream changes by up to the TTL (acceptable; a
+            // 404 on a fresh fetch falls back to the YouTube link).
             urlPattern: ({ url }) => url.hostname === 'cdn.jsdelivr.net',
             handler: 'CacheFirst',
             options: {
               cacheName: 'demo-frames',
               expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 180 },
-              cacheableResponse: { statuses: [0, 200] },
+              // 200 only: caching opaque (status 0) responses CacheFirst would
+              // pin a captive portal's intercept page as the "demo" for 180 days.
+              cacheableResponse: { statuses: [200] },
             },
           },
           {
