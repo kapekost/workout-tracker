@@ -1,0 +1,18 @@
+# Keep the build context lean: without this, COPY backend/ and COPY frontend/
+# dragged in ~200 MB of macOS-native venv/node_modules that either bloated the
+# arm64 image or overlaid the builder's own npm ci output.
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+backend/.venv
+backend/test_*.py
+frontend/dist
+data
+*.db
+.git
+.gitignore
+docs
+.superpowers
+scripts
+*.md
+.dockerignore
