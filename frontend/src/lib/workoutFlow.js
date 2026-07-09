@@ -19,3 +19,9 @@ export function prefillFor(exerciseId, sets, progressMaxByExercise = {}, lastSet
   if (pm != null) return { weight: pm, reps: 8 }
   return { weight: 20, reps: 8 }
 }
+
+export function nextSetNumber(sets) {
+  // max+1, not count+1: after deleting set 1 of [1,2], the next set must be 3
+  // or History would show two "Set 2" rows.
+  return sets.reduce((m, s) => Math.max(m, s.set_number), 0) + 1
+}
