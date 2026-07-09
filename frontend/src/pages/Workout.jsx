@@ -7,7 +7,7 @@ import Skeleton from '../components/Skeleton'
 import { formatClock, elapsedSeconds, remainingSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
 import { useRestPreference } from '../lib/useRestPreference'
-import { nextIncompleteExerciseId, prefillFor } from '../lib/workoutFlow'
+import { nextIncompleteExerciseId, prefillFor, nextSetNumber } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
@@ -60,6 +60,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
 
 function prLabel(p) {
   const who = p.exercise_name ? `${p.exercise_name} ` : ''
+  if (p.type === 'baseline') return `${p.exercise_name} — baseline set`
   if (p.type === 'weight')  return `Highest ${who}weight: ${p.value}kg`
   if (p.type === 'reps')    return `Most ${who}reps ${p.unit}: ${p.value}`
   if (p.type === '1rm')     return `Highest ${who}est. 1RM: ${p.value}kg`
@@ -89,6 +90,7 @@ export default function Workout() {
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
   const [editingNote, setEditingNote] = useState(null)
+  const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
 
   async function ensureLastPerf(exId) {
     if (exId in lastPerf) return lastPerf[exId]
@@ -112,13 +114,13 @@ export default function Workout() {
     }).catch(() => nav('/'))
     // Load notes
     api.get('/notes').then(setNotes).catch(() => {})
-    // Load PRs
-    api.get('/progress').then(async exercises => {
+    // Load PR baselines — one call; /api/progress now carries each exercise's
+    // completed-session max, so no per-exercise request fan-out.
+    api.get('/progress').then(exercises => {
       const prMap = {}
-      await Promise.all(exercises.map(async ex => {
-        const prog = await api.get(`/progress/${ex.exercise_id}`)
-        if (prog.length) prMap[ex.exercise_id] = Math.max(...prog.map(p => p.max_weight))
-      }))
+      for (const ex of exercises) {
+        if (ex.max_weight != null) prMap[ex.exercise_id] = ex.max_weight
+      }
       prsAtStart.current = prMap
       setPrs(prMap)
     }).catch(() => {})
@@ -143,9 +145,15 @@ export default function Workout() {
         {summary.serverPrs?.length > 0 && (
           <div style={{ marginTop: 12 }}>
             {summary.serverPrs.map((p, i) => (
-              <p key={i} style={{ color: '#fbbf24', fontSize: '0.8rem' }}>
-                🎉 New PR — {prLabel(p)}
-              </p>
+              p.type === 'baseline' ? (
+                <p key={i} style={{ color: '#9ca3af', fontSize: '0.8rem' }}>
+                  {prLabel(p)}
+                </p>
+              ) : (
+                <p key={i} style={{ color: '#fbbf24', fontSize: '0.8rem' }}>
+                  🎉 New PR — {prLabel(p)}
+                </p>
+              )
             ))}
           </div>
         )}
@@ -168,7 +176,7 @@ export default function Workout() {
       const newSet = await api.post(`/sessions/${sessionId}/sets`, {
         exercise_id: ex.id,
         exercise_name: ex.name,
-        set_number: existingSets.length + 1,
+        set_number: nextSetNumber(existingSets),
         reps,
         weight_kg: weight
       })
@@ -193,6 +201,14 @@ export default function Workout() {
           const data = await ensureLastPerf(nextId)
           const pf = prefillFor(nextId, newSets, prs, data?.sets)
           setWeight(pf.weight); setReps(pf.reps)
+          // Anchor the viewport to the newly-opened card so the collapse of
+          // the tall finished card doesn't shift content under the thumb.
+          requestAnimationFrame(() => {
+            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+            cardRefs.current[nextId]?.scrollIntoView({
+              block: 'start', behavior: reduced ? 'auto' : 'smooth',
+            })
+          })
         }
       }
     } catch (e) { showToast('Failed to log set', 'error') }
@@ -281,10 +297,6 @@ export default function Workout() {
           <h1 style={{ fontSize: '1.6rem', fontWeight: 700 }}>{plan.emoji} {plan.name}</h1>
           <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 2 }}>{session.date}</p>
         </div>
-        <button className="btn-secondary" onClick={finishWorkout} disabled={finishing}
-          style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
-          {finishing ? '…' : 'Finish ✓'}
-        </button>
       </div>
 
       {/* Exercises */}
@@ -296,7 +308,8 @@ export default function Workout() {
         const complete = done >= target
 
         return (
-          <div key={ex.id} className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
+          <div key={ex.id} ref={el => { cardRefs.current[ex.id] = el }}
+            className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
             {/* Exercise header */}
             <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               onClick={async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextIncompleteExerciseId, prefillFor } from './workoutFlow'
+import { nextIncompleteExerciseId, prefillFor, nextSetNumber } from './workoutFlow'
 
 const exercises = [{ id: 'a', sets: 2 }, { id: 'b', sets: 3 }]
 
@@ -40,5 +40,18 @@ describe('prefillFor with lastSets', () => {
   it('prefers this-session last set over lastSets', () => {
     const sets = [{ exercise_id: 'a', weight_kg: 60, reps: 8 }]
     expect(prefillFor('a', sets, {}, [{ weight_kg: 75, reps: 10 }])).toEqual({ weight: 60, reps: 8 })
+  })
+})
+
+describe('nextSetNumber', () => {
+  it('starts at 1 with no sets', () => {
+    expect(nextSetNumber([])).toBe(1)
+  })
+  it('increments past the highest existing number', () => {
+    expect(nextSetNumber([{ set_number: 1 }, { set_number: 2 }])).toBe(3)
+  })
+  it('never reuses a number after a mid-session delete', () => {
+    // set #1 of [1,2] was deleted; the next set must be 3, not 2
+    expect(nextSetNumber([{ set_number: 2 }])).toBe(3)
   })
 })
