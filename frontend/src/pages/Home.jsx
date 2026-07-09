@@ -10,6 +10,17 @@ export function planForDay(workoutDay) {
   return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
 }
 
+// Build commit injected by Vite at build time — answers "which version is the
+// phone actually running?" without digging into image IDs.
+export function VersionStamp() {
+  return (
+    <p className="font-mono" style={{ marginTop: 8, textAlign: 'center',
+      color: '#4b5563', fontSize: '0.65rem' }}>
+      v {__APP_COMMIT__}
+    </p>
+  )
+}
+
 export function StartOrResumeButton({ active, plan, color, starting, onStart, onResume }) {
   if (active) {
     return (
@@ -147,6 +158,7 @@ export default function Home() {
       >
         Export my data
       </button>
+      <VersionStamp />
     </div>
   )
 }

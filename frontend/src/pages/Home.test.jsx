@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { StartOrResumeButton, planForDay } from './Home'
+import { StartOrResumeButton, planForDay, VersionStamp } from './Home'
 import { PLAN } from '../data/workoutPlan'
 
 describe('planForDay', () => {
@@ -38,5 +38,12 @@ describe('StartOrResumeButton', () => {
     const btn = screen.getByRole('button', { name: 'Resume Upper A' })
     fireEvent.click(btn)
     expect(onResume).toHaveBeenCalled()
+  })
+})
+
+describe('VersionStamp', () => {
+  it('renders the build commit discreetly', () => {
+    render(<VersionStamp />)
+    expect(screen.getByText(/^v \S+$/)).toBeInTheDocument()
   })
 })

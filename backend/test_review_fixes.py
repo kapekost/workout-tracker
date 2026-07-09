@@ -179,3 +179,18 @@ def test_all_progress_lists_only_exercises_with_completed_history(client):
     ids = [r["exercise_id"] for r in client.get("/api/progress").json()]
     assert "bench" in ids
     assert "squat" not in ids  # would be a picker chip with a permanently empty chart
+
+
+# --- version stamp: /api/health reports the deployed commit ---
+
+def test_health_reports_app_version(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATABASE_URL", str(tmp_path / "test.db"))
+    monkeypatch.setenv("APP_COMMIT", "abc1234")
+    import main
+    importlib.reload(main)
+    from fastapi.testclient import TestClient
+    assert TestClient(main.app).get("/api/health").json()["version"] == "abc1234"
+
+
+def test_health_version_defaults_to_dev(client):
+    assert client.get("/api/health").json()["version"] == "dev"
