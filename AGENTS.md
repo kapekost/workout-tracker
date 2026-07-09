@@ -124,10 +124,13 @@ release-asset path above.
 
 _Last updated: 2026-07-09._
 
-**Pending deploy → Pi:** none. One manual step outstanding: the one-time rclone +
-crontab setup on the Pi host (see "Nightly off-site backup" runbook) — rclone is
-NOT yet installed there. Until then `/api/health` correctly reports
-`last_backup_status: "none"`.
+**Pending deploy → Pi:** none. Backup chain fully operational as of 2026-07-09:
+rclone (static binary, `~/.local/bin` — no sudo on the Pi) authorized to the
+user's Google Drive, first snapshot landed in `gdrive:workout-tracker-backups`,
+heartbeat verified (`/api/health` → `last_backup_status: "ok"`), nightly cron
+installed (03:30, logs to `~/backup.log`).
+NOTE: rclone warns its shared Google client_id is retired during 2026 — create
+our own client_id before it breaks (https://rclone.org/drive/#making-your-own-client-id).
 
 **Planned (spec + plan written, NOT yet implemented)**
 - Personal-best baseline fix + responsive UI audit. Spec:
