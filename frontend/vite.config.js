@@ -28,7 +28,20 @@ export default defineConfig({
         // SPA: serve the app shell for client-side routes when offline / on refresh
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
+        // default globs + woff2 so the self-hosted fonts are precached
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
+          {
+            // Exercise-demo frames (CC0, content-addressed on jsDelivr) —
+            // cache-first so demos work on flaky gym wifi.
+            urlPattern: ({ url }) => url.hostname === 'cdn.jsdelivr.net',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'demo-frames',
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 180 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Offline-read: last-seen history/progress still render without a connection.
             // Only GETs are cached; writes (POST/PATCH/DELETE) always need the Pi reachable.
