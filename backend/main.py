@@ -1,17 +1,19 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json
+import sqlite3, os, json, glob
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["sessions", "sets", "exercise_notes", "events"]
+PRE_IMPORT_SNAPSHOTS_KEPT = 3
 
+# No CORS middleware on purpose: prod serves the frontend same-origin and dev
+# uses the Vite proxy, so any cross-origin browser request is a foreign page
+# trying to read /api/export or fire /api/import — let the preflight fail.
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 @contextmanager
 def db():
@@ -87,7 +89,7 @@ init()
 
 # --- Models ---
 class SessionIn(BaseModel):
-    workout_day: str = Field(max_length=64)
+    workout_day: Literal["upper_a", "lower_a", "upper_b", "lower_b"]
 
 class SetIn(BaseModel):
     exercise_id: str = Field(max_length=64)
@@ -113,8 +115,9 @@ class ImportIn(BaseModel):
     envelope: dict
 
 # --- API Routes ---
-@app.get("/api/health")
-def health():
+@app.api_route("/api/health", methods=["GET", "HEAD"])
+def health(response: Response):
+    response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         row = conn.execute(
             "SELECT name, ts FROM events WHERE name IN ('backup_completed','backup_failed') "
@@ -122,6 +125,12 @@ def health():
     if row:
         last_at = row["ts"]
         last_status = "ok" if row["name"] == "backup_completed" else "failed"
+        # A "successful" heartbeat older than ~26h means the chain stopped
+        # running (e.g. app down at cron time) — surface it as stale.
+        age = (datetime.now(timezone.utc)
+               - datetime.fromisoformat(last_at + "+00:00")).total_seconds()
+        if last_status == "ok" and age > 26 * 3600:
+            last_status = "stale"
     else:
         last_at, last_status = None, "none"
     return {"status": "ok", "last_backup_at": last_at, "last_backup_status": last_status}
@@ -163,6 +172,8 @@ def patch_session(sid: int, p: SessionPatch):
                 conn.execute("UPDATE sessions SET completed = 0 WHERE id = ?", (sid,))
         conn.commit()
         row = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
+        if not row:
+            raise HTTPException(404)
         return dict(row)
 
 @app.delete("/api/sessions/{sid}")
@@ -194,19 +205,32 @@ def delete_set(sid: int, set_id: int):
 
 @app.get("/api/progress/{exercise_id}")
 def get_progress(exercise_id: str):
+    # Completed sessions only (in-progress/abandoned sets would skew the chart
+    # and the PR baseline), keeping the most recent 60, re-sorted for the chart.
     with db() as conn:
         rows = conn.execute("""
-            SELECT s.date, MAX(st.weight_kg) as max_weight, st.reps as reps
-            FROM sets st JOIN sessions s ON st.session_id = s.id
-            WHERE st.exercise_id = ?
-            GROUP BY s.id, s.date ORDER BY s.date ASC LIMIT 60
+            SELECT date, max_weight, reps FROM (
+                SELECT s.date as date, MAX(st.weight_kg) as max_weight,
+                       st.reps as reps, s.id as sid
+                FROM sets st JOIN sessions s ON st.session_id = s.id
+                WHERE st.exercise_id = ? AND s.completed = 1
+                GROUP BY s.id, s.date
+                ORDER BY s.date DESC, s.id DESC LIMIT 60
+            ) ORDER BY date ASC, sid ASC
         """, (exercise_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/progress")
 def all_progress():
+    # max_weight (completed sessions only) lets the workout page build its PR
+    # baseline from this one call instead of one request per exercise.
     with db() as conn:
-        rows = conn.execute("SELECT DISTINCT exercise_id, exercise_name FROM sets ORDER BY exercise_name").fetchall()
+        rows = conn.execute("""
+            SELECT st.exercise_id, st.exercise_name,
+                   MAX(CASE WHEN s.completed = 1 THEN st.weight_kg END) as max_weight
+            FROM sets st JOIN sessions s ON st.session_id = s.id
+            GROUP BY st.exercise_id, st.exercise_name ORDER BY st.exercise_name
+        """).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/notes")
@@ -266,26 +290,32 @@ def session_prs(sid: int):
         by_ex.setdefault(r["exercise_id"], {"name": r["exercise_name"], "sets": []})["sets"].append(r)
     for ex_id, info in by_ex.items():
         psets = [p for p in prior if p["exercise_id"] == ex_id]
+        # No prior completed history for this exercise → baseline, not a PR.
+        if not psets:
+            prs.append({"type": "baseline", "exercise_name": info["name"], "value": None, "unit": None})
+            continue
         cur_w = max(s["weight_kg"] for s in info["sets"])
-        if not psets or cur_w > max(p["weight_kg"] for p in psets):
+        if cur_w > max(p["weight_kg"] for p in psets):
             prs.append({"type": "weight", "exercise_name": info["name"], "value": cur_w, "unit": "kg"})
-        # reps at the session's top weight for this exercise
+        # reps at the session's top weight — only a PR if we've lifted this weight before
         cur_reps = max(s["reps"] for s in info["sets"] if s["weight_kg"] == cur_w)
         prior_reps_at_w = [p["reps"] for p in psets if p["weight_kg"] == cur_w]
-        if not prior_reps_at_w or cur_reps > max(prior_reps_at_w):
+        if prior_reps_at_w and cur_reps > max(prior_reps_at_w):
             prs.append({"type": "reps", "exercise_name": info["name"], "value": cur_reps, "unit": f"@{cur_w}kg"})
         cur_1rm = max(epley(s["weight_kg"], s["reps"]) for s in info["sets"])
-        if not psets or cur_1rm > max(epley(p["weight_kg"], p["reps"]) for p in psets):
+        if cur_1rm > max(epley(p["weight_kg"], p["reps"]) for p in psets):
             prs.append({"type": "1rm", "exercise_name": info["name"], "value": cur_1rm, "unit": "kg"})
 
     cur_vol = sum(r["weight_kg"] * r["reps"] for r in cur_sets)
     prior_vols = [row["v"] for row in vol_rows if row["session_id"] != sid]
-    if cur_vol and (not prior_vols or cur_vol > max(prior_vols)):
+    if cur_vol and prior_vols and cur_vol > max(prior_vols):
         prs.append({"type": "volume", "exercise_name": None, "value": cur_vol, "unit": "kg"})
     return prs
 
 @app.post("/api/events", status_code=204)
 def ingest_events(events: list[EventIn]):
+    if len(events) > 100:
+        raise HTTPException(422, "too many events in one batch (max 100)")
     if not events:
         return
     with db() as conn:
@@ -307,11 +337,13 @@ def analytics_summary(days: int = 30):
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 @app.get("/api/export")
-def export_data():
+def export_data(response: Response):
+    response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
-    return {"exported_at": datetime.utcnow().isoformat() + "Z", "schema_version": version, "tables": tables}
+    return {"exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "schema_version": version, "tables": tables}
 
 @app.post("/api/import")
 def import_data(payload: ImportIn):
@@ -330,9 +362,11 @@ def import_data(payload: ImportIn):
         cur_version = conn.execute("PRAGMA user_version").fetchone()[0]
         if env_version > cur_version:
             raise HTTPException(400, "envelope schema_version newer than app")
-        # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a txn)
-        snap = os.path.join(os.path.dirname(DB_PATH),
-                            f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.db")
+        # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
+        # txn; microseconds so back-to-back imports can't collide on the name)
+        snap_dir = os.path.dirname(DB_PATH)
+        snap = os.path.join(snap_dir,
+                            f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S-%f}.db")
         conn.execute(f"VACUUM INTO '{snap}'")
         try:
             conn.execute("BEGIN")
@@ -351,6 +385,11 @@ def import_data(payload: ImportIn):
         except Exception:
             conn.rollback()
             raise HTTPException(400, "import failed; rolled back, live DB unchanged")
+    for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
     return {"restored": {t: len(env["tables"].get(t, [])) for t in TABLES}}
 
 # Serve React — MUST be last

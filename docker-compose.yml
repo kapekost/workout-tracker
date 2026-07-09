@@ -15,3 +15,6 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=/app/data/workouts.db
+      # Session dates use local wall-clock; without this the container is UTC
+      # and a workout logged after midnight local lands on the previous day.
+      - TZ=Europe/London
