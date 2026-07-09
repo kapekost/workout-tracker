@@ -22,7 +22,12 @@ export function useWakeLock(active) {
         if (cancelled) { lock.release().catch(() => {}); return }
         lockRef.current = lock
         setHeld(true)
-        lock.addEventListener('release', () => setHeld(false))
+        lock.addEventListener('release', () => {
+          // Clear the ref so the next visibilitychange can re-acquire —
+          // otherwise the guard above blocks its own recovery path forever.
+          if (lockRef.current === lock) lockRef.current = null
+          setHeld(false)
+        })
       } catch { setHeld(false) }
       finally { acquiring = false }
     }
