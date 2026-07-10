@@ -34,8 +34,8 @@ branch `feat/responsive-sweep`.
 | R8 | Progress | all | Exercise selector chips | 35px tall (25 chips), below 44px guideline. | `.tap-target` hit-area class — keeps chip-cloud visual density. | Fixed |
 | R9 | History detail | all | "Delete session" | 122×37px tap target for a destructive action. | `.tap-target` hit-area class. | Fixed |
 | R10 | TimerBar | all | ⏸ button | 32px wide (44 tall) — narrowest control in the bar. | `min-width` bump within the R1 rework where space allows. | Fixed |
-| R11 | History detail | 320 | Session meta line | "✓ completed · ⏱ 55 min" wraps mid-unit ("55" / "min"). | `white-space: nowrap` on the duration fragment. | Open |
-| R12 | Progress chart | all | Recharts axis corner | "0kg" y-tick collides with "06-26" x-tick at the bottom-left. | Chart margin/tick padding tweak. | Open |
+| R11 | History detail | 320 | Session meta line | "✓ completed · ⏱ 55 min" wraps mid-unit ("55" / "min"). | `white-space: nowrap` on the duration fragment. | Fixed |
+| R12 | Progress chart | all | Recharts axis corner | "0kg" y-tick collides with "06-26" x-tick at the bottom-left. | Chart margin/tick padding tweak. | Fixed |
 
 ## Clean at all widths
 
