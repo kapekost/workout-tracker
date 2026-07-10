@@ -29,8 +29,10 @@ sub-44 px tap targets. 13 catalogued defects, all fixed
 - **Cosmetics** (`53a60d6`): History duration wraps as a unit; chart date
   ticks clear the "0kg" y-label.
 
-Tests 42 backend + 62 frontend (unchanged — CSS/layout-only wave). Not yet
-deployed to the Pi.
+Tests 42 backend + 62 frontend (unchanged — CSS/layout-only wave). Deployed
+to the Pi 2026-07-10 ~10:45 BST (`/api/health` version `3420458`), after
+stabilizing an HA crash loop with a power-cycle — during which the PSU
+under-voltage was confirmed live (`0x50005` on a fresh idle boot).
 
 ## 2026-07-09 — Version stamp (`4243f77`)
 
