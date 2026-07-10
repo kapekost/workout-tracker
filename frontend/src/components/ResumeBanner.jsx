@@ -24,7 +24,7 @@ export default function ResumeBanner() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '8px 16px', gap: 12,
       }}>
-        <button onClick={() => nav(`/workout/${active.id}`)} style={{
+        <button className="tap-target" onClick={() => nav(`/workout/${active.id}`)} style={{
           flex: 1, display: 'flex', alignItems: 'center', gap: 10,
           background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
         }}>
