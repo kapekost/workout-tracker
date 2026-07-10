@@ -149,6 +149,7 @@ export default function Home() {
       )}
 
       <button
+        className="tap-target"
         onClick={async () => {
           try { await downloadExport() }
           catch { setToast('Export failed — is the backend up?'); setTimeout(() => setToast(null), 2500) }

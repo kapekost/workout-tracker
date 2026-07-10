@@ -56,7 +56,7 @@ export default function Progress() {
           {/* Exercise picker */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
             {exercises.map(ex => (
-              <button key={ex.exercise_id}
+              <button key={ex.exercise_id} className="tap-target"
                 onClick={() => setSelected(ex.exercise_id)}
                 style={{
                   padding: '7px 14px', borderRadius: 100,
@@ -106,7 +106,7 @@ export default function Progress() {
                   <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={data} margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e1e32" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
                       <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />
                       <Tooltip content={<CustomTooltip />} />
                       <Line type="monotone" dataKey="weight" stroke="#6ee7b7" strokeWidth={2.5}

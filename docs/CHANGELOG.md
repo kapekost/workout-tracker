@@ -3,6 +3,35 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-07-10 — Responsive sweep (`feat/responsive-sweep`)
+
+Plan Part B (2026-06-30) at full original scope: 124 headless-Chrome
+screenshots — 8 portrait viewports (320→1024 wide + a 320×568 short pass) ×
+11 page/states — each probed automatically for horizontal overflow and
+sub-44 px tap targets. 13 catalogued defects, all fixed
+(`docs/superpowers/audits/2026-06-30-responsive-catalog.md`):
+
+- **TimerBar** (`9c19aa8`): the five rest controls overflowed ≤375 px (Skip
+  fully off-screen at 320); static styles moved to classes with two compact
+  media tiers (≤440/≤340) — every control on-screen and 44 px tall down to
+  320 px, even with an H:MM:SS session clock. Also fixed the base bar having
+  ~2 px slack at 430 px.
+- **Set logger** (`57012a0`): Weight/Reps steppers now wrap below ~380 px —
+  the Reps "+" button was off-screen at 320 px (reps could not be increased).
+- **Toast** (`1f886bd`): long PR messages wrap instead of clipping
+  (`width: max-content` + `max-width`; a fixed element at `left:50%`
+  otherwise shrink-wraps to half the viewport).
+- **Tap targets** (`37a1bf1`, `118e8f9`): new `.tap-target` class extends the
+  clickable box to ≥44 px via a pseudo-element with zero layout change —
+  banner discard ×/✓/✗ + resume row, Export my data, form-cues/add-note
+  links, Exercise back buttons, Progress chips, Delete session. Verified
+  functionally (click 18 px outside a 19 px-tall label still fires).
+- **Cosmetics** (`53a60d6`): History duration wraps as a unit; chart date
+  ticks clear the "0kg" y-label.
+
+Tests 42 backend + 62 frontend (unchanged — CSS/layout-only wave). Not yet
+deployed to the Pi.
+
 ## 2026-07-09 — Version stamp (`4243f77`)
 
 Git short SHA baked into the image (`--build-arg APP_COMMIT=...`): shown as a

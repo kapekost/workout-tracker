@@ -24,7 +24,7 @@ export default function ResumeBanner() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '8px 16px', gap: 12,
       }}>
-        <button onClick={() => nav(`/workout/${active.id}`)} style={{
+        <button className="tap-target" onClick={() => nav(`/workout/${active.id}`)} style={{
           flex: 1, display: 'flex', alignItems: 'center', gap: 10,
           background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
         }}>
@@ -35,13 +35,13 @@ export default function ResumeBanner() {
         {confirming ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ color: '#9ca3af', fontSize: '0.72rem' }}>Discard?</span>
-            <button aria-label="confirm discard" onClick={() => discard(active.id)}
+            <button aria-label="confirm discard" className="tap-target" onClick={() => discard(active.id)}
               style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1rem' }}>✓</button>
-            <button aria-label="cancel discard" onClick={() => setConfirming(false)}
+            <button aria-label="cancel discard" className="tap-target" onClick={() => setConfirming(false)}
               style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '1rem' }}>✗</button>
           </div>
         ) : (
-          <button aria-label="discard session" onClick={() => setConfirming(true)}
+          <button aria-label="discard session" className="tap-target" onClick={() => setConfirming(true)}
             style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px' }}>×</button>
         )}
       </div>

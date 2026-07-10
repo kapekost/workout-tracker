@@ -55,7 +55,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
           </div>
         )
       })}
-      <button onClick={() => onDelete(sessionId)}
+      <button className="tap-target" onClick={() => onDelete(sessionId)}
         style={{ background: 'none', border: '1px solid #2a1a1a', borderRadius: 8,
           color: '#ef4444', cursor: 'pointer', padding: '8px 16px', fontSize: '0.78rem',
           fontWeight: 600, marginTop: 8 }}>
@@ -146,7 +146,7 @@ export default function History() {
                 </p>
                 <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: 2 }}>
                   {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
-                  {sessionDuration(s) ? ` · ⏱ ${sessionDuration(s)}` : ''}
+                  {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
                 </p>
               </div>
               <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>

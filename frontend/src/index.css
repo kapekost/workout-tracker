@@ -87,6 +87,18 @@ body {
 }
 .btn-icon:active { background: #2a2a42; }
 
+/* Invisible hit-area extension for visually-small controls: pads the
+   clickable box out to >=44px in both axes without moving any layout. */
+.tap-target { position: relative; }
+.tap-target::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+}
+
 input[type="number"] {
   background: var(--border);
   color: #fff;
@@ -107,7 +119,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
   background: var(--amber); color: #0a0a12;
   font-weight: 700; padding: 12px 24px; border-radius: 100px;
-  z-index: 100; white-space: nowrap;
+  z-index: 100; width: max-content; max-width: calc(100vw - 32px); text-align: center;
   animation: slideDown 0.3s ease;
 }
 .toast.error { background: #ef4444; color: #fff; }
@@ -125,6 +137,36 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 .timer-bar.flash { animation: timerflash 0.4s ease-in-out 3; }
 @keyframes timerflash { 50% { background: #234d34; } }
+
+.timer-bar .session-clock { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.timer-bar .wake-chip { color: var(--mint); font-size: 0.6rem; font-weight: 700; margin-left: 8px; }
+.timer-controls { display: flex; align-items: center; gap: 8px; }
+.rest-block { text-align: center; min-width: 88px; }
+.rest-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; }
+.rest-clock { color: #fff; font-weight: 700; font-size: 2.2rem; line-height: 1; }
+.timer-pill { min-height: 44px; min-width: 44px; font-size: 0.75rem; padding: 4px 12px; }
+
+/* Session clock + five controls exceed narrow portrait widths (Skip was
+   off-screen at 320px). Two tiers keep every control on-screen and 44px
+   tall down to 320px, with room for an H:MM:SS session clock. */
+@media (max-width: 440px) {
+  .timer-bar { gap: 8px; padding: 10px 10px; }
+  .timer-bar .btn-icon { width: 38px; font-size: 1rem; }
+  .timer-controls { gap: 6px; }
+  .rest-block { min-width: 64px; }
+  .rest-clock { font-size: 1.5rem; }
+  .timer-pill { padding: 4px 8px; min-width: 38px; }
+  .wake-text { display: none; }
+}
+@media (max-width: 340px) {
+  .timer-bar .session-clock { font-size: 0.7rem; }
+  .timer-bar .btn-icon { width: 34px; }
+  .timer-controls { gap: 4px; }
+  .rest-block { min-width: 52px; }
+  .rest-clock { font-size: 1.35rem; }
+  .timer-pill { padding: 4px 6px; min-width: 34px; }
+  .timer-bar .wake-chip { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .timer-bar.flash { animation: none; }
