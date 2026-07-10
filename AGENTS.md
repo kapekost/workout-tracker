@@ -185,21 +185,24 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-07-10 05:10 BST._
+_Last updated: 2026-07-10 11:00 BST._
 
-**Running now:** commit `4243f77` (review-fixes wave + review-of-review
-fast-follow + version stamp), verified live via `/api/health` `version` —
-that's also how you check what's deployed. Image 282 MB (was 572); tests 42
-backend + 62 frontend. Backup chain live (2 snapshots on Drive, restore drill
-passed); Pi cleaned up — disk 57%, audio/desktop daemons masked, bluetoothd
-kept for HA. Shipped history: `docs/CHANGELOG.md`.
+**Running now:** commit `3420458` (responsive-sweep wave — plan Part B at full
+matrix, 13 catalog items fixed), deployed and verified 2026-07-10 ~10:45 BST
+(`/api/health` `version` = `3420458`, root 200, data volume intact). Tests 42
+backend + 62 frontend. Backup chain live and cron-verified (3 snapshots on
+Drive). Catalog: `docs/superpowers/audits/2026-06-30-responsive-catalog.md`.
+Shipped history: `docs/CHANGELOG.md`.
 
-**Pending deploy → Pi:** responsive-sweep wave (plan Part B, full matrix —
-merged to `main` 2026-07-10). 13 catalog items fixed, worst being the rest
-TimerBar clipping off-screen at ≤375 px and the Reps stepper being unusable at
-320 px. Catalog: `docs/superpowers/audits/2026-06-30-responsive-catalog.md`.
-Deploy per runbook (build → transfer → restart → verify) next time on the LAN,
-or via the release-asset path.
+**2026-07-10 morning incident (~09:33–10:30 BST):** HA entered a clean-exit
+crash loop (RestartCount 7→18, exit 0, no error lines, no OOM), pegging the
+box (load 7.7) so hard that SSH banner exchange and app TCP responses timed
+out while ICMP stayed fine. Recovery: `docker stop homeassistant` + `sync`,
+power-cycle at the socket, deploy done in the idle window, HA started after.
+**PSU is confirmed bad:** seconds after the fresh boot, with HA still
+stopped, `vcgencmd get_throttled` read `0x50005` — under-voltage *currently
+active*, not just the sticky since-boot bits. Swap the PSU (see Blocked on
+user) before trusting this box with anything else.
 
 **Dated action items**
 - **Before ~2026-Q4 — rclone client_id** (user + agent): rclone's shared Google
