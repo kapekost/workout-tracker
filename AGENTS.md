@@ -209,9 +209,12 @@ or via the release-asset path.
   Google login, ~10 min), then on the Pi: `rclone config update gdrive
   client_id <id> client_secret <secret>` → `rclone config reconnect gdrive:` →
   one manual `backup.sh` run to verify.
-- **2026-07-10, after 03:30 — first real cron run** (unverified as of 00:10):
-  confirm `~/backup.log` exists, a third snapshot landed in Drive (two exist
-  from manual runs), `/api/health` `last_backup_at` advanced past 03:30 BST.
+- ~~2026-07-10, after 03:30 — first real cron run~~ **verified 2026-07-10
+  05:15 BST**: `/api/health` shows `last_backup_at 02:30:29Z` (= 03:30 BST),
+  `ok`. The heartbeat fires only after `rclone copy` succeeds, so the whole
+  chain (VACUUM → local snapshot → Drive upload) completed. Not re-checked:
+  `~/backup.log` contents / Drive file listing — `id_raspi` has a passphrase
+  not in the agent, so that needs an interactive SSH.
 - **Whenever physically at the Pi** (needs interactive sudo): `sudo apt update
   && sudo apt full-upgrade` (lists were 16 days stale), install
   `unattended-upgrades` (security pocket), and check `vcgencmd get_throttled`
