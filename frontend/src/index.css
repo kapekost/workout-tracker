@@ -87,6 +87,18 @@ body {
 }
 .btn-icon:active { background: #2a2a42; }
 
+/* Invisible hit-area extension for visually-small controls: pads the
+   clickable box out to >=44px in both axes without moving any layout. */
+.tap-target { position: relative; }
+.tap-target::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+}
+
 input[type="number"] {
   background: var(--border);
   color: #fff;
