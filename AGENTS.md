@@ -209,12 +209,14 @@ or via the release-asset path.
   Google login, ~10 min), then on the Pi: `rclone config update gdrive
   client_id <id> client_secret <secret>` → `rclone config reconnect gdrive:` →
   one manual `backup.sh` run to verify.
-- ~~2026-07-10, after 03:30 — first real cron run~~ **verified 2026-07-10
-  05:15 BST**: `/api/health` shows `last_backup_at 02:30:29Z` (= 03:30 BST),
-  `ok`. The heartbeat fires only after `rclone copy` succeeds, so the whole
-  chain (VACUUM → local snapshot → Drive upload) completed. Not re-checked:
-  `~/backup.log` contents / Drive file listing — `id_raspi` has a passphrase
-  not in the agent, so that needs an interactive SSH.
+- ~~2026-07-10, after 03:30 — first real cron run~~ **verified in full
+  2026-07-10 09:30 BST**: `/api/health` `last_backup_at 02:30:29Z` (= 03:30
+  BST) `ok`; `~/backup.log` exists; `workout-20260710-033001.db` present
+  locally and on Drive (3 snapshots total). The log carries rclone's NOTICE
+  that the shared client_id retires during 2026 — the Q4 item above is live.
+  (SSH note: use plain `ssh kapekost@192.168.1.170` — `BatchMode=yes` blocks
+  the keychain from supplying the key passphrase and fails with
+  publickey-denied.)
 - **Whenever physically at the Pi** (needs interactive sudo): `sudo apt update
   && sudo apt full-upgrade` (lists were 16 days stale), install
   `unattended-upgrades` (security pocket), and check `vcgencmd get_throttled`
