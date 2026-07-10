@@ -348,6 +348,7 @@ export default function Workout() {
               <div style={{ borderTop: '1px solid #1e1e32', padding: '16px' }}>
                 {/* Info link */}
                 <button
+                  className="tap-target"
                   onClick={() => nav(`/exercise/${session.workout_day}/${ex.id}`)}
                   style={{ background: 'none', border: 'none', color: '#6ee7b7', fontSize: '0.75rem',
                     fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -362,7 +363,7 @@ export default function Workout() {
                 ) : notes[ex.id] ? (
                   <p onClick={() => setEditingNote(ex.id)} style={{ color: '#9ca3af', fontSize: '0.78rem', fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
                 ) : (
-                  <button onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.72rem', padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
+                  <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.72rem', padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
                 )}
 
                 {/* Last workout + overload hint */}
@@ -393,7 +394,9 @@ export default function Workout() {
 
                 {/* Logger controls */}
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14 }}>
+                  {/* flex-wrap: the two fixed-width steppers exceed card width below ~380px;
+                      Reps drops under Weight instead of clipping off-screen. */}
+                  <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                     <div style={{ textAlign: 'center' }}>
                       <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Weight (kg)</p>
                       <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />

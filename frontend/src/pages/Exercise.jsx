@@ -32,7 +32,7 @@ export default function Exercise() {
 
   if (!ex) return (
     <div style={{ padding: 24 }}>
-      <button onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: '#6ee7b7', cursor: 'pointer', fontSize: '1rem', marginBottom: 16 }}>
+      <button className="tap-target" onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: '#6ee7b7', cursor: 'pointer', fontSize: '1rem', marginBottom: 16 }}>
         ← Back
       </button>
       <p style={{ color: '#ef4444' }}>Exercise not found.</p>
@@ -42,7 +42,7 @@ export default function Exercise() {
   return (
     <div style={{ paddingTop: 16 }}>
       {/* Back */}
-      <button onClick={() => nav(-1)}
+      <button className="tap-target" onClick={() => nav(-1)}
         style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: '0.9rem',
           fontWeight: 600, padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
         ← Back to workout

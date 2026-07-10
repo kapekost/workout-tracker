@@ -185,7 +185,7 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-07-10 00:10 BST._
+_Last updated: 2026-07-10 05:10 BST._
 
 **Running now:** commit `4243f77` (review-fixes wave + review-of-review
 fast-follow + version stamp), verified live via `/api/health` `version` —
@@ -193,6 +193,13 @@ that's also how you check what's deployed. Image 282 MB (was 572); tests 42
 backend + 62 frontend. Backup chain live (2 snapshots on Drive, restore drill
 passed); Pi cleaned up — disk 57%, audio/desktop daemons masked, bluetoothd
 kept for HA. Shipped history: `docs/CHANGELOG.md`.
+
+**Pending deploy → Pi:** responsive-sweep wave (plan Part B, full matrix —
+merged to `main` 2026-07-10). 13 catalog items fixed, worst being the rest
+TimerBar clipping off-screen at ≤375 px and the Reps stepper being unusable at
+320 px. Catalog: `docs/superpowers/audits/2026-06-30-responsive-catalog.md`.
+Deploy per runbook (build → transfer → restart → verify) next time on the LAN,
+or via the release-asset path.
 
 **Dated action items**
 - **Before ~2026-Q4 — rclone client_id** (user + agent): rclone's shared Google
@@ -225,12 +232,9 @@ kept for HA. Shipped history: `docs/CHANGELOG.md`.
 
 ## Backlog
 
-- **Responsive UI sweep — trimmed** (was Part B of the 2026-06-30 plan, Part A
-  shipped 2026-07-09): audit only 320/390/768 px, Workout + Home first; prime
-  suspect is the TimerBar 6-element row at 320 px. Fold in the one surviving
-  deferred UI item: an idle rest-timer hint ("Log a set to start rest timer")
-  if discoverability matters. Full-width matrix and remaining pages only if
-  the trimmed pass finds real defects.
+- Idle rest-timer hint ("Log a set to start rest timer") if discoverability
+  matters — the one surviving deferred UI item; the 2026-06-30 responsive
+  sweep (Part B) itself shipped 2026-07-10 at full scope.
 - Scripted one-command deploy (build + transfer + restart) on the Mac.
 - Pin the image to a version tag instead of `:latest` for rollbacks (off-LAN
   release assets already give dated artifacts; on-LAN `:latest` does not).
