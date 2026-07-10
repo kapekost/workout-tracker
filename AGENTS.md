@@ -204,6 +204,15 @@ stopped, `vcgencmd get_throttled` read `0x50005` — under-voltage *currently
 active*, not just the sticky since-boot bits. Swap the PSU (see Blocked on
 user) before trusting this box with anything else.
 
+**HA still looping post-reboot** (as of 11:05 BST): after `docker start`,
+RestartCount hit 9 within ~25 min, health stuck at `starting`, `:8123`
+refuses. The power-cycle did not fix it — consistent with the PSU being the
+root cause (HA boot is the heaviest load and likely triggers the dips). To
+park it until the new PSU: `docker stop homeassistant` (its
+`unless-stopped` policy keeps it parked across reboots); `docker start
+homeassistant` after the swap. The gym-tracker app rides through the churn
+but health responses slow to ~9 s at load peaks.
+
 **Dated action items**
 - **Before ~2026-Q4 — rclone client_id** (user + agent): rclone's shared Google
   client_id is retired during 2026; nightly backups then start failing (they'll
