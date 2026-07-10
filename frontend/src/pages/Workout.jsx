@@ -393,7 +393,9 @@ export default function Workout() {
 
                 {/* Logger controls */}
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14 }}>
+                  {/* flex-wrap: the two fixed-width steppers exceed card width below ~380px;
+                      Reps drops under Weight instead of clipping off-screen. */}
+                  <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                     <div style={{ textAlign: 'center' }}>
                       <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Weight (kg)</p>
                       <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
