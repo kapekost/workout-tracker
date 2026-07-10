@@ -107,7 +107,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
   background: var(--amber); color: #0a0a12;
   font-weight: 700; padding: 12px 24px; border-radius: 100px;
-  z-index: 100; white-space: nowrap;
+  z-index: 100; width: max-content; max-width: calc(100vw - 32px); text-align: center;
   animation: slideDown 0.3s ease;
 }
 .toast.error { background: #ef4444; color: #fff; }
