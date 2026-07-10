@@ -36,6 +36,12 @@ branch `feat/responsive-sweep`.
 | R10 | TimerBar | all | ⏸ button | 32px wide (44 tall) — narrowest control in the bar. | `min-width` bump within the R1 rework where space allows. | Fixed |
 | R11 | History detail | 320 | Session meta line | "✓ completed · ⏱ 55 min" wraps mid-unit ("55" / "min"). | `white-space: nowrap` on the duration fragment. | Fixed |
 | R12 | Progress chart | all | Recharts axis corner | "0kg" y-tick collides with "06-26" x-tick at the bottom-left. | Chart margin/tick padding tweak. | Fixed |
+| R13 | All pages w/ banner | all | ResumeBanner resume row | 256×19px — wide but only 19px tall (found in the final re-sweep). | `.tap-target` hit-area class. | Fixed |
+
+**Accepted (by design):** at the compact TimerBar tiers (≤440px / ≤340px) the
+−30/+30/⏸/Skip controls narrow to 34–41px wide while staying 44px tall — the
+plan's constraint ("all five controls reachable, ≥44px tall") is the binding
+one; full 44px widths return on tablets.
 
 ## Clean at all widths
 
