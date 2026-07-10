@@ -56,7 +56,7 @@ export default function Progress() {
           {/* Exercise picker */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
             {exercises.map(ex => (
-              <button key={ex.exercise_id}
+              <button key={ex.exercise_id} className="tap-target"
                 onClick={() => setSelected(ex.exercise_id)}
                 style={{
                   padding: '7px 14px', borderRadius: 100,

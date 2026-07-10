@@ -27,12 +27,12 @@ branch `feat/responsive-sweep`.
 | R1 | Workout | 320–375 | TimerBar controls row (−30 / REST clock / +30 / ⏸ / Skip) | Cluster overflows the viewport: **Skip fully off-screen at 320** (right edge 371/320), clipped at 360 (379/360) and 375 (379/375). Controls unusable while resting on small phones. | `@media (max-width: 400px)`: tighten bar padding/gaps, shrink REST clock (font + min-width), trim ⏸/Skip padding. Keep all five controls visible and ≥44px tall. | Fixed |
 | R2 | Workout | 320–375 | Expanded-card logger: Weight/Reps steppers | Two fixed-width NumControls (44+72+44 each) can't fit side-by-side: **Reps "+" button off-screen at 320 — reps cannot be increased**; clipped at 360/375 (right edge 385). | Let the steppers wrap (`flex-wrap`) so Reps drops below Weight when the card is too narrow; keep 44px buttons. | Fixed |
 | R3 | Workout | all (latent) | PR toast (`.toast`) | `white-space: nowrap` + long exercise name (e.g. "🏆 PR! 57.5kg on Standing Calf Raise") exceeds narrow viewports; current seeds happen to fit at 320. | `.toast { max-width: calc(100vw - 32px); white-space: normal; text-align: center }`. | Fixed |
-| R4 | All pages w/ banner | all | ResumeBanner discard "×" | 20×26px tap target for a destructive action (has confirm step, still tiny). | ≥44×44 hit area via padding (visual size unchanged). | Open |
-| R5 | Home | all | "Export my data" link | 91×19px tap target. | Padding to ≥44px effective height (visual size unchanged). | Open |
-| R6 | Workout expanded | all | "📋 Form cues + demo →" (140×18) and "＋ Add note" (64×17) | Sub-44px tap targets on the primary logging surface. | Padding + negative margin to preserve layout. | Open |
-| R7 | Exercise | all | "← Back to workout" | 129×22px tap target. | Padding bump. | Open |
-| R8 | Progress | all | Exercise selector chips | 35px tall (25 chips), below 44px guideline. | `min-height: 44px` on chips. | Open |
-| R9 | History detail | all | "Delete session" | 122×37px tap target for a destructive action. | `min-height: 44px`. | Open |
+| R4 | All pages w/ banner | all | ResumeBanner discard "×" | 20×26px tap target for a destructive action (has confirm step, still tiny). | ≥44×44 hit area via `.tap-target` hit-area class (visual size unchanged); confirm ✓/✗ buttons included. | Fixed |
+| R5 | Home | all | "Export my data" link | 91×19px tap target. | `.tap-target` hit-area class. | Fixed |
+| R6 | Workout expanded | all | "📋 Form cues + demo →" (140×18) and "＋ Add note" (64×17) | Sub-44px tap targets on the primary logging surface. | `.tap-target` hit-area class. | Fixed |
+| R7 | Exercise | all | "← Back to workout" | 129×22px tap target. | `.tap-target` hit-area class (both Back variants). | Fixed |
+| R8 | Progress | all | Exercise selector chips | 35px tall (25 chips), below 44px guideline. | `.tap-target` hit-area class — keeps chip-cloud visual density. | Fixed |
+| R9 | History detail | all | "Delete session" | 122×37px tap target for a destructive action. | `.tap-target` hit-area class. | Fixed |
 | R10 | TimerBar | all | ⏸ button | 32px wide (44 tall) — narrowest control in the bar. | `min-width` bump within the R1 rework where space allows. | Fixed |
 | R11 | History detail | 320 | Session meta line | "✓ completed · ⏱ 55 min" wraps mid-unit ("55" / "min"). | `white-space: nowrap` on the duration fragment. | Open |
 | R12 | Progress chart | all | Recharts axis corner | "0kg" y-tick collides with "06-26" x-tick at the bottom-left. | Chart margin/tick padding tweak. | Open |

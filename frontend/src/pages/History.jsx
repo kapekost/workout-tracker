@@ -55,7 +55,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
           </div>
         )
       })}
-      <button onClick={() => onDelete(sessionId)}
+      <button className="tap-target" onClick={() => onDelete(sessionId)}
         style={{ background: 'none', border: '1px solid #2a1a1a', borderRadius: 8,
           color: '#ef4444', cursor: 'pointer', padding: '8px 16px', fontSize: '0.78rem',
           fontWeight: 600, marginTop: 8 }}>
