@@ -185,14 +185,28 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-07-10 11:00 BST._
+_Last updated: 2026-07-16 08:00 BST._
 
-**Running now:** commit `3420458` (responsive-sweep wave — plan Part B at full
-matrix, 13 catalog items fixed), deployed and verified 2026-07-10 ~10:45 BST
-(`/api/health` `version` = `3420458`, root 200, data volume intact). Tests 42
-backend + 62 frontend. Backup chain live and cron-verified (3 snapshots on
-Drive). Catalog: `docs/superpowers/audits/2026-06-30-responsive-catalog.md`.
-Shipped history: `docs/CHANGELOG.md`.
+**Running now:** commit `e1366a9`, redeployed from scratch 2026-07-16 after
+the Pi's SD-card death (2026-07-12) and rebuild (2026-07-14) wiped the prior
+install — see [[project-raspberry-pi-rebuild]]. `~/workout-tracker` on the Pi
+is a fresh `git clone` (no deploy key: the GitHub repo is currently **public**,
+not private as previously noted here — confirm that's intentional). Verified:
+`/api/health` `version` = `e1366a9`, root 200, HA still healthy. DB is a fresh
+schema + seeded exercise catalog only — no workout history survived the
+SD-card death (no backup existed yet at that point either).
+
+**Backup cron is NOT set up on the rebuilt Pi** — `~/.local/bin/rclone` and
+its `gdrive` remote are gone along with everything else non-HA. `/api/health`
+correctly shows `last_backup_status: "none"`. Follow "Re-setup on a fresh Pi"
+above (rclone binary + `rclone config` OAuth, needs an interactive browser)
+before trusting this install with real data long-term.
+
+**Previously running:** commit `3420458` (responsive-sweep wave — plan Part B
+at full matrix, 13 catalog items fixed), deployed and verified 2026-07-10
+~10:45 BST. Tests 42 backend + 62 frontend. Catalog:
+`docs/superpowers/audits/2026-06-30-responsive-catalog.md`. Shipped history:
+`docs/CHANGELOG.md`.
 
 **2026-07-10 morning incident (~09:33–10:30 BST):** HA entered a clean-exit
 crash loop (RestartCount 7→18, exit 0, no error lines, no OOM), pegging the
