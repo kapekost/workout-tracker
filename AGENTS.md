@@ -195,15 +195,27 @@ as this doc used to claim) and that nothing sensitive has ever been committed
 (full history swept: no `.env`/`.db` files, no API keys, only doc
 placeholders). Staying public is intentional; the old "deploy key" references
 above are legacy from when the repo was believed private. Verified:
-`/api/health` `version` = `e1366a9`, root 200, HA still healthy. DB is a fresh
-schema + seeded exercise catalog only — no workout history survived the
-SD-card death (no backup existed yet at that point either).
+`/api/health` `version` = `e1366a9`, root 200, HA still healthy.
 
-**Backup cron is NOT set up on the rebuilt Pi** — `~/.local/bin/rclone` and
-its `gdrive` remote are gone along with everything else non-HA. `/api/health`
-correctly shows `last_backup_status: "none"`. Follow "Re-setup on a fresh Pi"
-above (rclone binary + `rclone config` OAuth, needs an interactive browser)
-before trusting this install with real data long-term.
+**Real workout data restored 2026-07-16.** The SD-card death did not lose
+data after all: nightly Drive backups predate the crash and survived it
+independently of the Pi's SD card. Pulled `workout-20260712-033001.db`
+(the last pre-crash snapshot) from `gdrive:workout-tracker-backups/`,
+verified `PRAGMA integrity_check` = ok and real rows (1 completed session,
+17 sets, 56 events) before restoring via the **file restore** path (stop
+container → `docker cp` into `/app/data/workouts.db` → start). Live
+`/api/export` now correctly serves the 2026-07-08 Upper A session. The
+fresh-install empty DB that briefly ran is saved at
+`~/restore-drill/pre-restore-empty-*.db` on the Pi should it ever matter
+(it shouldn't — it had zero real data).
+
+**Backup cron re-established 2026-07-16.** `~/.local/bin/rclone` reinstalled
+(arm64 static binary), `gdrive` remote reauthorized via a fresh OAuth token
+(shared client_id — still works today, but see the Q4 rclone client_id
+item below, now more urgent since this is a second cold-start), crontab
+entry restored (`30 3 * * * bash ~/workout-tracker/scripts/backup.sh`).
+`backup.sh` run manually and confirmed landing in Drive;
+`/api/health.last_backup_status` = `ok`.
 
 **Previously running:** commit `3420458` (responsive-sweep wave — plan Part B
 at full matrix, 13 catalog items fixed), deployed and verified 2026-07-10
