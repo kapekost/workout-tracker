@@ -243,11 +243,18 @@ homeassistant` after the swap. The gym-tracker app rides through the churn
 but health responses slow to ~9 s at load peaks.
 
 **Dated action items**
-- **Before ~2026-Q4 — rclone client_id** (user + agent): rclone's shared Google
-  client_id is retired during 2026; nightly backups then start failing (they'll
-  show as `stale`/`failed` in `/api/health`). User creates a personal OAuth
-  client_id (https://rclone.org/drive/#making-your-own-client-id — needs their
-  Google login, ~10 min), then on the Pi: `rclone config update gdrive
+- **⚠ Raised priority 2026-07-16 — rclone client_id** (user + agent): rclone's
+  shared Google client_id is retired during 2026; nightly backups then start
+  failing (they'll show as `stale`/`failed` in `/api/health`). Originally a
+  "before Q4" item; escalating it because the `gdrive` remote has now had to
+  be **re-authorized from scratch twice** (2026-07-10 first cron run, and
+  again 2026-07-16 after the SD-card rebuild wiped `~/.local/bin/rclone` and
+  its config). A personal client_id survives a Pi wipe the same way a shared
+  one doesn't — it's stored the same place either way, but doing this now
+  removes one recurring manual step from every future disaster recovery.
+  User creates a personal OAuth client_id
+  (https://rclone.org/drive/#making-your-own-client-id — needs their Google
+  login, ~10 min), then on the Pi: `rclone config update gdrive
   client_id <id> client_secret <secret>` → `rclone config reconnect gdrive:` →
   one manual `backup.sh` run to verify.
 - ~~2026-07-10, after 03:30 — first real cron run~~ **verified in full
