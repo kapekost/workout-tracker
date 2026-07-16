@@ -23,10 +23,10 @@ cues for a 4-day Upper/Lower split.
 | Thing | Value |
 |---|---|
 | Dev repo (Mac) | `~/dev/workout-tracker` (Apple Silicon, `arm64`) |
-| GitHub | `github.com/kapekost/workout-tracker` (private) |
+| GitHub | `github.com/kapekost/workout-tracker` (public — no secrets ever committed, confirmed 2026-07-16; deploy key below is legacy) |
 | Pi host | `rpi-home` — `192.168.1.170`, user `kapekost`, SSH key `~/.ssh/id_raspi` |
 | Pi model | **Raspberry Pi 3 B+** (`aarch64`, ~1 GB RAM, micro-USB power) — the RAM constraint drives everything below |
-| Pi repo clone | `~/workout-tracker` (read-only deploy key `id_workout_tracker` for `git pull`) |
+| Pi repo clone | `~/workout-tracker` (plain anonymous HTTPS clone — repo is public, no deploy key needed for `git pull`) |
 | App URL (LAN) | `http://192.168.1.170:8080` |
 | App URL (gym) | `http://100.64.119.1:8080` — Pi's Tailscale IP (Tailscale runs in **host** network mode) |
 | Co-tenants on Pi | `homeassistant` + `tailscale` containers. **Do not disrupt them.** |
@@ -189,9 +189,12 @@ _Last updated: 2026-07-16 08:00 BST._
 
 **Running now:** commit `e1366a9`, redeployed from scratch 2026-07-16 after
 the Pi's SD-card death (2026-07-12) and rebuild (2026-07-14) wiped the prior
-install — see [[project-raspberry-pi-rebuild]]. `~/workout-tracker` on the Pi
-is a fresh `git clone` (no deploy key: the GitHub repo is currently **public**,
-not private as previously noted here — confirm that's intentional). Verified:
+install. `~/workout-tracker` on the Pi is a fresh anonymous `git clone` over
+HTTPS — confirmed 2026-07-16 the GitHub repo is genuinely public (not private
+as this doc used to claim) and that nothing sensitive has ever been committed
+(full history swept: no `.env`/`.db` files, no API keys, only doc
+placeholders). Staying public is intentional; the old "deploy key" references
+above are legacy from when the repo was believed private. Verified:
 `/api/health` `version` = `e1366a9`, root 200, HA still healthy. DB is a fresh
 schema + seeded exercise catalog only — no workout history survived the
 SD-card death (no backup existed yet at that point either).
