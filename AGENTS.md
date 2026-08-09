@@ -28,7 +28,7 @@ cues for a 4-day Upper/Lower split.
 | Pi model | **Raspberry Pi 3 B+** (`aarch64`, ~1 GB RAM, micro-USB power) — the RAM constraint drives everything below |
 | Pi repo clone | `~/workout-tracker` (plain anonymous HTTPS clone — repo is public, no deploy key needed for `git pull`) |
 | App URL (LAN) | `http://192.168.1.170:8080` |
-| App URL (gym) | `http://100.64.119.1:8080` — Pi's Tailscale IP (Tailscale runs in **host** network mode) |
+| App URL (gym) | `http://100.65.191.3:8080` — Pi's Tailscale IP (Tailscale runs in **host** network mode). **This IP drifts** — it changed at least once already (rebuild-era `100.64.119.1` → current `100.65.191.3`, caught 2026-07-18 after it silently broke gym access). Verify with `docker exec tailscale tailscale ip -4` on the Pi before trusting this value; the durable fix is the blocked HTTPS/MagicDNS domain below. |
 | Co-tenants on Pi | `homeassistant` + `tailscale` containers. **Do not disrupt them.** |
 
 ## Hard rules — do not violate
@@ -177,9 +177,20 @@ release-asset path above.
   container: `docker exec tailscale tailscale ip -4`.
 - The running app footprint is tiny (~12 MiB RAM, <1% CPU). If the Pi is ever
   thrashing again, something is **building** — stop it; never build here.
-- The Pi's weekly HA cron (`docker pull … && docker restart homeassistant`)
-  **does not actually update HA** — `restart` keeps the old image. See the
-  backlog before "fixing" anything HA-related; it's the user's call.
+- **Correction 2026-08-09:** the "Pi's weekly HA cron" referenced below used to
+  exist but is gone as of this date — checked `crontab -l`, `/etc/cron.d/`,
+  `/etc/cron.weekly/`, and `systemctl list-timers`, none of it is there anymore.
+  HA + Tailscale image updates are now handled by Watchtower (re-enabled
+  2026-08-09 on the `nickfedor/watchtower` fork, see
+  `~/dev/claude/home-assistant/install/docker-compose.yml`) — nightly at 04:00,
+  proper pull+recreate (not the old broken pull-then-restart pattern below).
+  workout-tracker itself is intentionally NOT covered (no registry, Mac-built
+  images only) — its update path stays the manual Build→Transfer→Run loop above.
+- (Historical, kept for context) the old weekly HA cron
+  (`docker pull … && docker restart homeassistant`) **did not actually update
+  HA** — `restart` keeps the old image; `docker compose up -d` (or Watchtower)
+  is required to actually swap it. If you ever see this pattern reintroduced
+  anywhere, it's the same bug.
 - `systemctl --user` on the Pi needs `XDG_RUNTIME_DIR=/run/user/$(id -u)` when
   invoked over SSH.
 
