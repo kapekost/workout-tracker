@@ -194,6 +194,28 @@ release-asset path above.
 - `systemctl --user` on the Pi needs `XDG_RUNTIME_DIR=/run/user/$(id -u)` when
   invoked over SSH.
 
+## Design docs & research
+
+Durable reference material. Specs and plans live in `docs/superpowers/`; shipped
+history is in `docs/CHANGELOG.md`.
+
+- **[`docs/superpowers/research/2026-08-16-recovery-science.md`](docs/superpowers/research/2026-08-16-recovery-science.md)**
+  — evidence review on strength-training recovery, from primary sources (16 citations:
+  Phillips 1997, Damas 2015/2016, Dourado 2023, Carmona 2018, Pelland 2025, ACSM 2026,
+  Ogasawara, ISSN 2017). **Read this before touching anything that estimates recovery,
+  readiness, volume landmarks, or training frequency.** Its §7 "Limitations" list is
+  binding on what the app may claim to the user. Key conclusions:
+  - Recovery time tracks **movement pattern, not muscle size** (Dourado 2023: knee
+    extension 24 h vs leg press 48 h, same muscle, same subjects).
+  - Count **indirect sets as 0.5** — best predicts adaptation (Pelland 2025).
+  - We have **none** of the inputs commercial recovery scores use (HRV, RHR, sleep,
+    skin temp), and between-subject variance is huge (Carmona 2018: 21% vs 52% MVC
+    loss on one protocol). Never show a recovery **percentage**; never say "readiness".
+  - No "losing gains" warnings before ~3 weeks off (Ogasawara: no significant loss at 3 wk).
+- **[`docs/superpowers/specs/2026-08-16-muscle-group-recovery-design.md`](docs/superpowers/specs/2026-08-16-muscle-group-recovery-design.md)**
+  — muscle-group picker + per-muscle freshness estimate. Design approved; implementation
+  plan not yet written.
+
 ## Status
 
 _Last updated: 2026-07-16 08:00 BST._
@@ -296,6 +318,12 @@ but health responses slow to ~9 s at load peaks.
 
 ## Backlog
 
+- **Nutrition guidance** (deferred from the 2026-08-16 muscle-group/recovery design):
+  pre/post-workout food suggestions and protein timing. Scope it to general, sourced
+  guidance (ISSN position stands) with a "not medical advice" line — not personalised
+  vitamin/supplement dosing. Needs its own spec. The one datum it requires that the app
+  deliberately does **not** collect today is bodyweight (ISSN protein guidance is g/kg,
+  1.4–2.0); the recovery work needs no biometrics at all.
 - Idle rest-timer hint ("Log a set to start rest timer") if discoverability
   matters — the one surviving deferred UI item; the 2026-06-30 responsive
   sweep (Part B) itself shipped 2026-07-10 at full scope.
