@@ -134,3 +134,25 @@ describe('PR toast with a zero-weight baseline', () => {
     expect(await screen.findByText(/PR! 10kg/)).toBeInTheDocument()
   })
 })
+
+describe('unknown workout_day', () => {
+  it('renders the unknown-day fallback instead of throwing', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return {
+          id: 1, workout_day: 'bogus_day', date: '2026-08-16', completed: 0,
+          created_at: '2026-08-16 10:00:00', ended_at: null, sets: [],
+        }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      return null
+    })
+    render(
+      <MemoryRouter initialEntries={['/workout/1']}>
+        <Routes><Route path="/workout/:sessionId" element={<Workout />} /></Routes>
+      </MemoryRouter>
+    )
+    expect(await screen.findByText('Unknown workout day.')).toBeInTheDocument()
+  })
+})
