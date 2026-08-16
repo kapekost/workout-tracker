@@ -33,7 +33,8 @@ export function RecoveryRing({ freshness, size = 44 }) {
     : Math.max(0, Math.min(1, freshness))
   return (
     <svg className="recovery-ring" width={size} height={size}
-      viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      viewBox={`0 0 ${size} ${size}`} aria-hidden="true"
+      style={{ flexShrink: 0 }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none"
         stroke="#1e1e32" strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none"
@@ -57,13 +58,17 @@ export function MuscleChip({ group, expanded, onToggle }) {
     <button className="tap-target" onClick={onToggle} aria-expanded={expanded}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        // Grid items default to min-width:auto, so the longest band label
+        // ("Partly recovered (est.)") would force the track past its 1fr and
+        // overflow the page sideways. Let the chip shrink and the label wrap.
+        minWidth: 0,
         minHeight: 56, padding: '8px 10px', textAlign: 'left',
         background: expanded ? '#15152a' : 'none',
         border: '1px solid #1e1e32', borderRadius: 12, cursor: 'pointer',
         color: 'inherit',
       }}>
       <RecoveryRing freshness={group.freshness} />
-      <span style={{ minWidth: 0 }}>
+      <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem' }}>
           {group.label}
         </span>
