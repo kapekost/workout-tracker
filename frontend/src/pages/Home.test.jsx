@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { StartOrResumeButton, planForDay, VersionStamp } from './Home'
+import { StartOrResumeButton, planForDay, VersionStamp, lastTrainedByDay } from './Home'
 import { PLAN } from '../data/workoutPlan'
 
 describe('planForDay', () => {
@@ -45,5 +45,36 @@ describe('VersionStamp', () => {
   it('renders the build commit discreetly', () => {
     render(<VersionStamp />)
     expect(screen.getByText(/^v \S+$/)).toBeInTheDocument()
+  })
+})
+
+describe('lastTrainedByDay', () => {
+  it('maps each plan day to its most recent completed session date', () => {
+    const sessions = [
+      { workout_day: 'upper_a', date: '2026-08-12', completed: 1 },
+      { workout_day: 'lower_a', date: '2026-08-10', completed: 1 },
+      { workout_day: 'upper_a', date: '2026-08-05', completed: 1 },
+    ]
+    expect(lastTrainedByDay(sessions)).toEqual({
+      upper_a: '2026-08-12', lower_a: '2026-08-10',
+    })
+  })
+
+  it('ignores in-progress sessions', () => {
+    const sessions = [
+      { workout_day: 'upper_a', date: '2026-08-12', completed: 0 },
+      { workout_day: 'upper_a', date: '2026-08-05', completed: 1 },
+    ]
+    expect(lastTrainedByDay(sessions)).toEqual({ upper_a: '2026-08-05' })
+  })
+
+  it('handles no sessions', () => {
+    expect(lastTrainedByDay([])).toEqual({})
+    expect(lastTrainedByDay(null)).toEqual({})
+  })
+
+  it('ignores sessions whose workout_day is not a plan day', () => {
+    expect(lastTrainedByDay([{ workout_day: 'bogus', date: '2026-08-12', completed: 1 }]))
+      .toEqual({})
   })
 })

@@ -1,13 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { PLAN, getNextWorkoutId, DAY_COLORS } from '../data/workoutPlan'
+import { PLAN, getNextWorkoutId, DAY_COLORS, CYCLE } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
+import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
+import MuscleGroupPicker from '../components/MuscleGroupPicker'
 
 export function planForDay(workoutDay) {
   return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
+}
+
+// Most recent COMPLETED session date per plan day. Feeds bestDayForMuscle's
+// tie-break; derived from the /sessions response Home already fetches, so the
+// picker costs exactly one extra request (/exercises/recency), not two.
+export function lastTrainedByDay(sessions) {
+  const out = {}
+  ;(sessions || []).forEach(s => {
+    if (!s.completed || !CYCLE.includes(s.workout_day)) return
+    if (!out[s.workout_day] || s.date > out[s.workout_day]) {
+      out[s.workout_day] = s.date
+    }
+  })
+  return out
 }
 
 // Build commit injected by Vite at build time — answers "which version is the
@@ -43,11 +59,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [toast, setToast] = useState(null)
+  const [recency, setRecency] = useState([])
   const nav = useNavigate()
   const { active, refresh, ready } = useActiveSession()
 
   useEffect(() => {
     api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
+    // The picker is additive — if this fails, Home still works without it.
+    api.get('/exercises/recency').then(setRecency).catch(() => setRecency([]))
   }, [])
 
   const nextId = getNextWorkoutId(sessions)
@@ -58,11 +77,14 @@ export default function Home() {
   const lastSession = sessions[0]
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null
 
-  async function startWorkout() {
+  const groups = groupRecovery(recency)
+  const trainedByDay = lastTrainedByDay(sessions)
+
+  async function startDay(dayId) {
     setStarting(true)
     try {
-      const s = await api.post('/sessions', { workout_day: nextId })
-      track('session_start', { day: nextId })
+      const s = await api.post('/sessions', { workout_day: dayId })
+      track('session_start', { day: dayId })
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
@@ -71,6 +93,8 @@ export default function Home() {
       setStarting(false)
     }
   }
+
+  const startWorkout = () => startDay(nextId)
 
   if (loading || !ready) return (
     <div style={{ paddingTop: 32, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
@@ -88,6 +112,9 @@ export default function Home() {
           {next.emoji} {next.name}
         </h1>
         <p style={{ color: '#6b7280', marginTop: 6, fontSize: '0.875rem' }}>{next.tag}</p>
+        <p style={{ color: '#9ca3af', marginTop: 6, fontSize: '0.8rem' }}>
+          {lastWorkoutLabel(sessions)}
+        </p>
       </div>
 
       {/* Exercise preview */}
@@ -122,6 +149,15 @@ export default function Home() {
         starting={starting}
         onStart={startWorkout}
         onResume={() => active && nav(`/workout/${active.id}`)}
+      />
+
+      {/* Muscle groups */}
+      <MuscleGroupPicker
+        groups={groups}
+        lastTrainedByDay={trainedByDay}
+        activeSession={active}
+        starting={starting}
+        onStart={startDay}
       />
 
       {/* Last session */}
