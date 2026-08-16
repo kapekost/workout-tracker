@@ -1,8 +1,11 @@
 # Muscle-group picker + recovery estimate — design
 
 **Date:** 2026-08-16
-**Status:** Design approved in brainstorming; implementation plan not yet written.
+**Status:** Shipped to `main` 2026-08-16, not yet deployed. This remains the
+authoritative statement of *why* the feature is shaped this way; the shipped
+code is authoritative for *what* it does.
 **Research:** [`../research/2026-08-16-recovery-science.md`](../research/2026-08-16-recovery-science.md)
+**Execution record:** [`../plans/2026-08-16-muscle-group-recovery.md`](../plans/2026-08-16-muscle-group-recovery.md)
 
 ---
 
@@ -117,7 +120,10 @@ staging, skin temp). Carmona 2018 ran one protocol on 13 people and saw 21% vs 5
 loss with a >10× spread in damage markers — none of the explanatory factors are in our data.
 **Do not reintroduce a percentage.**
 
-Load the `dataviz` skill before writing the ring/meter code.
+The ring is a **sequential** encoding (freshness is a magnitude), so it is a
+single-hue ramp, monotonic in lightness, ending on the app's existing `--mint`.
+Not red/amber/green: "Recently trained" is a fact, not a warning. The band label
+is the non-colour channel, so colour never carries state alone.
 
 ## 6. Guardrails — hard rules
 
@@ -152,11 +158,11 @@ Rejected alternatives:
 - **Per-exercise `/api/exercises/{id}/last`** — 22 requests on Home load; unacceptable on a
   Pi 3 B+ over gym wifi.
 
-## 8. Latent bug to fix en route
+## 8. Latent bug fixed en route
 
-`frontend/src/pages/Workout.jsx:107` does `PLAN[s.workout_day].exercises` unguarded — any
-session with an unrecognised `workout_day` throws and the page dies. Not reachable under this
-design, but guard it.
+`Workout.jsx` did `PLAN[s.workout_day].exercises` unguarded. The throw was caught by the
+effect's own `.catch(() => nav('/'))`, which silently bounced the user to Home and left the
+render-path "Unknown workout day." fallback unreachable. Fixed in `8ae06b1`.
 
 ## 9. Testing
 
