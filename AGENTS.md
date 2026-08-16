@@ -50,15 +50,52 @@ cues for a 4-day Upper/Lower split.
    commit it. Note: `data/` on the Pi is root-owned (the container runs as
    root) — host-side deletes inside it go through `docker exec <ct> rm …`.
 
+## Local development (Mac)
+
+**None of these tools are on `PATH` in a non-interactive shell.** Every one of them cost
+a rediscovery cycle; the literal paths are below so the next session doesn't repeat it.
+
+| Tool | Where it actually is |
+|---|---|
+| `node` / `npm` | `~/.nvm/versions/node/v22.14.0/bin` — nvm never loads in a non-login shell. Prefix: `export PATH="$HOME/.nvm/versions/node/v22.14.0/bin:$PATH"` |
+| `docker` | `/usr/local/bin/docker` → Docker.app. The **daemon is often not running**; `open -a Docker` and wait ~30 s for `docker version` to report a server. |
+| Python | **Use Homebrew `python@3.14`.** System `/usr/bin/python3` is 3.9.6 and *cannot* install this repo's pins — `fastapi==0.138.1` has no 3.9 wheel, and the failure ("No matching distribution found") does not mention the Python version. |
+
+```bash
+# Frontend
+export PATH="$HOME/.nvm/versions/node/v22.14.0/bin:$PATH"
+cd frontend && npm install && npm test          # vitest, ~2 s
+npm run dev                                     # Vite dev server, proxies /api
+
+# Backend
+cd backend
+/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q                   # ~1 s
+.venv/bin/python -m uvicorn main:app --reload   # DATABASE_URL defaults to /app/data — override locally
+```
+
+Both `.venv/` and `node_modules/` are gitignored, so each git worktree needs its own —
+they are not shared with the main checkout.
+
 ## Runbook
 
 ### Build (Mac)
 ```bash
 cd ~/dev/workout-tracker
+git pull --ff-only          # ⚠ see below — the stamp lies if you skip this
 docker buildx build --pull --platform linux/arm64 \
   --build-arg APP_COMMIT=$(git rev-parse --short HEAD) \
   -t kapekost/workout-tracker:latest --load .
 ```
+
+> **⚠ Build only from a current, clean tree.** `APP_COMMIT` is whatever `HEAD` happens to
+> be, so a stale or dirty checkout produces an image stamped with a commit that does not
+> describe its contents — and the Verify step below will happily pass, because it only
+> checks that `/api/health` matches the SHA you *built*, not that the SHA is the one you
+> meant. Since agent worktrees live under `.claude/worktrees/`, it is easy for `main` to
+> sit several commits behind the branch you actually want. Building from a worktree is
+> fine — just confirm `git rev-parse --short HEAD` is the commit you intend first.
 (`--pull` refreshes the `python:3.11-slim` base so patched CVEs are picked up;
 `APP_COMMIT` is the version stamp shown in the UI and `/api/health` — build
 from a clean, committed tree so the stamp names what actually shipped.)
@@ -196,9 +233,25 @@ release-asset path above.
 
 ## Status
 
-_Last updated: 2026-07-16 08:00 BST._
+_Last updated: 2026-08-16._
 
-**Running now:** commit `e1366a9`, redeployed from scratch 2026-07-16 after
+**Running now:** commit `b63006f`, built on the Mac and deployed 2026-08-16. Verified:
+root 200, `/api/health` `version` = `b63006f`, `last_backup_status` = `ok`,
+`homeassistant` still `healthy`, `tailscale` and `watchtower` up. Ships one behaviour
+change — `Workout.jsx` no longer throws a `TypeError` on a session whose `workout_day`
+isn't one of the four plan keys (the page's own "Unknown workout day." fallback could
+never render because the effect died first). Everything else in this deploy is docs.
+
+**In flight — muscle-group picker + recovery estimate.** Spec and implementation plan are
+written, approved and committed (`docs/superpowers/specs/2026-08-16-*`,
+`docs/superpowers/plans/2026-08-16-*`); evidence review in
+`docs/superpowers/research/2026-08-16-recovery-science.md`. Task 1 of 8 shipped in this
+deploy; tasks 2-8 (the feature itself — new `GET /api/exercises/recency`, muscle taxonomy,
+decay model, picker UI) are not built yet. Continuation handoff:
+`~/.claude/handoffs/2026-08-16-muscle-group-recovery-CONTINUE.md`. **No schema change is
+involved, so no restore re-drill is required for that work.**
+
+**Previously running:** commit `e1366a9`, redeployed from scratch 2026-07-16 after
 the Pi's SD-card death (2026-07-12) and rebuild (2026-07-14) wiped the prior
 install. `~/workout-tracker` on the Pi is a fresh anonymous `git clone` over
 HTTPS — confirmed 2026-07-16 the GitHub repo is genuinely public (not private
@@ -228,7 +281,7 @@ entry restored (`30 3 * * * bash ~/workout-tracker/scripts/backup.sh`).
 `backup.sh` run manually and confirmed landing in Drive;
 `/api/health.last_backup_status` = `ok`.
 
-**Previously running:** commit `3420458` (responsive-sweep wave — plan Part B
+**Before that:** commit `3420458` (responsive-sweep wave — plan Part B
 at full matrix, 13 catalog items fixed), deployed and verified 2026-07-10
 ~10:45 BST. Tests 42 backend + 62 frontend. Catalog:
 `docs/superpowers/audits/2026-06-30-responsive-catalog.md`. Shipped history:
