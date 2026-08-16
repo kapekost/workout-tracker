@@ -86,4 +86,43 @@ export function groupWeightsFor(exercise) {
   return out
 }
 
+// Fractional sets each plan day gives each muscle group.
+export function groupSetsForDay(dayId) {
+  const day = PLAN[dayId]
+  const out = {}
+  if (!day) return out
+  day.exercises.forEach(ex => {
+    Object.entries(groupWeightsFor(ex)).forEach(([groupId, weight]) => {
+      out[groupId] = (out[groupId] ?? 0) + ex.sets * weight
+    })
+  })
+  return out
+}
+
+// Older ISO date sorts first; a never-trained day (null) beats any date.
+// Returns false on a genuine tie so the caller keeps its incumbent, which
+// makes CYCLE order the final deterministic fallback.
+function isMoreRested(candidate, incumbent) {
+  if (candidate === null && incumbent === null) return false
+  if (candidate === null) return true
+  if (incumbent === null) return false
+  return candidate < incumbent
+}
+
+// Which of the 4 plan days trains this group most? Ties break toward the more
+// rested day, which is what couples the picker to the recovery estimate.
+export function bestDayForMuscle(groupId, lastTrainedByDay = {}) {
+  let best = null
+  for (const dayId of CYCLE) {
+    const score = groupSetsForDay(dayId)[groupId] ?? 0
+    const last = lastTrainedByDay[dayId] ?? null
+    if (best === null || score > best.score) {
+      best = { dayId, score, last }
+    } else if (score === best.score && isMoreRested(last, best.last)) {
+      best = { dayId, score, last }
+    }
+  }
+  return best && best.score > 0 ? best.dayId : null
+}
+
 export { CYCLE }
