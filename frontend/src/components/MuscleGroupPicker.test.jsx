@@ -8,6 +8,16 @@ const group = (over = {}) => ({
   daysSinceLabel: 'Yesterday', fractionalSets: 6, lastDate: '2026-08-11', ...over,
 })
 
+// 'recovered' is banned everywhere EXCEPT inside the exact band label
+// 'Partly recovered (est.)' — strip that literal, case-sensitive phrase before
+// scanning so only a stray, unintended use of the word fails.
+const BANNED_WORDS = ['readiness', 'fatigue', 'overtrain', 'optimal', 'risk', 'recovered']
+const ALLOWED_RECOVERED_PHRASE = 'Partly recovered (est.)'
+
+function scanForBannedWords(container) {
+  return container.textContent.split(ALLOWED_RECOVERED_PHRASE).join('').toLowerCase()
+}
+
 const untrained = group({
   id: 'chest', label: 'Chest', freshness: null, band: 'Not trained yet',
   hoursSince: null, daysSince: null, daysSinceLabel: 'Not trained yet',
@@ -120,11 +130,32 @@ describe('MuscleGroupPicker', () => {
     expect(screen.getByText(/Chest — not trained yet/i)).toBeInTheDocument()
   })
 
-  it('uses none of the banned words', () => {
+  it('uses none of the banned words in the collapsed grid', () => {
     const { container } = render(
       <MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
-    const text = container.textContent.toLowerCase()
-    for (const word of ['readiness', 'fatigue', 'overtrain', 'optimal', 'risk']) {
+    const text = scanForBannedWords(container)
+    for (const word of BANNED_WORDS) {
+      expect(text).not.toContain(word)
+    }
+  })
+
+  it('uses none of the banned words in an expanded chip', () => {
+    const { container } = render(
+      <MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
+    const text = scanForBannedWords(container)
+    for (const word of BANNED_WORDS) {
+      expect(text).not.toContain(word)
+    }
+  })
+
+  it('uses none of the banned words with an active session', () => {
+    const { container } = render(
+      <MuscleGroupPicker groups={groups} lastTrainedByDay={{}}
+        activeSession={{ id: 4 }} onStart={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
+    const text = scanForBannedWords(container)
+    for (const word of BANNED_WORDS) {
       expect(text).not.toContain(word)
     }
   })

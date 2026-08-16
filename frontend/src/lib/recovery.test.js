@@ -70,6 +70,22 @@ describe('load capping', () => {
     const g = quads(heavy, AT_MS)
     expect(g.freshness).toBe(0)
   })
+
+  // The min(1, ...) cap applies per exercise bout, before novelty/decay, not to
+  // the group's summed load. A single bout whose raw fractional-set term already
+  // exceeds 1 (20 sets * 1.0 weight / 6 = 3.33) is the only regime that
+  // distinguishes the two orderings — everywhere else in this file the per-bout
+  // term stays under 1, so capping per bout vs. capping the sum once would
+  // produce identical results and a regression here would go undetected.
+  //
+  //   correct (cap the bout, then decay): min(1, 3.33) * decay(48h) = 0.1353 -> 0.8647 (Fresh)
+  //   wrong   (decay, then cap the sum):        3.33   * decay(48h) = 0.4511 -> 0.5489 (Partly)
+  it('caps each bout before decay, not the summed group total', () => {
+    const single = [row({ exercise_id: 'back_squat', sets: 20 })]
+    const g = quads(single, AT_MS + 48 * H)
+    expect(g.freshness).toBeCloseTo(0.8647, 4)
+    expect(g.band).toBe('Fresh')
+  })
 })
 
 describe('bandFor boundaries', () => {
