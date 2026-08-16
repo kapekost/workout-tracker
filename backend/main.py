@@ -286,6 +286,50 @@ def last_performance(exercise_id: str, exclude_session: int | None = None):
             (row["id"], exercise_id)).fetchall()
         return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
 
+@app.get("/api/exercises/recency")
+def exercises_recency():
+    # Powers the Home muscle-group picker: for each exercise, when it was last
+    # trained, how much of it, and when it was trained before that.
+    #
+    # Completed sessions only, matching get_progress/all_progress. The cost is
+    # that sets logged in an abandoned session don't count toward the recovery
+    # estimate — it reads that muscle as fresher than it is. Same direction of
+    # error as the unlogged-classes blind spot, and accepted for consistency.
+    #
+    # One query, not 22: /api/exercises/{id}/last is per-exercise and a Pi 3 B+
+    # over gym wifi cannot serve a 22-request fan-out on page load.
+    #
+    # last_date comes from sessions.date (server-LOCAL, for calendar day counts)
+    # while last_at comes from sets.logged_at (UTC, for hour counts). They are
+    # deliberately different clocks — see the design doc.
+    with db() as conn:
+        rows = conn.execute("""
+            WITH per_session AS (
+                SELECT st.exercise_id            AS exercise_id,
+                       s.id                      AS session_id,
+                       s.date                    AS date,
+                       MAX(st.logged_at)         AS last_at,
+                       COUNT(*)                  AS sets,
+                       SUM(st.weight_kg * st.reps) AS volume_kg,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY st.exercise_id
+                           ORDER BY s.date DESC, s.id DESC
+                       ) AS rn
+                FROM sets st
+                JOIN sessions s ON s.id = st.session_id
+                WHERE s.completed = 1
+                GROUP BY st.exercise_id, s.id, s.date
+            )
+            SELECT cur.exercise_id, cur.date AS last_date, cur.last_at,
+                   cur.sets, cur.volume_kg, prev.date AS prev_date
+            FROM per_session cur
+            LEFT JOIN per_session prev
+                   ON prev.exercise_id = cur.exercise_id AND prev.rn = 2
+            WHERE cur.rn = 1
+            ORDER BY cur.exercise_id
+        """).fetchall()
+        return [dict(r) for r in rows]
+
 @app.get("/api/sessions/{sid}/prs")
 def session_prs(sid: int):
     with db() as conn:
