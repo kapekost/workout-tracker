@@ -134,3 +134,21 @@ describe('PR toast with a zero-weight baseline', () => {
     expect(await screen.findByText(/PR! 10kg/)).toBeInTheDocument()
   })
 })
+
+describe('unknown workout_day', () => {
+  it('renders the unknown-day fallback instead of bailing to home', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'bogus_day', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path.startsWith('/exercises/')) return null
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    expect(await screen.findByText('Unknown workout day.')).toBeInTheDocument()
+    expect(screen.queryByText('home')).not.toBeInTheDocument()
+  })
+})
