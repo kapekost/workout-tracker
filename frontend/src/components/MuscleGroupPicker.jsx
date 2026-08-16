@@ -13,13 +13,30 @@ export const DISCLOSURE =
 // Freshness is a MAGNITUDE, so the ring is a sequential encoding: one hue,
 // dark to light, monotonic in lightness. Deliberately NOT red/amber/green —
 // "Recently trained" is a fact, not a warning, and must not look like one.
-// The bright end is the app's existing mint accent so the ring belongs to the
+// The vivid end is the app's existing mint accent, so the ring belongs to the
 // same system as everything else on the page.
+//
+// Both ends sit in the SAME hue family. A dim slate low end would make this a
+// two-hue ramp, which is a severity scale wearing a sequential costume.
+const RING_LOW = [45, 95, 80]      // dark emerald, recedes against the surface
+const RING_HIGH = [110, 231, 183]  // --mint, the app's one accent
+
+// Distinct from the ramp so "never trained" is not confusable with "just
+// trained". Largely academic — an unknown ring renders fully empty anyway —
+// but the two must not collide.
+const RING_UNKNOWN = 'rgb(42, 42, 62)'
+
+// The unfilled track is a low-opacity step of the SAME ramp rather than an
+// unrelated neutral, so the meter reads as one object across its whole
+// circumference. It never varies with freshness — it is chrome, not data.
+const RING_TRACK = 'rgba(110, 231, 183, 0.14)'
+
 export function ringColor(freshness) {
-  if (freshness === null || freshness === undefined) return 'rgb(42, 42, 62)'
+  if (freshness === null || freshness === undefined) return RING_UNKNOWN
   const t = Math.max(0, Math.min(1, freshness))
   const lerp = (a, b) => Math.round(a + (b - a) * t)
-  return `rgb(${lerp(45, 110)}, ${lerp(95, 231)}, ${lerp(80, 183)})`
+  const [r, g, b] = [0, 1, 2].map(i => lerp(RING_LOW[i], RING_HIGH[i]))
+  return `rgb(${r}, ${g}, ${b})`
 }
 
 // Continuous and smoothly animatable — the ring is the part that moves. The
@@ -36,7 +53,7 @@ export function RecoveryRing({ freshness, size = 44 }) {
       viewBox={`0 0 ${size} ${size}`} aria-hidden="true"
       style={{ flexShrink: 0 }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke="#1e1e32" strokeWidth={stroke} />
+        stroke={RING_TRACK} strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none"
         stroke={ringColor(freshness)} strokeWidth={stroke} strokeLinecap="round"
         strokeDasharray={circumference}
