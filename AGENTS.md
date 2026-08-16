@@ -213,23 +213,24 @@ history is in `docs/CHANGELOG.md`.
     loss on one protocol). Never show a recovery **percentage**; never say "readiness".
   - No "losing gains" warnings before ~3 weeks off (Ogasawara: no significant loss at 3 wk).
 - **[`docs/superpowers/specs/2026-08-16-muscle-group-recovery-design.md`](docs/superpowers/specs/2026-08-16-muscle-group-recovery-design.md)**
-  — muscle-group picker + per-muscle freshness estimate. **Shipped to `main`
-  2026-08-16** (not yet deployed to the Pi); see `docs/CHANGELOG.md`. The
-  implementation plan is
-  [`docs/superpowers/plans/2026-08-16-muscle-group-recovery.md`](docs/superpowers/plans/2026-08-16-muscle-group-recovery.md)
-  — note it was written against an earlier, longer draft of the spec, so its
-  "spec §4.5 / §6.3" cross-references point at section numbers the condensed
-  spec no longer uses. The decisions themselves match.
+  — muscle-group picker + per-muscle freshness estimate. Why the feature is
+  shaped this way; the shipped code is authoritative for what it does. Shipped
+  2026-08-16. Execution record (what landed, and two plan errors not to
+  re-introduce): [`docs/superpowers/plans/2026-08-16-muscle-group-recovery.md`](docs/superpowers/plans/2026-08-16-muscle-group-recovery.md).
 
 ## Status
 
 _Last updated: 2026-08-16 21:55 BST._
 
-**Unreleased on `main`:** the muscle-group picker and recovery estimate
-(commits `8ae06b1`…`1234e58`). Adds `GET /api/exercises/recency` and two new
-pure frontend modules (`lib/muscles.js`, `lib/recovery.js`). **No schema
-change**, so no migration and no restore re-drill is required before deploying
-it. Tests 49 backend + 135 frontend, both green.
+**Next step: deploy.** The muscle-group picker and recovery estimate are on
+`main` (`8ae06b1`…`507be8a`) and unreleased; the Pi still runs `e1366a9`.
+Follow the deploy runbook above — build on the Mac, never on the Pi. **No
+schema change**, so no migration and no restore re-drill. Tests 49 backend +
+135 frontend, both green. Adds `GET /api/exercises/recency` and two pure
+frontend modules (`lib/muscles.js`, `lib/recovery.js`).
+
+After that the backlog is open; nutrition is the largest item and needs its own
+spec.
 
 **Running now:** commit `e1366a9`, redeployed from scratch 2026-07-16 after
 the Pi's SD-card death (2026-07-12) and rebuild (2026-07-14) wiped the prior
