@@ -30,3 +30,6 @@ venv/
 
 # Agent worktrees (scratch checkouts; never part of the repo)
 .claude/worktrees/
+
+# Agent execution scratch (ledgers, briefs, review packages)
+.superpowers/

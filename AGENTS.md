@@ -50,15 +50,53 @@ cues for a 4-day Upper/Lower split.
    commit it. Note: `data/` on the Pi is root-owned (the container runs as
    root) — host-side deletes inside it go through `docker exec <ct> rm …`.
 
+## Local development (Mac)
+
+**None of these tools are on `PATH` in a non-interactive shell.** Every one of them cost
+a rediscovery cycle; the literal paths are below so the next session doesn't repeat it.
+
+| Tool | Where it actually is |
+|---|---|
+| `node` / `npm` | `~/.nvm/versions/node/v22.14.0/bin` — nvm never loads in a non-login shell. Prefix: `export PATH="$HOME/.nvm/versions/node/v22.14.0/bin:$PATH"` |
+| `docker` | `/usr/local/bin/docker` → Docker.app. The **daemon is often not running**; `open -a Docker` and wait ~30 s for `docker version` to report a server. |
+| Python | **Use Homebrew `python@3.14`.** System `/usr/bin/python3` is 3.9.6 and *cannot* install this repo's pins — `fastapi==0.138.1` has no 3.9 wheel, and the failure ("No matching distribution found") does not mention the Python version. |
+
+```bash
+# Frontend
+export PATH="$HOME/.nvm/versions/node/v22.14.0/bin:$PATH"
+cd frontend && npm install && npm test          # vitest, ~2 s
+npm run dev                                     # Vite dev server, proxies /api
+
+# Backend
+cd backend
+/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q                   # ~1 s
+.venv/bin/python -m uvicorn main:app --reload   # DATABASE_URL defaults to /app/data — override locally
+```
+
+Both `.venv/` and `node_modules/` are gitignored, so each git worktree needs its own —
+they are not shared with the main checkout.
+
 ## Runbook
 
 ### Build (Mac)
 ```bash
 cd ~/dev/workout-tracker
+git pull --ff-only          # ⚠ see below — the stamp lies if you skip this
 docker buildx build --pull --platform linux/arm64 \
   --build-arg APP_COMMIT=$(git rev-parse --short HEAD) \
   -t kapekost/workout-tracker:latest --load .
 ```
+
+> **⚠ Build only from a current, clean tree.** `APP_COMMIT` is whatever `HEAD` happens to
+> be, so a stale or dirty checkout produces an image stamped with a commit that does not
+> describe its contents — and the Verify step below will happily pass, because it only
+> checks that `/api/health` matches the SHA you *built*, not that the SHA is the one you
+> meant. Since agent worktrees live under `.claude/worktrees/`, it is easy for `main` to
+> sit several commits behind the branch you actually want. Building from a worktree is
+> fine — just confirm `git rev-parse --short HEAD` is the commit you intend first.
+
 (`--pull` refreshes the `python:3.11-slim` base so patched CVEs are picked up;
 `APP_COMMIT` is the version stamp shown in the UI and `/api/health` — build
 from a clean, committed tree so the stamp names what actually shipped.)
@@ -220,19 +258,29 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-16 21:55 BST._
+_Last updated: 2026-08-16 22:15 BST._
 
-**Next step: deploy.** The muscle-group picker and recovery estimate are on
-`main` (`8ae06b1`…`507be8a`) and unreleased; the Pi still runs `e1366a9`.
-Follow the deploy runbook above — build on the Mac, never on the Pi. **No
-schema change**, so no migration and no restore re-drill. Tests 49 backend +
-135 frontend, both green. Adds `GET /api/exercises/recency` and two pure
-frontend modules (`lib/muscles.js`, `lib/recovery.js`).
+**Running now:** commit `b63006f`, deployed 2026-08-16 from the
+`muscle-group-recovery` worktree branch. Confirmed live against `/api/health`
+on 2026-08-16 22:10. It ships exactly one behaviour change — the `Workout.jsx`
+`workout_day` guard — plus docs; **none of the picker or recovery UI is on the
+Pi yet.** (`b63006f` is not an ancestor of `main`: the same fix landed
+independently on `main` as `8ae06b1`, with identical code.)
 
-After that the backlog is open; nutrition is the largest item and needs its own
-spec.
+**Next step: deploy `main`.** The muscle-group picker and recovery estimate are
+on `main` (`8ae06b1`…`HEAD`) and unreleased. Follow the deploy runbook above —
+build on the Mac, never on the Pi. **No schema change**, so no migration and no
+restore re-drill. Tests 49 backend + 138 frontend, both green. Adds
+`GET /api/exercises/recency` and two pure frontend modules (`lib/muscles.js`,
+`lib/recovery.js`).
 
-**Running now:** commit `e1366a9`, redeployed from scratch 2026-07-16 after
+After that the backlog is open — see
+[`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
+for the three candidate workstreams (profiles, import, UI/UX rethink) and
+nutrition in the Backlog section below.
+
+**Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
+scratch 2026-07-16 after
 the Pi's SD-card death (2026-07-12) and rebuild (2026-07-14) wiped the prior
 install. `~/workout-tracker` on the Pi is a fresh anonymous `git clone` over
 HTTPS — confirmed 2026-07-16 the GitHub repo is genuinely public (not private
