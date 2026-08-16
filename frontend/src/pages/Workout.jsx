@@ -104,7 +104,11 @@ export default function Workout() {
   useEffect(() => {
     api.get(`/sessions/${sessionId}`).then(async s => {
       setSession(s); setSets(s.sets || [])
-      const firstId = nextIncompleteExerciseId(PLAN[s.workout_day].exercises, s.sets || [])
+      // An unrecognised workout_day must not throw here: the effect's .catch
+      // would swallow it and bounce to Home, making the "Unknown workout day."
+      // fallback below unreachable. No exercises means no first ID — the
+      // fallback then renders as intended.
+      const firstId = nextIncompleteExerciseId(PLAN[s.workout_day]?.exercises || [], s.sets || [])
       if (firstId) {
         setExpanded(firstId)
         const data = await ensureLastPerf(firstId)
