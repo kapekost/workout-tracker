@@ -3,6 +3,49 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-08-16 — Muscle-group picker + recovery estimate
+
+Built directly on `main` as eight reviewable commits, each leaving both suites
+green. Design:
+`docs/superpowers/specs/2026-08-16-muscle-group-recovery-design.md`; evidence
+review (16 primary sources):
+`docs/superpowers/research/2026-08-16-recovery-science.md`.
+
+- **Muscle-group picker on Home** (`af6c19e`, `1234e58`): seven display groups
+  (Chest, Back, Shoulders, Arms, Quads, Hamstrings & Glutes, Calves) collapsed
+  from the plan's 22 inconsistent raw muscle tags. Tapping a group expands it
+  and offers the plan day that trains it most; the 4-day cycle stays the
+  default entry point and advances normally from a picker-started day. Ties
+  break toward the more rested day — verified live: Quads ties at 6 fractional
+  sets between Lower A and Lower B, and the picker recommends Lower B when
+  Lower A was trained 3 days ago.
+- **Days since last workout**, both overall under the header and per group.
+- **Recovery estimate** (`d4b9de0`): exponential stimulus decay from logged
+  training only, rendered as a continuous animated ring plus a band label —
+  `Fresh` / `Partly recovered (est.)` / `Recently trained` — and **never as a
+  percentage**. Time constants key off movement pattern, not muscle size
+  (Dourado 2023: knee extension 24 h vs leg press 48 h, same muscle, same
+  subjects); indirect sets count 0.5 (Pelland 2025). Nothing fitted, no
+  per-user parameters, no biometrics collected. The ring is a sequential
+  encoding: single-hue emerald ramp, monotonic in lightness, no red/amber/green
+  warning semantics, and the band label means colour is never the only channel.
+- **Disclosure at the point of display**, not in settings: the estimate knows
+  nothing about sleep, HRV, or unlogged classes. That blind spot is
+  one-directional — it can only ever *overstate* freshness.
+- **New endpoint `GET /api/exercises/recency`** (`32e61fb`): per-exercise
+  last-trained date, timestamp, set count, volume and previous-session date, in
+  one query, replacing a would-be 22-request fan-out on Home load. Read-only
+  and additive: **no schema change, so no restore re-drill was required.**
+- **Fix** (`8ae06b1`): `Workout.jsx` threw a `TypeError` on a session whose
+  `workout_day` was not one of the four plan keys; the effect's own
+  `.catch(() => nav('/'))` then swallowed it and bounced the user to Home,
+  making the page's "Unknown workout day." fallback unreachable.
+- **Fix** (`eeeb9a3`): muscle chips could widen their grid track past `1fr`
+  (grid items default to `min-width: auto`).
+- Verified at a real 320 px viewport over CDP: `scrollWidth == clientWidth`,
+  zero overflowing elements, minimum chip height 62 px, no numeral anywhere in
+  the rendered text. Tests: 49 backend (42 + 7), 135 frontend (62 + 73).
+
 ## 2026-07-10 — Responsive sweep (`feat/responsive-sweep`)
 
 Plan Part B (2026-06-30) at full original scope: 124 headless-Chrome
