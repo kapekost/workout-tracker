@@ -277,7 +277,9 @@ restore re-drill. Tests 49 backend + 138 frontend, both green. Adds
 After that the backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
-nutrition in the Backlog section below.
+nutrition in the Backlog section below. **Profiles would be this project's first
+schema migration**, which makes a pre-deploy export snapshot and a restore drill
+mandatory — everything shipped so far has been migration-free.
 
 **Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
 scratch 2026-07-16 after
