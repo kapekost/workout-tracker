@@ -258,23 +258,26 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-16 22:15 BST._
+_Last updated: 2026-08-17 01:15 BST._
 
-**Running now:** commit `b63006f`, deployed 2026-08-16 from the
-`muscle-group-recovery` worktree branch. Confirmed live against `/api/health`
-on 2026-08-16 22:10. It ships exactly one behaviour change — the `Workout.jsx`
-`workout_day` guard — plus docs; **none of the picker or recovery UI is on the
-Pi yet.** (`b63006f` is not an ancestor of `main`: the same fix landed
-independently on `main` as `8ae06b1`, with identical code.)
+**Running now:** commit `ff1eea4`, deployed 2026-08-17 01:12 BST. Ships the
+muscle-group picker and per-muscle recovery estimate, plus `GET
+/api/exercises/recency` and two pure frontend modules (`lib/muscles.js`,
+`lib/recovery.js`). Verified: root 200, `/api/health` `version` = `ff1eea4`,
+`homeassistant` still `healthy`, `tailscale` and `watchtower` up. Confirmed
+against real data — the recency endpoint returns the 2026-07-08 Upper A
+session, and Home reads "Last workout 40 days ago" with the Upper groups
+`Fresh` and the Lower groups `Not trained yet`.
 
-**Next step: deploy `main`.** The muscle-group picker and recovery estimate are
-on `main` (`8ae06b1`…`HEAD`) and unreleased. Follow the deploy runbook above —
-build on the Mac, never on the Pi. **No schema change**, so no migration and no
-restore re-drill. Tests 49 backend + 138 frontend, both green. Adds
-`GET /api/exercises/recency` and two pure frontend modules (`lib/muscles.js`,
-`lib/recovery.js`).
+**Nothing is unreleased.** `main` == `origin/main` == the deployed commit.
+Tests 49 backend + 138 frontend, both green.
 
-After that the backlog is open — see
+**Rollback:** the previous image (`b63006f`) is still on the Pi, untagged, as
+`0a91727f1437` — `docker tag 0a91727f1437 kapekost/workout-tracker:latest &&
+docker compose up -d` reverts. No schema change was involved, so no data
+migration is entangled with it.
+
+The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
 nutrition in the Backlog section below. **Profiles would be this project's first

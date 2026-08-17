@@ -3,6 +3,21 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-08-17 — Deployed `ff1eea4` (muscle-group picker + recovery estimate)
+
+Built on the Mac for `linux/arm64`, transferred over SSH, `compose up -d`.
+Verified: root 200, `/api/health` `version` = `ff1eea4`, `homeassistant` still
+`healthy`. Confirmed against real data — `/api/exercises/recency` returns the
+2026-07-08 Upper A session, Home reads "Last workout 40 days ago", the four
+Upper-trained groups read `Fresh` and the three Lower groups `Not trained yet`.
+No schema change, so no migration and no restore drill.
+
+The 40-day gap was an accidental live test of the guardrails: no "losing gains"
+nudge, no warning colour, no readiness language — just the neutral fact.
+
+Previous image (`b63006f`) remains on the Pi untagged as `0a91727f1437` for
+rollback.
+
 ## 2026-08-16 — Muscle-group picker + recovery estimate
 
 Built directly on `main` as eight reviewable commits, each leaving both suites
