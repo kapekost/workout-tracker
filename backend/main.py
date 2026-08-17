@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
 import sqlite3, os, json, glob
@@ -141,6 +141,21 @@ class ImportIn(BaseModel):
     confirm: bool = False
     envelope: dict
 
+class PersonalBestIn(BaseModel):
+    exercise_id: str = Field(max_length=64)
+    exercise_name: str = Field(max_length=128)
+    weight_kg: float = Field(ge=0, le=1000)
+    reps: int = Field(ge=1, le=100)
+    achieved_year: int = Field(ge=1900)
+    achieved_note: Optional[str] = Field(default=None, max_length=200)
+
+    @field_validator("achieved_year")
+    @classmethod
+    def year_not_in_future(cls, v):
+        if v > datetime.now().year:
+            raise ValueError("achieved_year cannot be in the future")
+        return v
+
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):
@@ -233,6 +248,34 @@ def add_set(sid: int, s: SetIn):
 def delete_set(sid: int, set_id: int):
     with db() as conn:
         conn.execute("DELETE FROM sets WHERE id = ? AND session_id = ?", (set_id, sid))
+        conn.commit()
+        return {"deleted": True}
+
+@app.post("/api/personal-bests")
+def create_personal_best(pb: PersonalBestIn):
+    with db() as conn:
+        try:
+            cur = conn.execute(
+                "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note) "
+                "VALUES (?,?,?,?,?,?)",
+                (pb.exercise_id, pb.exercise_name, pb.weight_kg, pb.reps, pb.achieved_year, pb.achieved_note))
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "a personal best with this exercise, weight, reps and year already exists")
+        conn.commit()
+        row = conn.execute("SELECT * FROM personal_bests WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+
+@app.get("/api/personal-bests")
+def list_personal_bests():
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM personal_bests ORDER BY exercise_name, weight_kg DESC").fetchall()
+        return [dict(r) for r in rows]
+
+@app.delete("/api/personal-bests/{pb_id}")
+def delete_personal_best(pb_id: int):
+    with db() as conn:
+        conn.execute("DELETE FROM personal_bests WHERE id = ?", (pb_id,))
         conn.commit()
         return {"deleted": True}
 
