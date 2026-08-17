@@ -49,3 +49,41 @@ def test_delete_personal_best_removes_it(client):
 
 def test_delete_nonexistent_personal_best_still_returns_deleted_true(client):
     assert client.delete("/api/personal-bests/999").json() == {"deleted": True}
+
+def _log_session(client, day, sets):
+    sid = client.post("/api/sessions", json={"workout_day": day}).json()["id"]
+    for i, (eid, ename, reps, w) in enumerate(sets, start=1):
+        client.post(f"/api/sessions/{sid}/sets", json={
+            "exercise_id": eid, "exercise_name": ename,
+            "set_number": i, "reps": reps, "weight_kg": w})
+    client.patch(f"/api/sessions/{sid}", json={"completed": True})
+    return sid
+
+def test_pb_with_no_session_history_suppresses_baseline(client):
+    client.post("/api/personal-bests", json=_pb(weight_kg=100, reps=3, achieved_year=2023))
+    sid = _log_session(client, "upper_a", [("bench_press", "Bench Press", 8, 60.0)])
+    prs = client.get(f"/api/sessions/{sid}/prs").json()
+    types = [p["type"] for p in prs]
+    assert "baseline" not in types
+    assert "weight" not in types  # 60kg does not beat the 100kg PB
+
+def test_session_beating_pb_gives_weight_pr(client):
+    client.post("/api/personal-bests", json=_pb(weight_kg=100, reps=3, achieved_year=2023))
+    sid = _log_session(client, "upper_a", [("bench_press", "Bench Press", 5, 105.0)])
+    prs = client.get(f"/api/sessions/{sid}/prs").json()
+    weight = next(p for p in prs if p["type"] == "weight")
+    assert weight["value"] == 105.0
+
+def test_pb_reps_and_1rm_participate_in_comparison(client):
+    client.post("/api/personal-bests", json=_pb(weight_kg=100, reps=3, achieved_year=2023))
+    # Same top weight as the PB, more reps than the PB's 3 -> reps PR
+    sid = _log_session(client, "upper_a", [("bench_press", "Bench Press", 5, 100.0)])
+    prs = client.get(f"/api/sessions/{sid}/prs").json()
+    types = [p["type"] for p in prs]
+    assert "reps" in types and "1rm" in types
+
+def test_pb_does_not_affect_volume_pr(client):
+    client.post("/api/personal-bests", json=_pb(weight_kg=100, reps=3, achieved_year=2023))
+    sid = _log_session(client, "upper_a", [("bench_press", "Bench Press", 8, 60.0)])
+    prs = client.get(f"/api/sessions/{sid}/prs").json()
+    assert "volume" not in [p["type"] for p in prs]  # first-ever completed session: no volume PR either way
