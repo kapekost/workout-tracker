@@ -8,6 +8,11 @@ from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["sessions", "sets", "exercise_notes", "events"]
+# schema_version at which each table was introduced (see _migrate). An
+# envelope only needs to contain the tables that existed at its own
+# schema_version — a table a later migration adds must not make older
+# backups un-importable.
+TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
 # outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
@@ -410,12 +415,15 @@ def import_data(payload: ImportIn):
     env = payload.envelope
     if not isinstance(env, dict) or "tables" not in env or "schema_version" not in env:
         raise HTTPException(400, "malformed envelope")
-    if not isinstance(env["tables"], dict) or any(t not in env["tables"] for t in TABLES):
-        raise HTTPException(400, "envelope missing expected tables")
     try:
         env_version = int(env["schema_version"])
     except (ValueError, TypeError):
         raise HTTPException(400, "malformed envelope")
+    if not isinstance(env["tables"], dict):
+        raise HTTPException(400, "malformed envelope")
+    expected_tables = [t for t in TABLES if TABLE_INTRODUCED_AT[t] <= env_version]
+    if any(t not in env["tables"] for t in expected_tables):
+        raise HTTPException(400, "envelope missing expected tables")
     with db() as conn:
         cur_version = conn.execute("PRAGMA user_version").fetchone()[0]
         if env_version > cur_version:
@@ -445,12 +453,17 @@ def import_data(payload: ImportIn):
                     placeholders = ",".join("?" * len(cols))
                     conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
                                  [r[c] for c in cols])
-            conn.execute(f"PRAGMA user_version = {env_version}")
+            # The DB's physical schema is already at cur_version (migrations
+            # ran at startup); restoring older data must not record a lower
+            # version, or a later restart could re-run a non-idempotent
+            # migration against an already-migrated DB.
+            conn.execute(f"PRAGMA user_version = {max(env_version, cur_version)}")
             conn.commit()
+            restored = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in TABLES}
         except Exception:
             conn.rollback()
             raise HTTPException(400, "import failed; rolled back, live DB unchanged")
-    return {"restored": {t: len(env["tables"].get(t, [])) for t in TABLES}}
+    return {"restored": restored}
 
 # Serve React — MUST be last
 if os.path.exists("static"):
