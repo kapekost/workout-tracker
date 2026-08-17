@@ -284,7 +284,7 @@ a pre-deploy `/api/export` snapshot was still taken since the restore path
 itself was what changed.
 
 **Nothing is unreleased.** `main` == `origin/main` == the deployed commit.
-Tests 53 backend + 138 frontend, both green.
+Tests 53 backend + 142 frontend, both green.
 
 **Rollback:** the previous image (`9f3f237`) is still on the Pi, untagged, as
 `8035631eefb5` — `docker tag 8035631eefb5 kapekost/workout-tracker:latest &&
