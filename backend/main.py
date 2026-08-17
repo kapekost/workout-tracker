@@ -62,6 +62,22 @@ def _migrate(conn):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sets_session  ON sets(session_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id)")
         conn.execute("PRAGMA user_version = 2")
+    # --- v2 -> v3: manual historical Personal Bests ---
+    if v < 3:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS personal_bests (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                exercise_id   TEXT NOT NULL,
+                exercise_name TEXT NOT NULL,
+                weight_kg     REAL NOT NULL,
+                reps          INTEGER NOT NULL,
+                achieved_year INTEGER NOT NULL,
+                achieved_note TEXT,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(exercise_id, weight_kg, reps, achieved_year)
+            )
+        """)
+        conn.execute("PRAGMA user_version = 3")
 
 def init():
     with db() as conn:
