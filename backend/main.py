@@ -401,6 +401,9 @@ def session_prs(sid: int):
         prior = conn.execute(
             "SELECT st.exercise_id, st.weight_kg, st.reps FROM sets st "
             "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.id != ?", (sid,)).fetchall()
+        pb_rows = conn.execute(
+            "SELECT exercise_id, weight_kg, reps FROM personal_bests").fetchall()
+        prior = list(prior) + list(pb_rows)
         # session volumes for the volume PR
         vol_rows = conn.execute(
             "SELECT st.session_id, SUM(st.weight_kg*st.reps) v FROM sets st "
