@@ -136,3 +136,43 @@ def test_import_rejects_non_numeric_schema_version(client):
     assert r.status_code == 400
     # seeded data untouched — the parse guard runs before snapshot/wipe
     assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_import_reports_counts_from_actual_db_state(client, mainmod):
+    # A future migration (e.g. profiles) will add a parent table processed
+    # *after* a table that references it. Reproduce that shape now with the
+    # FK relationship that already exists (sets -> sessions ON DELETE
+    # CASCADE): if sets is restored before sessions, sessions' own DELETE
+    # cascades and silently wipes the sets rows the loop just inserted.
+    _seed(client)
+    envelope = client.get("/api/export").json()
+    mainmod.TABLES[:] = ["sets", "sessions", "exercise_notes", "events"]
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    with mainmod.db() as conn:
+        actual_sets = conn.execute("SELECT COUNT(*) FROM sets").fetchone()[0]
+    # The cascade left the DB with 0 sets rows even though the envelope had 1 —
+    # the response must reflect what's actually in the DB.
+    assert actual_sets == 0
+    assert r.json()["restored"]["sets"] == actual_sets
+
+def test_import_accepts_envelope_missing_tables_added_after_its_schema_version(client):
+    # v1 predates the "events" table (added at v2, see _migrate). A genuine
+    # v1 backup never had an "events" key at all — it must still import.
+    old = {"schema_version": 1, "tables": {"sessions": [], "sets": [], "exercise_notes": []}}
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old})
+    assert r.status_code == 200
+    assert client.get("/api/export").json()["tables"]["events"] == []
+
+def test_import_still_rejects_current_envelope_missing_a_current_table(client):
+    # A v2 envelope missing "events" is still malformed — the relaxation is
+    # scoped to tables that postdate the envelope's own schema_version.
+    current = {"schema_version": 2, "tables": {"sessions": [], "sets": [], "exercise_notes": []}}
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": current})
+    assert r.status_code == 400
+
+def test_import_of_older_envelope_does_not_roll_user_version_backward(client, mainmod):
+    old = {"schema_version": 1, "tables": {"sessions": [], "sets": [], "exercise_notes": []}}
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old})
+    assert r.status_code == 200
+    with mainmod.db() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
