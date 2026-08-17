@@ -330,3 +330,9 @@ export const DAY_COLORS = {
   upper_b: '#f472b6',
   lower_b: '#fb923c'
 }
+
+export const ALL_EXERCISES = Object.values(PLAN)
+  .flatMap(day => day.exercises)
+  .filter((ex, i, arr) => arr.findIndex(e => e.id === ex.id) === i)
+  .map(ex => ({ id: ex.id, name: ex.name }))
+  .sort((a, b) => a.name.localeCompare(b.name))
