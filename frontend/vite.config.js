@@ -14,6 +14,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // main.jsx registers explicitly (it needs the registration object to
+      // drive its own update checks), so don't also inject a register script.
+      injectRegister: null,
       includeAssets: ['favicon-64.png', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Gym Tracker',
