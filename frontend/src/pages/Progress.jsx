@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
 import {
@@ -19,6 +20,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Progress() {
+  const nav = useNavigate()
   const [exercises, setExercises] = useState([])
   const [selected, setSelected] = useState(null)
   const [data, setData] = useState([])
@@ -43,8 +45,17 @@ export default function Progress() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>Progress</h1>
-      <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 28 }}>Max weight per session</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>Progress</h1>
+          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Max weight per session</p>
+        </div>
+        <button className="tap-target" onClick={() => nav('/personal-bests')}
+          style={{ background: 'none', border: '1px solid #1e1e32', borderRadius: 100, color: '#6ee7b7',
+            fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap' }}>
+          🏆 PBs
+        </button>
+      </div>
 
       {exercises.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>

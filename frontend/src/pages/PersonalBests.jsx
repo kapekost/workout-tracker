@@ -1,0 +1,150 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../api'
+import { ALL_EXERCISES } from '../data/workoutPlan'
+import Skeleton from '../components/Skeleton'
+
+const labelStyle = {
+  display: 'block', color: '#9ca3af', fontSize: '0.7rem', fontWeight: 700,
+  letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6,
+}
+const fieldStyle = {
+  width: '100%', background: '#1e1e32', color: '#fff', border: 'none',
+  borderRadius: 8, padding: '10px 8px', fontSize: '0.9rem',
+}
+
+export default function PersonalBests() {
+  const nav = useNavigate()
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [exerciseId, setExerciseId] = useState(ALL_EXERCISES[0]?.id ?? '')
+  const [weight, setWeight] = useState(20)
+  const [reps, setReps] = useState(1)
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(null)
+
+  useEffect(() => {
+    api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (saving) return
+    setSaving(true)
+    const exercise = ALL_EXERCISES.find(ex => ex.id === exerciseId)
+    try {
+      const created = await api.post('/personal-bests', {
+        exercise_id: exerciseId, exercise_name: exercise.name,
+        weight_kg: weight, reps, achieved_year: year,
+        achieved_note: note.trim() || null,
+      })
+      setEntries(prev => [...prev, created])
+      setNote('')
+    } catch {
+      showToast('Failed to save — check the values and try again')
+    }
+    setSaving(false)
+  }
+
+  async function remove(id) {
+    try {
+      await api.delete(`/personal-bests/${id}`)
+      setEntries(prev => prev.filter(e => e.id !== id))
+    } catch {
+      showToast('Failed to delete')
+    }
+  }
+
+  const grouped = entries.reduce((acc, e) => {
+    (acc[e.exercise_name] ??= []).push(e)
+    return acc
+  }, {})
+
+  return (
+    <div style={{ paddingTop: 16 }}>
+      {toast && <div className="toast error">{toast}</div>}
+      <button className="tap-target" onClick={() => nav('/progress')}
+        style={{ background: 'none', border: 'none', color: '#6ee7b7', fontSize: '0.8rem',
+          fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 12 }}>
+        ← Progress
+      </button>
+      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>Personal Bests</h1>
+      <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 20 }}>
+        Historical PBs from before you started logging here
+      </p>
+
+      <form onSubmit={submit} className="card" style={{ padding: 16, marginBottom: 24 }}>
+        <label style={labelStyle}>Exercise</label>
+        <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
+          style={{ ...fieldStyle, marginBottom: 14 }}>
+          {ALL_EXERCISES.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+        </select>
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Weight (kg)</label>
+            <input type="number" inputMode="decimal" value={weight}
+              onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+              style={{ ...fieldStyle, width: '100%' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Reps</label>
+            <input type="number" inputMode="numeric" value={reps}
+              onChange={e => setReps(parseInt(e.target.value, 10) || 1)}
+              style={{ ...fieldStyle, width: '100%' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Year</label>
+            <input type="number" inputMode="numeric" value={year}
+              onChange={e => setYear(parseInt(e.target.value, 10) || year)}
+              style={{ ...fieldStyle, width: '100%' }} />
+          </div>
+        </div>
+
+        <label style={labelStyle}>Note (optional)</label>
+        <input type="text" value={note} onChange={e => setNote(e.target.value)}
+          placeholder="e.g. Fall, gym PR meet"
+          style={{ ...fieldStyle, marginBottom: 16 }} />
+
+        <button type="submit" className="btn-primary" disabled={saving}>
+          {saving ? 'Saving…' : '+ Add Personal Best'}
+        </button>
+      </form>
+
+      {loading ? (
+        <Skeleton height={72} />
+      ) : Object.keys(grouped).length === 0 ? (
+        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+          <p style={{ color: '#6b7280' }}>No historical PBs logged yet.</p>
+        </div>
+      ) : (
+        Object.entries(grouped).map(([name, rows]) => (
+          <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
+            <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
+            {rows.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #1e1e32' }}>
+                <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fbbf24' }}>
+                  {r.weight_kg}kg × {r.reps}
+                </span>
+                <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                  {r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}
+                </span>
+                <button className="tap-target" onClick={() => remove(r.id)}
+                  aria-label={`delete personal best ${r.id}`}
+                  style={{ background: 'none', border: 'none', color: '#9ca3af',
+                    cursor: 'pointer', fontSize: '1rem' }}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  )
+}

@@ -4,6 +4,7 @@ import Workout from './pages/Workout'
 import Exercise from './pages/Exercise'
 import Progress from './pages/Progress'
 import History from './pages/History'
+import PersonalBests from './pages/PersonalBests'
 import NavBar from './components/NavBar'
 import TopBar from './components/TopBar'
 import ResumeBanner from './components/ResumeBanner'
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/exercise/:workoutDay/:exerciseId" element={<Exercise />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/history" element={<History />} />
+              <Route path="/personal-bests" element={<PersonalBests />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>
