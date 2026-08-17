@@ -87,3 +87,27 @@ def test_pb_does_not_affect_volume_pr(client):
     sid = _log_session(client, "upper_a", [("bench_press", "Bench Press", 8, 60.0)])
     prs = client.get(f"/api/sessions/{sid}/prs").json()
     assert "volume" not in [p["type"] for p in prs]  # first-ever completed session: no volume PR either way
+
+def test_export_includes_personal_bests(client):
+    client.post("/api/personal-bests", json=_pb())
+    exp = client.get("/api/export").json()
+    assert len(exp["tables"]["personal_bests"]) == 1
+    assert exp["tables"]["personal_bests"][0]["exercise_id"] == "bench_press"
+
+def test_old_v2_envelope_without_personal_bests_still_imports(client):
+    # Simulates a backup taken before this feature existed.
+    old_envelope = {
+        "exported_at": "2026-08-01T00:00:00Z",
+        "schema_version": 2,
+        "tables": {"sessions": [], "sets": [], "exercise_notes": [], "events": []},
+    }
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old_envelope})
+    assert r.status_code == 200
+
+def test_personal_bests_round_trips_through_export_import(client):
+    client.post("/api/personal-bests", json=_pb())
+    envelope = client.get("/api/export").json()
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    again = client.get("/api/export").json()
+    assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]
