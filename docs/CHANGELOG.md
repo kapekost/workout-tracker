@@ -3,6 +3,21 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-08-17 — Deployed `9f3f237` (PWA picks up deploys on its own)
+
+A deploy was invisible on the phone until the app was force-quit: the service
+worker precaches the app shell, and a PWA resumed from the background never does
+a fresh navigation, so `registerSW` never re-ran and `registerType: 'autoUpdate'`
+had nothing to act on. The Pi was serving the new build the whole time.
+
+`main.jsx` now registers the worker itself and requests an update check when the
+document becomes visible (plus a 30-minute backstop). The check is gated on route
+rather than the reload — `autoUpdate` reloads the moment it finds a new worker,
+and on `/workout/:id` that would discard weight and reps typed but not yet logged.
+
+Note the one-time chicken-and-egg: this logic ships *inside* the build, so one
+final force-quit was needed to land on it. Subsequent deploys self-update.
+
 ## 2026-08-17 — Deployed `ff1eea4` (muscle-group picker + recovery estimate)
 
 Built on the Mac for `linux/arm64`, transferred over SSH, `compose up -d`.

@@ -5,10 +5,11 @@ workstream below needs its own `superpowers:brainstorming` → spec → plan →
 cycle before any code is written. This document exists so the ideas and their constraints
 survive; it is deliberately not a design.
 
-**In flight right now (do not start these until it lands):** muscle-group picker +
-recovery estimate — spec `docs/superpowers/specs/2026-08-16-muscle-group-recovery-design.md`,
-plan `docs/superpowers/plans/2026-08-16-muscle-group-recovery.md`, continuation handoff
-`~/.claude/handoffs/2026-08-16-muscle-group-recovery-CONTINUE.md`.
+**Update 2026-08-17: the muscle-group picker + recovery estimate SHIPPED and is
+deployed** (`ff1eea4`), so nothing is blocked on it any more. Sequencing item 1
+below is done; item 2 (D, design-system decision) is next. Research groundwork for
+D, B and C was gathered 2026-08-17 into `docs/superpowers/research/2026-08-17-*.md`
+so each brainstorming session starts informed rather than exploring live.
 
 ---
 
@@ -169,7 +170,7 @@ add UI. Three options, and brainstorming should pick deliberately:
 
 ## Suggested sequencing
 
-1. **Finish muscle-group picker + recovery** (in flight, 2 of 8 tasks done).
+1. ~~Finish muscle-group picker + recovery~~ — **done, deployed 2026-08-17.**
 2. **D, but only as far as a design-system decision** — because B and C both add UI, and
    deciding the vocabulary first is cheap while redoing screens is not.
 3. **B (profiles)** — schema migration, export/import envelope change, mandatory restore drill.
