@@ -130,6 +130,10 @@ describe('Workout page', () => {
     renderWorkout()
     await screen.findByText(ex1.name)
     await waitFor(() => expect(screen.getByDisplayValue('120')).toBeInTheDocument())
+    // Reps must come from the PB itself (1), not the hardcoded default (8) —
+    // a 120kg PB logged as 1 rep is a different-in-kind lift than 120kg×8.
+    const repsInput = screen.getAllByRole('spinbutton')[1]
+    expect(repsInput).toHaveValue(1)
   })
 
   it('a historical PB sets the bar for the live PR toast', async () => {

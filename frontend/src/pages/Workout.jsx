@@ -108,14 +108,19 @@ export default function Workout() {
     ]).then(([exercises, pbs]) => {
       const prMap = {}
       for (const ex of exercises) {
-        if (ex.max_weight != null) prMap[ex.exercise_id] = ex.max_weight
+        // Progress has no reliable "reps at that max" — leave it unknown.
+        if (ex.max_weight != null) prMap[ex.exercise_id] = { weight: ex.max_weight, reps: null }
       }
       for (const pb of pbs) {
         const cur = prMap[pb.exercise_id]
-        if (cur == null || pb.weight_kg > cur) prMap[pb.exercise_id] = pb.weight_kg
+        // PB wins if higher — same winner-selection logic as before, now
+        // carrying the PB's real reps along with the weight.
+        if (cur == null || pb.weight_kg > cur.weight) {
+          prMap[pb.exercise_id] = { weight: pb.weight_kg, reps: pb.reps }
+        }
       }
       return prMap
-    })
+    }).catch(() => ({}))
 
     api.get(`/sessions/${sessionId}`).then(async s => {
       setSession(s); setSets(s.sets || [])
@@ -194,9 +199,9 @@ export default function Workout() {
       setSets(newSets)
       // PR detection — null-safe: a completed max of 0kg (bodyweight work)
       // is a real record to beat, not "no record".
-      const prevMax = prs[ex.id]
+      const prevMax = prs[ex.id]?.weight
       if (prevMax == null || weight > prevMax) {
-        setPrs(prev => ({ ...prev, [ex.id]: weight }))
+        setPrs(prev => ({ ...prev, [ex.id]: { weight, reps } }))
         if (prevMax != null) { // Only show if there was a previous record
           showToast(`🏆 PR! ${weight}kg on ${ex.name}`)
         }
@@ -251,7 +256,12 @@ export default function Workout() {
       const { summarize } = await import('../lib/sessionStats')
       let serverPrs = []
       try { serverPrs = await api.get(`/sessions/${sessionId}/prs`) } catch {}
-      const stats = summarize(sets, prsAtStart.current)
+      // summarize() expects exercise_id -> number (weight); prsAtStart.current
+      // now holds { weight, reps } objects, so unwrap before handing it off.
+      const prsBeforeWeights = Object.fromEntries(
+        Object.entries(prsAtStart.current).map(([id, v]) => [id, v?.weight ?? v])
+      )
+      const stats = summarize(sets, prsBeforeWeights)
       const durSec = updated.ended_at && session.created_at
         ? Math.max(0, Math.round(
             (Date.parse(updated.ended_at.replace(' ', 'T') + 'Z') -

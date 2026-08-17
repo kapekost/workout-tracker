@@ -24,6 +24,7 @@ export default function PersonalBests() {
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
+  const [confirmId, setConfirmId] = useState(null)
 
   useEffect(() => {
     api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
@@ -44,13 +45,23 @@ export default function PersonalBests() {
       })
       setEntries(prev => [...prev, created])
       setNote('')
-    } catch {
-      showToast('Failed to save — check the values and try again')
+    } catch (err) {
+      if (err.message?.includes('409')) {
+        showToast("You've already logged this exact PB (same exercise, weight, reps, and year).")
+      } else {
+        showToast('Failed to save — check the values and try again')
+      }
     }
     setSaving(false)
   }
 
   async function remove(id) {
+    if (confirmId !== id) {
+      setConfirmId(id)
+      setTimeout(() => setConfirmId(c => (c === id ? null : c)), 3000)
+      return
+    }
+    setConfirmId(null)
     try {
       await api.delete(`/personal-bests/${id}`)
       setEntries(prev => prev.filter(e => e.id !== id))
@@ -125,23 +136,26 @@ export default function PersonalBests() {
         Object.entries(grouped).map(([name, rows]) => (
           <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
             <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
-            {rows.map(r => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #1e1e32' }}>
-                <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fbbf24' }}>
-                  {r.weight_kg}kg × {r.reps}
-                </span>
-                <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>
-                  {r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}
-                </span>
-                <button className="tap-target" onClick={() => remove(r.id)}
-                  aria-label={`delete personal best ${r.id}`}
-                  style={{ background: 'none', border: 'none', color: '#9ca3af',
-                    cursor: 'pointer', fontSize: '1rem' }}>
-                  ×
-                </button>
-              </div>
-            ))}
+            {rows.map(r => {
+              const armed = confirmId === r.id
+              return (
+                <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between',
+                  alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #1e1e32' }}>
+                  <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fbbf24' }}>
+                    {r.weight_kg}kg × {r.reps}
+                  </span>
+                  <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                    {r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}
+                  </span>
+                  <button className="tap-target" onClick={() => remove(r.id)}
+                    aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
+                    style={{ background: 'none', border: 'none', color: armed ? '#ef4444' : '#9ca3af',
+                      cursor: 'pointer', fontSize: armed ? '0.75rem' : '1rem', fontWeight: armed ? 700 : 400 }}>
+                    {armed ? '✓?' : '×'}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         ))
       )}
