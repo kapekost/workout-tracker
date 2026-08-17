@@ -3,6 +3,37 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-08-17 — Deployed `adbf3f5` (hardened `/api/import`)
+
+Two defects on the disaster-recovery path, found by the profiles-migration
+research (`docs/superpowers/research/2026-08-17-profiles-migration-blast-radius.md`)
+before a real migration would have hit them silently:
+
+- `restored` counts were read straight from the uploaded envelope, never the
+  DB. Reproduced with a throwaway reorder of `TABLES` so a parent table
+  followed its child (the shape a `profiles` table would add): the FK
+  cascade wiped the just-inserted child rows, and the endpoint still
+  reported them restored. Counts are now `SELECT COUNT(*)` after commit.
+- The envelope gate required every *current* table to be present, so adding
+  any table later would break every existing backup. It now only requires
+  the tables that existed at the envelope's own `schema_version`
+  (`TABLE_INTRODUCED_AT`).
+- Bonus fix: `PRAGMA user_version` no longer rolls backward when restoring
+  an older envelope — the physical schema is already at `cur_version` from
+  startup migrations, so recording a lower version risked a non-idempotent
+  future migration re-running against an already-migrated DB.
+
+TDD throughout, `backend/test_foundations.py` (49 → 53 backend tests). Built
+on the Mac for `linux/arm64`, transferred over LAN SSH, `compose up -d`.
+Verified: root 200, `/api/health` `version` = `adbf3f5`, `homeassistant`
+still `healthy`, live data intact (1 session / 17 sets / 297 events). No
+schema change, so no migration and no restore drill; a pre-deploy
+`/api/export` snapshot was still taken since the restore path itself was
+what changed. Previous image (`9f3f237`) remains on the Pi untagged as
+`8035631eefb5` for rollback. This was item 1 of
+`docs/superpowers/backlog/2026-08-16-next-workstreams.md`'s sequencing — the
+design-system decision (D) is next.
+
 ## 2026-08-17 — Deployed `9f3f237` (PWA picks up deploys on its own)
 
 A deploy was invisible on the phone until the app was force-quit: the service

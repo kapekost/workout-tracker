@@ -268,31 +268,37 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-17 01:15 BST._
+_Last updated: 2026-08-17 08:38 BST._
 
-**Running now:** commit `ff1eea4`, deployed 2026-08-17 01:12 BST. Ships the
-muscle-group picker and per-muscle recovery estimate, plus `GET
-/api/exercises/recency` and two pure frontend modules (`lib/muscles.js`,
-`lib/recovery.js`). Verified: root 200, `/api/health` `version` = `ff1eea4`,
-`homeassistant` still `healthy`, `tailscale` and `watchtower` up. Confirmed
-against real data — the recency endpoint returns the 2026-07-08 Upper A
-session, and Home reads "Last workout 40 days ago" with the Upper groups
-`Fresh` and the Lower groups `Not trained yet`.
+**Running now:** commit `adbf3f5`, deployed 2026-08-17 08:37 BST. Hardens
+`/api/import` (the disaster-recovery restore path) before any schema work
+touches it: restore counts now come from the DB post-commit instead of the
+uploaded envelope, the envelope gate only requires tables that existed at
+the envelope's own `schema_version` (so older backups stay importable as
+new tables are added), and `PRAGMA user_version` no longer rolls backward on
+an older restore. TDD, see `docs/CHANGELOG.md` for the full writeup. Verified:
+root 200, `/api/health` `version` = `adbf3f5`, `homeassistant` still
+`healthy`, `tailscale` up, live data intact (1 session / 17 sets / 297
+events). No schema change, so no migration and no restore drill required —
+a pre-deploy `/api/export` snapshot was still taken since the restore path
+itself was what changed.
 
 **Nothing is unreleased.** `main` == `origin/main` == the deployed commit.
-Tests 49 backend + 138 frontend, both green.
+Tests 53 backend + 138 frontend, both green.
 
-**Rollback:** the previous image (`b63006f`) is still on the Pi, untagged, as
-`0a91727f1437` — `docker tag 0a91727f1437 kapekost/workout-tracker:latest &&
+**Rollback:** the previous image (`9f3f237`) is still on the Pi, untagged, as
+`8035631eefb5` — `docker tag 8035631eefb5 kapekost/workout-tracker:latest &&
 docker compose up -d` reverts. No schema change was involved, so no data
 migration is entangled with it.
 
 The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
-nutrition in the Backlog section below. **Profiles would be this project's first
-schema migration**, which makes a pre-deploy export snapshot and a restore drill
-mandatory — everything shipped so far has been migration-free.
+nutrition in the Backlog section below. Sequencing item 1 (muscle-group
+picker) and the `/api/import` hardening that the profiles research surfaced
+are both done — **the design-system decision (D) is next**, before profiles
+(B) starts this project's first schema migration, which makes a pre-deploy
+export snapshot and a restore drill mandatory.
 
 **Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
 scratch 2026-07-16 after

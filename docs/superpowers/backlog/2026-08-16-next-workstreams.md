@@ -11,6 +11,14 @@ below is done; item 2 (D, design-system decision) is next. Research groundwork f
 D, B and C was gathered 2026-08-17 into `docs/superpowers/research/2026-08-17-*.md`
 so each brainstorming session starts informed rather than exploring live.
 
+**Update 2026-08-17 (later): `/api/import` hardened and deployed** (`adbf3f5`).
+The profiles research below (section B) surfaced two defects on the
+disaster-recovery path — restore counts trusted the envelope instead of the
+DB, and the envelope gate would have broken every existing backup the moment
+a table like `profiles` was added — both fixed via TDD ahead of any schema
+work. Full writeup: `docs/CHANGELOG.md`. D (design-system decision) is next;
+nothing else here has moved.
+
 ---
 
 ## A. Audit: what older work was left undone
@@ -171,11 +179,14 @@ add UI. Three options, and brainstorming should pick deliberately:
 ## Suggested sequencing
 
 1. ~~Finish muscle-group picker + recovery~~ — **done, deployed 2026-08-17.**
-2. **D, but only as far as a design-system decision** — because B and C both add UI, and
+2. ~~Harden `/api/import` (restore counts, envelope gate, user_version rollback)~~ — **done,
+   deployed 2026-08-17** (`adbf3f5`). Surfaced by the profiles research below; had to land
+   before B could touch the schema.
+3. **D, but only as far as a design-system decision** — because B and C both add UI, and
    deciding the vocabulary first is cheap while redoing screens is not.
-3. **B (profiles)** — schema migration, export/import envelope change, mandatory restore drill.
-4. **C (import + AI prompt)** — depends on B; absorbs the historical-PB idea from A.
-5. Fold in the stray backlog items (idle rest-timer hint) opportunistically.
+4. **B (profiles)** — schema migration, export/import envelope change, mandatory restore drill.
+5. **C (import + AI prompt)** — depends on B; absorbs the historical-PB idea from A.
+6. Fold in the stray backlog items (idle rest-timer hint) opportunistically.
 
 **Unrelated but overdue, and it fails silently:** the rclone `client_id` action item in
 `AGENTS.md`. The shared client_id retires during 2026 and nightly backups will start failing
