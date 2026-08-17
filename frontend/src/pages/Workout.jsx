@@ -102,8 +102,26 @@ export default function Workout() {
   }
 
   useEffect(() => {
+    const prsPromise = Promise.all([
+      api.get('/progress').catch(() => []),
+      api.get('/personal-bests').catch(() => []),
+    ]).then(([exercises, pbs]) => {
+      const prMap = {}
+      for (const ex of exercises) {
+        if (ex.max_weight != null) prMap[ex.exercise_id] = ex.max_weight
+      }
+      for (const pb of pbs) {
+        const cur = prMap[pb.exercise_id]
+        if (cur == null || pb.weight_kg > cur) prMap[pb.exercise_id] = pb.weight_kg
+      }
+      return prMap
+    })
+
     api.get(`/sessions/${sessionId}`).then(async s => {
       setSession(s); setSets(s.sets || [])
+      const prMap = await prsPromise
+      prsAtStart.current = prMap
+      setPrs(prMap)
       // An unrecognised workout_day must not throw here: the effect's .catch
       // would swallow it and bounce to Home, making the "Unknown workout day."
       // fallback below unreachable. No exercises means no first ID — the
@@ -112,22 +130,12 @@ export default function Workout() {
       if (firstId) {
         setExpanded(firstId)
         const data = await ensureLastPerf(firstId)
-        const pf = prefillFor(firstId, s.sets || [], {}, data?.sets)
+        const pf = prefillFor(firstId, s.sets || [], prMap, data?.sets)
         setWeight(pf.weight); setReps(pf.reps)
       }
     }).catch(() => nav('/'))
     // Load notes
     api.get('/notes').then(setNotes).catch(() => {})
-    // Load PR baselines — one call; /api/progress now carries each exercise's
-    // completed-session max, so no per-exercise request fan-out.
-    api.get('/progress').then(exercises => {
-      const prMap = {}
-      for (const ex of exercises) {
-        if (ex.max_weight != null) prMap[ex.exercise_id] = ex.max_weight
-      }
-      prsAtStart.current = prMap
-      setPrs(prMap)
-    }).catch(() => {})
   }, [sessionId])
 
   if (!session) return (
