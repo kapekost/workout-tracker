@@ -22,6 +22,7 @@ function mockSession(sets = []) {
     }
     if (path === '/notes') return {}
     if (path === '/progress') return []
+    if (path === '/personal-bests') return []
     if (path.startsWith('/exercises/')) return null
     if (path === '/sessions/1/prs') return []
     throw new Error(`unmocked GET ${path}`)
@@ -94,6 +95,7 @@ describe('Workout page', () => {
       }
       if (path === '/notes') return {}
       if (path === '/progress') return []
+      if (path === '/personal-bests') return []
       if (path.startsWith('/exercises/')) return null
       if (path === '/sessions/1/prs') {
         return [{ type: 'baseline', exercise_name: ex1.name, value: null, unit: null }]
@@ -108,6 +110,53 @@ describe('Workout page', () => {
     expect(screen.getByText(new RegExp(`${ex1.name}.*baseline`, 'i'))).toBeInTheDocument()
     expect(screen.queryByText(/new pr/i)).not.toBeInTheDocument()
   })
+
+  it('prefills the very first exercise from a historical PB when there is no in-app history', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') {
+        return [{ id: 1, exercise_id: ex1.id, exercise_name: ex1.name,
+                   weight_kg: 120, reps: 1, achieved_year: 2021, achieved_note: null }]
+      }
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await waitFor(() => expect(screen.getByDisplayValue('120')).toBeInTheDocument())
+  })
+
+  it('a historical PB sets the bar for the live PR toast', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') {
+        return [{ id: 1, exercise_id: ex1.id, exercise_name: ex1.name,
+                   weight_kg: 100, reps: 1, achieved_year: 2021, achieved_note: null }]
+      }
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await waitFor(() => expect(screen.getByDisplayValue('100')).toBeInTheDocument())
+    fireEvent.click(screen.getAllByRole('button', { name: 'increase' })[0])  // weight stepper is first
+    await waitFor(() => expect(screen.getByDisplayValue('102.5')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /log set/i }))
+    await waitFor(() => expect(screen.getByText(/🏆 PR! 102.5kg/)).toBeInTheDocument())
+  })
 })
 
 describe('PR toast with a zero-weight baseline', () => {
@@ -121,6 +170,7 @@ describe('PR toast with a zero-weight baseline', () => {
       if (path === '/progress') {
         return [{ exercise_id: ex1.id, exercise_name: ex1.name, max_weight: 0 }]
       }
+      if (path === '/personal-bests') return []
       if (path.startsWith('/exercises/')) return null
       throw new Error(`unmocked GET ${path}`)
     })
@@ -144,6 +194,7 @@ describe('unknown workout_day', () => {
       }
       if (path === '/notes') return {}
       if (path === '/progress') return []
+      if (path === '/personal-bests') return []
       if (path.startsWith('/exercises/')) return null
       throw new Error(`unmocked GET ${path}`)
     })
