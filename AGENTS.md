@@ -209,6 +209,16 @@ release-asset path above.
 
 ## Gotchas learned the hard way
 
+**A deploy is invisible to an installed PWA until it re-checks.** The service
+worker precaches the app shell, and a PWA resumed from the background never does
+a fresh navigation — so the browser's own update check doesn't fire and the old
+build keeps rendering even though the Pi is serving the new one. Confirm with the
+`v <sha>` footer stamp on Home: if it disagrees with `/api/health`, the phone is
+on a cached bundle, not a failed deploy. Force-quitting and reopening the app
+fixes it. Since `b14c845` the app also checks on its own whenever it becomes
+visible (and every 30 min), gated to skip while a workout is open so the
+auto-reload can't discard typed-but-unlogged sets.
+
 - `sudo` over a non-interactive SSH session hangs waiting for a password. Avoid it;
   the `kapekost` user is in the `docker` group, so `docker ...` needs no `sudo`.
 - The `tailscale` CLI is **not** on the Pi host — it's inside the `tailscale`
