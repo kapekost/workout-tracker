@@ -24,8 +24,11 @@ describe('prefillFor', () => {
                   { exercise_id: 'a', weight_kg: 65, reps: 6 }]
     expect(prefillFor('a', sets)).toEqual({ weight: 65, reps: 6 })
   })
-  it('falls back to progress max with 8 reps', () => {
-    expect(prefillFor('a', [], { a: 50 })).toEqual({ weight: 50, reps: 8 })
+  it('falls back to progress max with 8 reps when reps are unknown', () => {
+    expect(prefillFor('a', [], { a: { weight: 50, reps: null } })).toEqual({ weight: 50, reps: 8 })
+  })
+  it('falls back to a historical PB using its real reps, not 8', () => {
+    expect(prefillFor('a', [], { a: { weight: 120, reps: 1 } })).toEqual({ weight: 120, reps: 1 })
   })
   it('defaults to 20kg x 8 when nothing known', () => {
     expect(prefillFor('a', [], {})).toEqual({ weight: 20, reps: 8 })

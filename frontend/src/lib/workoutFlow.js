@@ -16,7 +16,7 @@ export function prefillFor(exerciseId, sets, progressMaxByExercise = {}, lastSet
     return { weight: lastSets[0].weight_kg, reps: lastSets[0].reps }
   }
   const pm = progressMaxByExercise[exerciseId]
-  if (pm != null) return { weight: pm, reps: 8 }
+  if (pm != null) return { weight: pm.weight, reps: pm.reps ?? 8 }
   return { weight: 20, reps: 8 }
 }
 
