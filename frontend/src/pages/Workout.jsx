@@ -132,11 +132,13 @@ export default function Workout() {
       // would swallow it and bounce to Home, making the "Unknown workout day."
       // fallback below unreachable. No exercises means no first ID — the
       // fallback then renders as intended.
-      const firstId = nextIncompleteExerciseId(PLAN[s.workout_day]?.exercises || [], s.sets || [])
+      const exercises = PLAN[s.workout_day]?.exercises || []
+      const firstId = nextIncompleteExerciseId(exercises, s.sets || [])
       if (firstId) {
         setExpanded(firstId)
         const data = await ensureLastPerf(firstId)
-        const pf = prefillFor(firstId, s.sets || [], prMap, data?.sets)
+        const firstEx = exercises.find(e => e.id === firstId)
+        const pf = prefillFor(firstId, s.sets || [], prMap, data?.sets, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
         setWeight(pf.weight); setReps(pf.reps)
       }
     }).catch(() => nav('/'))
@@ -220,7 +222,8 @@ export default function Workout() {
         if (nextId && nextId !== ex.id) {
           setExpanded(nextId)
           const data = await ensureLastPerf(nextId)
-          const pf = prefillFor(nextId, newSets, prs, data?.sets)
+          const nextEx = plan.exercises.find(e => e.id === nextId)
+          const pf = prefillFor(nextId, newSets, prs, data?.sets, { repsHigh: nextEx?.repsHigh, bodyweight: nextEx?.bodyweight })
           setWeight(pf.weight); setReps(pf.reps)
           // Anchor the viewport to the newly-opened card so the collapse of
           // the tall finished card doesn't shift content under the thumb.
@@ -343,7 +346,7 @@ export default function Workout() {
                 setExpanded(opening ? ex.id : null)
                 if (opening) {
                   const data = await ensureLastPerf(ex.id)
-                  const pf = prefillFor(ex.id, sets, prs, data?.sets)
+                  const pf = prefillFor(ex.id, sets, prs, data?.sets, { repsHigh: ex.repsHigh, bodyweight: ex.bodyweight })
                   setWeight(pf.weight); setReps(pf.reps)
                 }
               }}>
@@ -425,7 +428,12 @@ export default function Workout() {
                       Reps drops under Weight instead of clipping off-screen. */}
                   <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Weight (kg)</p>
+                      <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: ex.bodyweight ? 2 : 8 }}>
+                        {ex.bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}
+                      </p>
+                      {ex.bodyweight && (
+                        <p style={{ color: '#6b7280', fontSize: '0.6rem', marginBottom: 6 }}>0 = bodyweight only</p>
+                      )}
                       <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
                     </div>
                     <div style={{ textAlign: 'center' }}>
