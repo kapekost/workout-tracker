@@ -11,6 +11,7 @@ import { useRestPreference } from '../lib/useRestPreference'
 import { nextIncompleteExerciseId, prefillFor, nextSetNumber } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
 import { unlockAudio } from '../lib/sound'
+import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerStorage'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 
@@ -128,9 +129,13 @@ export default function Workout() {
   const [logging, setLogging] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [summary, setSummary] = useState(null)
-  const [restStartMs, setRestStartMs] = useState(null)
+  // restStartMs is an absolute timestamp, so restoring it on mount reproduces
+  // whatever remainingSeconds() would show had this page never unmounted.
+  // Navigating to Home/Progress/History and back no longer resets a running
+  // rest timer to idle.
+  const [restStartMs, setRestStartMs] = useState(() => loadRestTimer(sessionId)?.restStartMs ?? null)
   const [restTargetSec, setRestTargetSec] = useRestPreference(90)
-  const [pausedRem, setPausedRem] = useState(null)
+  const [pausedRem, setPausedRem] = useState(() => loadRestTimer(sessionId)?.pausedRem ?? null)
   const { held: wakeLockHeld } = useWakeLock(true)
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
@@ -190,6 +195,10 @@ export default function Workout() {
     // Load notes
     api.get('/notes').then(setNotes).catch(() => {})
   }, [sessionId])
+
+  useEffect(() => {
+    saveRestTimer(sessionId, { restStartMs, pausedRem })
+  }, [sessionId, restStartMs, pausedRem])
 
   if (!session) return (
     <div style={{ paddingTop: 24 }}>
@@ -305,6 +314,7 @@ export default function Workout() {
     try {
       const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
       track('session_finish', { session_id: sessionId })
+      clearRestTimer(sessionId)
       refresh()
       const { summarize } = await import('../lib/sessionStats')
       let serverPrs = []

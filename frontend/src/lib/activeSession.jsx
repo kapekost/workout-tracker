@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
+import { clearRestTimer } from './restTimerStorage'
 
 export function findActiveSession(sessions) {
   if (!Array.isArray(sessions)) return null
@@ -30,6 +31,7 @@ export function ActiveSessionProvider({ children }) {
 
   const discard = useCallback(async (id) => {
     await api.delete(`/sessions/${id}`)
+    clearRestTimer(id)
     await refresh()
   }, [refresh])
 
