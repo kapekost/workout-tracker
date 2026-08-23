@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
+import ExerciseCuesModal from '../components/ExerciseCuesModal'
 import Skeleton from '../components/Skeleton'
 import { formatClock, elapsedSeconds, remainingSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
@@ -91,6 +92,7 @@ export default function Workout() {
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
   const [editingNote, setEditingNote] = useState(null)
+  const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
 
   async function ensureLastPerf(exId) {
@@ -376,10 +378,12 @@ export default function Workout() {
             {/* Expanded — set logger */}
             {isOpen && (
               <div style={{ borderTop: '1px solid #1e1e32', padding: '16px' }}>
-                {/* Info link */}
+                {/* Info link: opens a bottom sheet in place, not a page nav, so
+                    checking a cue mid-set doesn't collapse this card or lose
+                    whatever weight/reps you've already dialed in. */}
                 <button
                   className="tap-target"
-                  onClick={() => nav(`/exercise/${session.workout_day}/${ex.id}`)}
+                  onClick={() => setCuesEx(ex)}
                   style={{ background: 'none', border: 'none', color: '#6ee7b7', fontSize: '0.75rem',
                     fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
                   📋 Form cues + demo →
@@ -467,6 +471,10 @@ export default function Workout() {
         style={{ marginTop: 16, background: color }}>
         {finishing ? 'Saving…' : '✓ Finish Workout'}
       </button>
+
+      {cuesEx && (
+        <ExerciseCuesModal ex={cuesEx} color={color} onClose={() => setCuesEx(null)} />
+      )}
     </div>
   )
 }
