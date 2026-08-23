@@ -407,7 +407,7 @@ export default function Workout() {
               }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ex.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{ex.name}</span>
                   {complete && <span style={{ color: '#6ee7b7', fontSize: '0.75rem' }}>✓</span>}
                 </div>
                 <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 2 }}>
@@ -437,9 +437,9 @@ export default function Workout() {
                 <button
                   className="tap-target"
                   onClick={() => setCuesEx(ex)}
-                  style={{ background: 'none', border: 'none', color: '#6ee7b7', fontSize: '0.75rem',
-                    fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  📋 Form cues + demo →
+                  style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.75rem',
+                    fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  📋 Form cues + demo
                 </button>
 
                 {/* Per-exercise note */}
