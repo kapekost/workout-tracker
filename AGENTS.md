@@ -294,7 +294,9 @@ migration is entangled with it.
 The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
-nutrition in the Backlog section below. Sequencing item 1 (muscle-group
+nutrition in the Backlog section below, plus a newly-captured fourth:
+[adaptive coaching / AI-in-the-loop programming](docs/superpowers/backlog/2026-08-23-adaptive-coaching.md),
+not yet sequenced. Sequencing item 1 (muscle-group
 picker) and the `/api/import` hardening that the profiles research surfaced
 are both done — **the design-system decision (D) is next**, before profiles
 (B) starts this project's first schema migration, which makes a pre-deploy

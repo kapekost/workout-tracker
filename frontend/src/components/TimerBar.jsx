@@ -1,20 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { remainingSeconds, elapsedSeconds, formatClock } from '../lib/timer'
+import { playBeep } from '../lib/sound'
 import { track } from '../lib/analytics'
-
-function beep() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext
-    if (!Ctx) return
-    const ctx = new Ctx()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.frequency.value = 880; osc.connect(gain); gain.connect(ctx.destination)
-    gain.gain.setValueAtTime(0.2, ctx.currentTime)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.25)
-  } catch { /* audio not available */ }
-}
 
 export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld, paused, pausedRem, onTogglePause }) {
   const [now, setNow] = useState(Date.now())
@@ -41,7 +28,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
       firedRef.current = true
       track('rest_actual_vs_target', { target: restTargetSec, actual: restStartMs != null ? elapsedSeconds(restStartMs, now) : restTargetSec })
       const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-      beep(); navigator.vibrate?.([300,150,300])
+      playBeep(); navigator.vibrate?.([300,150,300])
       if (!reduce) { setFlash(true); setTimeout(() => setFlash(false), 1300) }
     }
   }, [resting, rem])
@@ -62,11 +49,11 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
       }}>
         <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => { track('rest_adjust', { delta: -30 }); onAddRest(-30) }}>−30</button>
         <div className="rest-block">
-          <div className="rest-label" style={{ color: resting && rem === 0 ? '#6ee7b7' : '#9ca3af' }}>
-            {resting ? (rem === 0 ? 'GO' : 'REST') : 'REST'}
+          <div className="rest-label" style={{ color: !resting ? '#6b7280' : rem === 0 ? '#6ee7b7' : paused ? '#fbbf24' : '#9ca3af' }}>
+            {!resting ? 'READY' : paused ? 'PAUSED' : rem === 0 ? 'GO' : 'REST'}
           </div>
           <div className="rest-clock">
-            {formatClock(resting ? rem : 0)}
+            {resting ? formatClock(rem) : '—:—'}
           </div>
         </div>
         <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => { track('rest_adjust', { delta: 30 }); onAddRest(30) }}>+30</button>
