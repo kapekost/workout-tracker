@@ -46,16 +46,59 @@ function SetRow({ s, onDelete }) {
   )
 }
 
+// Reaching a real working weight (e.g. 20kg -> 60kg) at a plain +2.5 step
+// took 16 taps. Holding a stepper button now auto-repeats after a short
+// delay, same as a native stepper, without changing the single-tap behavior.
+const HOLD_DELAY_MS = 400
+const HOLD_REPEAT_MS = 90
+
 function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
+  const timers = useRef({ timeout: null, interval: null })
+  const suppressClick = useRef(false)
+
+  function bump(sign) {
+    onChange(v => {
+      const next = v + sign * step
+      return sign < 0 ? Math.max(min, next) : next
+    })
+  }
+
+  function startHold(sign) {
+    timers.current.timeout = setTimeout(() => {
+      suppressClick.current = true
+      timers.current.interval = setInterval(() => bump(sign), HOLD_REPEAT_MS)
+    }, HOLD_DELAY_MS)
+  }
+
+  function endHold() {
+    clearTimeout(timers.current.timeout)
+    clearInterval(timers.current.interval)
+    timers.current.timeout = null
+    timers.current.interval = null
+  }
+
+  // The click that follows a long-press-release must not also bump:
+  // startHold already did the repeating for it.
+  function handleClick(sign) {
+    if (suppressClick.current) { suppressClick.current = false; return }
+    bump(sign)
+  }
+
+  useEffect(() => () => endHold(), [])
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button className="btn-icon" aria-label="decrease" onClick={() => onChange(Math.max(min, value - step))}>−</button>
+      <button className="btn-icon" aria-label="decrease"
+        onPointerDown={() => startHold(-1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
+        onClick={() => handleClick(-1)}>−</button>
       <input type="number" value={value} inputMode={mode}
         onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
         onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
         style={{ width: 72, textAlign: 'center', background: '#1e1e32', border: 'none', borderRadius: 8,
           color: '#fff', fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: 700, padding: '8px 0' }} />
-      <button className="btn-icon" aria-label="increase" onClick={() => onChange(value + step)}>+</button>
+      <button className="btn-icon" aria-label="increase"
+        onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
+        onClick={() => handleClick(1)}>+</button>
     </div>
   )
 }
