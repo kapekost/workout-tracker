@@ -1,3 +1,5 @@
+import { overloadSuggestion } from './overload'
+
 export function nextIncompleteExerciseId(exercises, sets) {
   for (const ex of exercises) {
     const done = sets.filter(s => s.exercise_id === ex.id).length
@@ -6,18 +8,23 @@ export function nextIncompleteExerciseId(exercises, sets) {
   return null
 }
 
-export function prefillFor(exerciseId, sets, progressMaxByExercise = {}, lastSets = null) {
+export function prefillFor(exerciseId, sets, progressMaxByExercise = {}, lastSets = null, exMeta = {}) {
+  const { repsHigh = null, bodyweight = false } = exMeta
   const exSets = sets.filter(s => s.exercise_id === exerciseId)
   if (exSets.length) {
     const last = exSets[exSets.length - 1]
     return { weight: last.weight_kg, reps: last.reps }
   }
   if (Array.isArray(lastSets) && lastSets.length) {
-    return { weight: lastSets[0].weight_kg, reps: lastSets[0].reps }
+    // Match the "Suggested Xkg" progressive-overload hint shown next to last
+    // workout's sets. Starting the input at last time's raw weight instead
+    // made the prefill silently ignore the plan's own progression.
+    const sug = repsHigh != null ? overloadSuggestion(lastSets, repsHigh) : null
+    return { weight: sug ? sug.weight : lastSets[0].weight_kg, reps: lastSets[0].reps }
   }
   const pm = progressMaxByExercise[exerciseId]
   if (pm != null) return { weight: pm.weight, reps: pm.reps ?? 8 }
-  return { weight: 20, reps: 8 }
+  return { weight: bodyweight ? 0 : 20, reps: 8 }
 }
 
 export function nextSetNumber(sets) {

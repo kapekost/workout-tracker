@@ -177,7 +177,7 @@ export const PLAN = {
       },
       {
         id: 'pullup', name: 'Pull-up', alt: 'Use assisted machine if needed',
-        sets: 3, repsLow: 6, repsHigh: 12,
+        sets: 3, repsLow: 6, repsHigh: 12, bodyweight: true,
         muscles: ['Lats', 'Biceps', 'Rear Delt'],
         ytUrl: 'https://www.youtube.com/results?search_query=how+to+pull+ups+proper+form+tutorial',
         cues: [

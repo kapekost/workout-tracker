@@ -33,11 +33,36 @@
 
 * { -webkit-tap-highlight-color: transparent; }
 
+/* Prevent the page bounce/rubber-band on overscroll. Needs to be set on both
+   html and body: iOS Safari only honours it reliably when both carry it. */
+html {
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--bg);
   font-family: 'Inter', system-ui, sans-serif;
   color: #fff;
-  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  /* This is an app shell, not a document: long-pressing a button or label
+     was selecting its text (or opening the iOS text-selection callout)
+     instead of registering the tap. Inputs/textareas opt back in below. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Removes the ~300ms tap delay and the double-tap-to-zoom gesture that made
+   quick taps on controls occasionally register as a zoom instead of a tap.
+   Pinch-zoom is untouched; only the double-tap gesture is disabled. */
+button, a, .tap-target {
+  touch-action: manipulation;
 }
 
 .font-mono { font-family: 'JetBrains Mono', monospace; }

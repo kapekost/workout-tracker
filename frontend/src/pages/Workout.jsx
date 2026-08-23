@@ -3,12 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
+import ExerciseCuesModal from '../components/ExerciseCuesModal'
 import Skeleton from '../components/Skeleton'
 import { formatClock, elapsedSeconds, remainingSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
 import { useRestPreference } from '../lib/useRestPreference'
 import { nextIncompleteExerciseId, prefillFor, nextSetNumber } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
+import { unlockAudio } from '../lib/sound'
+import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerStorage'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 
@@ -44,16 +47,59 @@ function SetRow({ s, onDelete }) {
   )
 }
 
+// Reaching a real working weight (e.g. 20kg -> 60kg) at a plain +2.5 step
+// took 16 taps. Holding a stepper button now auto-repeats after a short
+// delay, same as a native stepper, without changing the single-tap behavior.
+const HOLD_DELAY_MS = 400
+const HOLD_REPEAT_MS = 90
+
 function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
+  const timers = useRef({ timeout: null, interval: null })
+  const suppressClick = useRef(false)
+
+  function bump(sign) {
+    onChange(v => {
+      const next = v + sign * step
+      return sign < 0 ? Math.max(min, next) : next
+    })
+  }
+
+  function startHold(sign) {
+    timers.current.timeout = setTimeout(() => {
+      suppressClick.current = true
+      timers.current.interval = setInterval(() => bump(sign), HOLD_REPEAT_MS)
+    }, HOLD_DELAY_MS)
+  }
+
+  function endHold() {
+    clearTimeout(timers.current.timeout)
+    clearInterval(timers.current.interval)
+    timers.current.timeout = null
+    timers.current.interval = null
+  }
+
+  // The click that follows a long-press-release must not also bump:
+  // startHold already did the repeating for it.
+  function handleClick(sign) {
+    if (suppressClick.current) { suppressClick.current = false; return }
+    bump(sign)
+  }
+
+  useEffect(() => () => endHold(), [])
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button className="btn-icon" aria-label="decrease" onClick={() => onChange(Math.max(min, value - step))}>−</button>
+      <button className="btn-icon" aria-label="decrease"
+        onPointerDown={() => startHold(-1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
+        onClick={() => handleClick(-1)}>−</button>
       <input type="number" value={value} inputMode={mode}
         onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
         onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
         style={{ width: 72, textAlign: 'center', background: '#1e1e32', border: 'none', borderRadius: 8,
           color: '#fff', fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: 700, padding: '8px 0' }} />
-      <button className="btn-icon" aria-label="increase" onClick={() => onChange(value + step)}>+</button>
+      <button className="btn-icon" aria-label="increase"
+        onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
+        onClick={() => handleClick(1)}>+</button>
     </div>
   )
 }
@@ -83,13 +129,18 @@ export default function Workout() {
   const [logging, setLogging] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [summary, setSummary] = useState(null)
-  const [restStartMs, setRestStartMs] = useState(null)
+  // restStartMs is an absolute timestamp, so restoring it on mount reproduces
+  // whatever remainingSeconds() would show had this page never unmounted.
+  // Navigating to Home/Progress/History and back no longer resets a running
+  // rest timer to idle.
+  const [restStartMs, setRestStartMs] = useState(() => loadRestTimer(sessionId)?.restStartMs ?? null)
   const [restTargetSec, setRestTargetSec] = useRestPreference(90)
-  const [pausedRem, setPausedRem] = useState(null)
+  const [pausedRem, setPausedRem] = useState(() => loadRestTimer(sessionId)?.pausedRem ?? null)
   const { held: wakeLockHeld } = useWakeLock(true)
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
   const [editingNote, setEditingNote] = useState(null)
+  const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
 
   async function ensureLastPerf(exId) {
@@ -131,17 +182,23 @@ export default function Workout() {
       // would swallow it and bounce to Home, making the "Unknown workout day."
       // fallback below unreachable. No exercises means no first ID — the
       // fallback then renders as intended.
-      const firstId = nextIncompleteExerciseId(PLAN[s.workout_day]?.exercises || [], s.sets || [])
+      const exercises = PLAN[s.workout_day]?.exercises || []
+      const firstId = nextIncompleteExerciseId(exercises, s.sets || [])
       if (firstId) {
         setExpanded(firstId)
         const data = await ensureLastPerf(firstId)
-        const pf = prefillFor(firstId, s.sets || [], prMap, data?.sets)
+        const firstEx = exercises.find(e => e.id === firstId)
+        const pf = prefillFor(firstId, s.sets || [], prMap, data?.sets, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
         setWeight(pf.weight); setReps(pf.reps)
       }
     }).catch(() => nav('/'))
     // Load notes
     api.get('/notes').then(setNotes).catch(() => {})
   }, [sessionId])
+
+  useEffect(() => {
+    saveRestTimer(sessionId, { restStartMs, pausedRem })
+  }, [sessionId, restStartMs, pausedRem])
 
   if (!session) return (
     <div style={{ paddingTop: 24 }}>
@@ -184,6 +241,10 @@ export default function Workout() {
 
   async function logSet(ex) {
     if (logging) return
+    // Must run synchronously in this click handler (before any await). The
+    // rest-timer beep fires later from a setInterval, and mobile browsers
+    // only let an AudioContext produce sound once it's unlocked by a gesture.
+    unlockAudio()
     setLogging(true)
     const existingSets = setsForExercise(ex.id)
     try {
@@ -215,7 +276,8 @@ export default function Workout() {
         if (nextId && nextId !== ex.id) {
           setExpanded(nextId)
           const data = await ensureLastPerf(nextId)
-          const pf = prefillFor(nextId, newSets, prs, data?.sets)
+          const nextEx = plan.exercises.find(e => e.id === nextId)
+          const pf = prefillFor(nextId, newSets, prs, data?.sets, { repsHigh: nextEx?.repsHigh, bodyweight: nextEx?.bodyweight })
           setWeight(pf.weight); setReps(pf.reps)
           // Anchor the viewport to the newly-opened card so the collapse of
           // the tall finished card doesn't shift content under the thumb.
@@ -252,6 +314,7 @@ export default function Workout() {
     try {
       const updated = await api.patch(`/sessions/${sessionId}`, { completed: true })
       track('session_finish', { session_id: sessionId })
+      clearRestTimer(sessionId)
       refresh()
       const { summarize } = await import('../lib/sessionStats')
       let serverPrs = []
@@ -338,13 +401,13 @@ export default function Workout() {
                 setExpanded(opening ? ex.id : null)
                 if (opening) {
                   const data = await ensureLastPerf(ex.id)
-                  const pf = prefillFor(ex.id, sets, prs, data?.sets)
+                  const pf = prefillFor(ex.id, sets, prs, data?.sets, { repsHigh: ex.repsHigh, bodyweight: ex.bodyweight })
                   setWeight(pf.weight); setReps(pf.reps)
                 }
               }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{ex.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{ex.name}</span>
                   {complete && <span style={{ color: '#6ee7b7', fontSize: '0.75rem' }}>✓</span>}
                 </div>
                 <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 2 }}>
@@ -368,13 +431,15 @@ export default function Workout() {
             {/* Expanded — set logger */}
             {isOpen && (
               <div style={{ borderTop: '1px solid #1e1e32', padding: '16px' }}>
-                {/* Info link */}
+                {/* Info link: opens a bottom sheet in place, not a page nav, so
+                    checking a cue mid-set doesn't collapse this card or lose
+                    whatever weight/reps you've already dialed in. */}
                 <button
                   className="tap-target"
-                  onClick={() => nav(`/exercise/${session.workout_day}/${ex.id}`)}
-                  style={{ background: 'none', border: 'none', color: '#6ee7b7', fontSize: '0.75rem',
-                    fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  📋 Form cues + demo →
+                  onClick={() => setCuesEx(ex)}
+                  style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.75rem',
+                    fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  📋 Form cues + demo
                 </button>
 
                 {/* Per-exercise note */}
@@ -420,7 +485,12 @@ export default function Workout() {
                       Reps drops under Weight instead of clipping off-screen. */}
                   <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Weight (kg)</p>
+                      <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: ex.bodyweight ? 2 : 8 }}>
+                        {ex.bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}
+                      </p>
+                      {ex.bodyweight && (
+                        <p style={{ color: '#6b7280', fontSize: '0.6rem', marginBottom: 6 }}>0 = bodyweight only</p>
+                      )}
                       <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
                     </div>
                     <div style={{ textAlign: 'center' }}>
@@ -454,6 +524,10 @@ export default function Workout() {
         style={{ marginTop: 16, background: color }}>
         {finishing ? 'Saving…' : '✓ Finish Workout'}
       </button>
+
+      {cuesEx && (
+        <ExerciseCuesModal ex={cuesEx} color={color} onClose={() => setCuesEx(null)} />
+      )}
     </div>
   )
 }

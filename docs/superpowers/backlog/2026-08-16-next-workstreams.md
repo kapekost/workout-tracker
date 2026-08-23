@@ -19,6 +19,16 @@ a table like `profiles` was added — both fixed via TDD ahead of any schema
 work. Full writeup: `docs/CHANGELOG.md`. D (design-system decision) is next;
 nothing else here has moved.
 
+**Update 2026-08-23: a new, related workstream was captured, adaptive
+coaching / AI-in-the-loop programming** (an adaptive plan beyond the fixed
+split, plus an export/prompt surface to review training with Claude or
+another LLM, before/after/maybe-during a workout). It overlaps enough with
+workstream **C** below (the import prompt) that brainstorming should weigh
+whether they're one workstream or two. Captured separately rather than
+folded in here since it wasn't part of this file's original ask:
+[`docs/superpowers/backlog/2026-08-23-adaptive-coaching.md`](2026-08-23-adaptive-coaching.md).
+Not sequenced yet. Nothing else here has moved.
+
 ---
 
 ## A. Audit: what older work was left undone
