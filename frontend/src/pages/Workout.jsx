@@ -9,6 +9,7 @@ import { useWakeLock } from '../lib/useWakeLock'
 import { useRestPreference } from '../lib/useRestPreference'
 import { nextIncompleteExerciseId, prefillFor, nextSetNumber } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
+import { unlockAudio } from '../lib/sound'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 
@@ -184,6 +185,10 @@ export default function Workout() {
 
   async function logSet(ex) {
     if (logging) return
+    // Must run synchronously in this click handler (before any await). The
+    // rest-timer beep fires later from a setInterval, and mobile browsers
+    // only let an AudioContext produce sound once it's unlocked by a gesture.
+    unlockAudio()
     setLogging(true)
     const existingSets = setsForExercise(ex.id)
     try {
