@@ -46,6 +46,27 @@ describe('prefillFor with lastSets', () => {
   })
 })
 
+describe('prefillFor progressive overload', () => {
+  it('prefills the suggested +increment weight when last session hit the top rep target', () => {
+    const last = [{ weight_kg: 80, reps: 8 }, { weight_kg: 80, reps: 8 }]
+    expect(prefillFor('a', [], {}, last, { repsHigh: 8 })).toEqual({ weight: 82.5, reps: 8 })
+  })
+  it('repeats last weight when the rep target was missed', () => {
+    const last = [{ weight_kg: 80, reps: 8 }, { weight_kg: 80, reps: 6 }]
+    expect(prefillFor('a', [], {}, last, { repsHigh: 8 })).toEqual({ weight: 80, reps: 8 })
+  })
+  it('falls back to the raw last weight when repsHigh is unknown', () => {
+    const last = [{ weight_kg: 80, reps: 8 }]
+    expect(prefillFor('a', [], {}, last)).toEqual({ weight: 80, reps: 8 })
+  })
+})
+
+describe('prefillFor bodyweight default', () => {
+  it('defaults to 0kg instead of 20kg when nothing is known', () => {
+    expect(prefillFor('a', [], {}, null, { bodyweight: true })).toEqual({ weight: 0, reps: 8 })
+  })
+})
+
 describe('nextSetNumber', () => {
   it('starts at 1 with no sets', () => {
     expect(nextSetNumber([])).toBe(1)
