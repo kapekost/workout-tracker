@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
 import Workout from './pages/Workout'
@@ -12,16 +13,31 @@ import ScreenTracker from './components/ScreenTracker'
 import { ActiveSessionProvider } from './lib/activeSession'
 
 export default function App() {
+  const headerRef = useRef(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+
+  // `position: sticky` still travels with the page during iOS's rubber-band
+  // overscroll bounce. Only a `fixed` header stays pinned through it, so the
+  // header's height (which changes when ResumeBanner mounts) has to be
+  // tracked explicitly and applied as padding on the scroll content.
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => setHeaderHeight(entry.contentRect.height))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   return (
     <BrowserRouter>
       <ActiveSessionProvider>
         <ScreenTracker />
         <div style={{ background: '#0a0a12', minHeight: '100dvh' }}>
-          <div style={{ position: 'sticky', top: 0, zIndex: 45 }}>
+          <div ref={headerRef} style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 45 }}>
             <TopBar />
             <ResumeBanner />
           </div>
-          <div className="max-w-md mx-auto pb-24 px-4">
+          <div className="max-w-md mx-auto pb-24 px-4" style={{ paddingTop: headerHeight }}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/workout/:sessionId" element={<Workout />} />
