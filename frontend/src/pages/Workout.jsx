@@ -14,6 +14,12 @@ import { unlockAudio } from '../lib/sound'
 import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerStorage'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
+import Eyebrow from '../components/Eyebrow'
+import Chip from '../components/Chip'
+import DayAccent from '../components/DayAccent'
+import DisclosureRow from '../components/DisclosureRow'
+import Toast from '../components/Toast'
+import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
 
 function Stat({ label, value }) {
@@ -108,10 +114,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
 function WeightFieldLabel({ bodyweight }) {
   return (
     <div style={{ marginBottom: space.sm }}>
-      <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold,
-        letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>
-        {bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}
-      </p>
+      <Eyebrow>{bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}</Eyebrow>
       {bodyweight && (
         <p style={{ color: colors.muted2, fontSize: '0.6rem', marginTop: 2 }}>0 = bodyweight only</p>
       )}
@@ -137,7 +140,7 @@ export default function Workout() {
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
   const prsAtStart = useRef({})
-  const [toast, setToast] = useState(null) // { msg, type }
+  const { toast, showToast } = useToast()
   const [expanded, setExpanded] = useState(null)
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(8)
@@ -352,11 +355,6 @@ export default function Workout() {
     }
   }
 
-  function showToast(msg, type = 'success') {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 2500)
-  }
-
   function togglePause() {
     if (pausedRem == null) {
       const rem = remainingSeconds(restStartMs, restTargetSec, Date.now())
@@ -373,7 +371,7 @@ export default function Workout() {
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 96 }}>
-      {toast && <div className={`toast${toast.type === 'error' ? ' error' : ''}`}>{toast.msg}</div>}
+      <Toast toast={toast} />
       <TimerBar
         sessionStartMs={sessionStartMs}
         restStartMs={restStartMs}
@@ -390,9 +388,9 @@ export default function Workout() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <p style={{ color, fontSize: type.size.sm, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>
+          <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
             Active session
-          </p>
+          </Eyebrow>
           <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
           <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
         </div>
@@ -407,130 +405,120 @@ export default function Workout() {
         const complete = done >= target
 
         return (
-          <div key={ex.id} ref={el => { cardRefs.current[ex.id] = el }}
-            className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
-            {/* Exercise header */}
-            <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              onClick={async () => {
-                const opening = !isOpen
-                setExpanded(opening ? ex.id : null)
-                if (opening) {
-                  const data = await ensureLastPerf(ex.id)
-                  const pf = prefillFor(ex.id, sets, prs, data?.sets, { repsHigh: ex.repsHigh, bodyweight: ex.bodyweight })
-                  setWeight(pf.weight); setReps(pf.reps)
-                }
-              }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* Deliberately not type.size.title: that's the page <h1> (line ~396). This
-                      is the per-card exercise name from the "title over cues link" hierarchy
-                      fix (1e0d8f5) — it only needs to outrank the cues-link text within its own
-                      card, not match the page heading. Tier-3 local literal per the design-tokens
-                      spec's own precedent (not every value needs a token). */}
-                  <span style={{ fontWeight: type.weight.bold, fontSize: '1.1rem' }}>{ex.name}</span>
-                  {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
+          <DisclosureRow key={ex.id} ref={el => { cardRefs.current[ex.id] = el }}
+            style={{ marginBottom: space.md }} bodyPadding="16px"
+            isOpen={isOpen}
+            onToggle={async () => {
+              const opening = !isOpen
+              setExpanded(opening ? ex.id : null)
+              if (opening) {
+                const data = await ensureLastPerf(ex.id)
+                const pf = prefillFor(ex.id, sets, prs, data?.sets, { repsHigh: ex.repsHigh, bodyweight: ex.bodyweight })
+                setWeight(pf.weight); setReps(pf.reps)
+              }
+            }}
+            header={
+              <>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Deliberately not type.size.title: that's the page <h1> (line ~396). This
+                        is the per-card exercise name from the "title over cues link" hierarchy
+                        fix (1e0d8f5) — it only needs to outrank the cues-link text within its own
+                        card, not match the page heading. Tier-3 local literal per the design-tokens
+                        spec's own precedent (not every value needs a token). */}
+                    <span style={{ fontWeight: type.weight.bold, fontSize: '1.1rem' }}>{ex.name}</span>
+                    {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
+                  </div>
+                  <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
+                    {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
+                  </p>
                 </div>
-                <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
-                  {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
-                </p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {/* Set dots */}
                 <div style={{ display: 'flex', gap: 4 }}>
                   {Array.from({ length: target }).map((_, i) => (
-                    <div key={i} style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: i < done ? color : '#2a2a3e'
-                    }} />
+                    i < done
+                      ? <DayAccent key={i} day={session.workout_day} />
+                      : <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2a2a3e' }} />
                   ))}
                 </div>
-                <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
-              </div>
-            </div>
+              </>
+            }
+          >
+            {/* Info link: opens a bottom sheet in place, not a page nav, so
+                checking a cue mid-set doesn't collapse this card or lose
+                whatever weight/reps you've already dialed in. */}
+            <button
+              className="tap-target"
+              onClick={() => setCuesEx(ex)}
+              style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.base,
+                fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
+              📋 Form cues + demo
+            </button>
 
-            {/* Expanded — set logger */}
-            {isOpen && (
-              <div style={{ borderTop: `1px solid ${colors.border}`, padding: '16px' }}>
-                {/* Info link: opens a bottom sheet in place, not a page nav, so
-                    checking a cue mid-set doesn't collapse this card or lose
-                    whatever weight/reps you've already dialed in. */}
-                <button
-                  className="tap-target"
-                  onClick={() => setCuesEx(ex)}
-                  style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.base,
-                    fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  📋 Form cues + demo
-                </button>
+            {/* Per-exercise note */}
+            {editingNote === ex.id ? (
+              <textarea defaultValue={notes[ex.id] || ''} autoFocus
+                onBlur={e => saveNote(ex.id, e.target.value.trim())}
+                style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
+            ) : notes[ex.id] ? (
+              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
+            ) : (
+              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
+            )}
 
-                {/* Per-exercise note */}
-                {editingNote === ex.id ? (
-                  <textarea defaultValue={notes[ex.id] || ''} autoFocus
-                    onBlur={e => saveNote(ex.id, e.target.value.trim())}
-                    style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
-                ) : notes[ex.id] ? (
-                  <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
-                ) : (
-                  <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
-                )}
-
-                {/* Last workout + overload hint */}
-                {!(ex.id in lastPerf) && (
-                  <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 12 }}>…</p>
-                )}
-                {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <p style={{ color: colors.muted, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>Last workout</p>
-                    {lastPerf[ex.id].sets.map(s => (
-                      <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
-                    ))}
-                    {(() => {
-                      const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
-                      return sug ? (
-                        <p style={{ color: colors.mint, fontSize: type.size.base, marginTop: 6 }}>
-                          Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
-                        </p>
-                      ) : null
-                    })()}
-                  </div>
-                )}
-
-                {/* Logged sets */}
-                {exSets.map(s => (
-                  <SetRow key={s.id} s={s} onDelete={deleteSet} />
+            {/* Last workout + overload hint */}
+            {!(ex.id in lastPerf) && (
+              <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 12 }}>…</p>
+            )}
+            {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Last workout</Eyebrow>
+                {lastPerf[ex.id].sets.map(s => (
+                  <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
                 ))}
-
-                {/* Logger controls */}
-                <div style={{ marginTop: 14 }}>
-                  {/* flex-wrap: the two fixed-width steppers exceed card width below ~380px;
-                      Reps drops under Weight instead of clipping off-screen. */}
-                  <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <WeightFieldLabel bodyweight={ex.bodyweight} />
-                      <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 8 }}>Reps</p>
-                      <NumControl value={reps} onChange={setReps} step={1} min={1} />
-                    </div>
-                  </div>
-                  <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
-                    style={{ background: color, fontSize: '0.9rem', padding: '12px' }}>
-                    {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
-                  </button>
-                </div>
-
-                {/* Muscles */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-                  {ex.muscles.map(m => (
-                    <span key={m} style={{
-                      background: colors.border, borderRadius: 100, padding: '3px 10px',
-                      fontSize: type.size.sm, color: colors.muted, fontWeight: type.weight.semibold
-                    }}>{m}</span>
-                  ))}
-                </div>
+                {(() => {
+                  const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
+                  return sug ? (
+                    <p style={{ color: colors.mint, fontSize: type.size.base, marginTop: 6 }}>
+                      Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
+                    </p>
+                  ) : null
+                })()}
               </div>
             )}
-          </div>
+
+            {/* Logged sets */}
+            {exSets.map(s => (
+              <SetRow key={s.id} s={s} onDelete={deleteSet} />
+            ))}
+
+            {/* Logger controls */}
+            <div style={{ marginTop: 14 }}>
+              {/* flex-wrap: the two fixed-width steppers exceed card width below ~380px;
+                  Reps drops under Weight instead of clipping off-screen. */}
+              <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <WeightFieldLabel bodyweight={ex.bodyweight} />
+                  <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <Eyebrow style={{ marginBottom: 8 }}>Reps</Eyebrow>
+                  <NumControl value={reps} onChange={setReps} step={1} min={1} />
+                </div>
+              </div>
+              <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
+                style={{ background: color, fontSize: '0.9rem', padding: '12px' }}>
+                {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
+              </button>
+            </div>
+
+            {/* Muscles */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+              {ex.muscles.map(m => (
+                <Chip key={m} color={colors.muted}>{m}</Chip>
+              ))}
+            </div>
+          </DisclosureRow>
         )
       })}
 

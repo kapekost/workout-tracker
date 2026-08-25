@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import Eyebrow from './Eyebrow'
 import { colors, type } from '../lib/theme'
 
 const tabs = [
@@ -35,11 +36,9 @@ export default function NavBar() {
               fontSize: '1.35rem', lineHeight: 1,
               color: isActive ? colors.mint : colors.muted
             }}>{tab.icon}</span>
-            <span style={{
-              fontSize: type.size.xs, fontWeight: type.weight.semibold, letterSpacing: type.labelTracking,
-              color: isActive ? colors.mint : colors.muted,
-              textTransform: 'uppercase'
-            }}>{tab.label}</span>
+            <Eyebrow color={isActive ? colors.mint : colors.muted} style={{ fontWeight: type.weight.semibold }}>
+              {tab.label}
+            </Eyebrow>
           </button>
         )
       })}

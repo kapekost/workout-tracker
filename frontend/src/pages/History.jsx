@@ -1,9 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
-import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { PLAN } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
+import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
+import DayAccent from '../components/DayAccent'
+import DisclosureRow from '../components/DisclosureRow'
+import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -72,7 +77,7 @@ export default function History() {
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmId, setConfirmId] = useState(null)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
     api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
@@ -102,8 +107,7 @@ export default function History() {
       setSessions(prev => prev.filter(s => s.id !== id))
       if (expanded === id) setExpanded(null)
     } catch {
-      setToast('Failed to delete')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Failed to delete', 'error')
     }
   }
 
@@ -117,48 +121,39 @@ export default function History() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>History</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 28 }}>
         {sessions.length} session{sessions.length !== 1 ? 's' : ''} logged
       </p>
 
       {sessions.length === 0 ? (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2 }}>No sessions yet.</p>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Your workout history will appear here.</p>
-        </div>
+        <EmptyState title="No sessions yet." subtitle="Your workout history will appear here." />
       ) : sessions.map(s => {
         const plan = PLAN[s.workout_day]
-        const color = DAY_COLORS[s.workout_day] ?? DAY_COLOR_FALLBACK
         const isOpen = expanded === s.id
         const detail = details[s.id]
 
         return (
-          <div key={s.id} className="card" style={{ marginBottom: 10, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => toggle(s.id)}>
-              <div style={{
-                width: 8, height: 36, borderRadius: 4, background: color, flexShrink: 0
-              }} />
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
-                  {plan?.emoji} {plan?.name ?? s.workout_day}
-                </p>
-                <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
-                  {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
-                  {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
-                </p>
-              </div>
-              <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
-            </div>
-
-            {isOpen && (
-              <div style={{ borderTop: `1px solid ${colors.border}`, padding: '14px 16px' }}>
-                <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
-              </div>
-            )}
-          </div>
+          <DisclosureRow key={s.id} style={{ marginBottom: space.smd }}
+            isOpen={isOpen} onToggle={() => toggle(s.id)}
+            header={
+              <>
+                <DayAccent day={s.workout_day} shape="bar" />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
+                    {plan?.emoji} {plan?.name ?? s.workout_day}
+                  </p>
+                  <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
+                    {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
+                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
+                  </p>
+                </div>
+              </>
+            }
+          >
+            <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
+          </DisclosureRow>
         )
       })}
     </div>
