@@ -4,6 +4,7 @@ import { api } from '../api'
 import { ALL_EXERCISES } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
@@ -130,9 +131,7 @@ export default function PersonalBests() {
       {loading ? (
         <Skeleton height={72} />
       ) : Object.keys(grouped).length === 0 ? (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2 }}>No historical PBs logged yet.</p>
-        </div>
+        <EmptyState title="No historical PBs logged yet." />
       ) : (
         Object.entries(grouped).map(([name, rows]) => (
           <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
