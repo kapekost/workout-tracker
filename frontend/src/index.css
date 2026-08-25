@@ -130,6 +130,14 @@ button, a, .tap-target {
   height: max(100%, 44px);
 }
 
+/* NOT dead code: the design-system inventory (2026-08-17) flagged this rule
+   as fully overridden by NumControl's inline styles (Workout.jsx) and a
+   candidate for deletion — re-checked during the 2026-08-25 component-
+   extraction pass and that no-longer holds. PersonalBests.jsx's three
+   number inputs (weight/reps/year) rely on this rule for centering, the
+   monospace font, weight 600, and hiding the spin buttons; none of that is
+   set inline there. Deleting this would be a real, visible regression on
+   that page, not the no-op it would be for NumControl alone. Left in place. */
 input[type="number"] {
   background: var(--border);
   color: #fff;
