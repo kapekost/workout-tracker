@@ -305,6 +305,33 @@ in a running browser. This is one slice of a larger UI/UX initiative running
 across parallel branches; it lands on `main` only once that whole initiative
 is reviewed and merged.
 
+**Component extraction (part of D) implemented 2026-08-25, not yet
+merged/deployed.**
+[`docs/superpowers/specs/2026-08-25-component-extraction-design.md`](docs/superpowers/specs/2026-08-25-component-extraction-design.md)
+/ [`docs/superpowers/plans/2026-08-25-component-extraction.md`](docs/superpowers/plans/2026-08-25-component-extraction.md):
+the 6 shared components the design-system inventory's §3.2 evidenced now
+exist under `frontend/src/components/` (`Eyebrow`, `Toast`/`useToast`,
+`Chip`, `EmptyState`, `DayAccent`, `DisclosureRow`), each importing only
+from `theme.js`, and all 6 patterns are swept off their call sites.
+`PersonalBests.jsx` turned out to carry a site for 3 of the 6 (toast,
+number-input, empty state) that the original inventory hadn't catalogued;
+its number-input styling is why the dead `input[type="number"]` CSS rule
+plan Task 3 expected to delete was left in place instead — deleting it would
+have visibly regressed that page's three number fields (centering, the
+monospace font, the hidden spin buttons), so `NumControl`'s inline styles
+and that global rule keep quietly overlapping rather than the rule being
+removed. Built on the same feature branch
+(`claude/ui-ux-upgrades-agents-x99pq8`), every plan task committed
+individually — one commit per swept pattern, plus a follow-up for the
+`PersonalBests.jsx` empty-state site found during the final verification
+grep — frontend build and full test suite green throughout (32 files / 208
+tests), the 12-test Playwright responsive suite green, a manual 320px
+screenshot check on `Workout.jsx`/`History.jsx` with a card expanded showed
+no overflow, and `MuscleGroupPicker`'s `RecoveryRing` re-confirmed visually
+unaffected — that file was not touched, per the spec's explicit scope. This
+is one slice of the same larger UI/UX initiative; it lands on `main` only
+once that whole initiative is reviewed and merged.
+
 The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
@@ -312,18 +339,22 @@ nutrition in the Backlog section below, plus a newly-captured fourth:
 [adaptive coaching / AI-in-the-loop programming](docs/superpowers/backlog/2026-08-23-adaptive-coaching.md),
 not yet sequenced. Sequencing item 1 (muscle-group
 picker) and the `/api/import` hardening that the profiles research surfaced
-are both done, and the design-system decision (D) is now partly resolved —
-tokens+migration are implemented (above) — but **D is not fully closed**:
-Tailwind's fate (inventory §5, item 2 of §7 — lean in or remove, and removing
-it needs a replacement `border-box`/margin reset in the same commit) and the
-8 hand-rolled component patterns (inventory §3.2, item 9 of §7 — eyebrow
-label, toast state machine, pill/chip, empty state, day-accent indicator,
-disclosure row, the number-input double-styling conflict, stat pair) are
-both still open, deliberately deferred by the design-tokens spec's own scope
-(see its "Out, found and evidenced, but not fixed here" section). Whichever
-of those is picked up next should land **before** profiles (B) starts this
-project's first schema migration, which makes a pre-deploy export snapshot
-and a restore drill mandatory.
+are both done, and the design-system decision (D) is now further resolved:
+tokens+migration (above), Tailwind's removal (the `tailwind-lean-out`
+slice's commits are already on this branch — `tailwindcss`/`postcss`/
+`autoprefixer` are gone from `frontend/package.json`, `.page-shell` replaces
+the old utility classes, and a hand-written reset replaces preflight), and 6
+of the inventory's 8 hand-rolled component patterns (inventory §3.2, item 9
+of §7 — eyebrow label, toast state machine, pill/chip, empty state,
+day-accent indicator, disclosure row) are now each built once and swept off
+every call site (above). **D is still not fully closed**: the number-input
+double-styling conflict (inventory §3.2a) turned out not to be the simple
+deletion it looked like once `PersonalBests.jsx`'s own number inputs were
+checked (see above), and stat pair (inventory §3.2, lowest duplication
+count) remains deliberately deferred, per the component-extraction spec's
+own scope. Whichever of those is picked up next should land **before**
+profiles (B) starts this project's first schema migration, which makes a
+pre-deploy export snapshot and a restore drill mandatory.
 
 **Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
 scratch 2026-07-16 after
