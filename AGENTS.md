@@ -291,6 +291,20 @@ Tests 53 backend + 142 frontend, both green.
 docker compose up -d` reverts. No schema change was involved, so no data
 migration is entangled with it.
 
+**Design tokens (part of D) implemented 2026-08-25, not yet merged/deployed.**
+[`docs/superpowers/specs/2026-08-23-design-tokens-design.md`](docs/superpowers/specs/2026-08-23-design-tokens-design.md)
+/ [`docs/superpowers/plans/2026-08-23-design-tokens.md`](docs/superpowers/plans/2026-08-23-design-tokens.md):
+`frontend/src/lib/theme.js` (color/type/spacing/radius constants) now exists
+and all 14 files the design-system inventory found hardcoding literals are
+migrated onto it, the `DAY_COLORS` missing-day fallback is unified to one
+`DAY_COLOR_FALLBACK` constant, and the `Workout.jsx` bodyweight-label ternary
+code smell is fixed. Built on a feature branch (`claude/ui-ux-upgrades-agents-x99pq8`),
+all 14 plan tasks committed individually, frontend build and full test suite
+green throughout, `RecoveryRing`'s color-ramp guardrail manually re-verified
+in a running browser. This is one slice of a larger UI/UX initiative running
+across parallel branches; it lands on `main` only once that whole initiative
+is reviewed and merged.
+
 The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
@@ -298,9 +312,18 @@ nutrition in the Backlog section below, plus a newly-captured fourth:
 [adaptive coaching / AI-in-the-loop programming](docs/superpowers/backlog/2026-08-23-adaptive-coaching.md),
 not yet sequenced. Sequencing item 1 (muscle-group
 picker) and the `/api/import` hardening that the profiles research surfaced
-are both done — **the design-system decision (D) is next**, before profiles
-(B) starts this project's first schema migration, which makes a pre-deploy
-export snapshot and a restore drill mandatory.
+are both done, and the design-system decision (D) is now partly resolved —
+tokens+migration are implemented (above) — but **D is not fully closed**:
+Tailwind's fate (inventory §5, item 2 of §7 — lean in or remove, and removing
+it needs a replacement `border-box`/margin reset in the same commit) and the
+8 hand-rolled component patterns (inventory §3.2, item 9 of §7 — eyebrow
+label, toast state machine, pill/chip, empty state, day-accent indicator,
+disclosure row, the number-input double-styling conflict, stat pair) are
+both still open, deliberately deferred by the design-tokens spec's own scope
+(see its "Out, found and evidenced, but not fixed here" section). Whichever
+of those is picked up next should land **before** profiles (B) starts this
+project's first schema migration, which makes a pre-deploy export snapshot
+and a restore drill mandatory.
 
 **Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
 scratch 2026-07-16 after
