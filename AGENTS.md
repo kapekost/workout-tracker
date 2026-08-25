@@ -183,7 +183,14 @@ line; the script pings it (or `…/fail`) independently of the app.
 
 Re-setup on a fresh Pi (no sudo needed):
 1. Download the arm64 rclone static binary to `~/.local/bin/rclone`, `chmod +x`.
-2. `rclone config` → remote `gdrive` (Google Drive), authorize in a browser.
+2. `rclone config` → remote `gdrive` (Google Drive). **Use the personal OAuth
+   client** set up 2026-08-25 (Google Cloud Console, same project as the
+   `Home Assistant`/`CCR Agent` clients — client_id `659555371674-q72c2...`,
+   secret in whatever password manager it was saved to) — plain `rclone
+   config`'s default auto-config uses rclone's shared, retiring client_id,
+   which is exactly what this replaced. Authorize in a browser; see the
+   Dated Action Items entry below for the Testing-vs-Published gotcha if
+   re-authorizing from scratch.
 3. Test: `bash ~/workout-tracker/scripts/backup.sh` → file lands in Drive,
    `/api/health` shows a fresh `last_backup_at`.
 4. `crontab -e` → add the cron line above.
@@ -403,20 +410,38 @@ homeassistant` after the swap. The gym-tracker app rides through the churn
 but health responses slow to ~9 s at load peaks.
 
 **Dated action items**
-- **⚠ Raised priority 2026-07-16 — rclone client_id** (user + agent): rclone's
-  shared Google client_id is retired during 2026; nightly backups then start
-  failing (they'll show as `stale`/`failed` in `/api/health`). Originally a
-  "before Q4" item; escalating it because the `gdrive` remote has now had to
-  be **re-authorized from scratch twice** (2026-07-10 first cron run, and
-  again 2026-07-16 after the SD-card rebuild wiped `~/.local/bin/rclone` and
-  its config). A personal client_id survives a Pi wipe the same way a shared
-  one doesn't — it's stored the same place either way, but doing this now
-  removes one recurring manual step from every future disaster recovery.
-  User creates a personal OAuth client_id
-  (https://rclone.org/drive/#making-your-own-client-id — needs their Google
-  login, ~10 min), then on the Pi: `rclone config update gdrive
-  client_id <id> client_secret <secret>` → `rclone config reconnect gdrive:` →
-  one manual `backup.sh` run to verify.
+- ~~⚠ Raised priority 2026-07-16 — rclone client_id~~ **closed 2026-08-25**:
+  `gdrive` now runs on a personal OAuth client (`659555371674-q72c2...`,
+  Google Cloud Console, "Desktop app" type), no longer rclone's shared
+  client_id that was retiring during 2026 and had already forced two
+  from-scratch re-authorizations (2026-07-10, 2026-07-16). Two gotchas hit
+  along the way, worth knowing before the next credential rotation:
+  - The consent-screen setup in rclone's own docs
+    (https://rclone.org/drive/#making-your-own-client-id) assumes a brand-new
+    Cloud project; this project already had one (shared with the
+    `Home Assistant`/`CCR Agent` OAuth clients), so the "CONFIGURE CONSENT
+    SCREEN" button never appeared — went via the classic sidebar's "OAuth
+    consent screen" page directly instead (Scopes tab, Test users tab).
+  - Leaving the app in **Testing** publishing status is a trap for this use
+    case: Google expires the grant every 7 days, which would've meant the
+    same problem it was meant to fix, just weekly instead of per-rebuild.
+    **Published** the app instead (Testing page → PUBLISH APP → Confirm) —
+    for personal/low-volume use this skips Google's actual review, just
+    shows a one-time "unverified app" warning on first auth.
+  - `rclone config update gdrive client_id … client_secret …` applied
+    cleanly, but adding `token …` in the same call triggered `rclone`'s
+    interactive re-auth flow (waiting on a browser hit against the Pi's own
+    `127.0.0.1`, unreachable headlessly) instead of just accepting the
+    supplied token. Worked around it: ran `rclone authorize "drive" <id>
+    <secret>` on the Mac (real browser, no port-forwarding needed — this is
+    rclone's own documented headless-remote pattern, it prints "paste into
+    your remote machine"), then wrote that token directly into
+    `~/.config/rclone/rclone.conf`'s `[gdrive]` section on the Pi rather
+    than going back through `rclone config update`/`reconnect`.
+  Verified: `rclone lsd gdrive:` non-interactive, `bash backup.sh` produced
+  `workout-20260825-235757.db` in `gdrive:workout-tracker-backups/`,
+  `/api/health` `last_backup_at` fresh, `last_backup_status` `ok`.
+  `homeassistant` untouched throughout.
 - ~~2026-07-10, after 03:30 — first real cron run~~ **verified in full
   2026-07-10 09:30 BST**: `/api/health` `last_backup_at 02:30:29Z` (= 03:30
   BST) `ok`; `~/backup.log` exists; `workout-20260710-033001.db` present
