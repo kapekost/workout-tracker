@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { bestDayForMuscle } from '../lib/muscles'
 import { colors, type } from '../lib/theme'
+import Eyebrow from './Eyebrow'
 
 // Shown at the point of display, never in settings and never behind an icon.
 // The blind spot it discloses is one-directional: unlogged training can only
@@ -112,10 +113,9 @@ export default function MuscleGroupPicker({
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <p style={{ fontSize: type.size.sm, color: colors.muted2, fontWeight: type.weight.bold,
-        letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
+      <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
         Muscle groups
-      </p>
+      </Eyebrow>
 
       <div style={{ display: 'grid', gap: 8,
         gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>

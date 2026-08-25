@@ -8,9 +8,16 @@ import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
+// Eyebrow-shaped (uppercase, tracked, bold, muted caption) but kept as real
+// <label> elements below, not the <Eyebrow> component: these are genuine
+// form labels for the 5 fields below (Exercise/Weight/Reps/Year/Note) and
+// <Eyebrow> renders a <p>, which would drop that semantic association.
+// letterSpacing corrected from a stray '0.06em' to the shared
+// type.labelTracking token every other eyebrow-shaped label in the app
+// uses (final sweep, 2026-08-25) - color/fontSize were already tokens.
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
-  letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6,
+  letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 6,
 }
 const fieldStyle = {
   width: '100%', background: colors.border, color: colors.text, border: 'none',
