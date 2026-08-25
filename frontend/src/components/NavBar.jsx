@@ -17,7 +17,14 @@ export default function NavBar() {
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
       background: colors.card, borderTop: `1px solid ${colors.border}`,
-      display: 'flex', padding: '8px 0 20px',
+      display: 'flex', paddingTop: 8, paddingLeft: 0, paddingRight: 0,
+      // env(safe-area-inset-bottom) is 0 on a non-notched device, so this
+      // renders identically to the old flat 20px there; on a notched
+      // device it grows to clear the home-indicator area, same pattern
+      // TimerBar's own `bottom` offset already uses (index.css). Combined
+      // rendered height feeds --navbar-height (index.css :root) — keep
+      // that in sync if this ever changes.
+      paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
       justifyContent: 'space-around', zIndex: 50
     }}>
       {tabs.map(tab => {
