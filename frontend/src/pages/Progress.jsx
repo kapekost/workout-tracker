@@ -8,6 +8,7 @@ import {
 } from 'recharts'
 import Eyebrow from '../components/Eyebrow'
 import Chip from '../components/Chip'
+import EmptyState from '../components/EmptyState'
 import { colors, type } from '../lib/theme'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -61,10 +62,7 @@ export default function Progress() {
       </div>
 
       {exercises.length === 0 ? (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2 }}>No data yet.</p>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Complete a workout to see progress here.</p>
-        </div>
+        <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." />
       ) : (
         <>
           {/* Exercise picker */}

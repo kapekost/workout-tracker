@@ -3,6 +3,7 @@ import { api } from '../api'
 import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
 import { colors, type } from '../lib/theme'
@@ -125,10 +126,7 @@ export default function History() {
       </p>
 
       {sessions.length === 0 ? (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2 }}>No sessions yet.</p>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Your workout history will appear here.</p>
-        </div>
+        <EmptyState title="No sessions yet." subtitle="Your workout history will appear here." />
       ) : sessions.map(s => {
         const plan = PLAN[s.workout_day]
         const color = DAY_COLORS[s.workout_day] ?? DAY_COLOR_FALLBACK
