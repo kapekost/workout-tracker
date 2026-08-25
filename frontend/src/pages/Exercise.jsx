@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import ExerciseDetails from '../components/ExerciseDetails'
 import { colors, type } from '../lib/theme'
 
@@ -8,7 +8,7 @@ export default function Exercise() {
   const nav = useNavigate()
   const plan = PLAN[workoutDay]
   const ex = plan?.exercises.find(e => e.id === exerciseId)
-  const color = DAY_COLORS[workoutDay] ?? colors.mint
+  const color = DAY_COLORS[workoutDay] ?? DAY_COLOR_FALLBACK
 
   if (!ex) return (
     <div style={{ padding: 24 }}>

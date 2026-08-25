@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { bestDayForMuscle } from '../lib/muscles'
 import { colors, type } from '../lib/theme'
 
@@ -144,7 +144,7 @@ export default function MuscleGroupPicker({
               ) : (
                 <button className="btn-primary" disabled={starting}
                   onClick={() => onStart(bestDayId)}
-                  style={{ background: DAY_COLORS[bestDayId] || colors.muted, marginTop: 12 }}>
+                  style={{ background: DAY_COLORS[bestDayId] || DAY_COLOR_FALLBACK, marginTop: 12 }}>
                   {starting ? 'Starting…' : `Start ${bestDay.name}`}
                 </button>
               )}

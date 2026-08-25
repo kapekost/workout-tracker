@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
-import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import { track } from '../lib/analytics'
 import { colors, type } from '../lib/theme'
@@ -130,7 +130,7 @@ export default function History() {
         </div>
       ) : sessions.map(s => {
         const plan = PLAN[s.workout_day]
-        const color = DAY_COLORS[s.workout_day] ?? colors.mint
+        const color = DAY_COLORS[s.workout_day] ?? DAY_COLOR_FALLBACK
         const isOpen = expanded === s.id
         const detail = details[s.id]
 
