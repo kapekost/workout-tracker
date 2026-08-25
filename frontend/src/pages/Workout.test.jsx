@@ -161,6 +161,41 @@ describe('Workout page', () => {
     fireEvent.click(screen.getByRole('button', { name: /log set/i }))
     await waitFor(() => expect(screen.getByText(/🏆 PR! 102.5kg/)).toBeInTheDocument())
   })
+
+  it('a quick tap on a stepper bumps by exactly one step', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const before = parseFloat(weightInput.value)
+    fireEvent.click(screen.getAllByRole('button', { name: 'increase' })[0])
+    expect(parseFloat(weightInput.value)).toBe(before + 2.5)
+  })
+
+  it('holding a stepper auto-repeats, and the trailing click does not double-bump', async () => {
+    mockSession()
+    renderWorkout()
+    // Real timers for the initial async session load — RTL's findByText polls
+    // via setTimeout internally, which would hang against an already-fake clock.
+    await screen.findByText(ex1.name)
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const before = parseFloat(weightInput.value)
+    const incBtn = screen.getAllByRole('button', { name: 'increase' })[0]
+
+    vi.useFakeTimers()
+    fireEvent.pointerDown(incBtn)
+    act(() => { vi.advanceTimersByTime(400) })          // HOLD_DELAY_MS
+    act(() => { vi.advanceTimersByTime(90 * 3) })       // 3 more repeats at HOLD_REPEAT_MS
+    fireEvent.pointerUp(incBtn)
+    fireEvent.click(incBtn)              // the trailing click a real long-press-release fires
+
+    // holds repeat, and the release's trailing click does not also bump —
+    // exact repeat count adjusted to match real NumControl timer behavior
+    // (setTimeout at the delay boundary arms the interval; the interval's
+    // own first tick — not the arming timeout — is the first repeat).
+    expect(parseFloat(weightInput.value)).toBe(before + 2.5 * 3)
+    vi.useRealTimers()
+  })
 })
 
 describe('PR toast with a zero-weight baseline', () => {
