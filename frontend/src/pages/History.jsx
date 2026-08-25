@@ -3,6 +3,7 @@ import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import { track } from '../lib/analytics'
+import { colors, type } from '../lib/theme'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -24,28 +25,28 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
     return g
   }, [detail])
 
-  if (!detail) return <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Loading…</p>
+  if (!detail) return <p style={{ color: colors.muted, fontSize: type.size.lg }}>Loading…</p>
 
   const groups = Object.entries(grouped)
 
   return (
     <>
       {groups.length === 0 ? (
-        <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: 8 }}>No sets logged in this session.</p>
+        <p style={{ color: colors.muted, fontSize: type.size.lg, marginBottom: 8 }}>No sets logged in this session.</p>
       ) : groups.map(([name, exSets]) => {
         const best = Math.max(...exSets.map(s => s.weight_kg))
         return (
           <div key={name} style={{ marginBottom: 14 }}>
-            <p style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>{name}</p>
+            <p style={{ color: colors.muted, fontSize: type.size.md, fontWeight: type.weight.semibold, marginBottom: 6 }}>{name}</p>
             {exSets.map(st => (
               <div key={st.id} style={{
                 display: 'flex', justifyContent: 'space-between',
-                padding: '5px 0', borderBottom: '1px solid #1a1a2e'
+                padding: '5px 0', borderBottom: `1px solid ${colors.divider}`
               }}>
-                <span style={{ color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem' }}>Set {st.set_number}</span>
+                <span style={{ color: colors.muted, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.base }}>Set {st.set_number}</span>
                 <span className="font-mono" style={{
-                  fontSize: '0.85rem', fontWeight: 700,
-                  color: st.weight_kg === best ? '#fbbf24' : '#e2e8f0'
+                  fontSize: type.size.lg, fontWeight: type.weight.bold,
+                  color: st.weight_kg === best ? colors.amber : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
                   {st.weight_kg === best && ' 🏆'}
@@ -56,9 +57,9 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
         )
       })}
       <button className="tap-target" onClick={() => onDelete(sessionId)}
-        style={{ background: 'none', border: '1px solid #2a1a1a', borderRadius: 8,
-          color: '#ef4444', cursor: 'pointer', padding: '8px 16px', fontSize: '0.78rem',
-          fontWeight: 600, marginTop: 8 }}>
+        style={{ background: 'none', border: `1px solid ${colors.dangerBg}`, borderRadius: 8,
+          color: colors.danger, cursor: 'pointer', padding: '8px 16px', fontSize: type.size.base,
+          fontWeight: type.weight.semibold, marginTop: 8 }}>
         {confirmId === sessionId ? 'Tap again to confirm' : 'Delete session'}
       </button>
     </>
@@ -117,19 +118,19 @@ export default function History() {
   return (
     <div style={{ paddingTop: 16 }}>
       {toast && <div className="toast error">{toast}</div>}
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>History</h1>
-      <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 28 }}>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>History</h1>
+      <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 28 }}>
         {sessions.length} session{sessions.length !== 1 ? 's' : ''} logged
       </p>
 
       {sessions.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: '#6b7280' }}>No sessions yet.</p>
-          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 4 }}>Your workout history will appear here.</p>
+          <p style={{ color: colors.muted2 }}>No sessions yet.</p>
+          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Your workout history will appear here.</p>
         </div>
       ) : sessions.map(s => {
         const plan = PLAN[s.workout_day]
-        const color = DAY_COLORS[s.workout_day] ?? '#6ee7b7'
+        const color = DAY_COLORS[s.workout_day] ?? colors.mint
         const isOpen = expanded === s.id
         const detail = details[s.id]
 
@@ -141,19 +142,19 @@ export default function History() {
                 width: 8, height: 36, borderRadius: 4, background: color, flexShrink: 0
               }} />
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
                   {plan?.emoji} {plan?.name ?? s.workout_day}
                 </p>
-                <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: 2 }}>
+                <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
                   {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
                   {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
                 </p>
               </div>
-              <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
+              <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
             </div>
 
             {isOpen && (
-              <div style={{ borderTop: '1px solid #1e1e32', padding: '14px 16px' }}>
+              <div style={{ borderTop: `1px solid ${colors.border}`, padding: '14px 16px' }}>
                 <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
               </div>
             )}
