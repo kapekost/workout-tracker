@@ -60,6 +60,25 @@ function SetRow({ s, onDelete }) {
 const HOLD_DELAY_MS = 400
 const HOLD_REPEAT_MS = 90
 
+// This page is the only one with both TimerBar and NavBar fixed at the
+// bottom simultaneously. .page-shell's own 96px trailing pad (App.jsx) is
+// already sized to clear NavBar (a measured, constant 77px across every
+// viewport width) plus a small margin - the same clearance every other
+// page gets. On top of that this page also needs TimerBar's own rendered
+// height so the last card/Finish button never ends up hidden behind it:
+// TimerBar measures 65px tall up to its 440px breakpoint tier and ~69px
+// above that (the tiers only narrow widths, not heights - .rest-clock's
+// own font-size step is what changes the bar's height here). 70 covers
+// both with a few px to spare.
+// Verified in a real browser (2026-08-25, Upgrade 5 Task 3/I14): relying
+// on .page-shell's 96px alone left the Finish button ~25px behind
+// TimerBar's top edge at every width tested (320-600px) - genuinely
+// load-bearing, not redundant. This replaces the old bare "96" (a second,
+// coincidental copy of .page-shell's own number) with the value actually
+// required, leaving ~20-30px of clearance instead of ~70-90px of dead
+// space.
+const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 70
+
 function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
   const timers = useRef({ timeout: null, interval: null })
   const suppressClick = useRef(false)
@@ -370,7 +389,7 @@ export default function Workout() {
     : Date.now()
 
   return (
-    <div style={{ paddingTop: 16, paddingBottom: 96 }}>
+    <div style={{ paddingTop: 16, paddingBottom: EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR }}>
       <Toast toast={toast} />
       <TimerBar
         sessionStartMs={sessionStartMs}
