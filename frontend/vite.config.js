@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execSync } from 'node:child_process'
+import { configDefaults } from 'vitest/config'
 
 // Docker builds have no .git (see .dockerignore) — the commit comes in as the
 // APP_COMMIT build arg there; local dev/test falls back to git, then "dev".
@@ -82,5 +83,11 @@ export default defineConfig({
       '/api': 'http://localhost:8000',
     },
   },
-  test: { environment: 'jsdom', globals: true, setupFiles: './src/test-setup.js' },
+  test: {
+    environment: 'jsdom', globals: true, setupFiles: './src/test-setup.js',
+    // frontend/e2e is the Playwright suite (playwright.config.js), a
+    // separate test runner with an incompatible test()/expect() — Vitest's
+    // default *.spec.js discovery would otherwise try to execute it too.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
+  },
 })
