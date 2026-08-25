@@ -5,9 +5,10 @@ import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
 import DayAccent from '../components/DayAccent'
+import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -134,28 +135,25 @@ export default function History() {
         const detail = details[s.id]
 
         return (
-          <div key={s.id} className="card" style={{ marginBottom: 10, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => toggle(s.id)}>
-              <DayAccent day={s.workout_day} shape="bar" />
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
-                  {plan?.emoji} {plan?.name ?? s.workout_day}
-                </p>
-                <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
-                  {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
-                  {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
-                </p>
-              </div>
-              <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
-            </div>
-
-            {isOpen && (
-              <div style={{ borderTop: `1px solid ${colors.border}`, padding: '14px 16px' }}>
-                <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
-              </div>
-            )}
-          </div>
+          <DisclosureRow key={s.id} style={{ marginBottom: space.smd }}
+            isOpen={isOpen} onToggle={() => toggle(s.id)}
+            header={
+              <>
+                <DayAccent day={s.workout_day} shape="bar" />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
+                    {plan?.emoji} {plan?.name ?? s.workout_day}
+                  </p>
+                  <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
+                    {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
+                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
+                  </p>
+                </div>
+              </>
+            }
+          >
+            <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
+          </DisclosureRow>
         )
       })}
     </div>
