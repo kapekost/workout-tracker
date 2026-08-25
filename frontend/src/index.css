@@ -29,6 +29,23 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
   --muted: #9ca3af;
   --muted-2: #6b7280;
   --danger: #ef4444;
+
+  /* Single source of truth for layout constants previously duplicated as
+     independently-typed literals (design-system inventory I13/I15).
+     .page-shell, .timer-bar and .toast all reference these instead of their
+     own copies, so a future change to one can't silently desync the others. */
+  --content-max-width: 28rem;
+  --page-gutter: 1rem;
+  /* NavBar's real rendered height: border-top(1px) + padding(8px top, 20px
+     base bottom) + its tallest content (each tab button's 48px min-height)
+     = 77px. Verified in a real browser (2026-08-25, Upgrade 5 Task 4/I16)
+     and constant across every viewport width (NavBar carries no responsive
+     breakpoints of its own). .timer-bar's `bottom` offset uses this so it
+     sits flush above NavBar instead of overlapping it (was a stale 64px,
+     13px short of NavBar's actual height, at every width). If NavBar.jsx's
+     own padding/content ever changes its rendered height, update this to
+     match (see the comment at its `paddingBottom` there). */
+  --navbar-height: 77px;
 }
 
 * { -webkit-tap-highlight-color: transparent; }
@@ -66,9 +83,9 @@ button, a, .tap-target {
 }
 
 .page-shell {
-  max-width: 28rem;
+  max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: 0 1rem 6rem;
+  padding: 0 var(--page-gutter) 6rem;
 }
 
 .font-mono { font-family: 'JetBrains Mono', monospace; }
@@ -158,7 +175,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
   background: var(--amber); color: #0a0a12;
   font-weight: 700; padding: 12px 24px; border-radius: 100px;
-  z-index: 100; width: max-content; max-width: calc(100vw - 32px); text-align: center;
+  z-index: 100; width: max-content; max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
   animation: slideDown 0.3s ease;
 }
 .toast.error { background: var(--danger); color: #fff; }
@@ -168,9 +185,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .timer-bar {
-  position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 40;
+  position: fixed; left: 0; right: 0; bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); z-index: 40;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 10px 16px; max-width: 480px; margin: 0 auto;
+  gap: 12px; padding: 10px 16px; max-width: var(--content-max-width); margin: 0 auto;
   background: #14142a; border-top: 1px solid #1e1e32;
   font-family: 'JetBrains Mono', monospace;
 }

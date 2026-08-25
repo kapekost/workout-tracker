@@ -15,7 +15,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 14px' }}>
-      <p style={{ color: colors.muted2, fontSize: type.size.base, marginBottom: 4 }}>{label}</p>
+      <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 4 }}>{label}</p>
       <p style={{ color: colors.mint, fontFamily: 'JetBrains Mono, monospace', fontWeight: type.weight.bold, fontSize: '1rem' }}>
         {payload[0].value} kg
       </p>
@@ -109,13 +109,15 @@ export default function Progress() {
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={data} margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fill: colors.muted2, fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
-                      <YAxis tick={{ fill: colors.muted2, fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />
+                      {/* Solid, not dashed — dashing reads as a projection/threshold
+                          rather than a plain grid (dataviz pass, 2026-08-25). */}
+                      <CartesianGrid stroke={colors.border} vertical={false} />
+                      <XAxis dataKey="date" tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
+                      <YAxis tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />
                       <Tooltip content={<CustomTooltip />} />
                       <Line type="monotone" dataKey="weight" stroke={colors.mint} strokeWidth={2.5}
-                        dot={{ fill: colors.mint, r: 4, strokeWidth: 0 }}
-                        activeDot={{ r: 6, fill: colors.mint }} />
+                        dot={{ fill: colors.mint, r: 4, stroke: colors.card, strokeWidth: 2 }}
+                        activeDot={{ r: 6, fill: colors.mint, stroke: colors.card, strokeWidth: 2 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}
