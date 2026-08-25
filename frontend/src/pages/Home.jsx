@@ -9,6 +9,7 @@ import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
 import MuscleGroupPicker from '../components/MuscleGroupPicker'
 import Eyebrow from '../components/Eyebrow'
 import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
@@ -181,10 +182,7 @@ export default function Home() {
       )}
 
       {sessions.length === 0 && (
-        <div className="card" style={{ padding: 24, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2, fontSize: type.size.lg }}>No sessions logged yet.</p>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Start your first workout above 💪</p>
-        </div>
+        <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
       )}
 
       <button
