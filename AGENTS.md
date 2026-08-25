@@ -4,6 +4,26 @@ Guidance for AI agents (and humans) working on this repo. Read this fully before
 making changes or deploying. Keep the **Status** section current; move shipped
 work to `docs/CHANGELOG.md`.
 
+## Orchestration
+
+Task planning lives in `docs/orchestration/`:
+- `STATE.md` — current cursor, what to do next.
+- `PLAYBOOK.md` — how `/orchestrate` runs.
+- `GUARDRAILS.md` — hard rules for the orchestrator (merge/branch discipline,
+  destructive-op approval, task-sizing); wins on conflict with `PLAYBOOK.md`/`STATE.md`.
+- `DECISIONS.md` — owner decisions already made; don't relitigate.
+- `IMPROVEMENTS.md` — friction log, reviewed automatically per tick.
+
+Tasks live as GitHub Issues (`type`/`priority`/`effort` labels), ranked in the
+repo's Project board. `/orchestrate` reads and writes them via `gh`.
+
+MCP servers: copy `.mcp.json.example` to `.mcp.json` and fill in what this repo
+actually needs. Start new servers at local scope, promote to project scope only
+once reviewed — never commit a real credential; reference an env var instead.
+
+Everything below this section is product/deployment knowledge — the Pi runbook,
+hard rules, and status log — independent of orchestration and unaffected by it.
+
 ## What this is
 
 A mobile-first gym tracker: logs sets/reps/weight, tracks progress, shows form

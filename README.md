@@ -84,3 +84,12 @@ survives container updates). Backups are automated: nightly `scripts/backup.sh`
 snapshots the DB and uploads to Google Drive; `GET /api/health` shows the last
 backup status. Restore options and the drill log are in
 [AGENTS.md](AGENTS.md#restore).
+
+## Agent orchestration
+
+Scaffolded from [`agent-scaffold`](https://github.com/kapekost/agent-scaffold) (Copier — see
+`.copier-answers.yml` for the template ref; `copier update` pulls later template changes in as a
+reviewable diff). Tasks are tracked as GitHub Issues (`type`/`priority`/`effort` labels), driven by
+the `/orchestrate` Claude Code command; rules and current state live in `docs/orchestration/`. See
+[AGENTS.md](AGENTS.md#orchestration) for the pointer, and `docs/orchestration/GUARDRAILS.md` for
+the hard rules — independent of, and secondary to, the Pi/ops hard rules elsewhere in AGENTS.md.
