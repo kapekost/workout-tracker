@@ -6,6 +6,11 @@ frontend/node_modules/
 frontend/dist/
 static/
 
+# Playwright test output (frontend/e2e — see playwright.config.js)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # Python
 __pycache__/
 *.py[cod]
