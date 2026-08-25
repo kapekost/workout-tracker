@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import { bestDayForMuscle } from '../lib/muscles'
+import { colors, type } from '../lib/theme'
 
 // Shown at the point of display, never in settings and never behind an icon.
 // The blind spot it discloses is one-directional: unlogged training can only
@@ -29,7 +30,9 @@ const RING_UNKNOWN = 'rgb(42, 42, 62)'
 // The unfilled track is a low-opacity step of the SAME ramp rather than an
 // unrelated neutral, so the meter reads as one object across its whole
 // circumference. It never varies with freshness — it is chrome, not data.
-const RING_TRACK = 'rgba(110, 231, 183, 0.14)'
+// Byte-identical to colors.mintWash (this file's value was the survivor
+// when that token was named — see the design-tokens spec §2.1).
+const RING_TRACK = colors.mintWash
 
 export function ringColor(freshness) {
   if (freshness === null || freshness === undefined) return RING_UNKNOWN
@@ -80,16 +83,16 @@ export function MuscleChip({ group, expanded, onToggle }) {
         // overflow the page sideways. Let the chip shrink and the label wrap.
         minWidth: 0,
         minHeight: 56, padding: '8px 10px', textAlign: 'left',
-        background: expanded ? '#15152a' : 'none',
-        border: '1px solid #1e1e32', borderRadius: 12, cursor: 'pointer',
+        background: expanded ? colors.surface1 : 'none',
+        border: `1px solid ${colors.border}`, borderRadius: 12, cursor: 'pointer',
         color: 'inherit',
       }}>
       <RecoveryRing freshness={group.freshness} />
       <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem' }}>
+        <span style={{ display: 'block', fontWeight: type.weight.semibold, fontSize: type.size.lg }}>
           {group.label}
         </span>
-        <span style={{ display: 'block', color: '#9ca3af', fontSize: '0.7rem' }}>
+        <span style={{ display: 'block', color: colors.muted, fontSize: type.size.sm }}>
           {group.band}
         </span>
       </span>
@@ -109,8 +112,8 @@ export default function MuscleGroupPicker({
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <p style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700,
-        letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+      <p style={{ fontSize: type.size.sm, color: colors.muted2, fontWeight: type.weight.bold,
+        letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
         Muscle groups
       </p>
 
@@ -125,23 +128,23 @@ export default function MuscleGroupPicker({
       {expanded && (
         <div className="card" style={{ padding: 16, marginTop: 12 }}>
           {/* The one line on this screen that is simply true. */}
-          <p style={{ color: '#e5e7eb', fontSize: '0.8rem' }}>{rawFact(expanded)}</p>
-          <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 4 }}>
+          <p style={{ color: colors.textSecondary, fontSize: type.size.md }}>{rawFact(expanded)}</p>
+          <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 4 }}>
             {expanded.daysSinceLabel}
           </p>
           {bestDay && (
             <>
-              <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: 12 }}>
+              <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 12 }}>
                 Best day for {expanded.label} → {bestDay.emoji} {bestDay.name}
               </p>
               {activeSession ? (
-                <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 8 }}>
+                <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 8 }}>
                   Finish your current session first
                 </p>
               ) : (
                 <button className="btn-primary" disabled={starting}
                   onClick={() => onStart(bestDayId)}
-                  style={{ background: DAY_COLORS[bestDayId] || '#9ca3af', marginTop: 12 }}>
+                  style={{ background: DAY_COLORS[bestDayId] || colors.muted, marginTop: 12 }}>
                   {starting ? 'Starting…' : `Start ${bestDay.name}`}
                 </button>
               )}
@@ -150,7 +153,7 @@ export default function MuscleGroupPicker({
         </div>
       )}
 
-      <p style={{ color: '#4b5563', fontSize: '0.7rem', marginTop: 12, lineHeight: 1.5 }}>
+      <p style={{ color: '#4b5563', fontSize: type.size.sm, marginTop: 12, lineHeight: 1.5 }}>
         {DISCLOSURE}
       </p>
     </div>
