@@ -15,6 +15,7 @@ import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerSt
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import Eyebrow from '../components/Eyebrow'
+import Chip from '../components/Chip'
 import Toast from '../components/Toast'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
@@ -517,10 +518,7 @@ export default function Workout() {
                 {/* Muscles */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
                   {ex.muscles.map(m => (
-                    <span key={m} style={{
-                      background: colors.border, borderRadius: 100, padding: '3px 10px',
-                      fontSize: type.size.sm, color: colors.muted, fontWeight: type.weight.semibold
-                    }}>{m}</span>
+                    <Chip key={m} color={colors.muted}>{m}</Chip>
                   ))}
                 </div>
               </div>

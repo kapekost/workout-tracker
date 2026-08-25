@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { getDemoFrames } from '../lib/demos'
 import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
+import Chip from './Chip'
 import { colors, type } from '../lib/theme'
 
 // Target / cues / demo body shared by the standalone Exercise page and the
@@ -32,11 +33,7 @@ export default function ExerciseDetails({ ex, color }) {
       {/* Muscles */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
         {ex.muscles.map(m => (
-          <span key={m} style={{
-            background: colors.border, border: `1px solid ${color}33`,
-            borderRadius: 100, padding: '5px 14px',
-            fontSize: type.size.md, color, fontWeight: type.weight.semibold
-          }}>{m}</span>
+          <Chip key={m} color={color}>{m}</Chip>
         ))}
       </div>
 
