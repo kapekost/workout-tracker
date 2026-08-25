@@ -2,6 +2,7 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import Workout from './Workout'
 import { PLAN } from '../data/workoutPlan'
+import { colors, type } from '../lib/theme'
 
 vi.mock('../api', () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -11,6 +12,14 @@ import { api } from '../api'
 
 const ex1 = PLAN.upper_a.exercises[0]
 const ex2 = PLAN.upper_a.exercises[1]
+
+// jsdom's CSSOM serializes an inline hex color back out as rgb(...); this
+// mirrors that so a .style.color assertion can still be derived from the
+// theme token instead of a hardcoded rgb() literal.
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
 
 function mockSession(sets = []) {
   api.get.mockImplementation(async (path) => {
@@ -195,6 +204,50 @@ describe('Workout page', () => {
     // own first tick — not the arming timeout — is the first repeat).
     expect(parseFloat(weightInput.value)).toBe(before + 2.5 * 3)
     vi.useRealTimers()
+  })
+
+  it('a bodyweight exercise shows the Added Weight label and hint', async () => {
+    // Pull-up (PLAN.upper_b.exercises[1]) is bodyweight: true; matching the
+    // existing custom-session pattern used by the "unknown workout_day" test
+    // below rather than the no-arg mockSession()/renderWorkout() helpers,
+    // which are hardcoded to upper_a.
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_b', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) return null
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    await screen.findByText('Pull-up')
+    fireEvent.click(screen.getByText('Pull-up'))
+    expect(await screen.findByText('Added Weight (kg)')).toBeInTheDocument()
+    expect(screen.getByText('0 = bodyweight only')).toBeInTheDocument()
+  })
+
+  it('a non-bodyweight exercise shows the plain Weight label with no hint', async () => {
+    mockSession()
+    renderWorkout()
+    const label = await screen.findByText('Weight (kg)')
+    expect(label).toBeInTheDocument()
+    expect(screen.queryByText('0 = bodyweight only')).not.toBeInTheDocument()
+  })
+
+  it('the exercise title outweighs the cues link', async () => {
+    mockSession()
+    renderWorkout()
+    const title = await screen.findByText(ex1.name)
+    expect(title.style.fontSize).toBe(type.size.title)
+    expect(title.style.fontWeight).toBe(String(type.weight.bold))
+    const cuesLink = screen.getByText(/Form cues \+ demo/)
+    // jsdom's CSSOM normalizes a hex color to rgb() on readback, so the
+    // expectation is derived from colors.muted rather than hardcoded —
+    // the contract under test is "matches the token", not one literal string.
+    expect(cuesLink.style.color).toBe(hexToRgb(colors.muted))
   })
 })
 
