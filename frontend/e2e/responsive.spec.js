@@ -153,6 +153,62 @@ test.describe('320x568 floor', () => {
 // box agree either way.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// DisclosureRow's expanded state (component-extraction upgrade): the suite
+// above only ever checks pages at their initial, collapsed render. Expanding
+// a card renders new content (NumControl steppers on Workout, nothing
+// interactive on History) that the collapsed-state checks above never see.
+// Chip itself needs no separate coverage here — Progress.jsx's filter chip
+// already renders as a `.tap-target` button, so it's already swept into the
+// existing "tap targets are >=44px tall" loop on that page.
+// ---------------------------------------------------------------------------
+
+test.describe('320x568 floor — DisclosureRow expanded', () => {
+  test.use({ viewport: { width: 320, height: 568 } })
+
+  test('Workout: expanding an exercise card stays inside the floor', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
+    // Click the .card, not the inner name span: a real tap lands anywhere on
+    // the header, and (observed directly) Playwright's mouse-simulated click
+    // on the small inline text span doesn't reliably register here, while a
+    // click anywhere on the card does — this is also the more realistic
+    // target regardless of that quirk.
+    await page.locator('.card').filter({ hasText: 'Bench Press' }).first().click()
+    await page.getByLabel('increase').first().waitFor() // a NumControl stepper, only rendered once open
+
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+
+    const targets = await page.locator('.tap-target, .btn-icon, nav button').all()
+    for (const el of targets) {
+      const size = await el.evaluate((node) => {
+        if (node.classList.contains('tap-target')) {
+          const after = getComputedStyle(node, '::after')
+          return { height: parseFloat(after.height) }
+        }
+        return { height: node.getBoundingClientRect().height }
+      })
+      expect(size.height).toBeGreaterThanOrEqual(44)
+    }
+  })
+
+  test('History: expanding a session card stays inside the floor', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'History'))
+    // The completed session's date (2026-08-17) is unique in the fixture;
+    // the active session (2026-08-20) doesn't render in History's own list.
+    await page.getByText('2026-08-17', { exact: false }).click()
+
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+})
+
 test.describe('TimerBar breakpoint tiers', () => {
   test('.timer-pill and .timer-bar .btn-icon narrow at <=440px and <=340px', async ({ page }) => {
     await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
