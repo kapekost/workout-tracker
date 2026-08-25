@@ -42,7 +42,7 @@ Plus one open opportunity named in the backlog itself but never acted on: `docs/
 
 ## Guardrails
 - I16 and the parts of I13 adjacent to the tap-target floor require a **verify-in-browser-first** step before any code changes — the inventory itself is explicitly unsure whether they're real defects.
-- Frontend only.
+- **Frontend-first, not frontend-only.** A backend change is in scope if it makes a fix genuinely simpler than deriving the same thing client-side — but it needs to earn its place: minimal diff, TDD via `backend/test_*.py` matching this repo's existing convention, no speculative endpoints or fields added "in case." Checked the one candidate in this upgrade already: the idle rest-timer hint (item 1) does **not** need one — `Workout.jsx:122,176` already fetches `sets` per-session client-side, including on a resumed session, so `sets.length === 0` is available with zero backend involvement. No other item below has a backend dimension.
 - Every new/changed style value pulls from `theme.js`/`space` (Upgrade 1) where one exists for it; don't reintroduce a hardcoded literal fixing one inconsistency by creating another.
 
 ## Testing
