@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
 import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
+import Toast from '../components/Toast'
+import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
 import { colors, type } from '../lib/theme'
 
@@ -72,7 +74,7 @@ export default function History() {
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmId, setConfirmId] = useState(null)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
     api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
@@ -102,8 +104,7 @@ export default function History() {
       setSessions(prev => prev.filter(s => s.id !== id))
       if (expanded === id) setExpanded(null)
     } catch {
-      setToast('Failed to delete')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Failed to delete', 'error')
     }
   }
 
@@ -117,7 +118,7 @@ export default function History() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>History</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 28 }}>
         {sessions.length} session{sessions.length !== 1 ? 's' : ''} logged

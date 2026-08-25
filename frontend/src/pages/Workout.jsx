@@ -15,6 +15,8 @@ import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerSt
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import Eyebrow from '../components/Eyebrow'
+import Toast from '../components/Toast'
+import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
 
 function Stat({ label, value }) {
@@ -135,7 +137,7 @@ export default function Workout() {
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
   const prsAtStart = useRef({})
-  const [toast, setToast] = useState(null) // { msg, type }
+  const { toast, showToast } = useToast()
   const [expanded, setExpanded] = useState(null)
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(8)
@@ -350,11 +352,6 @@ export default function Workout() {
     }
   }
 
-  function showToast(msg, type = 'success') {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 2500)
-  }
-
   function togglePause() {
     if (pausedRem == null) {
       const rem = remainingSeconds(restStartMs, restTargetSec, Date.now())
@@ -371,7 +368,7 @@ export default function Workout() {
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 96 }}>
-      {toast && <div className={`toast${toast.type === 'error' ? ' error' : ''}`}>{toast.msg}</div>}
+      <Toast toast={toast} />
       <TimerBar
         sessionStartMs={sessionStartMs}
         restStartMs={restStartMs}
