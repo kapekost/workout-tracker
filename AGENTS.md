@@ -12,7 +12,8 @@ cues for a 4-day Upper/Lower split.
 - **Backend**: Python FastAPI + SQLite. Serves the built frontend as static files
   and the JSON API from one process (`uvicorn main:app` on `:8000` inside the
   container).
-- **Frontend**: React + Vite + Tailwind + Recharts. Built to static assets at
+- **Frontend**: React + Vite + Recharts, styled via `frontend/src/lib/theme.js`
+  tokens and hand-written CSS (Tailwind removed 2026-08-25). Built to static assets at
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
