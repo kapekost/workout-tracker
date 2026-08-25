@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useActiveSession } from '../lib/activeSession'
-import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { colors, type } from '../lib/theme'
 
 export default function ResumeBanner() {
@@ -16,7 +16,7 @@ export default function ResumeBanner() {
   if (pathname === `/workout/${active.id}`) return null
 
   const plan = PLAN[active.workout_day]
-  const color = DAY_COLORS[active.workout_day] || colors.muted
+  const color = DAY_COLORS[active.workout_day] || DAY_COLOR_FALLBACK
   const label = plan ? `${plan.emoji} ${plan.name}` : 'Workout'
 
   return (

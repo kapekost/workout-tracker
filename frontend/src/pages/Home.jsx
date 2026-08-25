@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { PLAN, getNextWorkoutId, DAY_COLORS, CYCLE } from '../data/workoutPlan'
+import { PLAN, getNextWorkoutId, DAY_COLORS, DAY_COLOR_FALLBACK, CYCLE } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
@@ -73,7 +73,7 @@ export default function Home() {
   const nextId = getNextWorkoutId(sessions)
   const displayId = active ? active.workout_day : nextId
   const next = planForDay(displayId)
-  const color = DAY_COLORS[displayId] || colors.muted
+  const color = DAY_COLORS[displayId] || DAY_COLOR_FALLBACK
 
   const lastSession = sessions[0]
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null

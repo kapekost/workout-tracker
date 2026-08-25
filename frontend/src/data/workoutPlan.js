@@ -1,3 +1,5 @@
+import { colors } from '../lib/theme'
+
 export const CYCLE = ['upper_a', 'lower_a', 'upper_b', 'lower_b']
 
 export const PLAN = {
@@ -330,6 +332,11 @@ export const DAY_COLORS = {
   upper_b: '#f472b6',
   lower_b: '#fb923c'
 }
+
+// "No day selected" fallback, shared by every DAY_COLORS consumption site.
+// Semantically neutral (muted gray), not an active-selection color — see the
+// design-tokens spec §2.2.
+export const DAY_COLOR_FALLBACK = colors.muted
 
 export const ALL_EXERCISES = Object.values(PLAN)
   .flatMap(day => day.exercises)
