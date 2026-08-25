@@ -1,4 +1,6 @@
 import { useLocation } from 'react-router-dom'
+import Eyebrow from './Eyebrow'
+import { colors, type } from '../lib/theme'
 
 function pageLabel(pathname) {
   if (pathname === '/') return 'Home'
@@ -15,21 +17,16 @@ export default function TopBar() {
 
   return (
     <div style={{
-      background: '#0a0a12', borderBottom: '1px solid #1e1e32'
+      background: colors.bg, borderBottom: `1px solid ${colors.border}`
     }}>
-      <div className="max-w-md mx-auto" style={{
+      <div className="page-shell" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px'
       }}>
-        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff', letterSpacing: '0.01em' }}>
+        <span style={{ fontWeight: type.weight.bold, fontSize: '0.9rem', color: colors.text, letterSpacing: type.labelTracking }}>
           🏋 Gym Tracker
         </span>
-        <span style={{
-          color: '#6ee7b7', fontSize: '0.72rem', fontWeight: 700,
-          letterSpacing: '0.08em', textTransform: 'uppercase'
-        }}>
-          {label}
-        </span>
+        <Eyebrow color={colors.mint} size={type.size.sm}>{label}</Eyebrow>
       </div>
     </div>
   )

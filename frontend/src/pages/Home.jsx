@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { PLAN, getNextWorkoutId, DAY_COLORS, CYCLE } from '../data/workoutPlan'
+import { PLAN, getNextWorkoutId, DAY_COLORS, DAY_COLOR_FALLBACK, CYCLE } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
 import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
 import MuscleGroupPicker from '../components/MuscleGroupPicker'
+import Eyebrow from '../components/Eyebrow'
+import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
+import { useToast } from '../lib/useToast'
+import { colors, type } from '../lib/theme'
 
 export function planForDay(workoutDay) {
   return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
@@ -31,7 +36,7 @@ export function lastTrainedByDay(sessions) {
 export function VersionStamp() {
   return (
     <p className="font-mono" style={{ marginTop: 8, textAlign: 'center',
-      color: '#4b5563', fontSize: '0.65rem' }}>
+      color: '#4b5563', fontSize: type.size.xs }}>
       v {__APP_COMMIT__}
     </p>
   )
@@ -58,7 +63,7 @@ export default function Home() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
   const [recency, setRecency] = useState([])
   const nav = useNavigate()
   const { active, refresh, ready } = useActiveSession()
@@ -72,7 +77,7 @@ export default function Home() {
   const nextId = getNextWorkoutId(sessions)
   const displayId = active ? active.workout_day : nextId
   const next = planForDay(displayId)
-  const color = DAY_COLORS[displayId] || '#9ca3af'
+  const color = DAY_COLORS[displayId] || DAY_COLOR_FALLBACK
 
   const lastSession = sessions[0]
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null
@@ -88,8 +93,7 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      setToast('Failed to start — is the backend up?')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Failed to start — is the backend up?', 'error')
       setStarting(false)
     }
   }
@@ -97,22 +101,22 @@ export default function Home() {
   const startWorkout = () => startDay(nextId)
 
   if (loading || !ready) return (
-    <div style={{ paddingTop: 32, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
+    <div style={{ paddingTop: 32, textAlign: 'center', color: colors.muted }}>Loading…</div>
   )
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <p style={{ color: '#6ee7b7', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+        <Eyebrow color={colors.mint} size={type.size.base} style={{ marginBottom: 4 }}>
           {active ? 'In progress' : 'Next up'}
-        </p>
-        <h1 style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.1 }}>
+        </Eyebrow>
+        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, lineHeight: 1.1 }}>
           {next.emoji} {next.name}
         </h1>
-        <p style={{ color: '#6b7280', marginTop: 6, fontSize: '0.875rem' }}>{next.tag}</p>
-        <p style={{ color: '#9ca3af', marginTop: 6, fontSize: '0.8rem' }}>
+        <p style={{ color: colors.muted2, marginTop: 6, fontSize: type.size.lg }}>{next.tag}</p>
+        <p style={{ color: colors.muted, marginTop: 6, fontSize: type.size.md }}>
           {lastWorkoutLabel(sessions)}
         </p>
       </div>
@@ -120,20 +124,20 @@ export default function Home() {
       {/* Exercise preview */}
       {next.exercises.length > 0 && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-          <p style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+          <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             {next.exercises.length} exercises
-          </p>
+          </Eyebrow>
           {next.exercises.map((ex, i) => (
             <div key={ex.id} style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '10px 0',
-              borderBottom: i < next.exercises.length - 1 ? '1px solid #1e1e32' : 'none'
+              borderBottom: i < next.exercises.length - 1 ? `1px solid ${colors.border}` : 'none'
             }}>
               <div>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{ex.name}</p>
-                {ex.alt && <p style={{ color: '#6b7280', fontSize: '0.75rem' }}>{ex.alt}</p>}
+                <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem' }}>{ex.name}</p>
+                {ex.alt && <p style={{ color: colors.muted2, fontSize: type.size.base }}>{ex.alt}</p>}
               </div>
-              <p className="font-mono" style={{ color, fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', marginLeft: 12 }}>
+              <p className="font-mono" style={{ color, fontSize: type.size.md, fontWeight: type.weight.bold, whiteSpace: 'nowrap', marginLeft: 12 }}>
                 {ex.sets}×{ex.repsLow}–{ex.repsHigh}
               </p>
             </div>
@@ -163,35 +167,32 @@ export default function Home() {
       {/* Last session */}
       {lastSession && lastPlan && (
         <div>
-          <p style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+          <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             Last session
-          </p>
+          </Eyebrow>
           <div className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
             onClick={() => nav('/history')}>
             <div>
-              <p style={{ fontWeight: 600 }}>{lastPlan.emoji} {lastPlan.name}</p>
-              <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 2 }}>{lastSession.date}</p>
+              <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
+              <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
             </div>
-            <span style={{ color: '#9ca3af', fontSize: '1.2rem' }}>›</span>
+            <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
           </div>
         </div>
       )}
 
       {sessions.length === 0 && (
-        <div className="card" style={{ padding: 24, textAlign: 'center' }}>
-          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No sessions logged yet.</p>
-          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 4 }}>Start your first workout above 💪</p>
-        </div>
+        <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
       )}
 
       <button
         className="tap-target"
         onClick={async () => {
           try { await downloadExport() }
-          catch { setToast('Export failed — is the backend up?'); setTimeout(() => setToast(null), 2500) }
+          catch { showToast('Export failed — is the backend up?', 'error') }
         }}
-        style={{ marginTop: 24, background: 'none', border: 'none', color: '#6b7280',
-                 fontSize: '0.8rem', textDecoration: 'underline', cursor: 'pointer' }}
+        style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
+                 fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
       >
         Export my data
       </button>
