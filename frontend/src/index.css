@@ -65,6 +65,12 @@ button, a, .tap-target {
   touch-action: manipulation;
 }
 
+.page-shell {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 0 1rem 6rem;
+}
+
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
 .card {
