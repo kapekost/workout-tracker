@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { colors, type } from '../lib/theme'
 
 const tabs = [
   { path: '/', label: 'Home', icon: '⬡' },
@@ -14,7 +15,7 @@ export default function NavBar() {
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: '#111120', borderTop: '1px solid #1e1e32',
+      background: colors.card, borderTop: `1px solid ${colors.border}`,
       display: 'flex', padding: '8px 0 20px',
       justifyContent: 'space-around', zIndex: 50
     }}>
@@ -32,11 +33,11 @@ export default function NavBar() {
           >
             <span style={{
               fontSize: '1.35rem', lineHeight: 1,
-              color: isActive ? '#6ee7b7' : '#9ca3af'
+              color: isActive ? colors.mint : colors.muted
             }}>{tab.icon}</span>
             <span style={{
-              fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.05em',
-              color: isActive ? '#6ee7b7' : '#9ca3af',
+              fontSize: type.size.xs, fontWeight: type.weight.semibold, letterSpacing: type.labelTracking,
+              color: isActive ? colors.mint : colors.muted,
               textTransform: 'uppercase'
             }}>{tab.label}</span>
           </button>

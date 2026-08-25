@@ -11,6 +11,7 @@ import TopBar from './components/TopBar'
 import ResumeBanner from './components/ResumeBanner'
 import ScreenTracker from './components/ScreenTracker'
 import { ActiveSessionProvider } from './lib/activeSession'
+import { colors } from './lib/theme'
 
 export default function App() {
   const headerRef = useRef(null)
@@ -32,7 +33,7 @@ export default function App() {
     <BrowserRouter>
       <ActiveSessionProvider>
         <ScreenTracker />
-        <div style={{ background: '#0a0a12', minHeight: '100dvh' }}>
+        <div style={{ background: colors.bg, minHeight: '100dvh' }}>
           <div ref={headerRef} style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 45 }}>
             <TopBar />
             <ResumeBanner />
