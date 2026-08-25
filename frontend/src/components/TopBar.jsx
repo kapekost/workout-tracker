@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom'
+import Eyebrow from './Eyebrow'
 import { colors, type } from '../lib/theme'
 
 function pageLabel(pathname) {
@@ -25,12 +26,7 @@ export default function TopBar() {
         <span style={{ fontWeight: type.weight.bold, fontSize: '0.9rem', color: colors.text, letterSpacing: type.labelTracking }}>
           🏋 Gym Tracker
         </span>
-        <span style={{
-          color: colors.mint, fontSize: type.size.sm, fontWeight: type.weight.bold,
-          letterSpacing: type.labelTracking, textTransform: 'uppercase'
-        }}>
-          {label}
-        </span>
+        <Eyebrow color={colors.mint} size={type.size.sm}>{label}</Eyebrow>
       </div>
     </div>
   )

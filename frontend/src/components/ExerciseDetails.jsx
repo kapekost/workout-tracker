@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getDemoFrames } from '../lib/demos'
 import { track } from '../lib/analytics'
+import Eyebrow from './Eyebrow'
 import { colors, type } from '../lib/theme'
 
 // Target / cues / demo body shared by the standalone Exercise page and the
@@ -41,9 +42,7 @@ export default function ExerciseDetails({ ex, color }) {
 
       {/* Target */}
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
-          Target
-        </p>
+        <Eyebrow style={{ marginBottom: 12 }}>Target</Eyebrow>
         <div style={{ display: 'flex', gap: 32 }}>
           <div>
             <p className="font-mono" style={{ fontSize: type.size.display, fontWeight: type.weight.bold, color, lineHeight: 1 }}>{ex.sets}</p>
@@ -58,9 +57,7 @@ export default function ExerciseDetails({ ex, color }) {
 
       {/* Form cues */}
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 14 }}>
-          Form cues
-        </p>
+        <Eyebrow style={{ marginBottom: 14 }}>Form cues</Eyebrow>
         <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {ex.cues.map((cue, i) => (
             <li key={i} style={{
@@ -80,9 +77,7 @@ export default function ExerciseDetails({ ex, color }) {
       {/* Demo */}
       {frames && !demoFailed ? (
         <div className="card" style={{ padding: 12, marginBottom: 12 }}>
-          <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 10 }}>
-            Demo
-          </p>
+          <Eyebrow style={{ marginBottom: 10 }}>Demo</Eyebrow>
           {/* crossOrigin makes the SW see a real CORS response (jsDelivr sends
               ACAO:*) instead of an opaque one — opaque entries can't be cached
               safely (quota-padded ~7MB each, hide errors). */}

@@ -7,6 +7,7 @@ import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
 import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
 import MuscleGroupPicker from '../components/MuscleGroupPicker'
+import Eyebrow from '../components/Eyebrow'
 import { colors, type } from '../lib/theme'
 
 export function planForDay(workoutDay) {
@@ -106,9 +107,9 @@ export default function Home() {
       {toast && <div className="toast error">{toast}</div>}
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <p style={{ color: colors.mint, fontSize: type.size.base, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>
+        <Eyebrow color={colors.mint} size={type.size.base} style={{ marginBottom: 4 }}>
           {active ? 'In progress' : 'Next up'}
-        </p>
+        </Eyebrow>
         <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, lineHeight: 1.1 }}>
           {next.emoji} {next.name}
         </h1>
@@ -121,9 +122,9 @@ export default function Home() {
       {/* Exercise preview */}
       {next.exercises.length > 0 && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-          <p style={{ fontSize: type.size.sm, color: colors.muted2, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
+          <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             {next.exercises.length} exercises
-          </p>
+          </Eyebrow>
           {next.exercises.map((ex, i) => (
             <div key={ex.id} style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -164,9 +165,9 @@ export default function Home() {
       {/* Last session */}
       {lastSession && lastPlan && (
         <div>
-          <p style={{ fontSize: type.size.sm, color: colors.muted2, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
+          <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             Last session
-          </p>
+          </Eyebrow>
           <div className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
             onClick={() => nav('/history')}>
             <div>
