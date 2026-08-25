@@ -21,7 +21,7 @@ export default function ResumeBanner() {
 
   return (
     <div style={{ background: colors.card, borderTop: `1px solid ${colors.border}`, borderBottom: `1px solid ${colors.border}` }}>
-      <div className="max-w-md mx-auto" style={{
+      <div className="page-shell" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '8px 16px', gap: 12,
       }}>

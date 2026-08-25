@@ -38,7 +38,7 @@ export default function App() {
             <TopBar />
             <ResumeBanner />
           </div>
-          <div className="max-w-md mx-auto pb-24 px-4" style={{ paddingTop: headerHeight }}>
+          <div className="page-shell" style={{ paddingTop: headerHeight }}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/workout/:sessionId" element={<Workout />} />

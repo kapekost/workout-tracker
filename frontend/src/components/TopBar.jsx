@@ -18,7 +18,7 @@ export default function TopBar() {
     <div style={{
       background: colors.bg, borderBottom: `1px solid ${colors.border}`
     }}>
-      <div className="max-w-md mx-auto" style={{
+      <div className="page-shell" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px'
       }}>
