@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { ALL_EXERCISES } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
+import Toast from '../components/Toast'
+import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
 const labelStyle = {
@@ -24,14 +26,12 @@ export default function PersonalBests() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
   const [confirmId, setConfirmId] = useState(null)
 
   useEffect(() => {
     api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
-
-  function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   async function submit(e) {
     e.preventDefault()
@@ -48,9 +48,9 @@ export default function PersonalBests() {
       setNote('')
     } catch (err) {
       if (err.message?.includes('409')) {
-        showToast("You've already logged this exact PB (same exercise, weight, reps, and year).")
+        showToast("You've already logged this exact PB (same exercise, weight, reps, and year).", 'error')
       } else {
-        showToast('Failed to save — check the values and try again')
+        showToast('Failed to save — check the values and try again', 'error')
       }
     }
     setSaving(false)
@@ -67,7 +67,7 @@ export default function PersonalBests() {
       await api.delete(`/personal-bests/${id}`)
       setEntries(prev => prev.filter(e => e.id !== id))
     } catch {
-      showToast('Failed to delete')
+      showToast('Failed to delete', 'error')
     }
   }
 
@@ -78,7 +78,7 @@ export default function PersonalBests() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       <button className="tap-target" onClick={() => nav('/progress')}
         style={{ background: 'none', border: 'none', color: colors.mint, fontSize: type.size.md,
           fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0, marginBottom: 12 }}>

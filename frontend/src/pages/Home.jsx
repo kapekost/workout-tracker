@@ -8,6 +8,8 @@ import { downloadExport } from '../lib/exportData'
 import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
 import MuscleGroupPicker from '../components/MuscleGroupPicker'
 import Eyebrow from '../components/Eyebrow'
+import Toast from '../components/Toast'
+import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
 export function planForDay(workoutDay) {
@@ -60,7 +62,7 @@ export default function Home() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
   const [recency, setRecency] = useState([])
   const nav = useNavigate()
   const { active, refresh, ready } = useActiveSession()
@@ -90,8 +92,7 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      setToast('Failed to start — is the backend up?')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Failed to start — is the backend up?', 'error')
       setStarting(false)
     }
   }
@@ -104,7 +105,7 @@ export default function Home() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <Eyebrow color={colors.mint} size={type.size.base} style={{ marginBottom: 4 }}>
@@ -190,7 +191,7 @@ export default function Home() {
         className="tap-target"
         onClick={async () => {
           try { await downloadExport() }
-          catch { setToast('Export failed — is the backend up?'); setTimeout(() => setToast(null), 2500) }
+          catch { showToast('Export failed — is the backend up?', 'error') }
         }}
         style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
                  fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
