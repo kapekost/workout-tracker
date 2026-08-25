@@ -10,8 +10,9 @@ restore, status. This file is the newcomer intro.
 ## Stack
 
 - **Backend**: Python FastAPI + SQLite (WAL, `user_version` migrations, pytest)
-- **Frontend**: React + Vite + Tailwind + Recharts (Vitest), installable PWA
-  with offline reads (service worker, self-hosted fonts)
+- **Frontend**: React + Vite + Recharts (Vitest + Playwright), installable PWA
+  with offline reads (service worker, self-hosted fonts). Styled via
+  `frontend/src/lib/theme.js` tokens and hand-written CSS, no CSS framework.
 - **Deploy**: one multi-stage arm64 image, **built off-device and streamed to
   the Pi over SSH** (`docker save | ssh | docker load`) — no registry, on
   purpose; compose has `pull_policy: never` and no `build:` key
