@@ -14,12 +14,13 @@ import { unlockAudio } from '../lib/sound'
 import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerStorage'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
+import { colors, type, space } from '../lib/theme'
 
 function Stat({ label, value }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1e1e32' }}>
-      <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{label}</span>
-      <span className="font-mono" style={{ color: '#fff', fontWeight: 700 }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${colors.border}` }}>
+      <span style={{ color: colors.muted2, fontSize: type.size.lg }}>{label}</span>
+      <span className="font-mono" style={{ color: colors.text, fontWeight: type.weight.bold }}>{value}</span>
     </div>
   )
 }
@@ -28,17 +29,17 @@ function SetRow({ s, onDelete }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '8px 0', borderBottom: '1px solid #1e1e32'
+      padding: '8px 0', borderBottom: `1px solid ${colors.border}`
     }}>
-      <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontFamily: 'JetBrains Mono, monospace' }}>
+      <span style={{ color: colors.muted, fontSize: type.size.md, fontFamily: 'JetBrains Mono, monospace' }}>
         Set {s.set_number}
       </span>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        <span className="font-mono" style={{ fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
+        <span className="font-mono" style={{ fontSize: '1rem', fontWeight: type.weight.bold, color: colors.text }}>
           {s.weight_kg}kg × {s.reps}
         </span>
         <button onClick={() => onDelete(s.id)} aria-label="delete set"
-          style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer',
+          style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer',
             fontSize: '1.1rem', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           ×
         </button>
@@ -95,11 +96,25 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
       <input type="number" value={value} inputMode={mode}
         onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
         onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
-        style={{ width: 72, textAlign: 'center', background: '#1e1e32', border: 'none', borderRadius: 8,
-          color: '#fff', fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: 700, padding: '8px 0' }} />
+        style={{ width: 72, textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
+          color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '8px 0' }} />
       <button className="btn-icon" aria-label="increase"
         onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
         onClick={() => handleClick(1)}>+</button>
+    </div>
+  )
+}
+
+function WeightFieldLabel({ bodyweight }) {
+  return (
+    <div style={{ marginBottom: space.sm }}>
+      <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold,
+        letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>
+        {bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}
+      </p>
+      {bodyweight && (
+        <p style={{ color: colors.muted2, fontSize: '0.6rem', marginTop: 2 }}>0 = bodyweight only</p>
+      )}
     </div>
   )
 }
@@ -210,7 +225,7 @@ export default function Workout() {
 
   if (summary) return (
     <div style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: 16 }}>Workout complete 🎉</h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 16 }}>Workout complete 🎉</h1>
       <div className="card" style={{ padding: 20, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
         <Stat label="Sets" value={summary.totalSets} />
@@ -221,7 +236,7 @@ export default function Workout() {
             {summary.serverPrs.map((p, i) => {
               const isBaseline = p.type === 'baseline'
               return (
-                <p key={i} style={{ color: isBaseline ? '#9ca3af' : '#fbbf24', fontSize: '0.8rem' }}>
+                <p key={i} style={{ color: isBaseline ? colors.muted : colors.amber, fontSize: type.size.md }}>
                   {isBaseline ? prLabel(p) : `🎉 New PR — ${prLabel(p)}`}
                 </p>
               )
@@ -234,7 +249,7 @@ export default function Workout() {
   )
 
   const plan = PLAN[session.workout_day]
-  if (!plan) return <div style={{ padding: 24, color: '#ef4444' }}>Unknown workout day.</div>
+  if (!plan) return <div style={{ padding: 24, color: colors.danger }}>Unknown workout day.</div>
   const color = DAY_COLORS[session.workout_day]
 
   const setsForExercise = (id) => sets.filter(s => s.exercise_id === id)
@@ -375,11 +390,11 @@ export default function Workout() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <p style={{ color, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ color, fontSize: type.size.sm, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>
             Active session
           </p>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 700 }}>{plan.emoji} {plan.name}</h1>
-          <p style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: 2 }}>{session.date}</p>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
+          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
         </div>
       </div>
 
@@ -407,10 +422,10 @@ export default function Workout() {
               }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{ex.name}</span>
-                  {complete && <span style={{ color: '#6ee7b7', fontSize: '0.75rem' }}>✓</span>}
+                  <span style={{ fontWeight: type.weight.bold, fontSize: type.size.title }}>{ex.name}</span>
+                  {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
                 </div>
-                <p style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: 2 }}>
+                <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
                   {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
                 </p>
               </div>
@@ -424,20 +439,20 @@ export default function Workout() {
                     }} />
                   ))}
                 </div>
-                <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
+                <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
               </div>
             </div>
 
             {/* Expanded — set logger */}
             {isOpen && (
-              <div style={{ borderTop: '1px solid #1e1e32', padding: '16px' }}>
+              <div style={{ borderTop: `1px solid ${colors.border}`, padding: '16px' }}>
                 {/* Info link: opens a bottom sheet in place, not a page nav, so
                     checking a cue mid-set doesn't collapse this card or lose
                     whatever weight/reps you've already dialed in. */}
                 <button
                   className="tap-target"
                   onClick={() => setCuesEx(ex)}
-                  style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.75rem',
+                  style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.base,
                     fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
                   📋 Form cues + demo
                 </button>
@@ -446,27 +461,27 @@ export default function Workout() {
                 {editingNote === ex.id ? (
                   <textarea defaultValue={notes[ex.id] || ''} autoFocus
                     onBlur={e => saveNote(ex.id, e.target.value.trim())}
-                    style={{ width: '100%', background: '#1e1e32', border: 'none', borderRadius: 8, color: '#e2e8f0', fontSize: '0.8rem', padding: 8, resize: 'vertical' }} />
+                    style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
                 ) : notes[ex.id] ? (
-                  <p onClick={() => setEditingNote(ex.id)} style={{ color: '#9ca3af', fontSize: '0.78rem', fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
+                  <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
                 ) : (
-                  <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.72rem', padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
+                  <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
                 )}
 
                 {/* Last workout + overload hint */}
                 {!(ex.id in lastPerf) && (
-                  <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginBottom: 12 }}>…</p>
+                  <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 12 }}>…</p>
                 )}
                 {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
-                    <p style={{ color: '#9ca3af', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Last workout</p>
+                    <p style={{ color: colors.muted, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>Last workout</p>
                     {lastPerf[ex.id].sets.map(s => (
-                      <p key={s.set_number} className="font-mono" style={{ color: '#9ca3af', fontSize: '0.8rem' }}>{s.weight_kg}kg × {s.reps}</p>
+                      <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
                     ))}
                     {(() => {
                       const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
                       return sug ? (
-                        <p style={{ color: '#6ee7b7', fontSize: '0.75rem', marginTop: 6 }}>
+                        <p style={{ color: colors.mint, fontSize: type.size.base, marginTop: 6 }}>
                           Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
                         </p>
                       ) : null
@@ -485,16 +500,11 @@ export default function Workout() {
                       Reps drops under Weight instead of clipping off-screen. */}
                   <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: ex.bodyweight ? 2 : 8 }}>
-                        {ex.bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}
-                      </p>
-                      {ex.bodyweight && (
-                        <p style={{ color: '#6b7280', fontSize: '0.6rem', marginBottom: 6 }}>0 = bodyweight only</p>
-                      )}
+                      <WeightFieldLabel bodyweight={ex.bodyweight} />
                       <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: '#6b7280', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Reps</p>
+                      <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 8 }}>Reps</p>
                       <NumControl value={reps} onChange={setReps} step={1} min={1} />
                     </div>
                   </div>
@@ -508,8 +518,8 @@ export default function Workout() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
                   {ex.muscles.map(m => (
                     <span key={m} style={{
-                      background: '#1e1e32', borderRadius: 100, padding: '3px 10px',
-                      fontSize: '0.7rem', color: '#9ca3af', fontWeight: 500
+                      background: colors.border, borderRadius: 100, padding: '3px 10px',
+                      fontSize: type.size.sm, color: colors.muted, fontWeight: type.weight.semibold
                     }}>{m}</span>
                   ))}
                 </div>
