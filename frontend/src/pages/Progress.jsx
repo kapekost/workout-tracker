@@ -7,6 +7,7 @@ import {
   Tooltip, ResponsiveContainer
 } from 'recharts'
 import Eyebrow from '../components/Eyebrow'
+import Chip from '../components/Chip'
 import { colors, type } from '../lib/theme'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -69,18 +70,10 @@ export default function Progress() {
           {/* Exercise picker */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
             {exercises.map(ex => (
-              <button key={ex.exercise_id} className="tap-target"
-                onClick={() => setSelected(ex.exercise_id)}
-                style={{
-                  padding: '7px 14px', borderRadius: 100,
-                  border: '1px solid',
-                  borderColor: selected === ex.exercise_id ? colors.mint : colors.border,
-                  background: selected === ex.exercise_id ? colors.mintWash : colors.card,
-                  color: selected === ex.exercise_id ? colors.mint : colors.muted,
-                  fontSize: type.size.md, fontWeight: type.weight.semibold, cursor: 'pointer'
-                }}>
+              <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)}
+                selected={selected === ex.exercise_id}>
                 {ex.exercise_name}
-              </button>
+              </Chip>
             ))}
           </div>
 
