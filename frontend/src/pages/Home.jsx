@@ -7,6 +7,10 @@ import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
 import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
 import MuscleGroupPicker from '../components/MuscleGroupPicker'
+import Eyebrow from '../components/Eyebrow'
+import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
+import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
 export function planForDay(workoutDay) {
@@ -59,7 +63,7 @@ export default function Home() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
   const [recency, setRecency] = useState([])
   const nav = useNavigate()
   const { active, refresh, ready } = useActiveSession()
@@ -89,8 +93,7 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      setToast('Failed to start — is the backend up?')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Failed to start — is the backend up?', 'error')
       setStarting(false)
     }
   }
@@ -103,12 +106,12 @@ export default function Home() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <p style={{ color: colors.mint, fontSize: type.size.base, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>
+        <Eyebrow color={colors.mint} size={type.size.base} style={{ marginBottom: 4 }}>
           {active ? 'In progress' : 'Next up'}
-        </p>
+        </Eyebrow>
         <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, lineHeight: 1.1 }}>
           {next.emoji} {next.name}
         </h1>
@@ -121,9 +124,9 @@ export default function Home() {
       {/* Exercise preview */}
       {next.exercises.length > 0 && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-          <p style={{ fontSize: type.size.sm, color: colors.muted2, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
+          <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             {next.exercises.length} exercises
-          </p>
+          </Eyebrow>
           {next.exercises.map((ex, i) => (
             <div key={ex.id} style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -164,9 +167,9 @@ export default function Home() {
       {/* Last session */}
       {lastSession && lastPlan && (
         <div>
-          <p style={{ fontSize: type.size.sm, color: colors.muted2, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 12 }}>
+          <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             Last session
-          </p>
+          </Eyebrow>
           <div className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
             onClick={() => nav('/history')}>
             <div>
@@ -179,17 +182,14 @@ export default function Home() {
       )}
 
       {sessions.length === 0 && (
-        <div className="card" style={{ padding: 24, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2, fontSize: type.size.lg }}>No sessions logged yet.</p>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Start your first workout above 💪</p>
-        </div>
+        <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
       )}
 
       <button
         className="tap-target"
         onClick={async () => {
           try { await downloadExport() }
-          catch { setToast('Export failed — is the backend up?'); setTimeout(() => setToast(null), 2500) }
+          catch { showToast('Export failed — is the backend up?', 'error') }
         }}
         style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
                  fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}

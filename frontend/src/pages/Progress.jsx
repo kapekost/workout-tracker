@@ -6,6 +6,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
 } from 'recharts'
+import Eyebrow from '../components/Eyebrow'
+import Chip from '../components/Chip'
+import EmptyState from '../components/EmptyState'
 import { colors, type } from '../lib/theme'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -59,27 +62,16 @@ export default function Progress() {
       </div>
 
       {exercises.length === 0 ? (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: colors.muted2 }}>No data yet.</p>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 4 }}>Complete a workout to see progress here.</p>
-        </div>
+        <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." />
       ) : (
         <>
           {/* Exercise picker */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
             {exercises.map(ex => (
-              <button key={ex.exercise_id} className="tap-target"
-                onClick={() => setSelected(ex.exercise_id)}
-                style={{
-                  padding: '7px 14px', borderRadius: 100,
-                  border: '1px solid',
-                  borderColor: selected === ex.exercise_id ? colors.mint : colors.border,
-                  background: selected === ex.exercise_id ? colors.mintWash : colors.card,
-                  color: selected === ex.exercise_id ? colors.mint : colors.muted,
-                  fontSize: type.size.md, fontWeight: type.weight.semibold, cursor: 'pointer'
-                }}>
+              <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)}
+                selected={selected === ex.exercise_id}>
                 {ex.exercise_name}
-              </button>
+              </Chip>
             ))}
           </div>
 
@@ -90,13 +82,13 @@ export default function Progress() {
               {pr && (
                 <div className="card" style={{ padding: '16px 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>Personal Record</p>
+                    <Eyebrow>Personal Record</Eyebrow>
                     <p style={{ color: colors.amber, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.title, fontWeight: type.weight.bold, marginTop: 4 }}>
                       🏆 {pr} kg
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>Sessions</p>
+                    <Eyebrow>Sessions</Eyebrow>
                     <p style={{ color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.title, fontWeight: type.weight.bold, marginTop: 4 }}>
                       {data.length}
                     </p>
