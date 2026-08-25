@@ -14,6 +14,7 @@ import { unlockAudio } from '../lib/sound'
 import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerStorage'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
+import Eyebrow from '../components/Eyebrow'
 import { colors, type, space } from '../lib/theme'
 
 function Stat({ label, value }) {
@@ -108,10 +109,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
 function WeightFieldLabel({ bodyweight }) {
   return (
     <div style={{ marginBottom: space.sm }}>
-      <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold,
-        letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>
-        {bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}
-      </p>
+      <Eyebrow>{bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}</Eyebrow>
       {bodyweight && (
         <p style={{ color: colors.muted2, fontSize: '0.6rem', marginTop: 2 }}>0 = bodyweight only</p>
       )}
@@ -390,9 +388,9 @@ export default function Workout() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <p style={{ color, fontSize: type.size.sm, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>
+          <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
             Active session
-          </p>
+          </Eyebrow>
           <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
           <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
         </div>
@@ -479,7 +477,7 @@ export default function Workout() {
                 )}
                 {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
-                    <p style={{ color: colors.muted, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 4 }}>Last workout</p>
+                    <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Last workout</Eyebrow>
                     {lastPerf[ex.id].sets.map(s => (
                       <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
                     ))}
@@ -509,7 +507,7 @@ export default function Workout() {
                       <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 8 }}>Reps</p>
+                      <Eyebrow style={{ marginBottom: 8 }}>Reps</Eyebrow>
                       <NumControl value={reps} onChange={setReps} step={1} min={1} />
                     </div>
                   </div>

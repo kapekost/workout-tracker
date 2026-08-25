@@ -6,6 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
 } from 'recharts'
+import Eyebrow from '../components/Eyebrow'
 import { colors, type } from '../lib/theme'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -90,13 +91,13 @@ export default function Progress() {
               {pr && (
                 <div className="card" style={{ padding: '16px 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>Personal Record</p>
+                    <Eyebrow>Personal Record</Eyebrow>
                     <p style={{ color: colors.amber, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.title, fontWeight: type.weight.bold, marginTop: 4 }}>
                       🏆 {pr} kg
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ color: colors.muted2, fontSize: type.size.xs, fontWeight: type.weight.bold, letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>Sessions</p>
+                    <Eyebrow>Sessions</Eyebrow>
                     <p style={{ color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.title, fontWeight: type.weight.bold, marginTop: 4 }}>
                       {data.length}
                     </p>
