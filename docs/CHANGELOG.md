@@ -3,7 +3,44 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
-## 2026-08-25 — UI/UX design-system initiative, all 5 upgrades (`claude/ui-ux-upgrades-agents-x99pq8`, not yet merged/deployed)
+## 2026-08-25 — Deployed `5247896` (UI/UX design-system initiative, all 5 upgrades)
+
+Merged `claude/ui-ux-upgrades-agents-x99pq8` to `main` and deployed same
+day. See the entry directly below for what the five upgrades actually are
+— this entry covers the merge/deploy itself.
+
+Built on the Mac for `linux/arm64`: hit a new failure the branch's own
+prior builds hadn't — `npm ci` reports success but silently skips
+installing `@rollup/rollup-linux-arm64-musl` on the Alpine builder stage
+(a documented npm bug, npm/cli#4828), surfaced now because this PR's
+Tailwind removal (`chore(tailwind-lean-out): remove tailwindcss/postcss/
+autoprefixer dependency`) regenerated `package-lock.json`. Reproduced
+directly (`npm ci` exits 0 but `node_modules/@rollup/` is missing the
+platform binary; `npm run build` then fails inside `vite build`).
+Confirmed the fix in isolation before touching the Dockerfile: install
+that one binary explicitly right after `npm ci`, version-matched to
+whatever the lockfile already pins for `rollup` (`node -p
+"require('./package-lock.json').packages['node_modules/rollup'].version"`)
+— `Dockerfile` (`efd88ca`), lockfile itself untouched.
+
+Transferred over LAN SSH (`docker save | gzip | ssh | gunzip | docker
+load`), `docker pull`ed nothing (`pull_policy: never`), `compose up -d`.
+Verified: root 200, `/api/health` `version` = `5247896`,
+`last_backup_status` `ok`, `homeassistant` still `healthy`. No schema
+change in this PR, so no export snapshot or restore drill.
+
+Also found while deploying: dangling Pi images stamped
+`APP_COMMIT=1cbdfad`/`2b04e1a`, built 2026-08-23/24, matching a local-only
+`design-tokens` branch that was never pushed to `origin` and turned out to
+duplicate (an earlier, independent implementation of) this same
+initiative's design-tokens slice. Timestamps on untracked local
+`pre-deploy-*.json` snapshots line up with the runbook's pre-deploy step,
+consistent with that branch having actually gone through **Run** at some
+point in the last two days — full detail in AGENTS.md Status. Archived,
+unpushed, at `design-tokens-wip-2026-08-24`; not merged, not part of this
+deploy.
+
+## 2026-08-25 — UI/UX design-system initiative, all 5 upgrades (`claude/ui-ux-upgrades-agents-x99pq8`) — merged and deployed same day, see entry above
 
 Five upgrades, sequenced off the design-system inventory
 (`docs/superpowers/research/2026-08-17-design-system-inventory.md`), which
@@ -113,8 +150,8 @@ or sub-44px tap target anywhere.
 
 **Not fully closed:** the design-system decision (D)'s number-input
 double-styling conflict and the stat-pair pattern both remain deliberately
-deferred (see AGENTS.md Status). This branch lands on `main` only once the
-whole initiative is reviewed and merged.
+deferred (see AGENTS.md Status). Merged to `main` and deployed as `5247896`
+same day — see the entry above.
 
 ## 2026-08-17 — Deployed `adbf3f5` (hardened `/api/import`)
 

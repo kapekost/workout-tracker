@@ -269,51 +269,65 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-25 (UI/UX initiative status)._
+_Last updated: 2026-08-25 (deployed `5247896`)._
 
-**Running now:** commit `adbf3f5`, deployed 2026-08-17 08:37 BST. Hardens
-`/api/import` (the disaster-recovery restore path) before any schema work
-touches it: restore counts now come from the DB post-commit instead of the
-uploaded envelope, the envelope gate only requires tables that existed at
-the envelope's own `schema_version` (so older backups stay importable as
-new tables are added), and `PRAGMA user_version` no longer rolls backward on
-an older restore. TDD, see `docs/CHANGELOG.md` for the full writeup. Verified:
-root 200, `/api/health` `version` = `adbf3f5`, `homeassistant` still
-`healthy`, `tailscale` up, live data intact (1 session / 17 sets / 297
-events). No schema change, so no migration and no restore drill required —
-a pre-deploy `/api/export` snapshot was still taken since the restore path
-itself was what changed.
+**Running now:** commit `5247896`, deployed 2026-08-25 23:24 BST — the
+UI/UX design-system initiative merged to `main` (5 upgrades: design
+tokens + migration, Tailwind's removal, 6 shared components swept onto
+every call site, a Playwright + GitHub Actions responsive-regression
+guard, and the gym-workflow UX pass). Full upgrade-by-upgrade writeup:
+`docs/CHANGELOG.md`. Built on the Mac for `linux/arm64`; hit a new build
+failure first time through — `npm ci` reports success but silently skips
+installing `@rollup/rollup-linux-arm64-musl` on this Alpine builder stage
+(npm/cli#4828), surfaced now because this PR's Tailwind removal
+regenerated `package-lock.json`. Fixed in `efd88ca`: explicitly install
+that one binary after `npm ci`, version-matched to whatever the lockfile
+already pins for `rollup`, without touching the lockfile itself.
+Transferred over LAN SSH, `compose up -d`. Verified: root 200,
+`/api/health` `version` = `5247896`, `last_backup_status` `ok`,
+`homeassistant` still `healthy`. No schema change, so no export snapshot
+or restore drill required.
 
 **Nothing is unreleased.** `main` == `origin/main` == the deployed commit.
-Tests 53 backend + 142 frontend, both green.
+Tests, per the merge (not re-run this session): 69 backend + 210 frontend
++ a 12-test Playwright suite, all green.
 
-**Rollback:** the previous image (`9f3f237`) is still on the Pi, untagged, as
-`8035631eefb5` — `docker tag 8035631eefb5 kapekost/workout-tracker:latest &&
-docker compose up -d` reverts. No schema change was involved, so no data
+**Rollback:** the previous image (`adbf3f5`) is still on the Pi, untagged,
+as `44c5bbeb0557` — `docker tag 44c5bbeb0557 kapekost/workout-tracker:latest
+&& docker compose up -d` reverts. No schema change was involved, so no data
 migration is entangled with it.
 
-**UI/UX design-system initiative — all 5 upgrades complete 2026-08-25, not
-yet merged/deployed.** Full writeup, upgrade-by-upgrade: `docs/CHANGELOG.md`.
-Built on one feature branch (`claude/ui-ux-upgrades-agents-x99pq8`): design
-tokens + migration (`theme.js`, 14 files migrated), Tailwind's removal
-(`.page-shell` + a hand-written reset replace the utility layer and
-preflight), 6 shared components swept onto every call site
-(`Eyebrow`/`Toast`+`useToast`/`Chip`/`EmptyState`/`DayAccent`/`DisclosureRow`),
-a Playwright + GitHub Actions regression guard for the 2026-06-30 responsive
-audit's ≥44px/320px floor, and the gym-workflow UX pass (idle rest-timer
-hint, the 5 dimensional bugs — I13-I17 — the tokens spec found and deferred,
-a `dataviz`-skill pass on `Progress.jsx`'s chart). Every commit across all
-five left the suite green; currently 32 frontend test files / 210 tests +
-a 12-test Playwright suite, all green, plus 69 backend tests unchanged from
-`main` (backend has zero diff against `main` — none of the five needed a
-backend change). `MuscleGroupPicker`'s `RecoveryRing` color-ramp
-re-verified visually unaffected in a running browser after every upgrade
-that touched a neighboring file. **This branch lands on `main` only once
-the whole initiative is reviewed and merged — that review/merge decision
-has not been made yet.**
+**Correction 2026-08-25 — an unmerged branch was very likely live in
+production before this deploy.** While transferring this deploy, found
+dangling images already on the Pi stamped `APP_COMMIT=1cbdfad` (built
+2026-08-23 22:31 BST) and `APP_COMMIT=2b04e1a` (built 2026-08-24 19:29
+BST) — the tip of a local-only `design-tokens` branch that was never
+pushed to `origin`, superseded by an independent reimplementation of the
+same migration inside the 5-upgrade initiative above. Untracked
+`pre-deploy-2026-08-23.json` / `-2026-08-24.json` export snapshots on the
+Mac, each timestamped about a minute after the matching image's build,
+line up with the runbook's own pre-deploy-snapshot step — consistent
+with both having gone all the way through **Run**, not just
+Build/Transfer. So the "`main` == deployed commit" claim above was
+already false for some window before today. No data risk either way —
+same no-schema-change styling refactor now live — but the local commits
+are archived, unpushed, on branch `design-tokens-wip-2026-08-24` in case
+anything in that independent implementation is worth diffing against
+what actually shipped.
+
+**Previously running:** commit `adbf3f5`, deployed 2026-08-17 08:37 BST.
+Hardened `/api/import` (the disaster-recovery restore path) before any
+schema work touches it: restore counts now come from the DB post-commit
+instead of the uploaded envelope, the envelope gate only requires tables
+that existed at the envelope's own `schema_version` (so older backups
+stay importable as new tables are added), and `PRAGMA user_version` no
+longer rolls backward on an older restore. TDD, see `docs/CHANGELOG.md`
+for the full writeup. Verified at the time: root 200, `/api/health`
+`version` = `adbf3f5`, `homeassistant` still `healthy`, `tailscale` up,
+live data intact (1 session / 17 sets / 297 events).
 
 **D (the design-system decision) is not fully closed** even with all five
-upgrades landed: the number-input double-styling conflict
+upgrades landed and deployed: the number-input double-styling conflict
 (`PersonalBests.jsx`'s three number fields vs. the global
 `input[type="number"]` CSS rule, inventory §3.2a — deleting the rule as
 originally planned would have visibly regressed that page once checked) and
