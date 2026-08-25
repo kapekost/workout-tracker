@@ -16,6 +16,7 @@ import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import Eyebrow from '../components/Eyebrow'
 import Chip from '../components/Chip'
+import DayAccent from '../components/DayAccent'
 import Toast from '../components/Toast'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
@@ -434,10 +435,9 @@ export default function Workout() {
                 {/* Set dots */}
                 <div style={{ display: 'flex', gap: 4 }}>
                   {Array.from({ length: target }).map((_, i) => (
-                    <div key={i} style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: i < done ? color : '#2a2a3e'
-                    }} />
+                    i < done
+                      ? <DayAccent key={i} day={session.workout_day} />
+                      : <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2a2a3e' }} />
                   ))}
                 </div>
                 <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>

@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
-import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { PLAN } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
+import DayAccent from '../components/DayAccent'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
 import { colors, type } from '../lib/theme'
@@ -129,7 +130,6 @@ export default function History() {
         <EmptyState title="No sessions yet." subtitle="Your workout history will appear here." />
       ) : sessions.map(s => {
         const plan = PLAN[s.workout_day]
-        const color = DAY_COLORS[s.workout_day] ?? DAY_COLOR_FALLBACK
         const isOpen = expanded === s.id
         const detail = details[s.id]
 
@@ -137,9 +137,7 @@ export default function History() {
           <div key={s.id} className="card" style={{ marginBottom: 10, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
               onClick={() => toggle(s.id)}>
-              <div style={{
-                width: 8, height: 36, borderRadius: 4, background: color, flexShrink: 0
-              }} />
+              <DayAccent day={s.workout_day} shape="bar" />
               <div style={{ flex: 1 }}>
                 <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
                   {plan?.emoji} {plan?.name ?? s.workout_day}
