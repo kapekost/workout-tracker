@@ -12,7 +12,8 @@ cues for a 4-day Upper/Lower split.
 - **Backend**: Python FastAPI + SQLite. Serves the built frontend as static files
   and the JSON API from one process (`uvicorn main:app` on `:8000` inside the
   container).
-- **Frontend**: React + Vite + Tailwind + Recharts. Built to static assets at
+- **Frontend**: React + Vite + Recharts, styled via `frontend/src/lib/theme.js`
+  tokens and hand-written CSS (Tailwind removed 2026-08-25). Built to static assets at
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
@@ -268,7 +269,7 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-17 08:38 BST._
+_Last updated: 2026-08-25 (UI/UX initiative status)._
 
 **Running now:** commit `adbf3f5`, deployed 2026-08-17 08:37 BST. Hardens
 `/api/import` (the disaster-recovery restore path) before any schema work
@@ -291,6 +292,37 @@ Tests 53 backend + 142 frontend, both green.
 docker compose up -d` reverts. No schema change was involved, so no data
 migration is entangled with it.
 
+**UI/UX design-system initiative — all 5 upgrades complete 2026-08-25, not
+yet merged/deployed.** Full writeup, upgrade-by-upgrade: `docs/CHANGELOG.md`.
+Built on one feature branch (`claude/ui-ux-upgrades-agents-x99pq8`): design
+tokens + migration (`theme.js`, 14 files migrated), Tailwind's removal
+(`.page-shell` + a hand-written reset replace the utility layer and
+preflight), 6 shared components swept onto every call site
+(`Eyebrow`/`Toast`+`useToast`/`Chip`/`EmptyState`/`DayAccent`/`DisclosureRow`),
+a Playwright + GitHub Actions regression guard for the 2026-06-30 responsive
+audit's ≥44px/320px floor, and the gym-workflow UX pass (idle rest-timer
+hint, the 5 dimensional bugs — I13-I17 — the tokens spec found and deferred,
+a `dataviz`-skill pass on `Progress.jsx`'s chart). Every commit across all
+five left the suite green; currently 32 frontend test files / 210 tests +
+a 12-test Playwright suite, all green, plus 69 backend tests unchanged from
+`main` (backend has zero diff against `main` — none of the five needed a
+backend change). `MuscleGroupPicker`'s `RecoveryRing` color-ramp
+re-verified visually unaffected in a running browser after every upgrade
+that touched a neighboring file. **This branch lands on `main` only once
+the whole initiative is reviewed and merged — that review/merge decision
+has not been made yet.**
+
+**D (the design-system decision) is not fully closed** even with all five
+upgrades landed: the number-input double-styling conflict
+(`PersonalBests.jsx`'s three number fields vs. the global
+`input[type="number"]` CSS rule, inventory §3.2a — deleting the rule as
+originally planned would have visibly regressed that page once checked) and
+the stat-pair pattern (inventory §3.2, lowest duplication count) both
+remain deliberately deferred, per the component-extraction spec's own
+scope. Whichever is picked up next should land **before** profiles (B)
+starts this project's first schema migration, which makes a pre-deploy
+export snapshot and a restore drill mandatory.
+
 The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
 for the three candidate workstreams (profiles, import, UI/UX rethink) and
@@ -298,9 +330,7 @@ nutrition in the Backlog section below, plus a newly-captured fourth:
 [adaptive coaching / AI-in-the-loop programming](docs/superpowers/backlog/2026-08-23-adaptive-coaching.md),
 not yet sequenced. Sequencing item 1 (muscle-group
 picker) and the `/api/import` hardening that the profiles research surfaced
-are both done — **the design-system decision (D) is next**, before profiles
-(B) starts this project's first schema migration, which makes a pre-deploy
-export snapshot and a restore drill mandatory.
+are both done; the design-system decision (D) is above.
 
 **Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
 scratch 2026-07-16 after
@@ -407,9 +437,6 @@ but health responses slow to ~9 s at load peaks.
   vitamin/supplement dosing. Needs its own spec. The one datum it requires that the app
   deliberately does **not** collect today is bodyweight (ISSN protein guidance is g/kg,
   1.4–2.0); the recovery work needs no biometrics at all.
-- Idle rest-timer hint ("Log a set to start rest timer") if discoverability
-  matters — the one surviving deferred UI item; the 2026-06-30 responsive
-  sweep (Part B) itself shipped 2026-07-10 at full scope.
 - Scripted one-command deploy (build + transfer + restart) on the Mac.
 - Pin the image to a version tag instead of `:latest` for rollbacks (off-LAN
   release assets already give dated artifacts; on-LAN `:latest` does not).

@@ -3,13 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { ALL_EXERCISES } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
+import Toast from '../components/Toast'
+import EmptyState from '../components/EmptyState'
+import { useToast } from '../lib/useToast'
+import { colors, type } from '../lib/theme'
 
+// Eyebrow-shaped (uppercase, tracked, bold, muted caption) but kept as real
+// <label> elements below, not the <Eyebrow> component: these are genuine
+// form labels for the 5 fields below (Exercise/Weight/Reps/Year/Note) and
+// <Eyebrow> renders a <p>, which would drop that semantic association.
+// letterSpacing corrected from a stray '0.06em' to the shared
+// type.labelTracking token every other eyebrow-shaped label in the app
+// uses (final sweep, 2026-08-25) - color/fontSize were already tokens.
 const labelStyle = {
-  display: 'block', color: '#9ca3af', fontSize: '0.7rem', fontWeight: 700,
-  letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6,
+  display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
+  letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 6,
 }
 const fieldStyle = {
-  width: '100%', background: '#1e1e32', color: '#fff', border: 'none',
+  width: '100%', background: colors.border, color: colors.text, border: 'none',
   borderRadius: 8, padding: '10px 8px', fontSize: '0.9rem',
 }
 
@@ -23,14 +34,12 @@ export default function PersonalBests() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
   const [confirmId, setConfirmId] = useState(null)
 
   useEffect(() => {
     api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
-
-  function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   async function submit(e) {
     e.preventDefault()
@@ -47,9 +56,9 @@ export default function PersonalBests() {
       setNote('')
     } catch (err) {
       if (err.message?.includes('409')) {
-        showToast("You've already logged this exact PB (same exercise, weight, reps, and year).")
+        showToast("You've already logged this exact PB (same exercise, weight, reps, and year).", 'error')
       } else {
-        showToast('Failed to save — check the values and try again')
+        showToast('Failed to save — check the values and try again', 'error')
       }
     }
     setSaving(false)
@@ -66,7 +75,7 @@ export default function PersonalBests() {
       await api.delete(`/personal-bests/${id}`)
       setEntries(prev => prev.filter(e => e.id !== id))
     } catch {
-      showToast('Failed to delete')
+      showToast('Failed to delete', 'error')
     }
   }
 
@@ -77,14 +86,14 @@ export default function PersonalBests() {
 
   return (
     <div style={{ paddingTop: 16 }}>
-      {toast && <div className="toast error">{toast}</div>}
+      <Toast toast={toast} />
       <button className="tap-target" onClick={() => nav('/progress')}
-        style={{ background: 'none', border: 'none', color: '#6ee7b7', fontSize: '0.8rem',
-          fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 12 }}>
+        style={{ background: 'none', border: 'none', color: colors.mint, fontSize: type.size.md,
+          fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0, marginBottom: 12 }}>
         ← Progress
       </button>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 4 }}>Personal Bests</h1>
-      <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: 20 }}>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>Personal Bests</h1>
+      <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>
         Historical PBs from before you started logging here
       </p>
 
@@ -129,28 +138,26 @@ export default function PersonalBests() {
       {loading ? (
         <Skeleton height={72} />
       ) : Object.keys(grouped).length === 0 ? (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: '#6b7280' }}>No historical PBs logged yet.</p>
-        </div>
+        <EmptyState title="No historical PBs logged yet." />
       ) : (
         Object.entries(grouped).map(([name, rows]) => (
           <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
-            <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
+            <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
             {rows.map(r => {
               const armed = confirmId === r.id
               return (
                 <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #1e1e32' }}>
-                  <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fbbf24' }}>
+                  alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
+                  <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: type.weight.bold, color: colors.amber }}>
                     {r.weight_kg}kg × {r.reps}
                   </span>
-                  <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                  <span style={{ color: colors.muted2, fontSize: type.size.base }}>
                     {r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}
                   </span>
                   <button className="tap-target" onClick={() => remove(r.id)}
                     aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
-                    style={{ background: 'none', border: 'none', color: armed ? '#ef4444' : '#9ca3af',
-                      cursor: 'pointer', fontSize: armed ? '0.75rem' : '1rem', fontWeight: armed ? 700 : 400 }}>
+                    style={{ background: 'none', border: 'none', color: armed ? colors.danger : colors.muted,
+                      cursor: 'pointer', fontSize: armed ? type.size.base : '1rem', fontWeight: armed ? type.weight.bold : type.weight.regular }}>
                     {armed ? '✓?' : '×'}
                   </button>
                 </div>

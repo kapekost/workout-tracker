@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { remainingSeconds, elapsedSeconds, formatClock } from '../lib/timer'
 import { playBeep } from '../lib/sound'
 import { track } from '../lib/analytics'
+import { colors, type } from '../lib/theme'
 
-export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld, paused, pausedRem, onTogglePause }) {
+export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld, paused, pausedRem, onTogglePause, hasLoggedSets = true }) {
   const [now, setNow] = useState(Date.now())
   const [flash, setFlash] = useState(false)
   const firedRef = useRef(false)
@@ -22,6 +23,11 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   const sessionStr = formatClock(elapsedSeconds(sessionStartMs, now))
   const resting = restStartMs != null || paused
   const rem = paused ? (pausedRem ?? 0) : (restStartMs != null ? remainingSeconds(restStartMs, restTargetSec, now) : 0)
+  // Before the first set of the session, "READY / —:—" implies a timer
+  // that's about to run, which isn't true yet — nothing has started it.
+  // Once at least one set is logged this session, idle reverts to the
+  // ordinary READY state between rests (existing behaviour, unchanged).
+  const showIdleHint = !resting && !hasLoggedSets
 
   useEffect(() => {
     if (resting && rem === 0 && !firedRef.current) {
@@ -38,7 +44,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   return (
     <div className={`timer-bar${flash ? ' flash' : ''}`}>
       <div className="session-clock">
-        ⏱ <span style={{ fontWeight: 700 }}>{sessionStr}</span>
+        ⏱ <span style={{ fontWeight: type.weight.bold }}>{sessionStr}</span>
         {wakeLockHeld && (
           <span className="wake-chip">🔆<span className="wake-text"> On</span></span>
         )}
@@ -49,8 +55,8 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
       }}>
         <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => { track('rest_adjust', { delta: -30 }); onAddRest(-30) }}>−30</button>
         <div className="rest-block">
-          <div className="rest-label" style={{ color: !resting ? '#6b7280' : rem === 0 ? '#6ee7b7' : paused ? '#fbbf24' : '#9ca3af' }}>
-            {!resting ? 'READY' : paused ? 'PAUSED' : rem === 0 ? 'GO' : 'REST'}
+          <div className="rest-label" style={{ color: !resting ? colors.muted2 : rem === 0 ? colors.mint : paused ? colors.amber : colors.muted }}>
+            {showIdleHint ? 'LOG A SET' : !resting ? 'READY' : paused ? 'PAUSED' : rem === 0 ? 'GO' : 'REST'}
           </div>
           <div className="rest-clock">
             {resting ? formatClock(rem) : '—:—'}
