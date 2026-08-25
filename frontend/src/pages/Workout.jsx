@@ -422,7 +422,12 @@ export default function Workout() {
               }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: type.weight.bold, fontSize: type.size.title }}>{ex.name}</span>
+                  {/* Deliberately not type.size.title: that's the page <h1> (line ~396). This
+                      is the per-card exercise name from the "title over cues link" hierarchy
+                      fix (1e0d8f5) — it only needs to outrank the cues-link text within its own
+                      card, not match the page heading. Tier-3 local literal per the design-tokens
+                      spec's own precedent (not every value needs a token). */}
+                  <span style={{ fontWeight: type.weight.bold, fontSize: '1.1rem' }}>{ex.name}</span>
                   {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
                 </div>
                 <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>

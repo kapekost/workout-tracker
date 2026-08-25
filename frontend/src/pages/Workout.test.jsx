@@ -241,7 +241,13 @@ describe('Workout page', () => {
     mockSession()
     renderWorkout()
     const title = await screen.findByText(ex1.name)
-    expect(title.style.fontSize).toBe(type.size.title)
+    // Deliberately not type.size.title: that token is the page <h1>. The
+    // exercise-card title only needs to outrank the cues-link text within
+    // its own card (see Workout.jsx's comment at this span) — asserting the
+    // literal keeps this test from silently re-locking onto the page-heading
+    // token if a future migration reaches for it again.
+    expect(title.style.fontSize).toBe('1.1rem')
+    expect(parseFloat(title.style.fontSize)).toBeGreaterThan(parseFloat(type.size.base))
     expect(title.style.fontWeight).toBe(String(type.weight.bold))
     const cuesLink = screen.getByText(/Form cues \+ demo/)
     // jsdom's CSSOM normalizes a hex color to rgb() on readback, so the
