@@ -27,7 +27,25 @@ workstream **C** below (the import prompt) that brainstorming should weigh
 whether they're one workstream or two. Captured separately rather than
 folded in here since it wasn't part of this file's original ask:
 [`docs/superpowers/backlog/2026-08-23-adaptive-coaching.md`](2026-08-23-adaptive-coaching.md).
-Not sequenced yet. Nothing else here has moved.
+Not sequenced yet.
+
+**Update 2026-08-25: the design-token slice of workstream D (below) is
+implemented, not yet merged/deployed.**
+[`docs/superpowers/specs/2026-08-23-design-tokens-design.md`](../specs/2026-08-23-design-tokens-design.md)
+/ [`docs/superpowers/plans/2026-08-23-design-tokens.md`](../plans/2026-08-23-design-tokens.md):
+a `frontend/src/lib/theme.js` token module now exists, all 14 files the
+design-system inventory found hardcoding color/type literals are migrated
+onto it, the `DAY_COLORS` missing-day fallback is unified, and the
+`Workout.jsx` bodyweight-label ternary is fixed — on a feature branch, all
+14 plan tasks committed individually, frontend build + full test suite green
+throughout. **D is still not fully resolved**: the design-tokens spec's own
+scope explicitly deferred Tailwind's fate (§D below, "lean in or remove")
+and the 8 hand-rolled component-pattern extractions (eyebrow label, toast
+state machine, pill/chip, empty state, day-accent indicator, disclosure row,
+number-input double-styling, stat pair) as separate decisions — see that
+spec's "Out, found and evidenced, but not fixed here" section for the full
+list and reasoning. Whichever of those two is tackled next is what actually
+closes D. Nothing else here has moved.
 
 ---
 
