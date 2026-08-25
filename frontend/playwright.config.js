@@ -23,4 +23,13 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
+  // Starts its own dev server rather than requiring one already running —
+  // CI has nothing else listening on :5173. reuseExistingServer lets a
+  // local `npm run dev` (e.g. left running from manual testing) short-
+  // circuit this instead of erroring on a port collision.
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+  },
 })
