@@ -383,6 +383,7 @@ export default function Workout() {
         paused={pausedRem != null}
         pausedRem={pausedRem}
         onTogglePause={togglePause}
+        hasLoggedSets={sets.length > 0}
       />
 
       {/* Header */}
