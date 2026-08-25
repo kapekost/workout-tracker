@@ -3,6 +3,119 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-08-25 — UI/UX design-system initiative, all 5 upgrades (`claude/ui-ux-upgrades-agents-x99pq8`, not yet merged/deployed)
+
+Five upgrades, sequenced off the design-system inventory
+(`docs/superpowers/research/2026-08-17-design-system-inventory.md`), which
+found 70+ hardcoded style literals, 8 hand-rolled component patterns
+repeated 3-16x each, a Tailwind dependency shipping 11.2KB of CSS for 4
+utility classes at 3 call sites, zero CI for the 2026-06-30 responsive
+audit's floor, and — carried from AGENTS.md's own Backlog — one deferred UI
+item plus 5 small dimensional bugs the tokens spec found and explicitly
+declined to fix. All five landed on one branch; **none of it is on `main`
+or deployed** — that review/merge is a decision for a human, not made yet.
+
+- **Design tokens** (`docs/superpowers/specs/2026-08-23-design-tokens-design.md`):
+  `frontend/src/lib/theme.js` (color/type/spacing/radius constants); all 14
+  files the inventory found hardcoding literals migrated onto it;
+  `DAY_COLORS`' missing-day fallback unified to one constant;
+  `Workout.jsx`'s bodyweight-label ternary code smell fixed.
+  `RecoveryRing`'s color-ramp guardrail manually re-verified in a running
+  browser.
+- **Tailwind lean-out** (`docs/superpowers/specs/2026-08-25-tailwind-lean-out-design.md`):
+  removed `tailwindcss`/`postcss`/`autoprefixer` entirely. Preflight wasn't
+  dead weight — its `border-box`/margin reset is what makes `NavBar`'s
+  `minHeight: 48` and `.btn-icon`'s 44px actually render at those sizes —
+  so the replacement hand-written reset shipped in the *same* commit as the
+  removal, never as a follow-up. The 3 call sites (`App.jsx`, `TopBar.jsx`,
+  `ResumeBanner.jsx`) moved to a new `.page-shell` class at the exact same
+  rendered values as before: pure transport, no visual change (the pixel
+  values themselves were Upgrade 5's job, below).
+- **Component extraction** (`docs/superpowers/specs/2026-08-25-component-extraction-design.md`):
+  6 shared components under `frontend/src/components/` — `Eyebrow`,
+  `Toast`/`useToast`, `Chip`, `EmptyState`, `DayAccent`, `DisclosureRow`,
+  each importing only from `theme.js` — swept onto every call site the
+  inventory found, plus 3 more on `PersonalBests.jsx` the original
+  inventory hadn't catalogued. The global `input[type="number"]` CSS rule
+  stayed in place rather than being deleted as planned: it turned out to be
+  load-bearing for `PersonalBests.jsx`'s own three number fields
+  (centering, monospace font, hidden spin buttons), not dead code.
+- **Responsive-regression CI guard** (`docs/superpowers/specs/2026-08-25-responsive-ci-guard-design.md`):
+  `frontend/e2e/responsive.spec.js` (the first Playwright suite in this
+  repo) plus `.github/workflows/frontend-tests.yml`, running on every
+  push/PR — green on GitHub's own infrastructure, not just locally. Asserts
+  the 2026-06-30 audit's ≥44px-tap-target / no-320px-overflow floor across
+  5 pages, plus `TimerBar`'s 3 breakpoint tiers actually engaging at their
+  trigger widths — the one thing `jsdom` fundamentally can't check, since it
+  never evaluates `@media` queries.
+- **Gym-workflow UX fixes** (`docs/superpowers/specs/2026-08-25-gym-workflow-ux-design.md`):
+  the one surviving deferred UI item, the 5 dimensional bugs the tokens
+  spec found and deferred (I13-I17), and a `dataviz`-skill pass on
+  `Progress.jsx`'s chart.
+  - *Idle rest-timer hint:* `TimerBar` shows "LOG A SET" instead of "READY"
+    before the first set of a session is logged, reverting to the ordinary
+    idle state for the rest of that session once one exists. Zero backend
+    involvement — the signal is `Workout.jsx`'s own already-fetched `sets`
+    state (`sets.length > 0`), exactly as the spec anticipated.
+  - *I13/I15:* `.timer-bar`'s max-width (previously a separately-typed
+    480px vs. `.page-shell`'s 28rem) and `.toast`'s gutter-derived
+    max-width now reference shared `--content-max-width`/`--page-gutter`
+    custom properties instead of independently-typed literals that
+    happened to almost agree.
+  - *I14:* `Workout.jsx`'s doubled bottom padding (`.page-shell`'s 96px +
+    its own explicit 96px) measured in a real browser rather than assumed
+    redundant. Turned out genuinely necessary — this is the one screen
+    with both `TimerBar` and `NavBar` fixed at once — but oversized:
+    relying on `.page-shell`'s 96px alone would have hidden the Finish
+    button ~25px behind `TimerBar`; the old doubled value left ~70-90px of
+    dead space. Replaced with a value sized to `TimerBar`'s own measured
+    height, leaving ~20-45px of clearance instead.
+  - *I16:* verified as a real, *live* defect before changing anything, not
+    just the theoretical mismatch the inventory flagged — `.timer-bar`'s
+    bottom offset assumed `NavBar` was 64px tall; a real-browser
+    measurement found a constant 77px at every width tested, a 13px
+    overlap. Fixed via a new `--navbar-height` custom property. Confirmed
+    with a real CDP-level notched-device simulation (34px bottom inset, not
+    just reasoning about the CSS) that `NavBar` and `TimerBar` now grow
+    together and stay exactly flush on a notched device too.
+  - *I17:* `NavBar`'s flat 20px bottom padding is now
+    `calc(20px + env(safe-area-inset-bottom))`, matching the pattern
+    `TimerBar` already used — unchanged on a non-notched device, grows on
+    a notched one.
+  - *Dataviz pass:* dashed gridlines to solid (a direct anti-pattern
+    match); axis-tick and tooltip-label color swapped from a token
+    measuring 3.86:1 contrast against the chart's card background (below
+    the 4.5:1 WCAG AA floor at that text size) to one measuring 7.35:1; a
+    2px surface-color ring added to the line's dot markers, visibly
+    justified by two adjacent same-value sessions and the hover crosshair
+    both currently touching an unringed dot. `Progress.jsx`'s chart-gutter
+    padding hack left alone, per guardrail.
+  - *Final sweep:* two more eyebrow-shaped labels found on re-check and
+    resolved — `MuscleGroupPicker.jsx`'s "Muscle groups" heading swept onto
+    `<Eyebrow>` (a byte-for-byte match; `RecoveryRing`, the one guardrailed
+    part of that file, untouched and reconfirmed unaffected);
+    `PersonalBests.jsx`'s 5 form-field labels kept as real `<label>`
+    elements (`<Eyebrow>` renders a `<p>`, which would drop that semantic
+    association) but their stray `0.06em` letter-spacing corrected to the
+    shared token every other eyebrow-shaped label in the app uses.
+
+Frontend build and full test suite green after every commit across all five
+upgrades (56 commits total on the branch vs. `main`: 49 for the first four
+slices, 7 for gym-workflow-ux); currently 32 test files / 210 tests + a
+12-test Playwright suite, both green. Backend untouched by any of the five
+— confirmed zero diff against `main` under `backend/` — 69 tests, unchanged.
+A real 320px smoke pass (Playwright, all 6 pages including
+`PersonalBests.jsx`, which the automated suite doesn't cover) re-confirmed
+the 2026-06-30 responsive audit's fixes plus everything these five upgrades
+touched, including a full functional pass through the new idle-hint →
+logs-a-set → rest-starts → skip → READY cycle: no new horizontal overflow
+or sub-44px tap target anywhere.
+
+**Not fully closed:** the design-system decision (D)'s number-input
+double-styling conflict and the stat-pair pattern both remain deliberately
+deferred (see AGENTS.md Status). This branch lands on `main` only once the
+whole initiative is reviewed and merged.
+
 ## 2026-08-17 — Deployed `adbf3f5` (hardened `/api/import`)
 
 Two defects on the disaster-recovery path, found by the profiles-migration

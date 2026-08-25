@@ -269,7 +269,7 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-17 08:38 BST._
+_Last updated: 2026-08-25 (UI/UX initiative status)._
 
 **Running now:** commit `adbf3f5`, deployed 2026-08-17 08:37 BST. Hardens
 `/api/import` (the disaster-recovery restore path) before any schema work
@@ -292,46 +292,36 @@ Tests 53 backend + 142 frontend, both green.
 docker compose up -d` reverts. No schema change was involved, so no data
 migration is entangled with it.
 
-**Design tokens (part of D) implemented 2026-08-25, not yet merged/deployed.**
-[`docs/superpowers/specs/2026-08-23-design-tokens-design.md`](docs/superpowers/specs/2026-08-23-design-tokens-design.md)
-/ [`docs/superpowers/plans/2026-08-23-design-tokens.md`](docs/superpowers/plans/2026-08-23-design-tokens.md):
-`frontend/src/lib/theme.js` (color/type/spacing/radius constants) now exists
-and all 14 files the design-system inventory found hardcoding literals are
-migrated onto it, the `DAY_COLORS` missing-day fallback is unified to one
-`DAY_COLOR_FALLBACK` constant, and the `Workout.jsx` bodyweight-label ternary
-code smell is fixed. Built on a feature branch (`claude/ui-ux-upgrades-agents-x99pq8`),
-all 14 plan tasks committed individually, frontend build and full test suite
-green throughout, `RecoveryRing`'s color-ramp guardrail manually re-verified
-in a running browser. This is one slice of a larger UI/UX initiative running
-across parallel branches; it lands on `main` only once that whole initiative
-is reviewed and merged.
+**UI/UX design-system initiative — all 5 upgrades complete 2026-08-25, not
+yet merged/deployed.** Full writeup, upgrade-by-upgrade: `docs/CHANGELOG.md`.
+Built on one feature branch (`claude/ui-ux-upgrades-agents-x99pq8`): design
+tokens + migration (`theme.js`, 14 files migrated), Tailwind's removal
+(`.page-shell` + a hand-written reset replace the utility layer and
+preflight), 6 shared components swept onto every call site
+(`Eyebrow`/`Toast`+`useToast`/`Chip`/`EmptyState`/`DayAccent`/`DisclosureRow`),
+a Playwright + GitHub Actions regression guard for the 2026-06-30 responsive
+audit's ≥44px/320px floor, and the gym-workflow UX pass (idle rest-timer
+hint, the 5 dimensional bugs — I13-I17 — the tokens spec found and deferred,
+a `dataviz`-skill pass on `Progress.jsx`'s chart). Every commit across all
+five left the suite green; currently 32 frontend test files / 210 tests +
+a 12-test Playwright suite, all green, plus 69 backend tests unchanged from
+`main` (backend has zero diff against `main` — none of the five needed a
+backend change). `MuscleGroupPicker`'s `RecoveryRing` color-ramp
+re-verified visually unaffected in a running browser after every upgrade
+that touched a neighboring file. **This branch lands on `main` only once
+the whole initiative is reviewed and merged — that review/merge decision
+has not been made yet.**
 
-**Component extraction (part of D) implemented 2026-08-25, not yet
-merged/deployed.**
-[`docs/superpowers/specs/2026-08-25-component-extraction-design.md`](docs/superpowers/specs/2026-08-25-component-extraction-design.md)
-/ [`docs/superpowers/plans/2026-08-25-component-extraction.md`](docs/superpowers/plans/2026-08-25-component-extraction.md):
-the 6 shared components the design-system inventory's §3.2 evidenced now
-exist under `frontend/src/components/` (`Eyebrow`, `Toast`/`useToast`,
-`Chip`, `EmptyState`, `DayAccent`, `DisclosureRow`), each importing only
-from `theme.js`, and all 6 patterns are swept off their call sites.
-`PersonalBests.jsx` turned out to carry a site for 3 of the 6 (toast,
-number-input, empty state) that the original inventory hadn't catalogued;
-its number-input styling is why the dead `input[type="number"]` CSS rule
-plan Task 3 expected to delete was left in place instead — deleting it would
-have visibly regressed that page's three number fields (centering, the
-monospace font, the hidden spin buttons), so `NumControl`'s inline styles
-and that global rule keep quietly overlapping rather than the rule being
-removed. Built on the same feature branch
-(`claude/ui-ux-upgrades-agents-x99pq8`), every plan task committed
-individually — one commit per swept pattern, plus a follow-up for the
-`PersonalBests.jsx` empty-state site found during the final verification
-grep — frontend build and full test suite green throughout (32 files / 208
-tests), the 12-test Playwright responsive suite green, a manual 320px
-screenshot check on `Workout.jsx`/`History.jsx` with a card expanded showed
-no overflow, and `MuscleGroupPicker`'s `RecoveryRing` re-confirmed visually
-unaffected — that file was not touched, per the spec's explicit scope. This
-is one slice of the same larger UI/UX initiative; it lands on `main` only
-once that whole initiative is reviewed and merged.
+**D (the design-system decision) is not fully closed** even with all five
+upgrades landed: the number-input double-styling conflict
+(`PersonalBests.jsx`'s three number fields vs. the global
+`input[type="number"]` CSS rule, inventory §3.2a — deleting the rule as
+originally planned would have visibly regressed that page once checked) and
+the stat-pair pattern (inventory §3.2, lowest duplication count) both
+remain deliberately deferred, per the component-extraction spec's own
+scope. Whichever is picked up next should land **before** profiles (B)
+starts this project's first schema migration, which makes a pre-deploy
+export snapshot and a restore drill mandatory.
 
 The backlog is open — see
 [`docs/superpowers/backlog/2026-08-16-next-workstreams.md`](docs/superpowers/backlog/2026-08-16-next-workstreams.md)
@@ -340,22 +330,7 @@ nutrition in the Backlog section below, plus a newly-captured fourth:
 [adaptive coaching / AI-in-the-loop programming](docs/superpowers/backlog/2026-08-23-adaptive-coaching.md),
 not yet sequenced. Sequencing item 1 (muscle-group
 picker) and the `/api/import` hardening that the profiles research surfaced
-are both done, and the design-system decision (D) is now further resolved:
-tokens+migration (above), Tailwind's removal (the `tailwind-lean-out`
-slice's commits are already on this branch — `tailwindcss`/`postcss`/
-`autoprefixer` are gone from `frontend/package.json`, `.page-shell` replaces
-the old utility classes, and a hand-written reset replaces preflight), and 6
-of the inventory's 8 hand-rolled component patterns (inventory §3.2, item 9
-of §7 — eyebrow label, toast state machine, pill/chip, empty state,
-day-accent indicator, disclosure row) are now each built once and swept off
-every call site (above). **D is still not fully closed**: the number-input
-double-styling conflict (inventory §3.2a) turned out not to be the simple
-deletion it looked like once `PersonalBests.jsx`'s own number inputs were
-checked (see above), and stat pair (inventory §3.2, lowest duplication
-count) remains deliberately deferred, per the component-extraction spec's
-own scope. Whichever of those is picked up next should land **before**
-profiles (B) starts this project's first schema migration, which makes a
-pre-deploy export snapshot and a restore drill mandatory.
+are both done; the design-system decision (D) is above.
 
 **Previously (2026-07-16 → 2026-08-16):** commit `e1366a9`, redeployed from
 scratch 2026-07-16 after
@@ -462,9 +437,6 @@ but health responses slow to ~9 s at load peaks.
   vitamin/supplement dosing. Needs its own spec. The one datum it requires that the app
   deliberately does **not** collect today is bodyweight (ISSN protein guidance is g/kg,
   1.4–2.0); the recovery work needs no biometrics at all.
-- Idle rest-timer hint ("Log a set to start rest timer") if discoverability
-  matters — the one surviving deferred UI item; the 2026-06-30 responsive
-  sweep (Part B) itself shipped 2026-07-10 at full scope.
 - Scripted one-command deploy (build + transfer + restart) on the Mac.
 - Pin the image to a version tag instead of `:latest` for rollbacks (off-LAN
   release assets already give dated artifacts; on-LAN `:latest` does not).
