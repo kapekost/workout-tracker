@@ -4,12 +4,23 @@
 Profiles](https://github.com/kapekost/workout-tracker/issues/29) (`intake`,
 open questions unresolved). Section C → [#30
 Import](https://github.com/kapekost/workout-tracker/issues/30) (`intake`,
-open questions unresolved). Section D's remaining scope (the design-system
-decision was resolved by the 2026-08-25 5-upgrade initiative; only two small
-deferred items remain) → [#31 Close out
+open questions unresolved — narrowed to full-session import only, see next
+paragraph). Section D's remaining scope (the design-system decision was
+resolved by the 2026-08-25 5-upgrade initiative; only two small deferred
+items remain) → [#31 Close out
 D](https://github.com/kapekost/workout-tracker/issues/31) (`ready`). This
 file stays as the full brainstorm/Q&A record each Issue links back to — it
 is not superseded, just tracked on the board now.
+
+**Correction 2026-08-26: workstream A's finding below ("the Personal Bests
+idea is NOT in any backlog... never captured") is wrong.** It was captured,
+designed, and fully shipped the very next day — see
+[`docs/superpowers/specs/2026-08-17-personal-bests-design.md`](../specs/2026-08-17-personal-bests-design.md),
+live at `/personal-bests`. Neither this doc's later updates nor `AGENTS.md`
+nor `CHANGELOG.md` ever recorded that, which is why the audit below still
+reads as if the gap were open — it isn't. Doc-gap tracked as
+[#38](https://github.com/kapekost/workout-tracker/issues/38). Section C's
+Issue (#30) has been narrowed accordingly to drop the historical-PBs framing.
 
 **Status: CAPTURED, NOT DESIGNED.** Nothing here has been through brainstorming. Each
 workstream below needs its own `superpowers:brainstorming` → spec → plan → implementation
