@@ -3,7 +3,7 @@
 ARG APP_COMMIT=dev
 
 # Stage 1 — Build React frontend
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 ARG APP_COMMIT
 ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /frontend
