@@ -282,14 +282,10 @@ specific to one deployment, not to the project.
 
 ## Backlog
 
-- **Nutrition guidance** (deferred from the 2026-08-16 muscle-group/recovery design):
-  pre/post-workout food suggestions and protein timing. Scope it to general, sourced
-  guidance (ISSN position stands) with a "not medical advice" line — not personalised
-  vitamin/supplement dosing. Needs its own spec. The one datum it requires that the app
-  deliberately does **not** collect today is bodyweight (ISSN protein guidance is g/kg,
-  1.4–2.0); the recovery work needs no biometrics at all.
-- Scripted one-command deploy (build + transfer + restart).
-- Pin the image to a version tag instead of `:latest` for rollbacks (off-LAN
-  release assets already give dated artifacts; on-LAN `:latest` does not).
-- Optional: `HEARTBEAT_URL` (healthchecks.io) in the backup cron for active
-  failure alerts; `~/backup.log` rotation eventually.
+**Migrated to the GitHub Issues board 2026-08-26** — see the Project board or
+these Issues directly rather than treating this section as the source of truth:
+
+- **Nutrition guidance** → [#33](https://github.com/kapekost/workout-tracker/issues/33) (`intake`, needs its own spec).
+- **Scripted one-command deploy** → [#34](https://github.com/kapekost/workout-tracker/issues/34) (`ready`).
+- **Pin image to a version tag instead of `:latest`** → [#35](https://github.com/kapekost/workout-tracker/issues/35) (`ready`).
+- **Optional `HEARTBEAT_URL` for the backup cron** → [#36](https://github.com/kapekost/workout-tracker/issues/36) (`ready`).
