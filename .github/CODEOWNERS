@@ -1,0 +1,7 @@
+# These paths always require review from the repo owner.
+/.github/ @kapekost
+/.claude/ @kapekost
+/.mcp.json* @kapekost
+
+# Add project-specific paths below, e.g.:
+# /src/auth/ @kapekost

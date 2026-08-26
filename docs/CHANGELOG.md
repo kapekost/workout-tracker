@@ -26,7 +26,7 @@ whatever the lockfile already pins for `rollup` (`node -p
 Transferred over LAN SSH (`docker save | gzip | ssh | gunzip | docker
 load`), `docker pull`ed nothing (`pull_policy: never`), `compose up -d`.
 Verified: root 200, `/api/health` `version` = `5247896`,
-`last_backup_status` `ok`, `homeassistant` still `healthy`. No schema
+`last_backup_status` `ok`. No schema
 change in this PR, so no export snapshot or restore drill.
 
 Also found while deploying: dangling Pi images stamped
@@ -175,8 +175,8 @@ before a real migration would have hit them silently:
 
 TDD throughout, `backend/test_foundations.py` (49 → 53 backend tests). Built
 on the Mac for `linux/arm64`, transferred over LAN SSH, `compose up -d`.
-Verified: root 200, `/api/health` `version` = `adbf3f5`, `homeassistant`
-still `healthy`, live data intact (1 session / 17 sets / 297 events). No
+Verified: root 200, `/api/health` `version` = `adbf3f5`, live data intact
+(1 session / 17 sets / 297 events). No
 schema change, so no migration and no restore drill; a pre-deploy
 `/api/export` snapshot was still taken since the restore path itself was
 what changed. Previous image (`9f3f237`) remains on the Pi untagged as
@@ -202,8 +202,8 @@ final force-quit was needed to land on it. Subsequent deploys self-update.
 ## 2026-08-17 — Deployed `ff1eea4` (muscle-group picker + recovery estimate)
 
 Built on the Mac for `linux/arm64`, transferred over SSH, `compose up -d`.
-Verified: root 200, `/api/health` `version` = `ff1eea4`, `homeassistant` still
-`healthy`. Confirmed against real data — `/api/exercises/recency` returns the
+Verified: root 200, `/api/health` `version` = `ff1eea4`. Confirmed against
+real data — `/api/exercises/recency` returns the
 2026-07-08 Upper A session, Home reads "Last workout 40 days ago", the four
 Upper-trained groups read `Fresh` and the three Lower groups `Not trained yet`.
 No schema change, so no migration and no restore drill.
@@ -284,9 +284,10 @@ sub-44 px tap targets. 13 catalogued defects, all fixed
   ticks clear the "0kg" y-label.
 
 Tests 42 backend + 62 frontend (unchanged — CSS/layout-only wave). Deployed
-to the Pi 2026-07-10 ~10:45 BST (`/api/health` version `3420458`), after
-stabilizing an HA crash loop with a power-cycle — during which the PSU
-under-voltage was confirmed live (`0x50005` on a fresh idle boot).
+2026-07-10 (`/api/health` version `3420458`), after stabilizing a
+co-located-service crash loop with a power-cycle — during which the host's
+PSU under-voltage was confirmed live (`0x50005` on a fresh idle boot; see
+`AGENTS.local.md` for the full incident).
 
 ## 2026-07-09 — Version stamp (`4243f77`)
 
@@ -336,11 +337,10 @@ all 45 findings actioned. Highlights:
   `~/backups`, in-container temp cleaned via trap, events-prune decoupled from
   the success chain, optional `HEARTBEAT_URL` (independent receiver) and
   `REMOTE_KEEP_DAYS`; `.dockerignore` + gcc removal → image 282 MB (was 572).
-- **Pi (out-of-repo)**: pruned 4.1 GB (dangling images, watchtower, build
-  cache; disk 71%→57%); Sunday HA cron now prunes after pull; audio/desktop
-  user daemons masked (bluetoothd kept for HA); Pi Connect screen-sharing off
-  (wayvnc was crash-looping); **restore drill passed** — Drive snapshot pulled
-  and verified against live (schema v2, integrity ok, row counts match).
+- **Host maintenance (out-of-repo)**: disk pruned 71%→57%; see
+  `AGENTS.local.md` for what was cleaned up. **Restore drill passed** — Drive
+  snapshot pulled and verified against live (schema v2, integrity ok, row
+  counts match).
 
 ## 2026-07-09 — Backup chain live
 
@@ -366,8 +366,8 @@ verified, nightly cron installed (03:30 → `~/backup.log`). Ops commits
   VACUUM INTO → rclone → heartbeat), `/api/health` surfaces
   `last_backup_at/status`, "Export my data" link on Home, SW never caches
   `/api/export`.
-- Deployed on-LAN (image `save|ssh|load`): live migration v0→v2 with real rows
-  intact, bundle `index-DdLwN__4.js` verified, HA healthy. Note: the spec's
+- Deployed (image `save|ssh|load`): live migration v0→v2 with real rows
+  intact, bundle `index-DdLwN__4.js` verified. Note: the spec's
   host-sqlite3 backup (Layer B) was superseded by container-exec (`13bd3b5`) —
   the container's root-owned WAL sidecars can't be read by the host cron user.
 
@@ -406,11 +406,12 @@ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-30-resume-in-progress-session
   (NetworkFirst `GET /api/*`), `navigateFallback`.
 - **Tests**: Vitest (frontend) + pytest (backend) introduced.
 
-## 2026-06-27 — Containerised & first Pi deploy
+## 2026-06-27 — Containerised & first deploy
 
 Multi-stage arm64 image built on the Mac, moved via `save|ssh|load` (registry
-removed; `pull_policy: never`, no `build:` key). Runs alongside Home Assistant
-(healthy) + Tailscale; reachable on LAN `:8080` and tailnet
-`100.64.119.1:8080`. `requirements.txt` pinned (fastapi 0.138 / uvicorn 0.49 /
-pydantic 2.13.4), validated in-container on `python:3.11-slim`.
-`.gitignore` `data/` anchored to `/data/` so `frontend/src/data/` is tracked.
+removed; `pull_policy: never`, no `build:` key). Runs alongside other
+long-running services on the host; reachable on LAN `:8080` and over the
+tailnet (see `AGENTS.local.md` for the real addresses). `requirements.txt`
+pinned (fastapi 0.138 / uvicorn 0.49 / pydantic 2.13.4), validated
+in-container on `python:3.11-slim`. `.gitignore` `data/` anchored to
+`/data/` so `frontend/src/data/` is tracked.
