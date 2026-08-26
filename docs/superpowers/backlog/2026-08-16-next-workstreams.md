@@ -1,5 +1,16 @@
 # Next workstreams — captured 2026-08-16
 
+**Update 2026-08-26: migrated to the GitHub Issues board.** Section B → [#29
+Profiles](https://github.com/kapekost/workout-tracker/issues/29) (`intake`,
+open questions unresolved). Section C → [#30
+Import](https://github.com/kapekost/workout-tracker/issues/30) (`intake`,
+open questions unresolved). Section D's remaining scope (the design-system
+decision was resolved by the 2026-08-25 5-upgrade initiative; only two small
+deferred items remain) → [#31 Close out
+D](https://github.com/kapekost/workout-tracker/issues/31) (`ready`). This
+file stays as the full brainstorm/Q&A record each Issue links back to — it
+is not superseded, just tracked on the board now.
+
 **Status: CAPTURED, NOT DESIGNED.** Nothing here has been through brainstorming. Each
 workstream below needs its own `superpowers:brainstorming` → spec → plan → implementation
 cycle before any code is written. This document exists so the ideas and their constraints
