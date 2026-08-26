@@ -42,3 +42,8 @@ venv/
 
 # Agent execution scratch (ledgers, briefs, review packages)
 .superpowers/
+
+# Local-only deploy specifics (real host/IP/SSH/co-located services) and
+# any real MCP server config — never commit either, copy from the .example
+AGENTS.local.md
+.mcp.json

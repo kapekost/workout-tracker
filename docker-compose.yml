@@ -8,7 +8,7 @@ services:
     image: kapekost/workout-tracker:latest
     pull_policy: never
     ports:
-      # host:container — 8080 avoids colliding with anything on :80 alongside Home Assistant
+      # host:container — 8080 avoids colliding with anything else on :80 on this host
       - "8080:8000"
     volumes:
       - ./data:/app/data

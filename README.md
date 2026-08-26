@@ -3,9 +3,12 @@
 Mobile-first workout tracker PWA: logs sets/reps/weight, tracks progress, shows
 form cues for a 4-day Upper/Lower split (Upper A → Lower A → Upper B → Lower B).
 
-Runs as a single Docker container on a Raspberry Pi 3 B+ next to Home Assistant.
-**Ops truth lives in [AGENTS.md](AGENTS.md)** — runbook, hard rules, backup &
-restore, status. This file is the newcomer intro.
+Runs as a single Docker container on a resource-constrained home server (a
+Raspberry Pi 3 B+, alongside other long-running services on the same box).
+**Ops truth lives in [AGENTS.md](AGENTS.md)** (generic) **and
+`AGENTS.local.md`** (gitignored — the real deploy target's specifics) —
+runbook, hard rules, backup & restore, status. This file is the newcomer
+intro.
 
 ## Stack
 
@@ -18,8 +21,8 @@ restore, status. This file is the newcomer intro.
   purpose; compose has `pull_policy: never` and no `build:` key
 
 > **Don't build on the Pi.** A 1 GB Pi can't compile the Vite frontend without
-> thrashing swap and starving Home Assistant. Build on the Mac, stream the
-> finished image over.
+> thrashing swap and starving whatever else is running on the same box. Build
+> elsewhere, stream the finished image over.
 
 ## Features
 
@@ -57,30 +60,37 @@ cd frontend && npm test
 
 ## Deploy
 
-Short version (full runbook + verify steps in [AGENTS.md](AGENTS.md)):
+Shape of it (build elsewhere, stream to the deploy target, run, verify —
+full runbook in [AGENTS.md](AGENTS.md); the real host and commands for this
+deployment are in the gitignored `AGENTS.local.md`):
 
 ```bash
-# Mac: build (arm64, native on Apple Silicon) and stream to the Pi
+# build (arm64) and stream to the deploy target — no registry
 docker buildx build --pull --platform linux/arm64 -t kapekost/workout-tracker:latest --load .
-docker save kapekost/workout-tracker:latest | gzip | \
-  ssh kapekost@192.168.1.170 'gunzip | docker load'
+docker save kapekost/workout-tracker:latest | gzip | ssh <host> 'gunzip | docker load'
 
-# Pi: run the loaded image (never builds, never pulls)
+# deploy target: run the loaded image (never builds, never pulls)
 cd ~/workout-tracker && git pull && docker compose up -d
 ```
 
-App: `http://192.168.1.170:8080` on the LAN.
+## Access away from home
 
-## Access from the gym
-
-Tailscale already runs on the Pi (as a container in host network mode — don't
-install it on the host). With the Tailscale app on your phone signed into the
-same tailnet, the app is at `http://100.64.119.1:8080`.
+If the deploy target runs Tailscale, the app is reachable over the tailnet
+too — see `AGENTS.local.md` for the actual address.
 
 ## Data & backups
 
-SQLite at `~/workout-tracker/data/workouts.db` on the Pi (bind-mounted volume;
-survives container updates). Backups are automated: nightly `scripts/backup.sh`
-snapshots the DB and uploads to Google Drive; `GET /api/health` shows the last
-backup status. Restore options and the drill log are in
-[AGENTS.md](AGENTS.md#restore).
+SQLite in a bind-mounted volume on the deploy target (survives container
+updates). Backups are automated: nightly `scripts/backup.sh` snapshots the
+DB and uploads to Google Drive; `GET /api/health` shows the last backup
+status. Restore options are described in `AGENTS.md`'s Runbook section; the
+drill log and this deployment's exact paths are in `AGENTS.local.md`.
+
+## Agent orchestration
+
+Scaffolded from [`agent-scaffold`](https://github.com/kapekost/agent-scaffold) (Copier — see
+`.copier-answers.yml` for the template ref; `copier update` pulls later template changes in as a
+reviewable diff). Tasks are tracked as GitHub Issues (`type`/`priority`/`effort` labels), driven by
+the `/orchestrate` Claude Code command; rules and current state live in `docs/orchestration/`. See
+[AGENTS.md](AGENTS.md#orchestration) for the pointer, and `docs/orchestration/GUARDRAILS.md` for
+the hard rules — independent of, and secondary to, the deploy hard rules elsewhere in AGENTS.md.
