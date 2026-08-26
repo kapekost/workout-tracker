@@ -1,5 +1,11 @@
 # Adaptive coaching / AI-in-the-loop programming (captured 2026-08-23)
 
+**Update 2026-08-26: migrated to the GitHub Issues board** as [#32 Adaptive
+coaching / AI-in-the-loop programming](https://github.com/kapekost/workout-tracker/issues/32)
+(`intake`, open questions unresolved — see that Issue and this file for the
+full fork/question list). This file stays as the full brainstorm record the
+Issue links back to.
+
 **Status: CAPTURED, NOT DESIGNED.** Per the convention in
 `docs/superpowers/backlog/2026-08-16-next-workstreams.md`, this needs its own
 `superpowers:brainstorming` → spec → plan → implementation cycle before any
