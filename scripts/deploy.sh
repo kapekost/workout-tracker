@@ -56,7 +56,7 @@ docker save "$local_tag" \
 
 echo "==> restarting service"
 ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
-  "cd '$DEPLOY_APP_DIR' && docker compose up -d --force-recreate workout-tracker"
+  "cd '$DEPLOY_APP_DIR' && IMAGE_TAG='$short_sha' docker compose up -d --force-recreate workout-tracker"
 
 echo "==> verifying /api/health"
 health="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
