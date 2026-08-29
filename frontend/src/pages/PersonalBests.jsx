@@ -8,13 +8,6 @@ import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
 import { colors, type } from '../lib/theme'
 
-// Eyebrow-shaped (uppercase, tracked, bold, muted caption) but kept as real
-// <label> elements below, not the <Eyebrow> component: these are genuine
-// form labels for the 5 fields below (Exercise/Weight/Reps/Year/Note) and
-// <Eyebrow> renders a <p>, which would drop that semantic association.
-// letterSpacing corrected from a stray '0.06em' to the shared
-// type.labelTracking token every other eyebrow-shaped label in the app
-// uses (final sweep, 2026-08-25) - color/fontSize were already tokens.
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
   letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 6,
@@ -55,11 +48,8 @@ export default function PersonalBests() {
       setEntries(prev => [...prev, created])
       setNote('')
     } catch (err) {
-      if (err.message?.includes('409')) {
-        showToast("You've already logged this exact PB (same exercise, weight, reps, and year).", 'error')
-      } else {
-        showToast('Failed to save — check the values and try again', 'error')
-      }
+      if (err.message?.includes('409')) showToast("You've already logged this exact PB (same exercise, weight, reps, and year).", 'error')
+      else showToast('Failed to save — check the values and try again', 'error')
     }
     setSaving(false)
   }
@@ -74,9 +64,7 @@ export default function PersonalBests() {
     try {
       await api.delete(`/personal-bests/${id}`)
       setEntries(prev => prev.filter(e => e.id !== id))
-    } catch {
-      showToast('Failed to delete', 'error')
-    }
+    } catch { showToast('Failed to delete', 'error') }
   }
 
   const grouped = entries.reduce((acc, e) => {
@@ -97,7 +85,7 @@ export default function PersonalBests() {
         Historical PBs from before you started logging here
       </p>
 
-      <form onSubmit={submit} className="card" style={{ padding: 16, marginBottom: 24 }}>
+      <form onSubmit={submit} className="card personal-bests-form" style={{ padding: 16, marginBottom: 24 }}>
         <label style={labelStyle}>Exercise</label>
         <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
           style={{ ...fieldStyle, marginBottom: 14 }}>
@@ -127,45 +115,33 @@ export default function PersonalBests() {
 
         <label style={labelStyle}>Note (optional)</label>
         <input type="text" value={note} onChange={e => setNote(e.target.value)}
-          placeholder="e.g. Fall, gym PR meet"
-          style={{ ...fieldStyle, marginBottom: 16 }} />
-
+          placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? 'Saving…' : '+ Add Personal Best'}
         </button>
       </form>
 
-      {loading ? (
-        <Skeleton height={72} />
-      ) : Object.keys(grouped).length === 0 ? (
+      {loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
         <EmptyState title="No historical PBs logged yet." />
-      ) : (
-        Object.entries(grouped).map(([name, rows]) => (
-          <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
-            <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
-            {rows.map(r => {
-              const armed = confirmId === r.id
-              return (
-                <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
-                  <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: type.weight.bold, color: colors.amber }}>
-                    {r.weight_kg}kg × {r.reps}
-                  </span>
-                  <span style={{ color: colors.muted2, fontSize: type.size.base }}>
-                    {r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}
-                  </span>
-                  <button className="tap-target" onClick={() => remove(r.id)}
-                    aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
-                    style={{ background: 'none', border: 'none', color: armed ? colors.danger : colors.muted,
-                      cursor: 'pointer', fontSize: armed ? type.size.base : '1rem', fontWeight: armed ? type.weight.bold : type.weight.regular }}>
-                    {armed ? '✓?' : '×'}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        ))
-      )}
+      ) : Object.entries(grouped).map(([name, rows]) => (
+        <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
+          <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
+          {rows.map(r => {
+            const armed = confirmId === r.id
+            return (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
+                <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: type.weight.bold, color: colors.amber }}>{r.weight_kg}kg × {r.reps}</span>
+                <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
+                <button className="tap-target" onClick={() => remove(r.id)}
+                  aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
+                  style={{ background: 'none', border: 'none', color: armed ? colors.danger : colors.muted, cursor: 'pointer', fontSize: armed ? type.size.base : '1rem', fontWeight: armed ? type.weight.bold : type.weight.regular }}>
+                  {armed ? '✓?' : '×'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

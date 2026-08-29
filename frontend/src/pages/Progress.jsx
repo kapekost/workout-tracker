@@ -2,13 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer
-} from 'recharts'
-import Eyebrow from '../components/Eyebrow'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
+import StatPair from '../components/StatPair'
 import { colors, type } from '../lib/theme'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -30,9 +27,7 @@ export default function Progress() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    api.get('/progress').then(setExercises).catch(() => {})
-  }, [])
+  useEffect(() => { api.get('/progress').then(setExercises).catch(() => {}) }, [])
 
   useEffect(() => {
     if (!selected) return
@@ -44,7 +39,6 @@ export default function Progress() {
   }, [selected])
 
   const selectedName = exercises.find(e => e.exercise_id === selected)?.exercise_name
-
   const pr = data.length ? Math.max(...data.map(d => d.weight)) : null
 
   return (
@@ -61,47 +55,29 @@ export default function Progress() {
         </button>
       </div>
 
-      {exercises.length === 0 ? (
-        <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." />
-      ) : (
+      {exercises.length === 0 ? <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." /> : (
         <>
-          {/* Exercise picker */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
             {exercises.map(ex => (
-              <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)}
-                selected={selected === ex.exercise_id}>
+              <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)} selected={selected === ex.exercise_id}>
                 {ex.exercise_name}
               </Chip>
             ))}
           </div>
 
-          {/* Chart */}
           {selected && (
             <div>
-              {/* PR badge */}
               {pr && (
                 <div className="card" style={{ padding: '16px 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <Eyebrow>Personal Record</Eyebrow>
-                    <p style={{ color: colors.amber, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.title, fontWeight: type.weight.bold, marginTop: 4 }}>
-                      🏆 {pr} kg
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Eyebrow>Sessions</Eyebrow>
-                    <p style={{ color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.title, fontWeight: type.weight.bold, marginTop: 4 }}>
-                      {data.length}
-                    </p>
-                  </div>
+                  <StatPair label="Personal Record" value={`🏆 ${pr} kg`} valueColor={colors.amber} />
+                  <StatPair label="Sessions" value={data.length} align="right" />
                 </div>
               )}
 
               <div className="card" style={{ padding: '20px 8px 12px 0' }}>
                 <p style={{ color: colors.muted, fontSize: type.size.md, fontWeight: type.weight.semibold, paddingLeft: 20, marginBottom: 16 }}>{selectedName}</p>
                 {loading ? (
-                  <div style={{ padding: '12px 20px' }}>
-                    <Skeleton height={180} />
-                  </div>
+                  <div style={{ padding: '12px 20px' }}><Skeleton height={180} /></div>
                 ) : data.length < 2 ? (
                   <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted, fontSize: type.size.lg }}>
                     Log at least 2 sessions to see a trend
@@ -109,8 +85,6 @@ export default function Progress() {
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={data} margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
-                      {/* Solid, not dashed — dashing reads as a projection/threshold
-                          rather than a plain grid (dataviz pass, 2026-08-25). */}
                       <CartesianGrid stroke={colors.border} vertical={false} />
                       <XAxis dataKey="date" tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
                       <YAxis tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />

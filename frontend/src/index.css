@@ -29,171 +29,103 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
   --muted: #9ca3af;
   --muted-2: #6b7280;
   --danger: #ef4444;
-
-  /* Single source of truth for layout constants previously duplicated as
-     independently-typed literals (design-system inventory I13/I15).
-     .page-shell, .timer-bar and .toast all reference these instead of their
-     own copies, so a future change to one can't silently desync the others. */
   --content-max-width: 28rem;
   --page-gutter: 1rem;
-  /* NavBar's real rendered height: border-top(1px) + padding(8px top, 20px
-     base bottom) + its tallest content (each tab button's 48px min-height)
-     = 77px. Verified in a real browser (2026-08-25, Upgrade 5 Task 4/I16)
-     and constant across every viewport width (NavBar carries no responsive
-     breakpoints of its own). .timer-bar's `bottom` offset uses this so it
-     sits flush above NavBar instead of overlapping it (was a stale 64px,
-     13px short of NavBar's actual height, at every width). If NavBar.jsx's
-     own padding/content ever changes its rendered height, update this to
-     match (see the comment at its `paddingBottom` there). */
   --navbar-height: 77px;
 }
 
 * { -webkit-tap-highlight-color: transparent; }
-
-/* Prevent the page bounce/rubber-band on overscroll. Needs to be set on both
-   html and body: iOS Safari only honours it reliably when both carry it. */
-html {
-  overscroll-behavior-y: none;
-}
-
+html { overscroll-behavior-y: none; }
 body {
   background: var(--bg);
   font-family: 'Inter', system-ui, sans-serif;
   color: #fff;
   overscroll-behavior-y: none;
-  /* This is an app shell, not a document: long-pressing a button or label
-     was selecting its text (or opening the iOS text-selection callout)
-     instead of registering the tap. Inputs/textareas opt back in below. */
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
-
 input, textarea {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
 }
-
-/* Removes the ~300ms tap delay and the double-tap-to-zoom gesture that made
-   quick taps on controls occasionally register as a zoom instead of a tap.
-   Pinch-zoom is untouched; only the double-tap gesture is disabled. */
-button, a, .tap-target {
-  touch-action: manipulation;
-}
-
+button, a, .tap-target { touch-action: manipulation; }
 .page-shell {
   max-width: var(--content-max-width);
   margin: 0 auto;
   padding: 0 var(--page-gutter) 6rem;
 }
-
 .font-mono { font-family: 'JetBrains Mono', monospace; }
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
 .btn-primary {
-  background: var(--mint);
-  color: #0a0a12;
-  font-weight: 700;
-  font-size: 1rem;
-  padding: 14px 28px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  width: 100%;
+  background: var(--mint); color: #0a0a12; font-weight: 700; font-size: 1rem;
+  padding: 14px 28px; border-radius: 12px; border: none; cursor: pointer;
+  transition: opacity 0.15s; width: 100%;
 }
 .btn-primary:active { opacity: 0.8; }
-
 .btn-secondary {
-  background: var(--border);
-  color: #e2e8f0;
-  font-weight: 600;
-  padding: 10px 18px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
+  background: var(--border); color: #e2e8f0; font-weight: 600;
+  padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer;
   transition: opacity 0.15s;
 }
 .btn-secondary:active { opacity: 0.7; }
-
 .btn-icon {
-  background: var(--border);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  width: 44px; height: 44px;
-  font-size: 1.25rem;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
+  background: var(--border); color: #fff; border: none; border-radius: 8px;
+  width: 44px; height: 44px; font-size: 1.25rem;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
   transition: background 0.15s;
 }
 .btn-icon:active { background: #2a2a42; }
-
-/* Invisible hit-area extension for visually-small controls: pads the
-   clickable box out to >=44px in both axes without moving any layout. */
 .tap-target { position: relative; }
 .tap-target::after {
-  content: '';
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  width: max(100%, 44px);
-  height: max(100%, 44px);
+  content: ''; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%); width: max(100%, 44px); height: max(100%, 44px);
 }
 
-/* NOT dead code: the design-system inventory (2026-08-17) flagged this rule
-   as fully overridden by NumControl's inline styles (Workout.jsx) and a
-   candidate for deletion — re-checked during the 2026-08-25 component-
-   extraction pass and that no-longer holds. PersonalBests.jsx's three
-   number inputs (weight/reps/year) rely on this rule for centering, the
-   monospace font, weight 600, and hiding the spin buttons; none of that is
-   set inline there. Deleting this would be a real, visible regression on
-   that page, not the no-op it would be for NumControl alone. Left in place. */
 input[type="number"] {
-  background: var(--border);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  text-align: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.25rem;
-  font-weight: 600;
-  padding: 8px;
-  width: 72px;
-  -moz-appearance: textfield;
+  background: var(--border); color: #fff; border: none; border-radius: 8px;
+  text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 1.25rem;
+  font-weight: 600; padding: 8px; width: 72px; -moz-appearance: textfield;
 }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
+/* PersonalBests intentionally keeps the shared number-input rule above for
+   compact numeric controls elsewhere, but its form fields are full-width
+   text-like inputs. Keep that exception local instead of deleting the
+   shared rule and changing unrelated screens. */
+.personal-bests-form input[type="number"] {
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: inherit;
+  padding: 10px 8px;
+  width: 100%;
+}
+
 .toast {
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-  background: var(--amber); color: #0a0a12;
-  font-weight: 700; padding: 12px 24px; border-radius: 100px;
-  z-index: 100; width: max-content; max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
+  background: var(--amber); color: #0a0a12; font-weight: 700;
+  padding: 12px 24px; border-radius: 100px; z-index: 100; width: max-content;
+  max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
   animation: slideDown 0.3s ease;
 }
 .toast.error { background: var(--danger); color: #fff; }
 @keyframes slideDown {
   from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
-
 .timer-bar {
-  position: fixed; left: 0; right: 0; bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); z-index: 40;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 10px 16px; max-width: var(--content-max-width); margin: 0 auto;
+  position: fixed; left: 0; right: 0;
+  bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); z-index: 40;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; max-width: var(--content-max-width); margin: 0 auto;
   background: #14142a; border-top: 1px solid #1e1e32;
   font-family: 'JetBrains Mono', monospace;
 }
 .timer-bar.flash { animation: timerflash 0.4s ease-in-out 3; }
 @keyframes timerflash { 50% { background: #234d34; } }
-
 .timer-bar .session-clock { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
 .timer-bar .wake-chip { color: var(--mint); font-size: 0.6rem; font-weight: 700; margin-left: 8px; }
 .timer-controls { display: flex; align-items: center; gap: 8px; }
@@ -201,10 +133,6 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .rest-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; }
 .rest-clock { color: #fff; font-weight: 700; font-size: 2.2rem; line-height: 1; }
 .timer-pill { min-height: 44px; min-width: 44px; font-size: 0.75rem; padding: 4px 12px; }
-
-/* Session clock + five controls exceed narrow portrait widths (Skip was
-   off-screen at 320px). Two tiers keep every control on-screen and 44px
-   tall down to 320px, with room for an H:MM:SS session clock. */
 @media (max-width: 440px) {
   .timer-bar { gap: 8px; padding: 10px 10px; }
   .timer-bar .btn-icon { width: 38px; font-size: 1rem; }
@@ -223,18 +151,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   .timer-pill { padding: 4px 6px; min-width: 34px; }
   .timer-bar .wake-chip { display: none; }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  .timer-bar.flash { animation: none; }
-  .toast { animation: none; }
-}
-
-.skeleton { background: linear-gradient(90deg,#1a1a2e 25%,#23233a 37%,#1a1a2e 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
-@keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
-@media (prefers-reduced-motion: reduce){ .skeleton{ animation: none } }
-
-/* The ring animates its fill; honour a reduced-motion preference by snapping
-   straight to the final value. */
-@media (prefers-reduced-motion: reduce) {
+  .timer-bar.flash, .toast, .skeleton { animation: none; }
   .recovery-ring circle { transition: none !important; }
 }
+.skeleton {
+  background: linear-gradient(90deg,#1a1a2e 25%,#23233a 37%,#1a1a2e 63%);
+  background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
