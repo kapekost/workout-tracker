@@ -14,29 +14,21 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#21/#22 (coordinated dependency bumps)** — owner approved 2026-08-30: try each bump, keep it
+  if low-effort, otherwise revert and tell Dependabot to hold off. Dispatched as two parallel
+  subagents this tick.
 
 ## Needs owner
-- **#21/#22 (coordinated dependency bumps)** and **#23** (node:20→26-alpine breaks the actual
-  Docker build despite green CI) are `ready` but genuinely need the coordinated work described
-  in each — not something to pick off piecemeal via the individual Dependabot PRs (#14, #16,
-  #13, #7), which were deliberately left open/unmerged during the 2026-08-30 catch-up pass.
-  #21/#22 each carry an owner comment (2026-08-26): try the bump, proceed if it's low-effort,
-  tell Dependabot to hold off for now if it isn't — not yet acted on.
-- **Orphaned branches from an abandoned prior attempt**, found during the 2026-08-30 #38 tick:
-  `ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`, `tmp/repair-38-stacked-1` through
-  `-9`, `tmp/repair-final` (11 branches). They tangle an unrelated design-system/CSS refactor
-  together with a #24-style CI fix and a draft `scripts/deploy.sh` (#34 material) — none
-  referenced by an open PR, fully superseded by the clean #53 and #55 ships. Safe to delete,
-  but remote branch deletion is a destructive op under GUARDRAILS and needs owner sign-off
-  rather than the runner's own judgment.
-- **Intake-vs-ready sequencing:** `PLAYBOOK.md` step 3 reads literally as "any `intake` Issue
-  preempts all `ready` work" each tick, but #27/#29/#30/#32/#33 have sat untriaged (zero
-  comments) since 2026-08-26 while ready chores (#24, #35, #38) shipped in the meantime across
-  several ticks. Today's tick continued that existing precedent — treating intake triage and
-  ready-issue execution as separate, non-blocking tracks — rather than gating #38 behind
-  triaging one of the five first. Flagging in case this precedent is worth codifying as a
-  `DECISIONS.md` entry; #27 in particular is `P1` and probably shouldn't wait on the other four.
+- **#23** (node:20→26-alpine breaks the actual Docker build despite green CI) is `ready` but
+  genuinely needs real engineering work — not something to pick off via the individual Dependabot
+  PR (#7), which was deliberately left open/unmerged during the 2026-08-30 catch-up pass.
+- **Orphaned branches from an abandoned prior attempt** — owner approved deletion 2026-08-30, but
+  the runner can't actually do it: `git push --delete` consistently 403s (looks like the GitHub
+  App's permission set doesn't include ref deletion), and there's no delete-branch/delete-ref tool
+  in the GitHub MCP server either. Needs the owner to delete these manually via the GitHub UI (or
+  grant the App that permission): `ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`,
+  `tmp/repair-38-stacked-1` through `-9`, `tmp/repair-final` (11 branches). None referenced by an
+  open PR, fully superseded by the clean #53 and #55 ships.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -44,6 +36,11 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (owner check-in):** Owner reviewed the flagged items live. Decisions: (1) codify
+  the intake-vs-ready sequencing precedent — `DECISIONS.md` entry added, `PLAYBOOK.md` step 3
+  reworded to match; (2) delete the 11 orphaned branches — attempted, blocked by a GitHub App
+  permission gap (see Needs owner); (3) proceed with #21/#22 now — dispatched below; (4) #27's
+  direction still being talked through with the owner, not yet decided.
 - **2026-08-30 (#38 → #55):** Shipped. Backfilled `docs/CHANGELOG.md` (in its correct
   2026-08-17 chronological slot, marked as written retroactively) and an `AGENTS.md`
   Design-docs bullet for the already-shipped Personal Bests feature — 5 commits verified
