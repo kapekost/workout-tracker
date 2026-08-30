@@ -5,29 +5,22 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #23 in flight (claimed 2026-08-30T18:38:25Z, live session — real fix for the
-  node:20→26-alpine `npm ci` break, dispatched to a background subagent; not yet shipped). #29
-  triaged via live owner Q&A and closed 2026-08-30, split into #66 (schema/migration, `ready`),
-  #67 (login, depends on #66), #68 (password reset via email via Resend — provider question
-  resolved, still sequenced behind #67), #69 (switcher UI, depends on #66).
-- **Next action:** Finish #23's write-back once the dispatched subagent reports (ship or hard
-  stop). #66 is the next `ready`, unblocked pick after #23 closes. #67/#68/#69 all need the
-  `ready` label added by hand once their dependency merges (#67/#69 after #66, #68 after #67) —
-  no native GitHub blocked-by relationship was set (no graphql-capable tool available this
-  session), so this is a manual sequencing note instead. #27, #30, #32, #33 remain `intake`,
-  still need owner answers — #27's direction is still undecided (Cloudflare Tunnel vs. a real
-  host migration).
+- **Current focus:** #23 shipped via #65 (2026-08-30). #29 triaged via live owner Q&A and closed
+  2026-08-30, split into #66 (schema/migration, `ready`), #67 (login, depends on #66), #68
+  (password reset via email via Resend, depends on #67), #69 (switcher UI, depends on #66).
+- **Next action:** #66 is the next `ready`, unblocked pick. #67/#68/#69 all need the `ready`
+  label added by hand once their dependency merges (#67/#69 after #66, #68 after #67) — no native
+  GitHub blocked-by relationship was set (no graphql-capable tool available this session), so
+  this is a manual sequencing note instead. #27, #30, #32, #33 remain `intake`, still need owner
+  answers — #27's direction is still undecided (Cloudflare Tunnel vs. a real host migration).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#23** — claimed 2026-08-30T18:38:25Z, live session.
+(no branches in flight)
 
 ## Needs owner
-- **#23** (node:20→26-alpine breaks the actual Docker build despite green CI) is `ready` but
-  genuinely needs real engineering work — not something to pick off via the individual Dependabot
-  PR (#7), which was deliberately left open/unmerged during the 2026-08-30 catch-up pass.
 - **Orphaned branches from an abandoned prior attempt** — owner approved deletion 2026-08-30, but
   the runner can't actually do it: `git push --delete` consistently 403s (looks like the GitHub
   App's permission set doesn't include ref deletion), and there's no delete-branch/delete-ref tool
@@ -43,6 +36,34 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#23 → #65):** Shipped. Bumped the Dockerfile's builder stage `node:20-alpine` →
+  `node:26-alpine` — same target Dependabot PR #7 proposed, actually investigated this time
+  instead of rubber-stamped, per the issue's own instruction. Root cause per the issue: npm
+  11.19.0 (bundled with `node:26-alpine`) resolving `frontend/package-lock.json`'s optional
+  platform packages differently than npm 10.x, producing a false-green in CI (which never touches
+  the Dockerfile). Investigated for real rather than assumed: this sandbox has no Docker daemon
+  (same confirmed constraint as #21/#22), so downloaded a checksum-verified
+  `node-v26.8.1-linux-x64` binary directly from nodejs.org and ran actual `npm ci` under its
+  bundled npm 11.19.0 — against the current lockfile, against the exact pre-#59 lockfile that
+  still contained the `@esbuild/aix-ppc64@0.21.5` entry named in the original error, and again
+  with `--os=linux --cpu=x64 --libc=musl` forced to approximate Alpine. All three succeeded
+  cleanly; `npm install --package-lock-only` under node 26 regenerated the lockfile byte-identical
+  to what's committed. **Real finding: no lockfile regeneration was actually needed** — `esbuild`
+  is no longer even resolved in the dependency tree since #59's vite 5→8 bump already regenerated
+  the lockfile fresh, so PR #7's original failure likely doesn't reproduce outside the real
+  Alpine/musl `buildx` environment. Noted in `AGENTS.md`'s Gotchas section. Verification: 212/212
+  vitest, prod build + real backend/dist smoke test (200 on `/`, correct `/api/health`), 69/69
+  backend pytest, lockfile reconfirmed installing cleanly under the sandbox's own node 22/npm 10
+  too. Playwright e2e blocked in this sandbox by an unrelated egress-proxy 403 — flagged as
+  session-to-session sandbox variance (not a permanent constraint like the Docker one; #21/#22 had
+  it working same-day) — CI's own Playwright run on GitHub's runner was the real gate regardless.
+  Literal `docker buildx build` verification remains impossible in-sandbox and is flagged for a
+  spot-check at the next real deploy, same precedent as #21/#22. `code-review` skill run with an
+  explicit target this time (per the #38-tick gotcha) — fixed one real finding (a duplicate
+  12-line Dockerfile comment re-narrating the AGENTS.md entry, trimmed to a pointer), correctly
+  did *not* act on an out-of-scope one (node 26 vs. 24 LTS choice — flagged as a possible separate
+  issue, not this one's job). All CI green, merged squash. Dependabot PR #7 closed, pointing at
+  #65.
 - **2026-08-30 (#29 triage → #66/#67/#68/#69):** Resolved via live owner Q&A during an
   `/orchestrate status` + tick session. Profiles are real, isolated, data-owning accounts, not
   just a label — explicit prework for later Google/Apple OAuth (not built now, but the schema
