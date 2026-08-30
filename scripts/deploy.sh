@@ -62,9 +62,27 @@ ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
   "cd '$DEPLOY_APP_DIR' && APP_COMMIT='$short_sha' docker compose up -d --force-recreate workout-tracker"
 
 echo "==> verifying /api/health"
+# --force-recreate returns as soon as the container starts, not once uvicorn is
+# actually accepting connections, so an immediate curl can race a good deploy.
+# Retry inside the one SSH session below rather than one new connection per
+# attempt: a fresh SSH handshake+auth per retry would both add its own latency
+# on top of the wait (undermining the ~30s budget) and make the timing this
+# error message claims a lie.
 # shellcheck disable=SC2086
-health="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
-  "curl -fsS http://127.0.0.1:8080/api/health")"
+if ! health="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" '
+  for attempt in $(seq 1 15); do
+    if health="$(curl -fsS http://127.0.0.1:8080/api/health)"; then
+      echo "$health"
+      exit 0
+    fi
+    echo "    (not ready yet, attempt $attempt/15, retrying in 2s)" >&2
+    sleep 2
+  done
+  exit 1
+')"; then
+  echo "error: /api/health never responded within ~30s of restart" >&2
+  exit 1
+fi
 
 python3 - "$health" "$short_sha" <<'PY'
 import json
