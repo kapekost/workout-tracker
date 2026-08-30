@@ -16,7 +16,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#23** — claimed 2026-08-30T18:38:25Z, live session.
 
 ## Needs owner
 - **#23** (node:20→26-alpine breaks the actual Docker build despite green CI) is `ready` but
