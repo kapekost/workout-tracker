@@ -36,6 +36,20 @@ The actual build/transfer/run/verify commands, with real hostnames and
 paths. `AGENTS.md` should describe the *shape* of the deploy process
 generically; this is where the literal, copy-pasteable version lives.
 
+## Scripted deploy configuration
+
+`scripts/deploy.sh` (build → transfer → restart → verify, in one command)
+reads its target from this exact section — required keys `DEPLOY_HOST` and
+`DEPLOY_APP_DIR`, optional `DEPLOY_SSH_OPTS`. Add these three lines
+directly under this heading, with no other `##` heading between this line
+and them (the script's parser stops at the next `## `):
+
+```
+DEPLOY_HOST=pi.example
+DEPLOY_APP_DIR=/home/user/workout-tracker
+DEPLOY_SSH_OPTS='-o BatchMode=yes'
+```
+
 ## Gotchas and incident history
 
 Deployment-specific lessons learned the hard way — hardware quirks, past
