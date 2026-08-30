@@ -5,12 +5,10 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** (none in flight — #24 shipped 2026-08-30 via #53; #27, #29-30, #32-33 (intake)
-  and #34, #38 (ready) remain)
-- **Next action:** Remaining `ready` chores are #34 (scripted one-command deploy) and #38
-  (document the shipped Personal Bests feature); the `intake` ones (#27, #29, #30, #32, #33) need
-  owner answers first. #36 (heartbeat cron) is done — closed 2026-08-29, this file just hadn't
-  caught up.
+- **Current focus:** (none in flight — #24 shipped 2026-08-30 via #53; #38 shipped 2026-08-30 via
+  #55; #27, #29-30, #32-33 (intake) and #34 (ready) remain)
+- **Next action:** Remaining `ready` chore is #34 (scripted one-command deploy); the `intake` ones
+  (#27, #29, #30, #32, #33) need owner answers first.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -25,8 +23,36 @@
   #13, #7), which were deliberately left open/unmerged during the 2026-08-30 catch-up pass.
   #21/#22 each carry an owner comment (2026-08-26): try the bump, proceed if it's low-effort,
   tell Dependabot to hold off for now if it isn't — not yet acted on.
+- **Orphaned branches from an abandoned prior attempt**, found during the 2026-08-30 #38 tick:
+  `ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`, `tmp/repair-38-stacked-1` through
+  `-9`, `tmp/repair-final` (11 branches). They tangle an unrelated design-system/CSS refactor
+  together with a #24-style CI fix and a draft `scripts/deploy.sh` (#34 material) — none
+  referenced by an open PR, fully superseded by the clean #53 and #55 ships. Safe to delete,
+  but remote branch deletion is a destructive op under GUARDRAILS and needs owner sign-off
+  rather than the runner's own judgment.
+- **Intake-vs-ready sequencing:** `PLAYBOOK.md` step 3 reads literally as "any `intake` Issue
+  preempts all `ready` work" each tick, but #27/#29/#30/#32/#33 have sat untriaged (zero
+  comments) since 2026-08-26 while ready chores (#24, #35, #38) shipped in the meantime across
+  several ticks. Today's tick continued that existing precedent — treating intake triage and
+  ready-issue execution as separate, non-blocking tracks — rather than gating #38 behind
+  triaging one of the five first. Flagging in case this precedent is worth codifying as a
+  `DECISIONS.md` entry; #27 in particular is `P1` and probably shouldn't wait on the other four.
+- **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
+  silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
+  invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
+  template repo — looks like Claude Code harness/skill-runtime behavior. Flagging per PLAYBOOK
+  step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#38 → #55):** Shipped. Backfilled `docs/CHANGELOG.md` (in its correct
+  2026-08-17 chronological slot, marked as written retroactively) and an `AGENTS.md`
+  Design-docs bullet for the already-shipped Personal Bests feature — 5 commits verified
+  against actual repo history first (`3eb468e`, `8af065e`, `82f164b`, `c1ff0ab`, `fd83851`),
+  not just copied from the Issue body. Docs-only; `code-review` skill run on the diff (clean,
+  no findings — note: its first invocation silently reviewed a different repo entirely in
+  this multi-repo session, had to re-run with an explicit path/branch target to get a
+  trustworthy result). All 3 checks green, merged squash. Also surfaced the orphaned-branch
+  and intake-sequencing items now under "Needs owner" above.
 - **2026-08-30 (#24 → #53):** Shipped. Added `backend-tests.yml` with an explicit `Backend tests`
   job name (frontend-tests.yml's job displays as plain `test`, which is what let backend-only
   Dependabot bumps merge on an unrelated green check). Supersedes #44, which was the same fix
