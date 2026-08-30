@@ -132,6 +132,15 @@ Edit code → commit & push → **Build** → **Transfer** → **Run/update** �
 **Verify**. The git push keeps source history; the image transfer is what
 actually updates the running app.
 
+**Scripted:** `scripts/deploy.sh` wraps Build/Transfer/Run/Verify into one
+command, reading the real host/path from `AGENTS.local.md` (see
+`AGENTS.local.md.example`'s "Scripted deploy configuration" section) rather
+than hardcoding them. Refuses to run against a dirty working tree, and
+verifies `/api/health`'s `version` matches what it just built plus that
+`last_backup_status` isn't `stale`. Snapshot via `GET /api/export` first if
+the deploy includes a schema change — the script doesn't do that step for
+you.
+
 ## Gotchas learned the hard way
 
 **A deploy is invisible to an installed PWA until it re-checks.** The service
@@ -309,6 +318,5 @@ specific to one deployment, not to the project.
 these Issues directly rather than treating this section as the source of truth:
 
 - **Nutrition guidance** → [#33](https://github.com/kapekost/workout-tracker/issues/33) (`intake`, needs its own spec).
-- **Scripted one-command deploy** → [#34](https://github.com/kapekost/workout-tracker/issues/34) (`ready`).
 - **Pin image to a version tag instead of `:latest`** → [#35](https://github.com/kapekost/workout-tracker/issues/35) (`ready`).
 - **Optional `HEARTBEAT_URL` for the backup cron** → [#36](https://github.com/kapekost/workout-tracker/issues/36) (`ready`).
