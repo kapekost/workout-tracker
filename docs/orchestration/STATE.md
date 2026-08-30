@@ -46,6 +46,12 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (PLAYBOOK.md fix → #71):** Shipped. Logged the "shaped but needs a spec" Feature
+  Intake gap (hit on #27/#30/#32/#33 this session) via `scripts/append_improvement.sh`, then acted
+  on it immediately rather than leaving it for a future review pass — small, well-understood,
+  docs-only. `PLAYBOOK.md` step 3 now names this as a third Feature Intake outcome alongside
+  relabel-`ready` and split-into-children. All 3 checks green, merged squash. Improvements cursor
+  advanced to 2.
 - **2026-08-30 (#30/#32/#33 triage, #70 opened):** Further owner Q&A, same session as the #29
   split. #30 (Import): build full-session import (working interpretation of a slightly uncertain
   answer, flagged on the issue for correction), scoped per-profile; POC-simple idempotency (no
