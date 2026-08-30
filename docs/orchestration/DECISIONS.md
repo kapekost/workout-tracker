@@ -3,6 +3,14 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-08-30 — #68 password-reset email provider: Resend
+
+Same-session follow-up to the Profiles decision below. #68 (forgot-password via email) needed a
+provider choice before it could be sequenced toward `ready` — chose **Resend**, matching
+`kapekost-web`'s existing contact-form integration rather than introducing a second provider.
+Needs its own API key, stored in `workout-tracker`'s `AGENTS.local.md` (gitignored) per this
+repo's "deployment knowledge stays local" convention — never committed.
+
 ## 2026-08-30 — Profiles (#29) shaped: real accounts, prework for OAuth, split into 4 children
 
 Owner Q&A (live, in-session) resolved #29's triage questions. A profile is a real, isolated,
