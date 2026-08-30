@@ -3,6 +3,20 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-08-30 — Profiles (#29) shaped: real accounts, prework for OAuth, split into 4 children
+
+Owner Q&A (live, in-session) resolved #29's triage questions. A profile is a real, isolated,
+data-owning account, not just a label — explicitly built as prework for adding Google/Apple
+sign-in later (not built now; the schema shouldn't preclude it, but nothing OAuth-specific gets
+built yet). Existing single-user data migrates to a seeded `kapekost` profile with `role: admin`
+(the role is just a column for now — no admin-only behavior specified or built). Profile
+selection is a real login gate before Home, not a device-remembered switcher. v1 auth is
+username + hashed password with email-based reset, not OAuth. Icons are emoji for now, no need
+for a fancier avatar system. Split into #66 (schema/migration, foundational), #67 (login, depends
+on #66), #68 (password reset via email — still has one open question, which email provider to
+use, since this repo has no existing email-sending capability), #69 (top-bar switcher + emoji
+picker, depends on #66). See `STATE.md`'s matching tick-log entry for the full breakdown.
+
 ## 2026-08-30 — Concurrent-tick collisions: real claim mechanism, not manual discipline
 
 A recurring routine's first scheduled firing independently picked the same Issue an attended

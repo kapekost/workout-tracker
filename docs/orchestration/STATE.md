@@ -5,12 +5,18 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** (none in flight — #24 shipped via #53; #38 shipped via #55; #21 shipped via
-  #58; #22 shipped via #59; #34 shipped via #61 (all 2026-08-30); #27, #29-30, #32-33 (intake)
-  remain)
-- **Next action:** No other `ready`, unblocked work remains. #23 is `ready` but needs real
-  engineering work, not a quick try (see Needs owner). The `intake` ones (#27, #29, #30, #32,
-  #33) need owner answers first — #27's direction is actively being discussed with the owner.
+- **Current focus:** #23 in flight (claimed 2026-08-30T18:38:25Z, live session — real fix for the
+  node:20→26-alpine `npm ci` break, dispatched to a background subagent; not yet shipped). #29
+  triaged via live owner Q&A and closed 2026-08-30, split into #66 (schema/migration, `ready`),
+  #67 (login, depends on #66), #68 (password reset via email, `needs-clarification` — provider
+  choice open), #69 (switcher UI, depends on #66).
+- **Next action:** Finish #23's write-back once the dispatched subagent reports (ship or hard
+  stop). #66 is the next `ready`, unblocked pick after #23 closes. #67/#69 need the `ready` label
+  added by hand once #66 merges — no native GitHub blocked-by relationship was set (no
+  graphql-capable tool available this session), so this is a manual sequencing note instead.
+  #68 needs an owner answer on email provider before it's `ready`. #27, #30, #32, #33 remain
+  `intake`, still need owner answers — #27's direction is still undecided (Cloudflare Tunnel vs.
+  a real host migration).
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -27,8 +33,12 @@
   App's permission set doesn't include ref deletion), and there's no delete-branch/delete-ref tool
   in the GitHub MCP server either. Needs the owner to delete these manually via the GitHub UI (or
   grant the App that permission): `ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`,
-  `tmp/repair-38-stacked-1` through `-9`, `tmp/repair-final` (11 branches). None referenced by an
-  open PR, fully superseded by the clean #53 and #55 ships.
+  `tmp/repair-38-stacked` through `-9`, `tmp/repair-final` (12 branches — recounted 2026-08-30,
+  prior entry undercounted by one). None referenced by an open PR, fully superseded by the clean
+  #53 and #55 ships.
+- **#68** (password reset via email) needs an owner call on which email provider/mechanism to use
+  before it can be `ready` — this repo has no existing email-sending capability (`kapekost-web`
+  uses Resend, but MCP/service setup is per-project per `DECISIONS.md`, not defaulted silently).
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -36,6 +46,20 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#29 triage → #66/#67/#68/#69):** Resolved via live owner Q&A during an
+  `/orchestrate status` + tick session. Profiles are real, isolated, data-owning accounts, not
+  just a label — explicit prework for later Google/Apple OAuth (not built now, but the schema
+  shouldn't preclude it). Existing data migrates to a seeded `kapekost` profile with `role:
+  admin` (no admin-only behavior built yet, just the flag). Real login gate before Home, not a
+  device-remembered switcher. v1 auth is username + hashed password with email-based reset —
+  OAuth explicitly deferred. Emoji icons confirmed fine for now. Split into #66
+  (schema/migration, `ready` now — foundational, nothing else depends on it), #67 (login, depends
+  on #66, not yet `ready`), #68 (password reset via email, `needs-clarification` — provider
+  choice still open, see Needs owner), #69 (switcher UI, depends on #66, not yet `ready`). #30 and
+  #32 (both still `intake`) had their "depends on Profiles (#29)" notes updated to point at #66
+  instead, since #29 is now closed. No native GitHub blocked-by relationship set on #67/#69 (no
+  graphql-capable tool available this session) — sequencing is a manual note in each issue body
+  and above instead. Logged in `DECISIONS.md`. No code changes — pure triage.
 - **2026-08-30 (#61 follow-up → #63):** Shipped. `scripts/deploy.sh`'s `/api/health` check ran
   exactly once immediately after `docker compose up -d --force-recreate`, which returns as soon
   as the container *starts*, not once uvicorn is actually accepting connections — a real race
