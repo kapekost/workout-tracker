@@ -69,9 +69,11 @@ in the UI (or `gh api graphql` for the same data) before treating it as pickable
    (`gh issue view <n> --comments`, or `gh api` filtered by date if scripting it across many Issues) —
    respond to them (answer, incorporate the feedback, or act on it) before picking the next action.
    A comment sitting unanswered across a tick boundary is a bug in the loop, not something to defer.
-3. **Pick the next action.** If any Issue is labeled `intake`, resolve the highest-ranked one first
-   via the Feature intake flow above, then re-run this step. Otherwise: highest-ranked open Issue
-   with the `ready` label and no unresolved `blocked-by` dependency. Then:
+3. **Pick the next action.** Intake triage and `ready`-issue execution are independent, non-blocking
+   tracks — an untriaged `intake` Issue does not block picking a `ready` Issue this tick
+   (`DECISIONS.md` 2026-08-30 "Sequencing"). Pick the highest-ranked open Issue with the `ready`
+   label and no unresolved `blocked-by` dependency; if none exists but `intake` Issues are waiting,
+   resolve the highest-ranked one via the Feature intake flow above instead. Then:
    - If it has no linked plan and is `effort:M` or larger → run the `/orchestrate plan` flow and stop.
    - If it is `effort:L`/`XL` and has no sub-Issues yet → split it per GUARDRAILS "Task sizing" and stop.
    - If it is **destructive** (per GUARDRAILS) and lacks the `approved` label → skip to the next ready
