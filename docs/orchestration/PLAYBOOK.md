@@ -28,7 +28,15 @@ go straight to code, and does not get invented scope on their behalf.
    `ready` (or `needs-clarification` if it still doesn't pass) directly. If it needs splitting, open
    properly-scoped child Issues (type/priority/effort labeled, INVEST-checked, referencing the
    `intake` Issue), add them to the Project board ranked, then close the `intake` Issue with a
-   pointer to its children.
+   pointer to its children. **A third outcome**: owner Q&A can shape real direction — what to build,
+   what's explicitly out of scope — without yet producing something concrete enough to size or split.
+   The mechanism itself still needs a written spec (this repo's `docs/superpowers/specs/` convention,
+   typically via `superpowers:brainstorming` → spec → plan) before it can become `ready`. When that
+   happens: record the decision (a comment on the Issue plus a `DECISIONS.md` entry, same as any
+   other owner call), leave the Issue `intake` — not `ready`, not `needs-clarification`, the gate
+   didn't fail, it just isn't finished — and note in `STATE.md` that it's waiting on a spec, not an
+   owner answer. Seen 2026-08-30 on #27/#30/#32/#33, distinct from #29's Q&A, which was concrete
+   enough to split into `ready` children directly.
 4. An unattended `/orchestrate` tick that reaches an `intake`-labeled Issue and can't resolve steps
    1–3 without the owner (the clarifying questions have no answer yet) treats it exactly like a
    failed INVEST gate: relabel `needs-clarification`, stop, flag for the owner. Never guess and never
