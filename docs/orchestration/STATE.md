@@ -12,7 +12,9 @@
   label added by hand once their dependency merges (#67/#69 after #66, #68 after #67) — no native
   GitHub blocked-by relationship was set (no graphql-capable tool available this session), so
   this is a manual sequencing note instead. #27, #30, #32, #33 remain `intake`, still need owner
-  answers — #27's direction is still undecided (Cloudflare Tunnel vs. a real host migration).
+  answers. #27's direction is now decided (keep the Pi, Cloudflare Tunnel, Home Assistant/
+  home-network safety is a hard requirement — see `DECISIONS.md`) but still needs a proper
+  security-conscious spec pass before it's `ready`; likely sequences after #66-#69.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -21,14 +23,18 @@
 (no branches in flight)
 
 ## Needs owner
-- **Orphaned branches from an abandoned prior attempt** — owner approved deletion 2026-08-30, but
-  the runner can't actually do it: `git push --delete` consistently 403s (looks like the GitHub
-  App's permission set doesn't include ref deletion), and there's no delete-branch/delete-ref tool
-  in the GitHub MCP server either. Needs the owner to delete these manually via the GitHub UI (or
-  grant the App that permission): `ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`,
-  `tmp/repair-38-stacked` through `-9`, `tmp/repair-final` (12 branches — recounted 2026-08-30,
-  prior entry undercounted by one). None referenced by an open PR, fully superseded by the clean
-  #53 and #55 ships.
+- **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
+  ...` command (given in chat 2026-08-30) covering the 12 branches from the abandoned prior
+  attempt (`ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`, `tmp/repair-38-stacked`
+  through `-9`, `tmp/repair-final`) plus `claude/23-node26-docker-build` (newly merged via #65,
+  same auto-delete gap — see the entry below). Will run it in ~2 days. The runner still can't do
+  this itself: `git push --delete` 403s, no delete-ref tool in the GitHub MCP server.
+- **Branch auto-delete-on-merge is silently broken** — not just manual deletion. Every future PR
+  merged by this orchestration will leave its branch behind the same way #65's did, unless fixed.
+  Real fix (recommended over widening the App's permissions): enable GitHub's native repo setting
+  Settings → General → Pull Requests → "Automatically delete head branches" — runs outside our
+  App's permissions entirely, so the 403 gap doesn't apply to it. Owner to verify/enable. See
+  `DECISIONS.md`.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
