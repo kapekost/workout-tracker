@@ -5,18 +5,18 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** (none in flight — #24 shipped 2026-08-30 via #53; #38 shipped 2026-08-30 via
-  #55; #27, #29-30, #32-33 (intake) and #34 (ready) remain)
-- **Next action:** Remaining `ready` chore is #34 (scripted one-command deploy); the `intake` ones
-  (#27, #29, #30, #32, #33) need owner answers first.
+- **Current focus:** (none in flight — #24 shipped via #53; #38 shipped via #55; #21 shipped via
+  #58; #22 shipped via #59 (all 2026-08-30); #27, #29-30, #32-33 (intake) and #34 (ready) remain)
+- **Next action:** Remaining `ready` chore is #34 (scripted one-command deploy). #23 is `ready`
+  but needs real engineering work, not a quick try (see Needs owner). The `intake` ones (#27,
+  #29, #30, #32, #33) need owner answers first — #27's direction is actively being discussed with
+  the owner.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#21/#22 (coordinated dependency bumps)** — owner approved 2026-08-30: try each bump, keep it
-  if low-effort, otherwise revert and tell Dependabot to hold off. Dispatched as two parallel
-  subagents this tick.
+(no branches in flight)
 
 ## Needs owner
 - **#23** (node:20→26-alpine breaks the actual Docker build despite green CI) is `ready` but
@@ -36,6 +36,28 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
+  `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
+  before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
+  `package-lock.json`) — resolved cleanly (non-overlapping `dependencies`/`devDependencies` lines,
+  git's 3-way merge needed no manual edits) and the *combined* react-19 + vite-8 + vitest-4 state
+  was fully re-verified together (212/212 unit, 14/14 Playwright, prod build, real backend +
+  built-`dist/` smoke test, 69/69 backend pytest sanity check) — no interaction issues found.
+  Real finding, not just an unverifiable gap: vite 8 defaults to the Rolldown bundler, adding a
+  *new* family of per-platform optional native bindings — same bug class as the Rollup/Alpine
+  issue this repo already hit once (`efd88ca`). Noted in `AGENTS.md`'s Gotchas section for the
+  next real `docker buildx build` to watch for. Owner explicitly decided to merge without a
+  literal Docker build (blocked in-sandbox by org egress policy, confirmed 3×) since merging to
+  `main` isn't a deploy here — the real Mac build machine remains the actual gate. Dependabot PRs
+  #13/#16 closed, pointing at #59.
+- **2026-08-30 (#21 → #58):** Shipped. Coordinated `react`+`react-dom` bump to 19.2.8 — zero source
+  changes needed (already on `createRoot`, no legacy patterns), zero other packages needed
+  bumping (`react-router-dom`/`@testing-library/react`/`recharts` peer ranges already covered
+  19). 212/212 unit, 14/14 Playwright, prod build, real backend + built-`dist/` smoke test all
+  green. Literal `docker buildx build` blocked by this sandbox's org egress policy (Docker Hub
+  CDN denied) — Dockerfile itself untouched by this PR, so merged on the strength of the rest;
+  flagged in the PR for a real build-machine verification at the next deploy regardless.
+  Dependabot PR #14 closed, pointing at #58.
 - **2026-08-30 (owner check-in):** Owner reviewed the flagged items live. Decisions: (1) codify
   the intake-vs-ready sequencing precedent — `DECISIONS.md` entry added, `PLAYBOOK.md` step 3
   reworded to match; (2) delete the 11 orphaned branches — attempted, blocked by a GitHub App
