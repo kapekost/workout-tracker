@@ -6,11 +6,11 @@
 ## Cursor
 - **Project:** Workout Tracker
 - **Current focus:** (none in flight — #24 shipped via #53; #38 shipped via #55; #21 shipped via
-  #58; #22 shipped via #59 (all 2026-08-30); #27, #29-30, #32-33 (intake) and #34 (ready) remain)
-- **Next action:** Remaining `ready` chore is #34 (scripted one-command deploy). #23 is `ready`
-  but needs real engineering work, not a quick try (see Needs owner). The `intake` ones (#27,
-  #29, #30, #32, #33) need owner answers first — #27's direction is actively being discussed with
-  the owner.
+  #58; #22 shipped via #59; #34 shipped via #61 (all 2026-08-30); #27, #29-30, #32-33 (intake)
+  remain)
+- **Next action:** No other `ready`, unblocked work remains. #23 is `ready` but needs real
+  engineering work, not a quick try (see Needs owner). The `intake` ones (#27, #29, #30, #32,
+  #33) need owner answers first — #27's direction is actively being discussed with the owner.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -36,6 +36,32 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#34 → #61):** Shipped. `scripts/deploy.sh` wraps the existing
+  build→transfer→restart→verify runbook into one command, reading `DEPLOY_HOST`/
+  `DEPLOY_APP_DIR`/`DEPLOY_SSH_OPTS` from a new `AGENTS.local.md` section instead of hardcoding.
+  Adapted from a solid, complete draft found on the abandoned `tmp/repair-38-stacked-9` branch
+  (see the #38 tick's orphaned-branch finding below) rather than written from scratch — fixed
+  one real bug in it: the remote `docker compose up` step wasn't setting `APP_COMMIT`, so it
+  would've silently deployed `:latest` instead of the built commit. `code-review` skill (run
+  with an explicit path/target this time) caught a second real bug before shipping: the first
+  draft of `AGENTS.local.md.example`'s own documentation broke the script's config parser (its
+  fenced example repeated the section heading, truncating the `sed` range before the actual
+  variable lines). Both fixed and verified — including against the real shipped `.example` file,
+  not just a synthetic test fixture — before merging. All 3 checks green, merged squash.
+
+  **Near-miss, worth the full story:** while this was in progress, the recurring routine (set up
+  earlier this session) fired for the first time on its normal schedule and independently picked
+  #34 too, in its own separate session — checked out the same branch, was about to make redundant
+  edits. Caught via `get_session` (prompted by the owner asking "won't they clash?") and
+  interrupted before it pushed anything: no git damage, but real cost wasted on now-discarded
+  duplicate work. **Resolved same tick:** owner decided against relying on remembering to toggle
+  the routine — `PLAYBOOK.md` gained a real "Claiming work" mechanism instead (a tick pushes an
+  In-flight claim to `claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue,
+  *before* any execution; other ticks check that live branch first and back off on a fresh claim;
+  git's own push-rejection on a non-fast-forward is what actually enforces it, not just
+  cooperative reading). Logged as a standing decision in `DECISIONS.md`. The routine itself stays
+  disabled for now — nothing stops the owner re-enabling it whenever unattended coverage is
+  wanted again; that's now safe to do.
 - **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
   `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
   before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
