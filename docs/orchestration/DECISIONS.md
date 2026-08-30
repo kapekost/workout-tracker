@@ -3,6 +3,33 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-08-30 — #33 (Nutrition guidance) shaped: standalone, needs bodyweight + height
+
+Owner Q&A: collect both bodyweight and height (new fields) for scientifically-grounded guidance,
+not just bodyweight for ISSN protein ranges. Ships standalone, not folded into #32 — doesn't need
+#32's AI-export machinery. New fields need real profiles, so this sequences behind #66 too. Still
+`intake`, needs its own spec.
+
+## 2026-08-30 — #32 (Adaptive coaching) shaped: manual export v1, before/after only, confirmed profile updates
+
+Owner Q&A: v1 is manual export-a-prompt (option a), live API (b) stays future work. Cadence is
+before/after only, "during" scoped out. "Update" scope is a simple layer above existing
+per-session nudging, not a `workoutPlan.js` restructure — must be documented once specced. AI
+output can propose structured profile/plan updates, applied only after explicit user
+confirmation, never fabricated. Sequenced behind the user system (#66/#67). Still `intake`, needs
+a written spec before splitting into `ready` work; shares its "structured AI output → confirm →
+write" shape with #30, worth one spec pass considering both.
+
+## 2026-08-30 — #30 (Import) shaped: build it, per-profile, simple POC semantics
+
+Owner Q&A: build full-session import (working read of a slightly ambiguous answer — flagged on
+the issue for correction if wrong), scoped per-profile. Idempotency: no special handling for now,
+POC-simple. Overwrite: add-only by default, upsert-by-id when the imported record already has a
+known ID. A future "competition/comparison screens across users" idea came up in passing —
+captured separately as #70, not part of this issue. Still `intake`, sequenced behind #66; needs a
+spec pass, and shares an architectural shape with #32 (AI-authored structured data, reviewed
+before writing) worth considering together.
+
 ## 2026-08-30 — #27 direction: keep the Pi, Cloudflare Tunnel, Home Assistant safety is a hard requirement
 
 Owner decided against migrating off the Raspberry Pi — public exposure goes through something
