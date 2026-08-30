@@ -3,6 +3,29 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-08-30 — #27 direction: keep the Pi, Cloudflare Tunnel, Home Assistant safety is a hard requirement
+
+Owner decided against migrating off the Raspberry Pi — public exposure goes through something
+like Cloudflare Tunnel instead (SSL, no VPN). Explicit constraint: the Pi's home network also
+runs Home Assistant, so whatever ships must be scoped tightly to this app's own service/port, not
+the LAN, and needs a real home-network security review, not just an app-level one. Natural
+sequencing: the original ask was public access for "3-4 accounts," which wants real auth first —
+this follows #66–#69 (Profiles/auth), even if spec work can start in parallel. Given the stakes,
+this goes through a proper spec/brainstorm pass before `ready`, not a quick single-issue
+execution. #27 stays `intake` for now.
+
+## 2026-08-30 — Branch auto-delete-on-merge is silently broken, not just manual deletion
+
+`claude/23-node26-docker-build` (PR #65, squash-merged same day) is still present after merging
+with the standard `--delete-branch` flow — the same permission gap that 403s a manual `git push
+--delete` also swallows the automatic delete-on-merge, silently (the merge itself still
+succeeds). This affects every future PR merged by this orchestration, not just historical cruft.
+Real fix identified: GitHub's own repo setting, Settings → General → Pull Requests →
+"Automatically delete head branches" — a native GitHub feature that runs outside our App's
+permissions entirely, so it isn't blocked by the same gap. Recommended over granting the App
+broader (Administration-level) permissions, which would also work but is a bigger permission
+grant than necessary for this. Owner to verify/enable when next in the repo settings.
+
 ## 2026-08-30 — #68 password-reset email provider: Resend
 
 Same-session follow-up to the Profiles decision below. #68 (forgot-password via email) needed a
