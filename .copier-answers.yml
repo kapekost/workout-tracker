@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: 32e87b4
+_commit: 8cb0329
 _src_path: gh:kapekost/agent-scaffold
 default_branch: main
 description: 'Mobile-first gym tracker: FastAPI + SQLite backend, React frontend,
