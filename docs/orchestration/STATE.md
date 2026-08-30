@@ -6,11 +6,11 @@
 ## Cursor
 - **Project:** Workout Tracker
 - **Current focus:** (none in flight — #24 shipped via #53; #38 shipped via #55; #21 shipped via
-  #58; #22 shipped via #59 (all 2026-08-30); #27, #29-30, #32-33 (intake) and #34 (ready) remain)
-- **Next action:** Remaining `ready` chore is #34 (scripted one-command deploy). #23 is `ready`
-  but needs real engineering work, not a quick try (see Needs owner). The `intake` ones (#27,
-  #29, #30, #32, #33) need owner answers first — #27's direction is actively being discussed with
-  the owner.
+  #58; #22 shipped via #59; #34 shipped via #61 (all 2026-08-30); #27, #29-30, #32-33 (intake)
+  remain)
+- **Next action:** No other `ready`, unblocked work remains. #23 is `ready` but needs real
+  engineering work, not a quick try (see Needs owner). The `intake` ones (#27, #29, #30, #32,
+  #33) need owner answers first — #27's direction is actively being discussed with the owner.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -19,6 +19,19 @@
 (no branches in flight)
 
 ## Needs owner
+- **Recurring orchestration routine (`trig_0161xM1ZRhWjQ4rX4snCzRWV`) is disabled, not deleted —
+  decide how/whether to re-enable it.** Its first-ever scheduled firing (2026-08-30 16:12:53 UTC)
+  independently picked #34 in a separate session while the owner was already driving #34 live in
+  this one — checked out the same branch, was about to make redundant edits. Caught (via
+  `get_session`, prompted by the owner asking "won't they clash?") and interrupted before it
+  pushed anything — no git damage, but real cost burned on now-discarded duplicate work (~$3,
+  ~5.6M cache tokens). PLAYBOOK's "reconcile reality" step checks open PRs, but that alone isn't
+  enough: the live session hadn't pushed anything yet when the routine fired, so there was
+  nothing for that check to see. Two options, not yet decided: (a) keep it disabled, only
+  re-enable for genuine unattended stretches, rely on remembering to toggle it; (b) add a real
+  claim mechanism — a tick commits to this file's In-flight section the moment it picks an Issue,
+  *before* doing any work, and any other tick checks for a fresh claim before proceeding, rather
+  than only reading GitHub PR state.
 - **#23** (node:20→26-alpine breaks the actual Docker build despite green CI) is `ready` but
   genuinely needs real engineering work — not something to pick off via the individual Dependabot
   PR (#7), which was deliberately left open/unmerged during the 2026-08-30 catch-up pass.
@@ -36,6 +49,25 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#34 → #61):** Shipped. `scripts/deploy.sh` wraps the existing
+  build→transfer→restart→verify runbook into one command, reading `DEPLOY_HOST`/
+  `DEPLOY_APP_DIR`/`DEPLOY_SSH_OPTS` from a new `AGENTS.local.md` section instead of hardcoding.
+  Adapted from a solid, complete draft found on the abandoned `tmp/repair-38-stacked-9` branch
+  (see the #38 tick's orphaned-branch finding below) rather than written from scratch — fixed
+  one real bug in it: the remote `docker compose up` step wasn't setting `APP_COMMIT`, so it
+  would've silently deployed `:latest` instead of the built commit. `code-review` skill (run
+  with an explicit path/target this time) caught a second real bug before shipping: the first
+  draft of `AGENTS.local.md.example`'s own documentation broke the script's config parser (its
+  fenced example repeated the section heading, truncating the `sed` range before the actual
+  variable lines). Both fixed and verified — including against the real shipped `.example` file,
+  not just a synthetic test fixture — before merging. All 3 checks green, merged squash.
+
+  **Near-miss, worth the full story:** while this was in progress, the recurring routine (set up
+  earlier this session) fired for the first time on its normal schedule and independently picked
+  #34 too, in its own separate session — checked out the same branch, was about to make redundant
+  edits. Caught via `get_session` (prompted by the owner asking "won't they clash?") and
+  interrupted before it pushed anything: no git damage, but real cost wasted on now-discarded
+  duplicate work. Routine disabled; follow-up decision needed, see "Needs owner" above.
 - **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
   `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
   before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
