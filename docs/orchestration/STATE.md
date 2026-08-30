@@ -36,6 +36,22 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#61 follow-up → #63):** Shipped. `scripts/deploy.sh`'s `/api/health` check ran
+  exactly once immediately after `docker compose up -d --force-recreate`, which returns as soon
+  as the container *starts*, not once uvicorn is actually accepting connections — a real race
+  that could fail a perfectly good deploy. Caught by the recurring routine's now-archived session
+  (see below), which had independently kept working #34 after being interrupted mid-collision and
+  compared its own draft against the merged #61 script before stopping for good. Verified the gap
+  against the actual merged code first rather than trusting the claim on faith — confirmed real.
+  Fixed with a retry loop (~30s, 15×2s) inside the *same* SSH session rather than one connection
+  per attempt. `code-review` caught two real issues in the first draft of the fix itself before
+  it shipped: swallowed stderr on persistent (non-transient) failures, and per-attempt SSH
+  reconnect overhead that would've made the "~30s" claim inaccurate — both fixed by moving the
+  loop into the remote shell entirely. Retry logic verified standalone (extracted the exact
+  remote snippet, ran it directly: fails-then-succeeds and always-fails cases both correct).
+  Session `session_01GPKYsV68JuLWsrZCwLYyFa` archived after this — confirmed idle since the
+  interrupt, never pushed its own fix (the branch it intended to push to was already merged and
+  squashed by then anyway, so that plan was moot regardless), nothing salvageable left in it.
 - **2026-08-30 (#34 → #61):** Shipped. `scripts/deploy.sh` wraps the existing
   build→transfer→restart→verify runbook into one command, reading `DEPLOY_HOST`/
   `DEPLOY_APP_DIR`/`DEPLOY_SSH_OPTS` from a new `AGENTS.local.md` section instead of hardcoding.
