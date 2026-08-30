@@ -19,19 +19,6 @@
 (no branches in flight)
 
 ## Needs owner
-- **Recurring orchestration routine (`trig_0161xM1ZRhWjQ4rX4snCzRWV`) is disabled, not deleted —
-  decide how/whether to re-enable it.** Its first-ever scheduled firing (2026-08-30 16:12:53 UTC)
-  independently picked #34 in a separate session while the owner was already driving #34 live in
-  this one — checked out the same branch, was about to make redundant edits. Caught (via
-  `get_session`, prompted by the owner asking "won't they clash?") and interrupted before it
-  pushed anything — no git damage, but real cost burned on now-discarded duplicate work (~$3,
-  ~5.6M cache tokens). PLAYBOOK's "reconcile reality" step checks open PRs, but that alone isn't
-  enough: the live session hadn't pushed anything yet when the routine fired, so there was
-  nothing for that check to see. Two options, not yet decided: (a) keep it disabled, only
-  re-enable for genuine unattended stretches, rely on remembering to toggle it; (b) add a real
-  claim mechanism — a tick commits to this file's In-flight section the moment it picks an Issue,
-  *before* doing any work, and any other tick checks for a fresh claim before proceeding, rather
-  than only reading GitHub PR state.
 - **#23** (node:20→26-alpine breaks the actual Docker build despite green CI) is `ready` but
   genuinely needs real engineering work — not something to pick off via the individual Dependabot
   PR (#7), which was deliberately left open/unmerged during the 2026-08-30 catch-up pass.
@@ -67,7 +54,14 @@
   #34 too, in its own separate session — checked out the same branch, was about to make redundant
   edits. Caught via `get_session` (prompted by the owner asking "won't they clash?") and
   interrupted before it pushed anything: no git damage, but real cost wasted on now-discarded
-  duplicate work. Routine disabled; follow-up decision needed, see "Needs owner" above.
+  duplicate work. **Resolved same tick:** owner decided against relying on remembering to toggle
+  the routine — `PLAYBOOK.md` gained a real "Claiming work" mechanism instead (a tick pushes an
+  In-flight claim to `claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue,
+  *before* any execution; other ticks check that live branch first and back off on a fresh claim;
+  git's own push-rejection on a non-fast-forward is what actually enforces it, not just
+  cooperative reading). Logged as a standing decision in `DECISIONS.md`. The routine itself stays
+  disabled for now — nothing stops the owner re-enabling it whenever unattended coverage is
+  wanted again; that's now safe to do.
 - **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
   `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
   before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
