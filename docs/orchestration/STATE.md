@@ -5,16 +5,20 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #23 shipped via #65 (2026-08-30). #29 triaged via live owner Q&A and closed
-  2026-08-30, split into #66 (schema/migration, `ready`), #67 (login, depends on #66), #68
-  (password reset via email via Resend, depends on #67), #69 (switcher UI, depends on #66).
-- **Next action:** #66 is the next `ready`, unblocked pick. #67/#68/#69 all need the `ready`
-  label added by hand once their dependency merges (#67/#69 after #66, #68 after #67) — no native
-  GitHub blocked-by relationship was set (no graphql-capable tool available this session), so
-  this is a manual sequencing note instead. #27, #30, #32, #33 remain `intake`, still need owner
-  answers. #27's direction is now decided (keep the Pi, Cloudflare Tunnel, Home Assistant/
-  home-network safety is a hard requirement — see `DECISIONS.md`) but still needs a proper
-  security-conscious spec pass before it's `ready`; likely sequences after #66-#69.
+- **Current focus:** #23 shipped via #65 (2026-08-30). #29 triaged and closed, split into #66
+  (schema/migration, `ready`), #67 (login, depends on #66), #68 (password reset via Resend,
+  depends on #67), #69 (switcher UI, depends on #66). #27, #30, #32, #33 all triaged via live
+  owner Q&A 2026-08-30 — real direction set on each, but none are `ready`: all need either a
+  written spec (per each issue's own stated process) or to wait on #66/#67 landing, several both.
+  #70 (cross-user competition/comparison screens) opened as a new, unshaped intake issue — a
+  future idea that came up in passing during #30's triage.
+- **Next action:** #66 is the next `ready`, unblocked pick — nothing else is pickable this
+  moment. #67/#68/#69 need the `ready` label added by hand once their dependency merges
+  (#67/#69 after #66, #68 after #67) — no native GitHub blocked-by relationship was set (no
+  graphql-capable tool available this session), so this is a manual sequencing note instead.
+  #27/#30/#32/#33 need an actual spec written (`docs/superpowers/specs/` convention) before they
+  can be split/sized into `ready` work — direction is set, the writing isn't done. #70 needs a
+  first triage pass (owner hasn't scoped it at all yet).
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -42,6 +46,24 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-30 (#30/#32/#33 triage, #70 opened):** Further owner Q&A, same session as the #29
+  split. #30 (Import): build full-session import (working interpretation of a slightly uncertain
+  answer, flagged on the issue for correction), scoped per-profile; POC-simple idempotency (no
+  dedup handling yet); add-only overwrite semantics except upsert-by-id when the imported record
+  names a known ID. #32 (Adaptive coaching): v1 is manual export-a-prompt only (live API
+  explicitly deferred); cadence is before/after only ("during" scoped out); "update" stays a
+  simple layer above existing per-session nudging, not a `workoutPlan.js` restructure; AI output
+  can propose real profile/plan updates but only after explicit user confirmation, never
+  fabricated; sequenced behind the user system (#66/#67). #33 (Nutrition): collect both
+  bodyweight *and* height (new scope beyond the original bodyweight-only ask); ships standalone,
+  not folded into #32; also sequenced behind #66 since the new fields need real profiles. #30 and
+  #32 independently converged on the same underlying shape — structured AI output, reviewed and
+  confirmed, then written to real data — flagged on both issues as worth one spec pass
+  considering together. A future "competition/comparison screens across users" idea came up in
+  passing during #30's triage; captured as new intake issue #70 rather than lost, per this repo's
+  Feature Intake convention. All four (#27/#30/#32/#33) stay `intake` — direction is real now,
+  but each still needs an actual written spec before splitting into `ready` work. Logged in
+  `DECISIONS.md`. No code changes — pure triage.
 - **2026-08-30 (#23 → #65):** Shipped. Bumped the Dockerfile's builder stage `node:20-alpine` →
   `node:26-alpine` — same target Dependabot PR #7 proposed, actually investigated this time
   instead of rubber-stamped, per the issue's own instruction. Root cause per the issue: npm
