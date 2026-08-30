@@ -145,6 +145,19 @@ checks on its own whenever it becomes visible (and every 30 min), gated to
 skip while a workout is open so the auto-reload can't discard
 typed-but-unlogged sets.
 
+**Vite 8 adds a second family of optional-binary risk on Alpine/arm64.**
+Vite 8 (landed via #22/#59, 2026-08-30) defaults to the Rolldown bundler
+instead of Rollup, which pulls in per-platform optional native bindings
+(e.g. `@rolldown/binding-linux-arm64-musl`) alongside Rollup's — the same
+*class* of bug as the npm/cli#4828 issue this repo already hit and fixed
+once (`efd88ca`: `npm ci` reports success but silently skips installing
+the platform binary on the Alpine builder stage). Not yet confirmed to
+actually occur — #22/#59 could not run a literal `docker buildx build` to
+check (this session's sandbox blocks the Docker Hub CDN by org policy) —
+but watch for it specifically on the next real build, and apply the same
+fix pattern (explicit post-`npm ci` install of the missing platform
+binary, version-matched to the lockfile) if it does.
+
 Deploy-target-specific gotchas (SSH quirks, hardware limits, host
 maintenance history) live in `AGENTS.local.md`.
 
