@@ -5,10 +5,11 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** (none in flight — 8 `intake`/`ready` Issues remain from the 2026-08-26
-  backlog migration: #29-30, #32-36, all still open)
-- **Next action:** Highest-ranked `ready` Issue is #34 (scripted one-command deploy); the
-  `intake` ones (#29, #30, #32, #33) need owner answers first.
+- **Current focus:** (none in flight — #35 shipped 2026-08-30; #29-30, #32-34, #36 remain from
+  the 2026-08-26 backlog migration)
+- **Next action:** Remaining `ready` chores are #34 (scripted one-command deploy) and #36
+  (optional HEARTBEAT_URL for backup cron); the `intake` ones (#29, #30, #32, #33) need owner
+  answers first.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -30,3 +31,6 @@
   each is individually broken for reasons already correctly diagnosed in #21/#22/#23 (peer-dep
   conflicts needing coordinated bumps; #7 passes CI but fails the actual `docker buildx build`).
   No action taken on #21-24 themselves — real engineering work, not a merge-queue item.
+- **2026-08-30 (#35):** Shipped. `docker-compose.yml` reads the run tag from `$APP_COMMIT`
+  instead of hardcoding `:latest`; `AGENTS.md`/`AGENTS.local.md` runbooks updated to match.
+  Not yet deployed to the Pi — lands on the next real deploy.
