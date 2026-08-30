@@ -171,6 +171,11 @@ history is in `docs/CHANGELOG.md`.
   shaped this way; the shipped code is authoritative for what it does. Shipped
   2026-08-16. Execution record (what landed, and two plan errors not to
   re-introduce): [`docs/superpowers/plans/2026-08-16-muscle-group-recovery.md`](docs/superpowers/plans/2026-08-16-muscle-group-recovery.md).
+- **[`docs/superpowers/specs/2026-08-17-personal-bests-design.md`](docs/superpowers/specs/2026-08-17-personal-bests-design.md)**
+  — manual entry of a personal best held from before the app existed (no
+  AI/notes parsing). Shipped 2026-08-17; documented retroactively 2026-08-30
+  (#38) after the 2026-08-26 Issues migration caught the gap. Full writeup:
+  `docs/CHANGELOG.md`.
 
 ## Status
 
