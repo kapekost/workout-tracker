@@ -214,6 +214,34 @@ nudge, no warning colour, no readiness language — just the neutral fact.
 Previous image (`b63006f`) remains on the Pi untagged as `0a91727f1437` for
 rollback.
 
+## 2026-08-17 — Manual historical Personal Bests (documented retroactively 2026-08-30)
+
+Shipped the same day as the `adbf3f5`/`9f3f237`/`ff1eea4` deploys above but
+never given its own `CHANGELOG.md` entry or `AGENTS.md` Status line — the gap
+surfaced during the 2026-08-26 Issues migration (see #30's correction) and is
+logged here via #38. Design:
+`docs/superpowers/specs/2026-08-17-personal-bests-design.md`; research:
+`docs/superpowers/research/2026-08-17-personal-bests-import-analysis.md`.
+
+Lets a user record a PR they already held before they started using the app
+(a 2023 bench max, a squat PR from a meet), so the app's "PR to beat" and the
+muscle-recovery/progress picture don't start from zero for anyone with
+training history predating it:
+
+- **Schema** (`3eb468e`): `personal_bests` table, schema v3.
+- **CRUD** (`8af065e`): `/api/personal-bests` endpoints.
+- **PR/baseline integration** (`82f164b`): historical PBs counted in the
+  PR/baseline comparison, so a new session's "PR" claim accounts for pre-app
+  history instead of only in-app sets.
+- **Backup/restore** (`c1ff0ab`): `personal_bests` registered with
+  export/import, so it round-trips through the same backup chain as every
+  other table.
+- **UI** (`fd83851`): `/personal-bests` page, route, and a Progress entry
+  point to reach it.
+
+On `main` since 2026-08-17, included in every deploy since — currently live
+as part of `5247896` (see the 2026-08-25 entry above).
+
 ## 2026-08-16 — Muscle-group picker + recovery estimate
 
 Built directly on `main` as eight reviewable commits, each leaving both suites
