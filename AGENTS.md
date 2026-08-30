@@ -114,6 +114,11 @@ to one deployment. What's true for any deployment of this project:
   becomes the version stamp shown in the UI footer and `/api/health`, and
   the thing Verify checks against. Build from a clean, committed tree so
   the stamp names what actually shipped.
+- The image is tagged with that same commit SHA, not `:latest` — `docker-compose.yml`
+  reads the tag to run from `$APP_COMMIT`. Set it (`APP_COMMIT=$(git rev-parse --short
+  HEAD)`) before every `docker compose up -d`, on both the build and run steps — a
+  rollback is just re-running with an older `APP_COMMIT` whose image is still loaded
+  locally, no re-tagging trick needed.
 - Before any schema-changing deploy, snapshot via `GET /api/export`.
 - After every deploy, verify `/api/health` reports the commit you just
   built and `last_backup_status` isn't `stale` (>26h since the last ok
