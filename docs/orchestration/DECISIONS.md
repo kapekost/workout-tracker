@@ -3,6 +3,19 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-08-30 — Concurrent-tick collisions: real claim mechanism, not manual discipline
+
+A recurring routine's first scheduled firing independently picked the same Issue an attended
+session was already working live, in a separate session — checked out the same branch, was about
+to make redundant edits before being caught and interrupted (no git damage, real cost wasted).
+Owner explicitly chose a real fix over relying on remembering to disable the routine during live
+work: `PLAYBOOK.md` gained a "Claiming work" section — a tick pushes an In-flight claim to
+`claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue, before any execution; other
+ticks check that live branch first and back off on a fresh (<2h) claim; a stale claim is treated
+as an abandoned/crashed tick and cleared. Enforced by git's own non-fast-forward push rejection on
+that branch, not just cooperative reading. See `STATE.md`'s 2026-08-30 #34 tick log entry for the
+full incident.
+
 ## 2026-08-30 — Sequencing: ready work proceeds independently of intake triage
 
 `PLAYBOOK.md` step 3's literal old text ("any `intake` Issue preempts all `ready` work") is
