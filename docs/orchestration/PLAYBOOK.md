@@ -60,6 +60,38 @@ subcommand for it (it's a GraphQL-only feature, reachable via `gh api graphql` i
 later). Until that's automated, check an Issue's blocked status by reading its "Blocked by" panel
 in the UI (or `gh api graphql` for the same data) before treating it as pickable in step 3 below.
 
+## Claiming work (avoid concurrent-tick collisions)
+
+More than one `/orchestrate` tick can be alive at once — a live, human-attended session and an
+unattended scheduled routine, or two routines. Checking `gh pr list` in step 2 below is not
+sufficient on its own to catch this: a tick can spend real time on an Issue (research, writing,
+testing) before ever pushing a commit or opening a PR, and during that window an open-PR check
+sees nothing. This happened for real on 2026-08-30 (see `STATE.md`'s #34 tick log entry) — caught
+only because the owner happened to ask about it, not by anything in this file. Hence this section.
+
+- **Before picking any work** (step 2/3 below), read `docs/orchestration/STATE.md`'s In-flight
+  section from the **live `claude/workout-tracker-backlog-bu9qnw` branch**, not `main` — a claim
+  may not have reached a merged PR yet. A claim naming an Issue with a timestamp less than 2 hours
+  old means another driver is already active on it: do not pick any new work this tick; log it in
+  the tick log and stop (step 9). A claim 2+ hours old is almost certainly an abandoned/crashed
+  tick, not an active one — clear it in the same commit as the new claim below, noting the cleanup
+  in the tick log.
+- **The instant an Issue is picked** — before the plan/split/destructive-check branches below,
+  before dispatching a subagent, before touching any source file — commit and push a claim
+  *directly* to `claude/workout-tracker-backlog-bu9qnw` (no PR for the claim itself; the full
+  `STATE.md` write-back with narrative still goes through the normal PR flow at step 7):
+  ```
+  ## In-flight
+  - **#NN** — claimed <ISO 8601 UTC timestamp>, <"live session" | "scheduled routine">.
+  ```
+  This push is what actually prevents the collision, not the read in the bullet above: if it's
+  rejected as non-fast-forward, another tick claimed first — fetch, see which Issue won, back off
+  per the previous bullet. Never force-push to resolve this. Claim first, work second, always in
+  that order — a tick that starts executing before its claim has landed is exactly the bug this
+  section exists to close.
+- **On completion** (shipped, or any stop condition), clear the claim as part of step 7's normal
+  write-back — `## In-flight` returns to `(no branches in flight)`.
+
 ## The tick (for `/orchestrate` with no arg)
 1. **Read** `STATE.md`, `GUARDRAILS.md`, `DECISIONS.md`. Do not read source files yet.
 2. **Reconcile reality:** `git status`, `gh pr list`, `gh issue list --label ready --state open`
@@ -69,11 +101,15 @@ in the UI (or `gh api graphql` for the same data) before treating it as pickable
    (`gh issue view <n> --comments`, or `gh api` filtered by date if scripting it across many Issues) —
    respond to them (answer, incorporate the feedback, or act on it) before picking the next action.
    A comment sitting unanswered across a tick boundary is a bug in the loop, not something to defer.
+   **Also check the live In-flight claim per "Claiming work" above** — this is a separate check from
+   `gh pr list` and catches what that can't (work in progress that hasn't reached a PR yet).
 3. **Pick the next action.** Intake triage and `ready`-issue execution are independent, non-blocking
    tracks — an untriaged `intake` Issue does not block picking a `ready` Issue this tick
    (`DECISIONS.md` 2026-08-30 "Sequencing"). Pick the highest-ranked open Issue with the `ready`
    label and no unresolved `blocked-by` dependency; if none exists but `intake` Issues are waiting,
-   resolve the highest-ranked one via the Feature intake flow above instead. Then:
+   resolve the highest-ranked one via the Feature intake flow above instead. **The moment an Issue
+   is picked, push its claim per "Claiming work" above — before any of the branches below, before
+   any execution.** Then:
    - If it has no linked plan and is `effort:M` or larger → run the `/orchestrate plan` flow and stop.
    - If it is `effort:L`/`XL` and has no sub-Issues yet → split it per GUARDRAILS "Task sizing" and stop.
    - If it is **destructive** (per GUARDRAILS) and lacks the `approved` label → skip to the next ready
@@ -103,7 +139,8 @@ in the UI (or `gh api graphql` for the same data) before treating it as pickable
    pushing the merge commit.
 7. **Write state back:** comment progress on the Issue; update `STATE.md`'s cursor/next-action only
    when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
-   decision was made.
+   decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
+   this same write-back — a shipped or stopped tick must never leave a stale claim behind.
 8. **Feedback review:** if this tick appended any `IMPROVEMENTS.md` entries, run
    `scripts/improvements_since_cursor.sh`, classify each (`[local]` → PR in this repo; `[template]` →
    PR against the template repo per GUARDRAILS "Cross-repo writes"; `[unsure]` → `STATE.md` → Needs
