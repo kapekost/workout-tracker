@@ -7,12 +7,13 @@ import sqlite3, os, json, glob
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
-TABLES = ["sessions", "sets", "exercise_notes", "events", "personal_bests"]
+TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"]
 # schema_version at which each table was introduced (see _migrate). An
 # envelope only needs to contain the tables that existed at its own
 # schema_version — a table a later migration adds must not make older
 # backups un-importable.
-TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2, "personal_bests": 3}
+TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
+                        "personal_bests": 3, "profiles": 4}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
 # outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
@@ -38,6 +39,12 @@ def db():
 
 def _column_exists(conn, table, col):
     return col in [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+def _default_profile_id(conn):
+    # Temporary: attributes every new row to the seeded admin profile until #67
+    # introduces real request-scoped login/session identity. Every call site
+    # below is removed/replaced in #67, not extended further.
+    return conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
 
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -78,6 +85,63 @@ def _migrate(conn):
             )
         """)
         conn.execute("PRAGMA user_version = 3")
+    # --- v3 -> v4: profiles (real, isolated, data-owning accounts) ---
+    if v < 4:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS profiles (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT NOT NULL UNIQUE,
+                password_hash TEXT,
+                role          TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin', 'member')),
+                created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        seed = conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()
+        seed_id = seed[0] if seed else conn.execute(
+            "INSERT INTO profiles (username, role) VALUES ('kapekost', 'admin')").lastrowid
+        for t in ("sessions", "sets", "events"):
+            if not _column_exists(conn, t, "profile_id"):
+                conn.execute(f"ALTER TABLE {t} ADD COLUMN profile_id INTEGER "
+                             f"REFERENCES profiles(id) ON DELETE CASCADE")
+            conn.execute(f"UPDATE {t} SET profile_id = ? WHERE profile_id IS NULL", (seed_id,))
+        if not _column_exists(conn, "exercise_notes", "profile_id"):
+            conn.execute("ALTER TABLE exercise_notes RENAME TO exercise_notes_old")
+            conn.execute("""
+                CREATE TABLE exercise_notes (
+                    profile_id  INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    exercise_id TEXT NOT NULL,
+                    note        TEXT NOT NULL,
+                    updated_at  TEXT DEFAULT (datetime('now')),
+                    PRIMARY KEY (profile_id, exercise_id)
+                )
+            """)
+            conn.execute(
+                "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) "
+                "SELECT ?, exercise_id, note, updated_at FROM exercise_notes_old", (seed_id,))
+            conn.execute("DROP TABLE exercise_notes_old")
+        if not _column_exists(conn, "personal_bests", "profile_id"):
+            conn.execute("ALTER TABLE personal_bests RENAME TO personal_bests_old")
+            conn.execute("""
+                CREATE TABLE personal_bests (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    profile_id    INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    exercise_id   TEXT NOT NULL,
+                    exercise_name TEXT NOT NULL,
+                    weight_kg     REAL NOT NULL,
+                    reps          INTEGER NOT NULL,
+                    achieved_year INTEGER NOT NULL,
+                    achieved_note TEXT,
+                    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(profile_id, exercise_id, weight_kg, reps, achieved_year)
+                )
+            """)
+            conn.execute(
+                "INSERT INTO personal_bests (id, profile_id, exercise_id, exercise_name, weight_kg, "
+                "reps, achieved_year, achieved_note, created_at) "
+                "SELECT id, ?, exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, created_at "
+                "FROM personal_bests_old", (seed_id,))
+            conn.execute("DROP TABLE personal_bests_old")
+        conn.execute("PRAGMA user_version = 4")
 
 def init():
     with db() as conn:
@@ -186,8 +250,9 @@ def health(response: Response):
 @app.post("/api/sessions")
 def create_session(s: SessionIn):
     with db() as conn:
-        cur = conn.execute("INSERT INTO sessions (date, workout_day) VALUES (?, ?)",
-                           (datetime.now().strftime("%Y-%m-%d"), s.workout_day))
+        profile_id = _default_profile_id(conn)
+        cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
+                           (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()
         row = conn.execute("SELECT * FROM sessions WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
@@ -237,9 +302,11 @@ def add_set(sid: int, s: SetIn):
     with db() as conn:
         if not conn.execute("SELECT id FROM sessions WHERE id = ?", (sid,)).fetchone():
             raise HTTPException(404)
+        profile_id = _default_profile_id(conn)
         cur = conn.execute(
-            "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg) VALUES (?,?,?,?,?,?)",
-            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg))
+            "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg, profile_id) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg, profile_id))
         conn.commit()
         row = conn.execute("SELECT * FROM sets WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
@@ -254,11 +321,12 @@ def delete_set(sid: int, set_id: int):
 @app.post("/api/personal-bests")
 def create_personal_best(pb: PersonalBestIn):
     with db() as conn:
+        profile_id = _default_profile_id(conn)  # temporary — see Task 5
         try:
             cur = conn.execute(
-                "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note) "
-                "VALUES (?,?,?,?,?,?)",
-                (pb.exercise_id, pb.exercise_name, pb.weight_kg, pb.reps, pb.achieved_year, pb.achieved_note))
+                "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, profile_id) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (pb.exercise_id, pb.exercise_name, pb.weight_kg, pb.reps, pb.achieved_year, pb.achieved_note, profile_id))
         except sqlite3.IntegrityError:
             raise HTTPException(409, "a personal best with this exercise, weight, reps and year already exists")
         conn.commit()
@@ -321,13 +389,15 @@ def get_notes():
 def put_note(exercise_id: str, n: NoteIn):
     note = n.note.strip()
     with db() as conn:
+        profile_id = _default_profile_id(conn)  # temporary — see Task 5
         if note:
             conn.execute(
-                "INSERT INTO exercise_notes (exercise_id, note, updated_at) VALUES (?,?,datetime('now')) "
-                "ON CONFLICT(exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
-                (exercise_id, note))
+                "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) VALUES (?,?,?,datetime('now')) "
+                "ON CONFLICT(profile_id, exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
+                (profile_id, exercise_id, note))
         else:
-            conn.execute("DELETE FROM exercise_notes WHERE exercise_id = ?", (exercise_id,))
+            conn.execute("DELETE FROM exercise_notes WHERE profile_id = ? AND exercise_id = ?",
+                         (profile_id, exercise_id))
         conn.commit()
         return {"exercise_id": exercise_id, "note": note}
 
@@ -444,9 +514,10 @@ def ingest_events(events: list[EventIn]):
     if not events:
         return
     with db() as conn:
+        profile_id = _default_profile_id(conn)
         conn.executemany(
-            "INSERT INTO events (name, screen, props) VALUES (?,?,?)",
-            [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None) for e in events])
+            "INSERT INTO events (name, screen, props, profile_id) VALUES (?,?,?,?)",
+            [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None, profile_id) for e in events])
         conn.commit()
 
 @app.get("/api/analytics/summary")
@@ -506,15 +577,27 @@ def import_data(payload: ImportIn):
         try:
             conn.execute("BEGIN")
             for t in TABLES:
+                if t == "profiles" and "profiles" not in env["tables"]:
+                    # Pre-v4 envelope has no opinion about profiles at all — leave the
+                    # live table untouched rather than wiping the seed admin with no
+                    # profiles data in the envelope to restore it from. Every write
+                    # endpoint depends on at least one profile existing.
+                    continue
                 valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
                 conn.execute(f"DELETE FROM {t}")
                 for r in env["tables"].get(t, []):
                     if not set(r.keys()) <= valid:
                         raise ValueError(f"unknown column in {t} row")
-                    cols = list(r.keys())
+                    row = dict(r)
+                    if "profile_id" in valid and "profile_id" not in row:
+                        # Row predates profiles entirely (pre-v4 envelope) — attribute
+                        # it to the live default profile, same backfill the original
+                        # migration did for pre-existing data.
+                        row["profile_id"] = _default_profile_id(conn)
+                    cols = list(row.keys())
                     placeholders = ",".join("?" * len(cols))
                     conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
-                                 [r[c] for c in cols])
+                                 [row[c] for c in cols])
             # The DB's physical schema is already at cur_version (migrations
             # ran at startup); restoring older data must not record a lower
             # version, or a later restart could re-run a non-idempotent

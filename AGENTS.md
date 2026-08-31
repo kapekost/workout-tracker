@@ -49,7 +49,10 @@ cues for a 4-day Upper/Lower split.
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
-  volume. Never commit the DB; `data/` is gitignored.
+  volume. Never commit the DB; `data/` is gitignored. Schema v4 (#66,
+  2026-08-31): added a `profiles` table + `profile_id` on every other table,
+  backfilled to a seeded `kapekost`/admin profile (`password_hash` left
+  `NULL` — no login yet, see #67).
 
 ## Where it runs
 
