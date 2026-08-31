@@ -15,10 +15,14 @@
   — still `intake` pending the actual split into `ready` children. #33 now has a written spec too
   (`docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`, merged via #74) — flags one
   proposed-not-decided design choice (§2: a contextual BMI figure as the concrete use for the
-  height field) for the owner to confirm or correct. #27 remains triaged (2026-08-30 owner Q&A)
-  but unspecced — the one DECISIONS.md flagged as higher-stakes (home-network security),
-  deliberately not rushed alongside the others this session. #70 (cross-user
-  competition/comparison screens) remains an unshaped intake issue.
+  height field) for the owner to confirm or correct. #27 (the one DECISIONS.md flagged as
+  higher-stakes — home-network security, Home Assistant coexistence) now has a written spec too
+  (`docs/superpowers/specs/2026-08-31-public-access-design.md`, merged via #75) — two proposed,
+  not-yet-decided design choices flagged explicitly: Cloudflare Access as a second auth layer in
+  front of the tunnel (§4), and a concrete, checkable home-network verification list (§5) rather
+  than just an assertion of safety. All four intake issues (#27/#30/#32/#33) now have specs — none
+  yet split into `ready` children. #70 (cross-user competition/comparison screens) remains an
+  unshaped intake issue.
 - **Next action:** #66 is `ready` **with a plan**, currently executing (see In-flight) — do not
   re-plan or re-pick it while that's in progress. #67/#68/#69 still need the `ready` label added
   by hand once their dependency merges (#67/#69 after #66, #68 after #67) — no native GitHub
@@ -27,8 +31,10 @@
   §7 (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
   #33 needs splitting into a `ready` issue per its own spec (small enough it may not need
   splitting into children at all — see the spec's §8) once the owner has skimmed §2's BMI proposal.
-  #27 still needs its own spec written — treat with more care than a quick pass, per DECISIONS.md.
-  #70 needs a first triage pass.
+  #27 needs an owner skim of §4/§5 before anything else — its own spec is explicit that this one
+  gets real scrutiny before being treated as settled, not the lighter pass a feature spec gets;
+  provisioning work could start in parallel with #67 per the spec's §6, but going *live* publicly
+  waits on #67. #70 needs a first triage pass.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -38,8 +44,6 @@
   (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`), not re-planning. Dispatched
   to a background subagent on its own branch (`claude/66-profiles-schema-migration`, off `main`)
   — not yet reviewed/PR'd as of this write-back.
-- **#27** — claimed 2026-08-31T08:33:12Z, live session. Writing its spec with real care per
-  DECISIONS.md's own flag (home-network security, Home Assistant coexistence) — not a quick pass.
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
@@ -77,6 +81,26 @@
   work.
 
 ## Tick log
+- **2026-08-31 (#27 spec → #75):** Shipped, docs-only, given the extra care DECISIONS.md asked
+  for rather than folded in alongside the other three specs this session.
+  `docs/superpowers/specs/2026-08-31-public-access-design.md`: resolves the owner's actual
+  2026-08-30 direction (keep the Pi, Cloudflare Tunnel not a VPN, Home Assistant safety is a hard
+  requirement, sequenced behind real login), then designs the part actually left open — a tunnel
+  alone only solves reachability/TLS, not access control, so proposed a second edge-level auth
+  layer (Cloudflare Access, email allow-list) in front of the app's own login rather than treating
+  the tunnel as sufficient on its own. Scoped the tunnel to exactly one ingress rule (this app's
+  Compose service, over the internal Docker network) with Home Assistant explicitly never added to
+  it. Rather than just asserting the design is safe, wrote a concrete, checkable verification list
+  (confirm Home Assistant is actually unreachable through the new public hostname, confirm the
+  ingress config has no catch-all rule, confirm no new router port-forward appeared, etc.) for
+  whoever executes this to actually run through before it goes live — matching DECISIONS.md's
+  explicit ask for a real home-network review, not just an app-level one. No real hostnames/tunnel
+  IDs/account details anywhere in the doc — those stay in `AGENTS.local.md` per the existing
+  convention; `docker-compose.yml`'s own already-tracked port numbers were fine to reference
+  directly. Two things flagged explicitly as this spec's proposals, not owner decisions: the
+  Access auth-method choice (§4) and the verification checklist itself (§5) — both need an actual
+  skim, more so than a typical spec, per the PR body. Stays `intake`. All four intake issues
+  (#27/#30/#32/#33) now have written specs. All 3 checks green, merged squash.
 - **2026-08-31 (#33 spec → #74):** Shipped, docs-only, written in parallel with #66's execution
   (separate `git worktree` checkout — see the Agent-tool `IMPROVEMENTS.md` entry above for why
   that was necessary this tick). `docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`:
