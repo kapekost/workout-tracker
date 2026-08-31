@@ -24,7 +24,9 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#66** — claimed 2026-08-31T07:59:12Z, live session.
+- **#66** — claimed 2026-08-31T07:59:12Z, live session. Plan written, PR #72 open, awaiting CI.
+- **#30/#32** — claimed 2026-08-31T08:10:09Z, live session. Writing the combined spec both issues
+  were flagged as needing (per IMPROVEMENTS.md's third Feature Intake outcome, PR #71).
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
