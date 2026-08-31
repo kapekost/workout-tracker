@@ -1,7 +1,8 @@
 def test_migration_creates_profiles_table_with_seeded_admin(mainmod):
     with mainmod.db() as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
-        assert cols == {"id", "username", "password_hash", "role", "created_at"}
+        # "icon" (#69, schema v5) added after this test was originally written for v4.
+        assert cols == {"id", "username", "password_hash", "role", "created_at", "icon"}
         rows = conn.execute("SELECT username, role, password_hash FROM profiles").fetchall()
         assert len(rows) == 1
         assert rows[0]["username"] == "kapekost"
@@ -95,7 +96,7 @@ def test_personal_bests_rebuilt_with_profile_scoped_unique(mainmod):
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
         row = conn.execute("SELECT profile_id FROM personal_bests WHERE exercise_id='bench_press'").fetchone()
         assert row["profile_id"] == seed_id
@@ -210,3 +211,29 @@ def test_profiles_round_trip_through_export_import(client):
     again = client.get("/api/export").json()
     assert again["tables"]["profiles"] == envelope["tables"]["profiles"]
     assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]
+
+def test_migration_adds_icon_column_seeded_for_admin(mainmod):
+    with mainmod.db() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
+        assert "icon" in cols
+        row = conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()
+        assert row["icon"] == "💪"
+
+def test_icon_migration_does_not_override_an_already_set_icon(mainmod):
+    # Simulates a profile that already picked an icon before a second migration run
+    # (e.g. a future profile created between deploys) -- must not be clobbered.
+    with mainmod.db() as conn:
+        conn.execute("UPDATE profiles SET icon = '🔥' WHERE username = 'kapekost'")
+        conn.commit()
+    mainmod.init()
+    with mainmod.db() as conn:
+        assert conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()[0] == "🔥"
+
+def test_profile_me_returns_acting_profile_with_icon(client):
+    r = client.get("/api/profile/me")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["username"] == "kapekost"
+    assert body["role"] == "admin"
+    assert body["icon"] == "💪"
