@@ -221,13 +221,21 @@ def test_migration_adds_icon_column_seeded_for_admin(mainmod):
         assert row["icon"] == "💪"
 
 def test_icon_migration_does_not_override_an_already_set_icon(mainmod):
-    # Simulates a profile that already picked an icon before a second migration run
-    # (e.g. a future profile created between deploys) -- must not be clobbered.
+    # Simulates a DB where the icon column already exists with real data but
+    # user_version hasn't been bumped to 5 yet (e.g. a partially-applied prior
+    # migration) -- the v4->v5 block must not clobber it with the default on
+    # re-migration. Resetting user_version alone (not also recreating the old
+    # table shape) is correct here, unlike the exercise_notes/personal_bests
+    # rebuild tests above: this migration only ADDs a column, it never drops
+    # the table, so the fixture's already-migrated shape (icon column present)
+    # is exactly what "partially migrated" looks like.
     with mainmod.db() as conn:
+        conn.execute("PRAGMA user_version = 4")
         conn.execute("UPDATE profiles SET icon = '🔥' WHERE username = 'kapekost'")
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()[0] == "🔥"
 
 def test_profile_me_returns_acting_profile_with_icon(client):

@@ -1,7 +1,8 @@
 def test_migration_creates_personal_bests_table(mainmod):
     with mainmod.db() as conn:
-        # schema v4 (#66) added profiles + profile_id everywhere, so user_version
-        # now reaches 4 and personal_bests carries profile_id too.
+        # schema v5 is the app's current terminal version (v4: #66 profiles +
+        # profile_id everywhere; v5: #69 profile icon) — personal_bests
+        # carries profile_id since v4.
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         cols = {r[1] for r in conn.execute("PRAGMA table_info(personal_bests)").fetchall()}
         assert cols == {"id", "profile_id", "exercise_id", "exercise_name", "weight_kg", "reps",

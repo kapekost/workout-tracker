@@ -32,14 +32,22 @@ export default function TopBar() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px'
       }}>
-        <span style={{ fontWeight: type.weight.bold, fontSize: '0.9rem', color: colors.text, letterSpacing: type.labelTracking }}>
+        <span style={{
+          fontWeight: type.weight.bold, fontSize: '0.9rem', color: colors.text,
+          letterSpacing: type.labelTracking, whiteSpace: 'nowrap', flexShrink: 0
+        }}>
           🏋 Gym Tracker
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           {profile && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem', color: colors.text }}>
-              <span aria-hidden="true">{profile.icon || '👤'}</span>
-              <span>{profile.username}</span>
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem',
+              color: colors.text, minWidth: 0, overflow: 'hidden'
+            }}>
+              <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || '👤'}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile.username}
+              </span>
             </span>
           )}
           <Eyebrow color={colors.mint} size={type.size.sm}>{label}</Eyebrow>
