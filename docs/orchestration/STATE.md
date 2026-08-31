@@ -24,7 +24,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#66** — claimed 2026-08-31T07:59:12Z, live session.
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
