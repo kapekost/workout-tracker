@@ -6,27 +6,28 @@
 ## Cursor
 - **Project:** Workout Tracker
 - **Current focus:** #23 shipped via #65 (2026-08-30). #29 triaged and closed, split into #66
-  (schema/migration, `ready`), #67 (login, depends on #66), #68 (password reset via Resend,
-  depends on #67), #69 (switcher UI, depends on #66). #27, #30, #32, #33 all triaged via live
-  owner Q&A 2026-08-30 — real direction set on each, but none are `ready`: all need either a
-  written spec (per each issue's own stated process) or to wait on #66/#67 landing, several both.
-  #70 (cross-user competition/comparison screens) opened as a new, unshaped intake issue — a
-  future idea that came up in passing during #30's triage.
-- **Next action:** #66 is the next `ready`, unblocked pick — nothing else is pickable this
-  moment. #67/#68/#69 need the `ready` label added by hand once their dependency merges
-  (#67/#69 after #66, #68 after #67) — no native GitHub blocked-by relationship was set (no
-  graphql-capable tool available this session), so this is a manual sequencing note instead.
-  #27/#30/#32/#33 need an actual spec written (`docs/superpowers/specs/` convention) before they
-  can be split/sized into `ready` work — direction is set, the writing isn't done. #70 needs a
-  first triage pass (owner hasn't scoped it at all yet).
+  (schema/migration), #67 (login, depends on #66), #68 (password reset via Resend, depends on
+  #67), #69 (switcher UI, depends on #66). #66 now has a written plan
+  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`, merged via #72) — `ready` for
+  real execution, not just triaged. #30 and #32 now have a combined written spec
+  (`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`, merged via #73) covering both
+  at once (they share the same "structured AI output, reviewed and confirmed, then written" shape)
+  — still `intake` pending the actual split into `ready` children. #27/#33 remain triaged
+  (2026-08-30 owner Q&A) but unspecced. #70 (cross-user competition/comparison screens) remains an
+  unshaped intake issue.
+- **Next action:** #66 is `ready` **with a plan** — the next tick should execute it directly per
+  the plan's 7 tasks, not re-plan it. #67/#68/#69 still need the `ready` label added by hand once
+  their dependency merges (#67/#69 after #66, #68 after #67) — no native GitHub blocked-by
+  relationship was set (no graphql-capable tool available this session), so this is a manual
+  sequencing note instead. #30/#32 need splitting into `ready` child issues per the new spec's §7
+  (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
+  #27/#33 still need their own spec written. #70 needs a first triage pass.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#66** — claimed 2026-08-31T07:59:12Z, live session. Plan written, PR #72 open, awaiting CI.
-- **#30/#32** — claimed 2026-08-31T08:10:09Z, live session. Writing the combined spec both issues
-  were flagged as needing (per IMPROVEMENTS.md's third Feature Intake outcome, PR #71).
+(no branches in flight)
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
@@ -40,7 +41,13 @@
   Real fix (recommended over widening the App's permissions): enable GitHub's native repo setting
   Settings → General → Pull Requests → "Automatically delete head branches" — runs outside our
   App's permissions entirely, so the 403 gap doesn't apply to it. Owner to verify/enable. See
-  `DECISIONS.md`.
+  `DECISIONS.md`. **Confirmed still off as of 2026-08-31**, empirically: #71's own head branch
+  (`claude/playbook-intake-third-path`) was still present a day after that PR merged. Three more
+  joined the pile this tick — `claude/playbook-intake-third-path` (#71, noticed, not new),
+  `claude/66-profiles-schema-plan` (#72), `claude/30-32-ai-structured-io-spec` (#73) — bringing the
+  total stray-branch count to 16 (the original 13 the owner already has a delete command for, plus
+  these 3). Growing by 1+ every merge until the setting is flipped; the owner's existing cleanup
+  command won't cover the new ones without extending it.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -48,6 +55,46 @@
   step 8 rather than guessing at a fix.
 
 ## Tick log
+- **2026-08-31 (#30/#32 spec → #73):** Shipped, docs-only. Combined design for both issues in one
+  pass, per the third Feature Intake outcome PR #71 named and IMPROVEMENTS.md's friction log —
+  #30 and #32 independently converged on the same "structured AI output, reviewed and confirmed,
+  then written to real data" shape, so one spec covers both rather than duplicating the
+  review-before-write design twice. `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`:
+  resolves every fork-in-the-road question either issue posed to the owner (all already answered
+  in `DECISIONS.md` 2026-08-30 — nothing guessed here), then does the actual spec-writer job of
+  designing the shared mechanism and concrete schemas — a new additive `/api/import/sessions`
+  endpoint (separate from the existing disaster-recovery `/api/import`, matching its own
+  `confirm`/envelope convention rather than inventing a parallel one), upsert-by-id semantics,
+  lb→kg conversion offloaded to the AI's prompt instructions instead of app code, a new
+  `exercise_targets` table for #32's proposed updates, and the recovery-science §7 constraint
+  enforced structurally (no field in the response schema shaped like a percentage/readiness score)
+  rather than only requested in the prompt. Both issues stay `intake` — this is a spec, not a
+  split; splitting into `ready` children per the spec's §7 is the next action on these two, not
+  done in this tick. All 3 checks green, merged squash.
+- **2026-08-31 (#66 plan → #72):** Shipped, docs-only. `#66` is `effort:M` with no linked plan, so
+  per `PLAYBOOK.md` step 3 this tick wrote the plan and stopped rather than executing directly.
+  `docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`: read the live schema
+  (`backend/main.py`) rather than assuming it, which surfaced two real correctness traps the issue
+  itself didn't call out — `exercise_notes` and `personal_bests` each carry a uniqueness constraint
+  (`PRIMARY KEY`, `UNIQUE`) that must *expand* to include `profile_id`, which SQLite can't do via a
+  plain `ALTER ADD COLUMN` (needs a rename/create/copy/drop rebuild); and `/api/import`'s existing
+  per-table delete-then-insert-immediately loop requires `profiles` to be **first** in `TABLES`
+  with `ON DELETE CASCADE` on every new FK, or a restore violates the FK either on delete (children
+  still reference the parent) or on insert (parent doesn't exist yet). Also resolved the issue's
+  own open question ("confirm the exact table list against the live schema") — `personal_bests`
+  gets `profile_id` too, alongside the four tables the issue named. Plan hands off one item to
+  #67 via a comment (Task 7): the seeded profile's `password_hash` is left `NULL` by design, so
+  #67's login flow must handle a profile with no password set yet, not assume every profile has
+  one. #66 stays `ready` — now unblocked for real execution next tick, not just plan-then-stop.
+  All 3 checks green, merged squash.
+- **2026-08-31 (status + tick resume):** `/orchestrate status` reconciled cleanly against live
+  GitHub — zero drift from this file, nothing to correct (no open PRs beyond what's logged here,
+  #66 confirmed the sole `ready` issue, #67/#68/#69 correctly withheld from `ready`, no new owner
+  comments on any `intake`/`needs-clarification` issue since 2026-08-30). Confirmed both
+  owner-pending items are genuinely still pending rather than assumed: the 13-branch cleanup
+  command hasn't been run (all still present, unchanged SHAs), and the auto-delete-on-merge repo
+  setting is still off (direct evidence: #71's own head branch survived its merge) — see "Needs
+  owner" above for the now-updated tally.
 - **2026-08-30 (PLAYBOOK.md fix → #71):** Shipped. Logged the "shaped but needs a spec" Feature
   Intake gap (hit on #27/#30/#32/#33 this session) via `scripts/append_improvement.sh`, then acted
   on it immediately rather than leaving it for a future review pass — small, well-understood,
