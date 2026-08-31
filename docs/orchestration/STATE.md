@@ -12,8 +12,17 @@
   merge: restoring any pre-v4 backup would have permanently broken every future write (profiles
   wiped with nothing to restore it) or rejected the whole import outright if it held real
   `exercise_notes`/`personal_bests` data — fixed in the same PR, two new regression tests
-  confirmed failing without the fix and passing with it. #67 and #69 (both depended only on #66)
-  are now labeled `ready`. #68 still waits on #67. #30 and #32 now have a combined written spec
+  confirmed failing without the fix and passing with it. #67 was labeled `ready` but is blocked
+  from unattended execution (see "Needs owner" — auth/session is destructive per GUARDRAILS).
+  **#69 shipped via #77 (2026-08-31)**, scoped to just its buildable slice — TopBar now shows the
+  active profile's icon/username (schema v5: nullable `icon` column, seeded 💪 for `kapekost`); the
+  emoji-picker-at-creation-time piece stays deferred to #67, which is the only place profile
+  creation will actually exist. `code-review` caught two more real bugs here too: a layout bug
+  where a longer username than the seeded one would wrap the brand title onto two lines (confirmed
+  live in a browser, fixed with proper flex overflow handling), and a migration-guard regression
+  test that could never actually fail due to a version-gate ordering mistake in its own setup
+  (fixed, verified failing/passing correctly on either side of the fix). #68 still waits on #67.
+  #30 and #32 now have a combined written spec
   (`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`, merged via #73) covering both
   at once (they share the same "structured AI output, reviewed and confirmed, then written" shape)
   — still `intake` pending the actual split into `ready` children. #33 now has a written spec too
@@ -27,14 +36,10 @@
   than just an assertion of safety. All four intake issues (#27/#30/#32/#33) now have specs — none
   yet split into `ready` children. #70 (cross-user competition/comparison screens) remains an
   unshaped intake issue.
-- **Next action:** #67 and #69 are both labeled `ready`, but **neither is actually pickable by an
-  unattended tick right now** — see "Needs owner" below for #67's approval gate. #69's own body
-  already half-flags a real scope nuance worth restating: its title says "switcher" but the actual
-  bullets are "show the active profile in TopBar" (trivially buildable now — only one profile
-  exists pre-#67, no switching logic needed), plus "emoji picker for profile icon at creation
-  time," which has nowhere to hook into until #67's creation flow exists. Whoever executes #69
-  should split those two rather than build creation-flow UI that's really #67's job. #68 still
-  needs the `ready` label added once #67 merges (and will need the same approval gate). #30/#32
+- **Next action:** No `ready`, unblocked work remains that an unattended tick can pick — #67 is
+  `ready` but blocked on owner approval (destructive per GUARDRAILS), and #69's buildable slice is
+  done. #68 still needs the `ready` label added once #67 merges (and will need the same approval
+  gate). #30/#32
   need splitting into `ready` child issues per their spec's
   §7 (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
   #33 needs splitting into a `ready` issue per its own spec (small enough it may not need
@@ -48,9 +53,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#69** — claimed late (PR #77 already open by the time this landed — see the tick log entry
-  for the process slip). Scoped down to the TopBar-display piece only (per the split noted
-  earlier in this file); PR open, awaiting CI.
+(no branches in flight)
 
 ## Needs owner
 - **#67 (username/password login) is `ready` but blocked from unattended execution** — it changes
@@ -94,6 +97,29 @@
   work.
 
 ## Tick log
+- **2026-08-31 (#69 → #77):** Shipped. Picked up directly (effort:S, no separate plan needed per
+  `PLAYBOOK.md`'s effort:M+ threshold) once #67 turned out to be blocked on owner approval. Scoped
+  down from the issue's full text to just the TopBar-display piece — schema v5 (nullable
+  `profiles.icon`, seeded 💪 for `kapekost` so the display isn't empty immediately), `GET
+  /api/profile/me`, `TopBar.jsx` rendering it — deferring the emoji-picker-at-creation-time piece
+  since profile creation doesn't exist until #67. `code-review` (explicit target again) found two
+  more real bugs: the brand title and the new profile chip shared one flex row with no
+  shrink/overflow handling, so a longer username than the seeded one (nothing bounds
+  `profiles.username`'s length) wraps "🏋 Gym Tracker" onto two lines on narrow viewports —
+  confirmed live in a real browser, fixed with `nowrap`/`flexShrink:0` on the title and ellipsis
+  truncation on the username. Separately, the new migration-guard test
+  (`test_icon_migration_does_not_override_an_already_set_icon`) could never actually fail: by the
+  time it ran, `user_version` was already 5 from the fixture's own setup, so its second `init()`
+  call never re-entered the `if v < 5` block the guard lives in at all — confirmed by removing the
+  guard clause from `main.py` and watching the test stay green regardless. Fixed by resetting
+  `user_version` to 4 first (matching this file's other migration-guard tests), then verified it
+  now fails without the guard and passes with it restored, same rigor as #66's import-path catch.
+  Backend 88/88, frontend 216/216, build green. **Process note, logged honestly rather than
+  glossed over:** this tick's own In-flight claim was pushed late — after the PR was already open,
+  not before starting work, contrary to `PLAYBOOK.md`'s own "Claiming work" section. No actual
+  collision occurred (no concurrent tick was running), but this is exactly the discipline that
+  section exists to enforce; noting it so it doesn't quietly become a habit. All 3 checks green,
+  merged squash.
 - **2026-08-31 (#66 → #76):** Shipped. Executed the merged plan
   (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`) via a background subagent,
   dispatched with an explicit file list and told not to touch `docs/orchestration/*` — it followed
