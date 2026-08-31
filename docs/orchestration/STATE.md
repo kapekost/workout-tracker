@@ -7,9 +7,13 @@
 - **Project:** Workout Tracker
 - **Current focus:** #23 shipped via #65 (2026-08-30). #29 triaged and closed, split into #66
   (schema/migration), #67 (login, depends on #66), #68 (password reset via Resend, depends on
-  #67), #69 (switcher UI, depends on #66). #66 now has a written plan
-  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`, merged via #72) — `ready` for
-  real execution, not just triaged. #30 and #32 now have a combined written spec
+  #67), #69 (switcher UI, depends on #66). **#66 shipped via #76 (2026-08-31)** — profiles table +
+  `profile_id` backfilled everywhere, schema v4. `code-review` caught a real, severe bug before
+  merge: restoring any pre-v4 backup would have permanently broken every future write (profiles
+  wiped with nothing to restore it) or rejected the whole import outright if it held real
+  `exercise_notes`/`personal_bests` data — fixed in the same PR, two new regression tests
+  confirmed failing without the fix and passing with it. #67 and #69 (both depended only on #66)
+  are now labeled `ready`. #68 still waits on #67. #30 and #32 now have a combined written spec
   (`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`, merged via #73) covering both
   at once (they share the same "structured AI output, reviewed and confirmed, then written" shape)
   — still `intake` pending the actual split into `ready` children. #33 now has a written spec too
@@ -23,11 +27,12 @@
   than just an assertion of safety. All four intake issues (#27/#30/#32/#33) now have specs — none
   yet split into `ready` children. #70 (cross-user competition/comparison screens) remains an
   unshaped intake issue.
-- **Next action:** #66 is `ready` **with a plan**, currently executing (see In-flight) — do not
-  re-plan or re-pick it while that's in progress. #67/#68/#69 still need the `ready` label added
-  by hand once their dependency merges (#67/#69 after #66, #68 after #67) — no native GitHub
-  blocked-by relationship was set (no graphql-capable tool available this session), so this is a
-  manual sequencing note instead. #30/#32 need splitting into `ready` child issues per their spec's
+- **Next action:** #67 and #69 are both `ready`, unblocked (labeled by hand this tick — no
+  graphql-capable/Project-board-rank tool available this session, so which of the two to pick
+  first is a judgment call, not a ranked read). #67 has a hand-off comment from #66 waiting for
+  whoever picks it up (seeded profile's `password_hash IS NULL` by design; replace
+  `_default_profile_id()` call sites, don't add a second mechanism). #68 still needs the `ready`
+  label added once #67 merges. #30/#32 need splitting into `ready` child issues per their spec's
   §7 (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
   #33 needs splitting into a `ready` issue per its own spec (small enough it may not need
   splitting into children at all — see the spec's §8) once the owner has skimmed §2's BMI proposal.
@@ -40,10 +45,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#66** — claimed 2026-08-31T08:20:50Z, live session. Executing per its merged plan
-  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`), not re-planning. Dispatched
-  to a background subagent on its own branch (`claude/66-profiles-schema-migration`, off `main`)
-  — not yet reviewed/PR'd as of this write-back.
+(no branches in flight)
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
@@ -81,6 +83,48 @@
   work.
 
 ## Tick log
+- **2026-08-31 (#66 → #76):** Shipped. Executed the merged plan
+  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`) via a background subagent,
+  dispatched with an explicit file list and told not to touch `docs/orchestration/*` — it followed
+  the plan's actual migration code verbatim (verified by diffing the final `_migrate` block
+  against the plan's literal SQL) across 7 commits, 83/83 tests passing, and reported 5 small,
+  well-reasoned deviations up front rather than silently diverging: two of the plan's own new
+  tests had a real setup bug (resetting `PRAGMA user_version` alone doesn't simulate "pre-v4 data"
+  for the two *rebuilt* tables, since the test fixture's `init()` already migrates them first —
+  fixed by actually recreating the old table shape); one task-sequencing gap the plan had already
+  pre-empted for a different function but not this one (pulled the fix forward, same resolution);
+  5 pre-existing hardcoded `user_version == 3` assertions across two other test files broke on the
+  version bump and needed updating to 4 (expected migration hygiene, not a bug); and one
+  documentation-location assumption in the plan didn't match reality (schema history actually
+  lives in `docs/CHANGELOG.md`, not `AGENTS.md`), resolved by using the closest existing analog
+  since the task's own file target was unambiguous. None of this touched the migration design
+  itself.
+
+  **`code-review`, run with an explicit target (path + diff range) per this session's own logged
+  harness gotcha, caught a real, severe bug the 83 passing tests never exercised:** once
+  `profiles` joined `TABLES`, `/api/import` restoring *any* pre-v4 backup would permanently wipe
+  the seed profile with no `"profiles"` key in the old envelope to restore it from — every write
+  endpoint's `_default_profile_id()` then crashes with no way to self-heal (schema's already at
+  v4, so the reseed guard in `_migrate` never re-runs, not even across a restart). A second,
+  related bug: a real pre-v4 backup containing actual `exercise_notes`/`personal_bests` data (both
+  pre-existing, already-shipped features — a plausible, not edge-case, scenario) would reject the
+  *entire* import with a 400, since those two rebuilt tables now require `profile_id NOT NULL` and
+  legacy rows don't have one. Both were exactly the restore-drill scenario `AGENTS.md`'s deploy
+  runbook — and this migration's own plan — exist to catch, and the plan's own Task 6 reasoning
+  ("NULL is exempt from FK enforcement... a one-time, expected consequence") was correct for
+  `sessions`/`sets`/`events` but didn't extend to the two rebuilt tables or to `profiles` itself.
+  Fixed directly (not deferred) before opening the PR: skip touching `profiles` on import when the
+  envelope has no opinion about it, and backfill `profile_id` from the live default profile for
+  any row landing in a `NOT NULL` `profile_id` column that doesn't supply one — same backfill
+  philosophy the migration itself already uses. Two new regression tests confirmed failing with
+  the exact reported symptoms (400; a broken write afterward) when reverted against the pre-fix
+  code, passing with it restored. One minor `code-review` finding (`_default_profile_id`
+  re-queries every write instead of caching) consciously left as-is — explicitly temporary code
+  slated for removal in #67, not worth hardening further. Full suite re-verified green (85/85)
+  after the fix. Posted the plan's own scripted hand-off comment on #67 (seeded profile's
+  `password_hash IS NULL` by design; replace `_default_profile_id()` call sites, don't add a
+  second mechanism) — corrected one wording slip in it immediately after posting. #67 and #69
+  (both depended only on #66) labeled `ready`. All 3 checks green, merged squash.
 - **2026-08-31 (#27 spec → #75):** Shipped, docs-only, given the extra care DECISIONS.md asked
   for rather than folded in alongside the other three specs this session.
   `docs/superpowers/specs/2026-08-31-public-access-design.md`: resolves the owner's actual
