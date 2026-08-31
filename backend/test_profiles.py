@@ -144,3 +144,29 @@ def test_new_event_is_attributed_to_seed_profile(client, mainmod):
     with mainmod.db() as conn:
         seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
         assert conn.execute("SELECT profile_id FROM events WHERE name='test_event'").fetchone()[0] == seed_id
+
+def test_export_includes_profiles(client):
+    exp = client.get("/api/export").json()
+    assert len(exp["tables"]["profiles"]) == 1
+    assert exp["tables"]["profiles"][0]["username"] == "kapekost"
+
+def test_old_v3_envelope_without_profiles_still_imports(client):
+    # Simulates a backup taken before this feature existed (schema_version 3, no "profiles" key).
+    old_envelope = {
+        "exported_at": "2026-08-01T00:00:00Z",
+        "schema_version": 3,
+        "tables": {"sessions": [], "sets": [], "exercise_notes": [], "events": [], "personal_bests": []},
+    }
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old_envelope})
+    assert r.status_code == 200
+
+def test_profiles_round_trip_through_export_import(client):
+    client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    envelope = client.get("/api/export").json()
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    again = client.get("/api/export").json()
+    assert again["tables"]["profiles"] == envelope["tables"]["profiles"]
+    assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]

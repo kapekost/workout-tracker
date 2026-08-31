@@ -7,12 +7,13 @@ import sqlite3, os, json, glob
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
-TABLES = ["sessions", "sets", "exercise_notes", "events", "personal_bests"]
+TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"]
 # schema_version at which each table was introduced (see _migrate). An
 # envelope only needs to contain the tables that existed at its own
 # schema_version — a table a later migration adds must not make older
 # backups un-importable.
-TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2, "personal_bests": 3}
+TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
+                        "personal_bests": 3, "profiles": 4}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
 # outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
