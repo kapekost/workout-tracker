@@ -142,6 +142,12 @@ def _migrate(conn):
                 "FROM personal_bests_old", (seed_id,))
             conn.execute("DROP TABLE personal_bests_old")
         conn.execute("PRAGMA user_version = 4")
+    # --- v4 -> v5: profile icon (TopBar display, #69) ---
+    if v < 5:
+        if not _column_exists(conn, "profiles", "icon"):
+            conn.execute("ALTER TABLE profiles ADD COLUMN icon TEXT")
+        conn.execute("UPDATE profiles SET icon = '💪' WHERE username = 'kapekost' AND icon IS NULL")
+        conn.execute("PRAGMA user_version = 5")
 
 def init():
     with db() as conn:
@@ -246,6 +252,16 @@ def health(response: Response):
         last_at, last_status = None, "none"
     return {"status": "ok", "version": APP_VERSION,
             "last_backup_at": last_at, "last_backup_status": last_status}
+
+@app.get("/api/profile/me")
+def get_current_profile():
+    # Temporary, like _default_profile_id: "the acting profile" is the seed
+    # admin until #67 introduces real login. Replaced there, not extended.
+    with db() as conn:
+        profile_id = _default_profile_id(conn)
+        row = conn.execute(
+            "SELECT id, username, role, icon FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+        return dict(row)
 
 @app.post("/api/sessions")
 def create_session(s: SessionIn):

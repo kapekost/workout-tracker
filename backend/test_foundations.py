@@ -37,8 +37,8 @@ def test_migrate_skips_realter_when_column_preexists(mainmod):
         conn.commit()
     mainmod.init()  # must not raise "duplicate column name: ended_at"
     with mainmod.db() as conn:
-        # schema v4 (#66: profiles) is the app's current terminal version.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        # schema v5 (#69: profile icon) is the app's current terminal version.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
 
 def test_set_validation_rejects_bad_input(client):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
@@ -87,7 +87,7 @@ def test_export_envelope_shape(client):
                       "set_number": 1, "reps": 8, "weight_kg": 80})
     exp = client.get("/api/export").json()
     assert set(exp["tables"].keys()) == {"profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"}
-    assert exp["schema_version"] == 4
+    assert exp["schema_version"] == 5
     assert exp["exported_at"].endswith("Z")
     assert len(exp["tables"]["sessions"]) == 1 and len(exp["tables"]["sets"]) == 1
 
@@ -176,5 +176,5 @@ def test_import_of_older_envelope_does_not_roll_user_version_backward(client, ma
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old})
     assert r.status_code == 200
     with mainmod.db() as conn:
-        # schema v4 (#66: profiles) is the app's current terminal version.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        # schema v5 (#69: profile icon) is the app's current terminal version.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
