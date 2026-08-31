@@ -118,6 +118,29 @@ def _migrate(conn):
                 "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) "
                 "SELECT ?, exercise_id, note, updated_at FROM exercise_notes_old", (seed_id,))
             conn.execute("DROP TABLE exercise_notes_old")
+        if not _column_exists(conn, "personal_bests", "profile_id"):
+            conn.execute("ALTER TABLE personal_bests RENAME TO personal_bests_old")
+            conn.execute("""
+                CREATE TABLE personal_bests (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    profile_id    INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    exercise_id   TEXT NOT NULL,
+                    exercise_name TEXT NOT NULL,
+                    weight_kg     REAL NOT NULL,
+                    reps          INTEGER NOT NULL,
+                    achieved_year INTEGER NOT NULL,
+                    achieved_note TEXT,
+                    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(profile_id, exercise_id, weight_kg, reps, achieved_year)
+                )
+            """)
+            conn.execute(
+                "INSERT INTO personal_bests (id, profile_id, exercise_id, exercise_name, weight_kg, "
+                "reps, achieved_year, achieved_note, created_at) "
+                "SELECT id, ?, exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, created_at "
+                "FROM personal_bests_old", (seed_id,))
+            conn.execute("DROP TABLE personal_bests_old")
+        conn.execute("PRAGMA user_version = 4")
 
 def init():
     with db() as conn:
@@ -294,11 +317,12 @@ def delete_set(sid: int, set_id: int):
 @app.post("/api/personal-bests")
 def create_personal_best(pb: PersonalBestIn):
     with db() as conn:
+        profile_id = _default_profile_id(conn)  # temporary — see Task 5
         try:
             cur = conn.execute(
-                "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note) "
-                "VALUES (?,?,?,?,?,?)",
-                (pb.exercise_id, pb.exercise_name, pb.weight_kg, pb.reps, pb.achieved_year, pb.achieved_note))
+                "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, profile_id) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (pb.exercise_id, pb.exercise_name, pb.weight_kg, pb.reps, pb.achieved_year, pb.achieved_note, profile_id))
         except sqlite3.IntegrityError:
             raise HTTPException(409, "a personal best with this exercise, weight, reps and year already exists")
         conn.commit()

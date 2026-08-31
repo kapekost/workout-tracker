@@ -66,3 +66,52 @@ def test_put_note_upsert_keys_on_profile_and_exercise(client):
     assert r.status_code == 200
     notes = client.get("/api/notes").json()
     assert notes["bench_press"] == "updated"  # same (seed profile, exercise) pair -> upsert, not duplicate
+
+def test_personal_bests_rebuilt_with_profile_scoped_unique(mainmod):
+    with mainmod.db() as conn:
+        conn.execute("PRAGMA user_version = 3")
+        conn.execute("DELETE FROM profiles")
+        # personal_bests is a *rebuilt* table (profile_id NOT NULL), not a plain
+        # ADD COLUMN one — same reason as exercise_notes above: the mainmod
+        # fixture's own init() already migrated it to the v4 shape before this
+        # test body runs, so recreate the pre-v4 shape for real to simulate old
+        # data, matching _migrate's original v2->v3 definition.
+        conn.execute("DROP TABLE personal_bests")
+        conn.execute("""
+            CREATE TABLE personal_bests (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                exercise_id   TEXT NOT NULL,
+                exercise_name TEXT NOT NULL,
+                weight_kg     REAL NOT NULL,
+                reps          INTEGER NOT NULL,
+                achieved_year INTEGER NOT NULL,
+                achieved_note TEXT,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(exercise_id, weight_kg, reps, achieved_year)
+            )
+        """)
+        conn.execute("INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year) "
+                     "VALUES ('bench_press','Bench Press',100,3,2023)")
+        conn.commit()
+    mainmod.init()
+    with mainmod.db() as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
+        row = conn.execute("SELECT profile_id FROM personal_bests WHERE exercise_id='bench_press'").fetchone()
+        assert row["profile_id"] == seed_id
+
+def test_second_profile_can_log_the_same_pb_as_the_first(client, mainmod):
+    with mainmod.db() as conn:
+        other_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('other', 'member')").lastrowid
+        conn.commit()
+    client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    with mainmod.db() as conn:
+        # Second profile logs the identical lift directly (no API-level profile switch exists yet
+        # per this issue's scope) — must not collide on the old single-profile UNIQUE shape.
+        conn.execute(
+            "INSERT INTO personal_bests (profile_id, exercise_id, exercise_name, weight_kg, reps, achieved_year) "
+            "VALUES (?, 'bench_press','Bench Press',100,3,2023)", (other_id,))
+        conn.commit()
+        assert conn.execute("SELECT COUNT(*) FROM personal_bests").fetchone()[0] == 2
