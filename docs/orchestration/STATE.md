@@ -48,7 +48,9 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#69** — claimed late (PR #77 already open by the time this landed — see the tick log entry
+  for the process slip). Scoped down to the TopBar-display piece only (per the split noted
+  earlier in this file); PR open, awaiting CI.
 
 ## Needs owner
 - **#67 (username/password login) is `ready` but blocked from unattended execution** — it changes
