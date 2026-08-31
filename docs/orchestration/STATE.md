@@ -96,7 +96,69 @@
   default to `isolation:'worktree'` for any subagent dispatch that does its own git branch/commit
   work.
 
+- **`STATE.md` on `main` is stale and now conflicts with this branch (2026-08-31).** Every tick
+  since #64 recorded its state here and never landed it on `main`, so `main`'s copy is missing
+  #23, #66, #27/#30/#32/#33 specs, #67, #69, and this deploy. A PR from this branch to `main`
+  contributes only the three orchestration docs (`STATE.md`, `DECISIONS.md`, `IMPROVEMENTS.md` —
+  verified via three-dot diff; it does **not** revert any shipped feature), but `STATE.md` itself
+  hits a real content conflict against `main`. GUARDRAILS lists "a merge conflict needs human
+  judgment" as a hard stop with no flag override, so this deploy's tick entry below was committed
+  here only and **no PR to `main` was opened**. Resolving it means reconciling `main`'s tick log
+  (which stops at #63/#64) with this branch's — an append-vs-append conflict that reads as
+  mechanical but should be the owner's call, since it decides which history `main` presents.
+
 ## Tick log
+- **2026-08-31 (deploy repair → #78):** `main` reached the Pi for the first time since
+  2026-08-25. The running app was pinned at `5247896`, **53 commits behind**, because the deploy
+  path was broken in two independent places — both shipped and closed without ever having been
+  run against the real target.
+  1. **`scripts/deploy.sh` could not start.** It parses `AGENTS.local.md` for a
+     `## Scripted deploy configuration` section and hard-fails via `: "${DEPLOY_HOST:?...}"` if
+     absent. That section existed only in `AGENTS.local.md.example`, never in the real file. So
+     #34/#61 shipped a deploy script that had never once executed. Fixed locally (the real file
+     is gitignored, and stays that way per GUARDRAILS "Deployment knowledge stays local"), with
+     the parser's four failure modes documented inline next to the values: keep the keys at
+     column 0 above the next `## `; `DEPLOY_APP_DIR` must be absolute because it lands inside
+     single quotes in a remote `cd`; the SSH key path must be absolute because the value is
+     word-split unquoted onto the `ssh` command line; and **never** `BatchMode=yes`, despite the
+     `.example` suggesting it — the key is passphrase-protected and BatchMode blocks the macOS
+     keychain, surfacing as a misleading `Permission denied (publickey)`.
+  2. **`deploy.sh` skipped the target-side `git pull`** — fixed via PR #78. The Pi supplies its
+     own `docker-compose.yml` from its own clone; that clone was also at `5247896`, so it still
+     hardcoded `image: ...:latest` instead of `:${APP_COMMIT:-latest}`. `APP_COMMIT` was
+     therefore ignored, the stale image would have been re-created, and the script's own
+     `/api/health` assertion would then have failed with a version mismatch that reads like a
+     build problem rather than a stale-checkout one. The manual runbook had always done this
+     pull; the scripted path dropped it. `--ff-only` so a diverged target halts loudly instead of
+     quietly merging on the Pi.
+
+  **Deployed `17bd4fc`, verified independently of the script's own assertion:** `/api/health`
+  reports `version=17bd4fc` with `last_backup_status=ok` (not stale), `/` returns 200, the
+  container runs `kapekost/workout-tracker:17bd4fc` (not `:latest` — direct proof the pull fix
+  worked), the Pi's clone advanced to `17bd4fc`, and `homeassistant` stayed `Up (healthy)`
+  throughout, as did `tailscale`.
+
+  **Migration v3→v5 landed clean.** Snapshot taken before touching anything (845 rows, schema
+  v3) and diffed against a post-deploy export: `user_version = 5`, `integrity_check = ok`, no
+  leftover `*_old` tables, identical row counts, and every pre-existing row byte-identical on all
+  shared columns — the only change is the added `profile_id`, backfilled to the `kapekost` admin
+  profile. Worth recording that the risk was lower than it looked: the v3→v4 rebuild
+  (rename → create → copy → **drop**) only touches `exercise_notes` and `personal_bests`, and both
+  were empty. The 845 rows that exist live in tables it does not rebuild.
+
+  **Rollback was impossible when this tick started** and is now possible: the running image and
+  its predecessor were both untagged dangling IDs, one prune away from gone. Tagged
+  `:5247896` and `:adbf3f5` explicitly on the Pi after confirming each one's identity from its
+  `APP_COMMIT` env stamp rather than trusting the ID in the notes. Recorded in `AGENTS.local.md`,
+  along with the caveat that rolling back below `17bd4fc` needs a DB restore, not just a tag
+  swap — a pre-v4 image sees `user_version = 5`, no-ops its own migration, and then fails every
+  insert into the rebuilt tables because it never supplies the now-`NOT NULL` `profile_id`.
+
+  **Not fixed, flagged deliberately:** under the image's Python 3.11 `sqlite3`, DDL runs in
+  autocommit, so the v4 rebuild is not atomic end-to-end — a crash mid-rebuild leaves a
+  half-migrated DB. It completed cleanly here and both affected tables were empty, so the
+  exposure was nil this time; it will not be on the next schema-changing deploy onto a non-empty
+  `exercise_notes`. Out of scope for this tick, not silently dropped.
 - **2026-08-31 (#69 → #77):** Shipped. Picked up directly (effort:S, no separate plan needed per
   `PLAYBOOK.md`'s effort:M+ threshold) once #67 turned out to be blocked on owner approval. Scoped
   down from the issue's full text to just the TopBar-display piece — schema v5 (nullable
