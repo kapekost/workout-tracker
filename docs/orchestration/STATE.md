@@ -27,12 +27,15 @@
   than just an assertion of safety. All four intake issues (#27/#30/#32/#33) now have specs — none
   yet split into `ready` children. #70 (cross-user competition/comparison screens) remains an
   unshaped intake issue.
-- **Next action:** #67 and #69 are both `ready`, unblocked (labeled by hand this tick — no
-  graphql-capable/Project-board-rank tool available this session, so which of the two to pick
-  first is a judgment call, not a ranked read). #67 has a hand-off comment from #66 waiting for
-  whoever picks it up (seeded profile's `password_hash IS NULL` by design; replace
-  `_default_profile_id()` call sites, don't add a second mechanism). #68 still needs the `ready`
-  label added once #67 merges. #30/#32 need splitting into `ready` child issues per their spec's
+- **Next action:** #67 and #69 are both labeled `ready`, but **neither is actually pickable by an
+  unattended tick right now** — see "Needs owner" below for #67's approval gate. #69's own body
+  already half-flags a real scope nuance worth restating: its title says "switcher" but the actual
+  bullets are "show the active profile in TopBar" (trivially buildable now — only one profile
+  exists pre-#67, no switching logic needed), plus "emoji picker for profile icon at creation
+  time," which has nowhere to hook into until #67's creation flow exists. Whoever executes #69
+  should split those two rather than build creation-flow UI that's really #67's job. #68 still
+  needs the `ready` label added once #67 merges (and will need the same approval gate). #30/#32
+  need splitting into `ready` child issues per their spec's
   §7 (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
   #33 needs splitting into a `ready` issue per its own spec (small enough it may not need
   splitting into children at all — see the spec's §8) once the owner has skimmed §2's BMI proposal.
@@ -48,6 +51,12 @@
 (no branches in flight)
 
 ## Needs owner
+- **#67 (username/password login) is `ready` but blocked from unattended execution** — it changes
+  auth/session handling, which GUARDRAILS classifies as **destructive**, requiring the `approved`
+  label before any tick (attended or not) may execute it. No tick may add that label itself — see
+  GUARDRAILS "Approval is human-only." Run `/orchestrate approve 67` when ready to unblock it. #68
+  (password reset, depends on #67) will need the same treatment once it's `ready` — it handles a
+  Resend API key and reset tokens, same classification.
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
   ...` command (given in chat 2026-08-30) covering the 12 branches from the abandoned prior
   attempt (`ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`, `tmp/repair-38-stacked`
