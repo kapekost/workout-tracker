@@ -249,8 +249,9 @@ def health(response: Response):
 @app.post("/api/sessions")
 def create_session(s: SessionIn):
     with db() as conn:
-        cur = conn.execute("INSERT INTO sessions (date, workout_day) VALUES (?, ?)",
-                           (datetime.now().strftime("%Y-%m-%d"), s.workout_day))
+        profile_id = _default_profile_id(conn)
+        cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
+                           (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()
         row = conn.execute("SELECT * FROM sessions WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
@@ -300,9 +301,11 @@ def add_set(sid: int, s: SetIn):
     with db() as conn:
         if not conn.execute("SELECT id FROM sessions WHERE id = ?", (sid,)).fetchone():
             raise HTTPException(404)
+        profile_id = _default_profile_id(conn)
         cur = conn.execute(
-            "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg) VALUES (?,?,?,?,?,?)",
-            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg))
+            "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg, profile_id) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg, profile_id))
         conn.commit()
         row = conn.execute("SELECT * FROM sets WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
@@ -510,9 +513,10 @@ def ingest_events(events: list[EventIn]):
     if not events:
         return
     with db() as conn:
+        profile_id = _default_profile_id(conn)
         conn.executemany(
-            "INSERT INTO events (name, screen, props) VALUES (?,?,?)",
-            [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None) for e in events])
+            "INSERT INTO events (name, screen, props, profile_id) VALUES (?,?,?,?)",
+            [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None, profile_id) for e in events])
         conn.commit()
 
 @app.get("/api/analytics/summary")

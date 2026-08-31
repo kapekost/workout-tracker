@@ -115,3 +115,32 @@ def test_second_profile_can_log_the_same_pb_as_the_first(client, mainmod):
             "VALUES (?, 'bench_press','Bench Press',100,3,2023)", (other_id,))
         conn.commit()
         assert conn.execute("SELECT COUNT(*) FROM personal_bests").fetchone()[0] == 2
+
+def test_new_session_is_attributed_to_seed_profile(client, mainmod):
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    with mainmod.db() as conn:
+        seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
+        assert conn.execute("SELECT profile_id FROM sessions WHERE id=?", (sid,)).fetchone()[0] == seed_id
+
+def test_new_set_is_attributed_to_seed_profile(client, mainmod):
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    set_id = client.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60}).json()["id"]
+    with mainmod.db() as conn:
+        seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
+        assert conn.execute("SELECT profile_id FROM sets WHERE id=?", (set_id,)).fetchone()[0] == seed_id
+
+def test_new_personal_best_is_attributed_to_seed_profile(client, mainmod):
+    pb_id = client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023}).json()["id"]
+    with mainmod.db() as conn:
+        seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
+        assert conn.execute("SELECT profile_id FROM personal_bests WHERE id=?", (pb_id,)).fetchone()[0] == seed_id
+
+def test_new_event_is_attributed_to_seed_profile(client, mainmod):
+    client.post("/api/events", json=[{"name": "test_event"}])
+    with mainmod.db() as conn:
+        seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
+        assert conn.execute("SELECT profile_id FROM events WHERE name='test_event'").fetchone()[0] == seed_id
