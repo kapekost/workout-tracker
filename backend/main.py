@@ -92,6 +92,11 @@ def _migrate(conn):
         seed = conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()
         seed_id = seed[0] if seed else conn.execute(
             "INSERT INTO profiles (username, role) VALUES ('kapekost', 'admin')").lastrowid
+        for t in ("sessions", "sets", "events"):
+            if not _column_exists(conn, t, "profile_id"):
+                conn.execute(f"ALTER TABLE {t} ADD COLUMN profile_id INTEGER "
+                             f"REFERENCES profiles(id) ON DELETE CASCADE")
+            conn.execute(f"UPDATE {t} SET profile_id = ? WHERE profile_id IS NULL", (seed_id,))
 
 def init():
     with db() as conn:
