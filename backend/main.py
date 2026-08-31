@@ -78,6 +78,20 @@ def _migrate(conn):
             )
         """)
         conn.execute("PRAGMA user_version = 3")
+    # --- v3 -> v4: profiles (real, isolated, data-owning accounts) ---
+    if v < 4:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS profiles (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT NOT NULL UNIQUE,
+                password_hash TEXT,
+                role          TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin', 'member')),
+                created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        seed = conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()
+        seed_id = seed[0] if seed else conn.execute(
+            "INSERT INTO profiles (username, role) VALUES ('kapekost', 'admin')").lastrowid
 
 def init():
     with db() as conn:
