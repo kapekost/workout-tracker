@@ -38,6 +38,8 @@
   (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`), not re-planning. Dispatched
   to a background subagent on its own branch (`claude/66-profiles-schema-migration`, off `main`)
   — not yet reviewed/PR'd as of this write-back.
+- **#27** — claimed 2026-08-31T08:33:12Z, live session. Writing its spec with real care per
+  DECISIONS.md's own flag (home-network security, Home Assistant coexistence) — not a quick pass.
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
