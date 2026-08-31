@@ -12,25 +12,32 @@
   real execution, not just triaged. #30 and #32 now have a combined written spec
   (`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`, merged via #73) covering both
   at once (they share the same "structured AI output, reviewed and confirmed, then written" shape)
-  — still `intake` pending the actual split into `ready` children. #27/#33 remain triaged
-  (2026-08-30 owner Q&A) but unspecced. #70 (cross-user competition/comparison screens) remains an
-  unshaped intake issue.
-- **Next action:** #66 is `ready` **with a plan** — the next tick should execute it directly per
-  the plan's 7 tasks, not re-plan it. #67/#68/#69 still need the `ready` label added by hand once
-  their dependency merges (#67/#69 after #66, #68 after #67) — no native GitHub blocked-by
-  relationship was set (no graphql-capable tool available this session), so this is a manual
-  sequencing note instead. #30/#32 need splitting into `ready` child issues per the new spec's §7
-  (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
-  #27/#33 still need their own spec written. #70 needs a first triage pass.
+  — still `intake` pending the actual split into `ready` children. #33 now has a written spec too
+  (`docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`, merged via #74) — flags one
+  proposed-not-decided design choice (§2: a contextual BMI figure as the concrete use for the
+  height field) for the owner to confirm or correct. #27 remains triaged (2026-08-30 owner Q&A)
+  but unspecced — the one DECISIONS.md flagged as higher-stakes (home-network security),
+  deliberately not rushed alongside the others this session. #70 (cross-user
+  competition/comparison screens) remains an unshaped intake issue.
+- **Next action:** #66 is `ready` **with a plan**, currently executing (see In-flight) — do not
+  re-plan or re-pick it while that's in progress. #67/#68/#69 still need the `ready` label added
+  by hand once their dependency merges (#67/#69 after #66, #68 after #67) — no native GitHub
+  blocked-by relationship was set (no graphql-capable tool available this session), so this is a
+  manual sequencing note instead. #30/#32 need splitting into `ready` child issues per their spec's
+  §7 (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
+  #33 needs splitting into a `ready` issue per its own spec (small enough it may not need
+  splitting into children at all — see the spec's §8) once the owner has skimmed §2's BMI proposal.
+  #27 still needs its own spec written — treat with more care than a quick pass, per DECISIONS.md.
+  #70 needs a first triage pass.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
 - **#66** — claimed 2026-08-31T08:20:50Z, live session. Executing per its merged plan
-  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`), not re-planning.
-- **#33** — claimed 2026-08-31T08:25:13Z, live session. Writing its own spec (needs bodyweight +
-  height, per DECISIONS.md), independent of and in parallel with #66's execution.
+  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`), not re-planning. Dispatched
+  to a background subagent on its own branch (`claude/66-profiles-schema-migration`, off `main`)
+  — not yet reviewed/PR'd as of this write-back.
 
 ## Needs owner
 - **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
@@ -68,6 +75,21 @@
   work.
 
 ## Tick log
+- **2026-08-31 (#33 spec → #74):** Shipped, docs-only, written in parallel with #66's execution
+  (separate `git worktree` checkout — see the Agent-tool `IMPROVEMENTS.md` entry above for why
+  that was necessary this tick). `docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`:
+  resolves the owner's actual 2026-08-30 answers (bodyweight + height, standalone, ISSN-sourced,
+  not personalized dosing), then does the spec-writer job — data model (two nullable columns
+  direct on `profiles`, no history table), endpoint contracts, and the actual guidance copy written
+  out close to verbatim (protein range formula, timing guidance, the always-visible disclaimer) so
+  a future plan doesn't have to re-derive it. One thing surfaced rather than silently assumed: the
+  ISSN protein guidance itself only needs bodyweight (it's g/kg) — height was the owner's own
+  addition beyond that minimum, so the spec proposes a concrete, honest use (a contextual BMI
+  figure, explicitly labeled a reference number, not a health assessment) and flags it as this
+  spec's proposal, not a recorded decision, so it's easy to correct. Also narrower in sequencing
+  than #30/#32: depends on #66 only, not #67 — bodyweight/height are meaningful even before real
+  login exists, unlike per-profile import/coaching. Stays `intake` — next action is splitting into
+  `ready` per the spec's §8. All 3 checks green, merged squash.
 - **2026-08-31 (#30/#32 spec → #73):** Shipped, docs-only. Combined design for both issues in one
   pass, per the third Feature Intake outcome PR #71 named and IMPROVEMENTS.md's friction log —
   #30 and #32 independently converged on the same "structured AI output, reviewed and confirmed,
