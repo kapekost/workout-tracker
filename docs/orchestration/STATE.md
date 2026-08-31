@@ -56,6 +56,16 @@
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
   template repo — looks like Claude Code harness/skill-runtime behavior. Flagging per PLAYBOOK
   step 8 rather than guessing at a fix.
+- **`[unsure]` IMPROVEMENTS.md entry (2026-08-31):** the Agent tool, dispatched without
+  `isolation:'worktree'` for #66's execution, shared the parent session's own working
+  directory/git checkout by default — its `git checkout -b ...` silently switched the
+  orchestrator's own checked-out branch mid-session. Caught via a stale-file system-reminder, not
+  a loud failure. Worked around with separate plain `git worktree add` checkouts (not the harness
+  `EnterWorktree` tool, which is explicitly scoped to explicit user/CLAUDE.md requests) for the
+  controller's own concurrent work for the rest of this tick. Not fixable via a PR in this repo —
+  Agent-tool/harness default behavior. Real fix candidate for `PLAYBOOK.md`'s Execute step:
+  default to `isolation:'worktree'` for any subagent dispatch that does its own git branch/commit
+  work.
 
 ## Tick log
 - **2026-08-31 (#30/#32 spec → #73):** Shipped, docs-only. Combined design for both issues in one
