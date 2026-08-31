@@ -39,6 +39,12 @@ def db():
 def _column_exists(conn, table, col):
     return col in [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
+def _default_profile_id(conn):
+    # Temporary: attributes every new row to the seeded admin profile until #67
+    # introduces real request-scoped login/session identity. Every call site
+    # below is removed/replaced in #67, not extended further.
+    return conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
+
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
     # --- v0 -> v1: baseline + ended_at (guarded; existing prod DBs already have it) ---
@@ -97,6 +103,21 @@ def _migrate(conn):
                 conn.execute(f"ALTER TABLE {t} ADD COLUMN profile_id INTEGER "
                              f"REFERENCES profiles(id) ON DELETE CASCADE")
             conn.execute(f"UPDATE {t} SET profile_id = ? WHERE profile_id IS NULL", (seed_id,))
+        if not _column_exists(conn, "exercise_notes", "profile_id"):
+            conn.execute("ALTER TABLE exercise_notes RENAME TO exercise_notes_old")
+            conn.execute("""
+                CREATE TABLE exercise_notes (
+                    profile_id  INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    exercise_id TEXT NOT NULL,
+                    note        TEXT NOT NULL,
+                    updated_at  TEXT DEFAULT (datetime('now')),
+                    PRIMARY KEY (profile_id, exercise_id)
+                )
+            """)
+            conn.execute(
+                "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) "
+                "SELECT ?, exercise_id, note, updated_at FROM exercise_notes_old", (seed_id,))
+            conn.execute("DROP TABLE exercise_notes_old")
 
 def init():
     with db() as conn:
@@ -340,13 +361,15 @@ def get_notes():
 def put_note(exercise_id: str, n: NoteIn):
     note = n.note.strip()
     with db() as conn:
+        profile_id = _default_profile_id(conn)  # temporary — see Task 5
         if note:
             conn.execute(
-                "INSERT INTO exercise_notes (exercise_id, note, updated_at) VALUES (?,?,datetime('now')) "
-                "ON CONFLICT(exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
-                (exercise_id, note))
+                "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) VALUES (?,?,?,datetime('now')) "
+                "ON CONFLICT(profile_id, exercise_id) DO UPDATE SET note=excluded.note, updated_at=datetime('now')",
+                (profile_id, exercise_id, note))
         else:
-            conn.execute("DELETE FROM exercise_notes WHERE exercise_id = ?", (exercise_id,))
+            conn.execute("DELETE FROM exercise_notes WHERE profile_id = ? AND exercise_id = ?",
+                         (profile_id, exercise_id))
         conn.commit()
         return {"exercise_id": exercise_id, "note": note}
 
