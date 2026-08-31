@@ -577,15 +577,27 @@ def import_data(payload: ImportIn):
         try:
             conn.execute("BEGIN")
             for t in TABLES:
+                if t == "profiles" and "profiles" not in env["tables"]:
+                    # Pre-v4 envelope has no opinion about profiles at all — leave the
+                    # live table untouched rather than wiping the seed admin with no
+                    # profiles data in the envelope to restore it from. Every write
+                    # endpoint depends on at least one profile existing.
+                    continue
                 valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
                 conn.execute(f"DELETE FROM {t}")
                 for r in env["tables"].get(t, []):
                     if not set(r.keys()) <= valid:
                         raise ValueError(f"unknown column in {t} row")
-                    cols = list(r.keys())
+                    row = dict(r)
+                    if "profile_id" in valid and "profile_id" not in row:
+                        # Row predates profiles entirely (pre-v4 envelope) — attribute
+                        # it to the live default profile, same backfill the original
+                        # migration did for pre-existing data.
+                        row["profile_id"] = _default_profile_id(conn)
+                    cols = list(row.keys())
                     placeholders = ",".join("?" * len(cols))
                     conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
-                                 [r[c] for c in cols])
+                                 [row[c] for c in cols])
             # The DB's physical schema is already at cur_version (migrations
             # ran at startup); restoring older data must not record a lower
             # version, or a later restart could re-run a non-idempotent

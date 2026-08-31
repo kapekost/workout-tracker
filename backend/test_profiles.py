@@ -160,6 +160,46 @@ def test_old_v3_envelope_without_profiles_still_imports(client):
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old_envelope})
     assert r.status_code == 200
 
+def test_old_envelope_does_not_wipe_the_seed_profile(client):
+    # A pre-v4 envelope has no "profiles" key at all — it must not empty the live
+    # profiles table with nothing to restore it from, or every write breaks
+    # afterward (every write endpoint depends on a profile existing).
+    old_envelope = {
+        "exported_at": "2026-08-01T00:00:00Z",
+        "schema_version": 3,
+        "tables": {"sessions": [], "sets": [], "exercise_notes": [], "events": [], "personal_bests": []},
+    }
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old_envelope})
+    assert r.status_code == 200
+    exp = client.get("/api/export").json()
+    assert len(exp["tables"]["profiles"]) == 1
+    assert exp["tables"]["profiles"][0]["username"] == "kapekost"
+    # The real regression: writes must still work after the restore.
+    assert client.post("/api/sessions", json={"workout_day": "upper_a"}).status_code == 200
+
+def test_old_envelope_with_legacy_notes_and_pbs_backfills_profile_id(client):
+    # A real pre-v4 backup can easily contain exercise_notes/personal_bests rows
+    # (both pre-existing features) with no profile_id key at all — those two
+    # tables were rebuilt with profile_id NOT NULL, so a naive insert 400s the
+    # whole import unless the missing profile_id is backfilled on the way in.
+    old_envelope = {
+        "exported_at": "2026-08-01T00:00:00Z",
+        "schema_version": 3,
+        "tables": {
+            "sessions": [], "sets": [], "events": [],
+            "exercise_notes": [{"exercise_id": "bench_press", "note": "go slow",
+                                 "updated_at": "2026-08-01 00:00:00"}],
+            "personal_bests": [{"id": 1, "exercise_id": "bench_press", "exercise_name": "Bench Press",
+                                 "weight_kg": 100.0, "reps": 3, "achieved_year": 2023,
+                                 "achieved_note": None, "created_at": "2026-08-01 00:00:00"}],
+        },
+    }
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old_envelope})
+    assert r.status_code == 200
+    exp = client.get("/api/export").json()
+    assert exp["tables"]["exercise_notes"][0]["profile_id"] is not None
+    assert exp["tables"]["personal_bests"][0]["profile_id"] is not None
+
 def test_profiles_round_trip_through_export_import(client):
     client.post("/api/personal-bests", json={
         "exercise_id": "bench_press", "exercise_name": "Bench Press",
