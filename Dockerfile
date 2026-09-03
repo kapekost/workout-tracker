@@ -22,8 +22,10 @@ COPY frontend/ .
 RUN npm run build
 
 # Stage 2 — Python backend + serve built frontend
-# No build tools: every dep ships a manylinux aarch64 wheel for py3.11, so pip
-# never compiles (gcc alone was ~150 MB of dead weight on the 1 GB Pi).
+# No build tools: every dep ships a manylinux aarch64 wheel for py3.14, so pip
+# never compiles (gcc alone was ~150 MB of dead weight on the 1 GB Pi). Re-verify
+# this holds on any future base-image bump: CI never builds this Dockerfile, so a
+# missing wheel shows up only as a real build failure here, never as a red check.
 FROM python:3.14-slim
 ARG APP_COMMIT
 ENV APP_COMMIT=$APP_COMMIT
