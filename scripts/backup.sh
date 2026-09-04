@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Weekly off-site backup for the workout-tracker SQLite DB.
+# Off-site backup for the workout-tracker SQLite DB. Run by hand, when you want
+# one — there is no cron for this any more (removed 2026-09-04; the app isn't
+# used enough to justify a schedule). Everything below still assumes it runs on
+# the Raspberry Pi HOST.
 # Runs on the Raspberry Pi HOST via cron, but the DB snapshot (VACUUM INTO) is
 # taken INSIDE the container via `docker compose exec`, then copied out with
 # `docker cp`. Why: the app container runs as root and switches the DB to WAL
@@ -28,14 +31,15 @@ REMOTE="${REMOTE:-gdrive:workout-tracker-backups}"
 # Empty = keep every off-site snapshot. Deliberate: the DB is ~185 KB, so a
 # year of weeklies is ~10 MB. Set e.g. REMOTE_KEEP_DAYS=180 to prune old ones.
 REMOTE_KEEP_DAYS="${REMOTE_KEEP_DAYS:-}"
-# Optional independent heartbeat (e.g. a healthchecks.io ping URL). The status
-# file this script writes is only ever read by someone who goes and looks at
-# /api/health, so nothing actively tells you a backup broke — an external
-# receiver that alarms on a *missing* ping is the only way a failure gets
-# noticed instead of discovered later. Until one is set, /api/health is the
-# signal: it reports last_backup_status "failed" immediately, or "stale" once
-# an "ok" is more than 8 days old (the weekly cron plus a day of grace). If
-# the cron schedule changes, move that threshold in backend/main.py with it.
+# Optional independent heartbeat (e.g. a healthchecks.io ping URL). Unused, and
+# deliberately so: that kind of receiver alarms when a ping fails to arrive on
+# schedule, and a manual backup has no schedule to be late against, so it would
+# simply fire forever (see #89). Left in place because reinstating a cron plus
+# an external check later is then a two-line change. Running this by hand tells
+# you the result directly — non-zero exit, stderr, and last_backup_status in
+# /api/health, which reports "failed" immediately or "stale" once an "ok" is
+# more than 8 days old. That 8 days is now a "it's been a while" nudge rather
+# than a missed-schedule alarm; nothing fails a deploy over it.
 HEARTBEAT_URL="${HEARTBEAT_URL:-}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="$STAGE/workout-$STAMP.db"
@@ -122,9 +126,11 @@ fi
 # Housekeeping — best-effort and OUTSIDE the success chain: a prune hiccup must
 # not flag a good backup as failed, and a Drive outage must not skip it.
 $COMPOSE exec -T workout-tracker python -c "import sqlite3; c = sqlite3.connect('$DB'); c.execute(\"DELETE FROM events WHERE ts < datetime('now','-12 months')\"); c.commit(); c.close()" >/dev/null 2>&1 || true
-# 90 days is ~13 weekly snapshots, about what +14 gave under the old nightly
-# schedule; at a weekly cadence +14 would leave only two. The DB is ~185 KB,
-# so keeping a quarter's worth costs nothing on disk.
+# Keep roughly the last quarter of whatever you happened to run. With manual
+# backups there is no cadence to size this against, and the DB is ~170 KB, so
+# an age-based prune is only here to stop the directory growing without bound.
+# The Pi is deliberately kept to a couple of snapshots by hand (2026-09-04);
+# this is the backstop, not the policy.
 find "$STAGE" -name 'workout-*.db' -mtime +90 -delete 2>/dev/null || true
 
 exit $status

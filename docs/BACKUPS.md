@@ -50,9 +50,12 @@ the schema version each table first appeared at, so an envelope only has to cont
 tables that existed when it was written. An old backup stays importable as new tables
 are added — a property that gets re-broken easily, so it has regression tests.
 
-### 4. Scheduled snapshots — local, then off-site (weekly)
+### 4. Snapshots — local, then off-site (manual)
 
-`scripts/backup.sh`, from cron on the host. One chain:
+`scripts/backup.sh`, run by hand on the host. There is **no cron**: it was nightly
+until 2026-09-04, weekly for a few hours, and then removed entirely — the app isn't
+used enough for a schedule to earn its keep, and a manual run tells you its result
+immediately instead of failing silently at 03:30. One chain:
 
 ```
 VACUUM INTO (inside the container)
@@ -74,8 +77,19 @@ safely on the host's disk. That ordering is why an off-site outage still leaves 
 good local snapshots — proven in the 2026-09-01..04 Drive failure, where four "failed"
 runs each produced a perfectly good local file. **Do not reorder this chain.**
 
-Retention: 90 days locally (~13 weekly snapshots); off-site keeps everything
-(`REMOTE_KEEP_DAYS` unset — a year of weeklies is around 10 MB).
+Retention, as actually configured on 2026-09-04: **two** local snapshots, kept by hand,
+and whatever is off-site. The `-mtime +90` prune in the script is only a backstop against
+unbounded growth, not the policy — with no cadence there is nothing to size a window
+against.
+
+**The off-site remote does not "keep everything", and it is worth understanding why.**
+The rclone remote uses `scope = drive.file`, which grants access only to files that
+*that OAuth client* created. It is not a view of the Drive folder; it is a view of one
+app's own uploads. When the client_id changed on 2026-08-25, everything the previous
+client had uploaded became invisible to rclone — still consuming Drive storage, but
+unreachable from the command line and only findable in the Drive web UI. As of
+2026-09-04 the remote holds exactly **one** object. Treat the off-site copy as "the last
+run's snapshot", not as an archive, and do any real housekeeping in the web UI.
 
 Housekeeping — pruning old snapshots and trimming the `events` table — runs *outside*
 the success chain, so a prune hiccup can't flag a good backup as failed and an off-site
@@ -99,15 +113,21 @@ it. Deliberately a file rather than an API call: the status no longer lives *ins
 database being backed up (a restore used to drag stale heartbeats back in), and there's
 no unauthenticated write endpoint to defend.
 
-A successful backup older than 8 days reports `stale` — the weekly period plus a day of
-grace. That threshold must move if the schedule does. Left at the old nightly 26h it
-would have read `stale` every single day, and **a signal that is always red is one people
-stop reading** — which is exactly how three consecutive nights of failed off-site backups
-went unnoticed in September 2026.
+A successful backup older than 8 days reports `stale`. With backups manual, read that as
+"it has been over a week since you took one", not as a broken schedule — `scripts/deploy.sh`
+prints it as a warning and does **not** fail the deploy over it. `failed` is the one worth
+chasing: it means the chain ran and broke.
 
-`/api/health` is a **pull** signal. It only works when someone looks. `HEARTBEAT_URL` in
-`backup.sh` is the hook for an external receiver that would actively notify — currently
-unused.
+The threshold must move if a schedule ever comes back. Left at the old nightly 26h against
+a weekly cron it would have read `stale` every single day, and **a signal that is always
+red is one people stop reading** — which is exactly how three consecutive nights of failed
+off-site backups went unnoticed in September 2026.
+
+`/api/health` is a **pull** signal. It only works when someone looks. That was the argument
+for an external receiver, and `HEARTBEAT_URL` in `backup.sh` is still the hook for one —
+but a dead-man's-switch alarms on a ping that missed its *schedule*, and a manual backup has
+none, so it would fire forever. #89 was closed for that reason; reinstate both together or
+neither.
 
 ## Restore
 
@@ -119,6 +139,33 @@ Two paths, both documented with real commands in `AGENTS.local.md`:
 **Re-drill a restore after any schema change.** The import path is the most
 safety-critical code in the app and the one least exercised in normal use.
 
+## What this covers, and what it doesn't
+
+Everything above is about **`workouts.db`**. The host it runs on is shared, and the other
+two things living on it have a very different level of protection. Audited 2026-09-04:
+
+| What | Protection | Off-box? |
+|---|---|---|
+| **workout-tracker DB** | `scripts/backup.sh`, run manually; 2 local snapshots + the last one off-site | Yes |
+| **Home Assistant** | HA's own automatic backup, roughly monthly, into its Docker config volume | **No** |
+| **The Raspberry Pi itself** | Nothing | **No** |
+
+Two gaps worth naming rather than discovering later:
+
+- **Home Assistant's backups are on the same SD card as Home Assistant.** They exist and
+  they are large (two tars, ~47 MB and ~65 MB, from 2026-08-01 and 2026-09-01), but
+  nothing copies them off the box. The card dying takes the backups with it — which is
+  the one failure this Pi has already had, in July 2026.
+- **There is no image or filesystem backup of the Pi.** No timeshift, rpi-clone,
+  rsnapshot, borg, restic or duplicity is installed, and no cron or systemd timer does
+  anything of the kind. Losing the card means rebuilding the OS and every service by
+  hand. For workout-tracker that is fine — it rebuilds from git and its data is off-box.
+  For Home Assistant it is not: months of configuration and history live only there.
+
+Neither is filed as an issue in this repo, because neither is this repo's to fix — the
+Pi is shared infrastructure. They are recorded here so the honest answer to "what is
+backed up?" isn't mistaken for "the app is backed up, so the box is".
+
 ## Known gaps
 
 Tracked, not forgotten:
@@ -126,9 +173,9 @@ Tracked, not forgotten:
 | Gap | Issue |
 |---|---|
 | Backup status conflates the local and off-site legs, so an off-site failure masks the state of the local snapshot | #93 |
-| Off-site copies unreliable until the Google OAuth app is published — token expires every 7 days in *Testing* status | #94 |
-| No active alerting; failure is only visible if someone checks `/api/health` | #89 |
 
-The honest current position: **local snapshots are reliable, off-site is best-effort.**
-Level 4's local half runs weekly and works; its off-site half is expected to fail most
-weeks until #94 is done. Levels 2 and 3 are unaffected.
+The honest current position for the database: **local snapshots are reliable, off-site is
+one copy and best-effort.** The Google OAuth app was published on 2026-09-04 and the
+remote verified working, which closed #94 and ended the weekly token expiry. Levels 2 and
+3 are unaffected by any of it. Active alerting (#89) was closed as not planned: it needs a
+schedule to alarm against, and there isn't one.

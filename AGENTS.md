@@ -124,7 +124,10 @@ to one deployment. What's true for any deployment of this project:
   locally, no re-tagging trick needed.
 - Before any schema-changing deploy, snapshot via `GET /api/export`.
 - After every deploy, verify `/api/health` reports the commit you just
-  built and `last_backup_status` isn't `stale`.
+  built. `last_backup_status` is informational: backups are manual, so
+  `stale` only means the last one is over a week old, and `scripts/deploy.sh`
+  warns rather than failing on it. `failed` is the one to chase — it means
+  the chain ran and broke.
 - Re-drill a restore after any schema change.
 
 **How the whole backup and recovery story fits together — every level, what
