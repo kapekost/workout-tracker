@@ -67,6 +67,15 @@
   fix candidate for `PLAYBOOK.md`'s Execute step: default to `isolation:'worktree'` for any
   subagent dispatch that does its own git branch/commit work.
 
+- **Home branch survives only by hand right now.** Enabling auto-delete-on-merge (see Closed
+  below) deletes `claude/workout-tracker-backlog-bu9qnw` whenever its PR lands on `main` — PR #90
+  did exactly that on 2026-09-04, even though it was merged deliberately without
+  `--delete-branch`. That branch *is* the PLAYBOOK claim mechanism, so losing it silently disables
+  collision protection for every later tick. Restored by re-pushing the local ref, which only
+  worked because a local copy still existed. Until PLAYBOOK is fixed (see IMPROVEMENTS.md
+  2026-09-04), **any tick that merges this branch must re-push it and verify it exists before
+  finishing.**
+
 ### Closed 2026-09-04
 - ~~**Orphaned branches, manual cleanup scheduled**~~ — **done**. 28 dead remote branches deleted.
   The runner's long-standing 403 on `git push --delete` turned out to be specific to the GitHub
