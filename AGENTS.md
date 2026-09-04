@@ -229,9 +229,45 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-08-25 (deployed `5247896`)._
+_Last updated: 2026-09-04 (deployed `17bd4fc`; `main` is ahead — see below)._
 
-**Running now:** commit `5247896`, deployed 2026-08-25 — the UI/UX
+**Running now:** commit `17bd4fc`, deployed 2026-08-31. Container healthy,
+`/api/health` `status: ok`. Schema v5 (profiles + TopBar profile display,
+#66/#76 and #69/#77). Verified live 2026-09-03.
+
+**Unreleased — `main` is 4 commits ahead of the deployed image.** One of
+them changes the runtime, so the next deploy is not a no-op:
+
+- `0d8576b` — base image `python:3.11-slim` → `3.14-slim` (#81)
+- `65a1804` — pydantic 2.13.4 → 2.13.5 (#80)
+- `4cb2a08` — CI now tests on py3.14 to match the base image (#82)
+- `79cc6c8` — docs only (#79)
+
+Both dependency bumps were hand-verified before merge rather than trusted
+on green checks, because **CI never builds this Dockerfile** — it runs
+tests bare-metal on the runner, so a base image whose deps lack aarch64
+wheels would fail the real build while CI stays green (the trap that kept
+#7/#23 open for weeks). Verified: full `docker buildx build
+--platform linux/arm64` clean with deps installing in 5.2s and no
+compilation, 88 backend tests green on py3.14 + pydantic 2.13.5, container
+smoke test (`/api/health` ok, `/` 200, `/api/sessions` 200), fresh DB
+migrating to `user_version = 5`, image 287 MB vs 283 MB (+4 MB, immaterial
+on the 1 GB box).
+
+**Known broken: off-site backups.** `rclone` has failed with
+`invalid_grant` since 2026-09-02; last successful Drive copy was
+2026-08-31. Local nightly snapshots in `~/backups` on the Pi are unaffected
+and current — the `rclone copy` step sits *after* the snapshot reaches the
+host's disk, so steps 1–2 kept succeeding. Cause is almost certainly the
+trap documented in `AGENTS.local.md`: the personal Google OAuth app left in
+**"Testing"** publish status expires refresh tokens after 7 days, and the
+client_id migration was 2026-08-25 — seven days before the first failure.
+**Fix needs the owner**: publish the OAuth app, then re-authorize via
+`rclone authorize` on a machine with a browser and write the token straight
+into the Pi's `rclone.conf` (never `rclone config update`, which hangs
+headlessly).
+
+**Previously running:** commit `5247896`, deployed 2026-08-25 — the UI/UX
 design-system initiative merged to `main` (5 upgrades: design tokens +
 migration, Tailwind's removal, 6 shared components swept onto every call
 site, a Playwright + GitHub Actions responsive-regression guard, and the
@@ -246,9 +282,9 @@ already pins for `rollup`, without touching the lockfile itself. Deployed
 and verified (see `AGENTS.local.md` for the actual verify output). No
 schema change, so no export snapshot or restore drill required.
 
-**Nothing is unreleased.** `main` == `origin/main` == the deployed commit.
-Tests, per the merge (not re-run this session): 69 backend + 210 frontend
-+ a 12-test Playwright suite, all green.
+Tests, per that merge (not re-run then): 69 backend + 210 frontend + a
+12-test Playwright suite, all green. (Backend is now 88 — #24's real
+backend CI landed since.)
 
 **Rollback:** the previous image is still on the deploy target, untagged —
 see `AGENTS.local.md` for the exact tag/hash and revert command. No schema
