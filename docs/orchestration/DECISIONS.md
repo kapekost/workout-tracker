@@ -3,6 +3,19 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-04 — #88 ships end to end: deploy the Pi, then flip the cron
+
+Asked at the deploy boundary, because #88's two halves only work together. The
+owner chose to take the tick all the way: merge, deploy, then change the Pi's
+crontab to weekly in the same window. Deploying carried the py3.11 to 3.14 base
+image bump and pydantic 2.13.5, which had been sitting on main hand-verified but
+undeployed since 2026-09-04; those were the only runtime changes in the backlog,
+everything else was docs.
+
+The ordering is the point. Flipping the cron before the 8-day threshold is
+running on the Pi would leave /api/health permanently stale, which is the exact
+failure the issue exists to prevent. Deploy first, cron second, always.
+
 ## 2026-09-04 — Accounts: #67 and #68 are one workstream, not a sequence
 
 The 2026-09-02 decision that initial passwords are set through an emailed single-use link makes
