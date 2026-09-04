@@ -15,6 +15,17 @@ TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_
 TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
                         "personal_bests": 3, "profiles": 4}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
+# scripts/backup.sh writes this next to the DB, in the volume the app already
+# mounts. It replaced an /api/events POST in #88: the status no longer lives
+# inside the database being backed up (a restore used to drag stale heartbeats
+# back in with it), and there is no unauthenticated write endpoint to fence.
+BACKUP_STATUS_PATH = os.path.join(os.path.dirname(DB_PATH), "backup-status.json")
+# The backup cron runs weekly, so "late" starts at 8 days — the week plus a day
+# of grace. Left at the old nightly 26h, this would report stale every single
+# day, and a signal that is always red is one people stop reading: that is
+# exactly how three nights of failed off-site backups went unnoticed on
+# 2026-09-01..03. Move this threshold whenever the cron schedule moves.
+BACKUP_STALE_AFTER_S = 8 * 24 * 3600
 # Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
 # outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
 APP_VERSION = os.environ.get("APP_COMMIT", "dev")
@@ -226,30 +237,41 @@ class PersonalBestIn(BaseModel):
             raise ValueError("achieved_year cannot be in the future")
         return v
 
+def _last_backup():
+    """Read (at, status) out of backup-status.json. Never raises.
+
+    /api/health is the thing that tells us the backup chain is alive, so it
+    must not become the thing that breaks: an absent file, a write cut short,
+    missing keys or a timestamp nothing can parse all degrade to a report.
+    """
+    try:
+        with open(BACKUP_STATUS_PATH) as f:
+            data = json.load(f)
+        at, status = data["at"], data["status"]
+        if not isinstance(at, str) or status not in ("ok", "failed"):
+            return None, "none"
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, "none"
+    if status == "ok":
+        # Only an "ok" ages into "stale". A "failed" is already red, and
+        # relabelling it would drop the one detail that separates the two:
+        # the chain ran and broke, rather than never having run.
+        try:
+            # fromisoformat handles the trailing Z on 3.11+ (this runs on 3.14),
+            # but a hand-edited or naive timestamp still has to not 500 us.
+            age = (datetime.now(timezone.utc)
+                   - datetime.fromisoformat(at)).total_seconds()
+            if age > BACKUP_STALE_AFTER_S:
+                status = "stale"
+        except (ValueError, TypeError):
+            pass  # keep the reported status, skip the staleness comparison
+    return at, status
+
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):
     response.headers["Cache-Control"] = "no-store"
-    with db() as conn:
-        row = conn.execute(
-            "SELECT name, ts FROM events WHERE name IN ('backup_completed','backup_failed') "
-            "ORDER BY ts DESC, id DESC LIMIT 1").fetchone()
-    if row:
-        last_at = row["ts"]
-        last_status = "ok" if row["name"] == "backup_completed" else "failed"
-        # A "successful" heartbeat older than ~26h means the chain stopped
-        # running (e.g. app down at cron time) — surface it as stale. Imported
-        # envelopes can carry arbitrary ts strings; never let a bad one 500
-        # the monitoring endpoint.
-        try:
-            age = (datetime.now(timezone.utc)
-                   - datetime.fromisoformat(last_at + "+00:00")).total_seconds()
-            if last_status == "ok" and age > 26 * 3600:
-                last_status = "stale"
-        except ValueError:
-            pass
-    else:
-        last_at, last_status = None, "none"
+    last_at, last_status = _last_backup()
     return {"status": "ok", "version": APP_VERSION,
             "last_backup_at": last_at, "last_backup_status": last_status}
 

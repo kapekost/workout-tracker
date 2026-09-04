@@ -3,6 +3,41 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-09-04 — Backup status becomes a file, staleness becomes 8 days (`chore/88-backup-status-file`)
+
+`scripts/backup.sh` no longer POSTs its result to `/api/events`. It writes
+`data/backup-status.json` into the volume the app already mounts, and
+`/api/health` reads that instead. Three things improve at once: the backup
+path no longer depends on an unauthenticated write endpoint (a token guarding
+a local process that already owns the database file would have bought nothing
+anyway); the result stops living inside the database being backed up, so a
+restore can't drag a stale heartbeat back in with it; and the write is no
+longer a `curl … || true`, which was a swallowed failure by construction. If
+the status can't be recorded now, that goes to stderr and into the script's
+exit status. `/api/events` itself stays — analytics still uses it.
+
+The write goes through `docker cp` rather than a plain shell redirect.
+`~/workout-tracker/data` on the Pi is `drwxr-xr-x root root` (Docker created
+it when it first mounted the volume) and the cron user has no passwordless
+sudo, so writing there directly is denied. `docker cp` runs as the Docker
+daemon, writes through the bind mount, and the file even lands owned by the
+host user. It also works against a *stopped* container, so "the backup failed
+because the app was down", the one case the old HTTP heartbeat could never
+report, now gets recorded and surfaces the moment the container is back.
+
+The staleness threshold moves from 26 hours to 8 days because the cron moves
+to weekly. Left at 26h it would report `stale` every single day, and a signal
+that is always red is one people stop reading, which is exactly how three
+nights of failed off-site backups went unnoticed on 2026-09-01..03. Local
+retention widens with it, `-mtime +14` to `+90`: at a weekly cadence the old
+window would leave two snapshots, where 90 days keeps about thirteen, roughly
+what nightly gave. The DB is ~185 KB, so that costs nothing on disk. Chain
+ordering is untouched — `rclone copy` still runs after `docker cp` has put the
+snapshot on the host's disk, which is why the local copies stayed current all
+through this week's Drive outage.
+
+Issue #88. Backend tests 88 → 91.
+
 ## 2026-08-25 — Deployed `5247896` (UI/UX design-system initiative, all 5 upgrades)
 
 Merged `claude/ui-ux-upgrades-agents-x99pq8` to `main` and deployed same

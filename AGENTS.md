@@ -124,8 +124,12 @@ to one deployment. What's true for any deployment of this project:
   locally, no re-tagging trick needed.
 - Before any schema-changing deploy, snapshot via `GET /api/export`.
 - After every deploy, verify `/api/health` reports the commit you just
-  built and `last_backup_status` isn't `stale` (>26h since the last ok
-  heartbeat means the backup chain stopped running).
+  built and `last_backup_status` isn't `stale` (>8 days since the last ok
+  backup means the weekly chain stopped running). The status comes from
+  `data/backup-status.json`, which `scripts/backup.sh` writes; the 8-day
+  window is the weekly cron plus a day of grace, so if the cron schedule
+  ever moves, move `BACKUP_STALE_AFTER_S` in `backend/main.py` with it —
+  a staleness signal that's permanently red is one people stop reading.
 - Restore paths: `POST /api/import` (destructive, needs `confirm:true`,
   auto-snapshots first) or a file-level DB swap. Re-drill a restore after
   any schema change.
