@@ -147,15 +147,31 @@ two things living on it have a very different level of protection. Audited 2026-
 | What | Protection | Off-box? |
 |---|---|---|
 | **workout-tracker DB** | `scripts/backup.sh`, run manually; 2 local snapshots + the last one off-site | Yes |
-| **Home Assistant** | HA's own automatic backup, roughly monthly, into its Docker config volume | **No** |
+| **Home Assistant** | HA's own automatic backup, roughly monthly, into its Docker config volume | Copied by hand, 2026-09-04 |
 | **The Raspberry Pi itself** | Nothing | **No** |
 
 Two gaps worth naming rather than discovering later:
 
-- **Home Assistant's backups are on the same SD card as Home Assistant.** They exist and
-  they are large (two tars, ~47 MB and ~65 MB, from 2026-08-01 and 2026-09-01), but
-  nothing copies them off the box. The card dying takes the backups with it — which is
-  the one failure this Pi has already had, in July 2026.
+- **Home Assistant's backups live on the same SD card as Home Assistant**, and nothing
+  moves them automatically. The card dying would take them with it — the one failure this
+  Pi has already had, in July 2026. The two that existed (~47 MB and ~65 MB, from
+  2026-08-01 and 2026-09-01) were copied to `gdrive:homeassistant-backups` by hand on
+  2026-09-04 and hash-verified, so today's are safe. **Every new one HA writes is not**,
+  until someone repeats it:
+
+  ```bash
+  # on the host — docker cp because the config volume is root-owned
+  mkdir -p ~/ha-staging
+  docker cp homeassistant:/config/backups/<file>.tar ~/ha-staging/
+  rclone copy ~/ha-staging gdrive:homeassistant-backups
+  rclone check ~/ha-staging gdrive:homeassistant-backups   # expect "0 differences found"
+  rm -rf ~/ha-staging
+  ```
+
+  Deleting the on-card originals afterwards is optional and currently pointless: the Pi is
+  11% full with ~100 GB free, and keeping them is the fast restore path. The risk being
+  solved is the card dying, and the off-box copy solves that whether or not the local one
+  stays.
 - **There is no image or filesystem backup of the Pi.** No timeshift, rpi-clone,
   rsnapshot, borg, restic or duplicity is installed, and no cron or systemd timer does
   anything of the kind. Losing the card means rebuilding the OS and every service by
