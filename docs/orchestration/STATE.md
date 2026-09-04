@@ -44,18 +44,6 @@
   human-only." Run `/orchestrate approve 84` to start; approve each one as its predecessor merges,
   rather than all four up front, since each step's scope is only settled once the one before it
   lands.
-- **Google OAuth app publish status — off-site backups are down because of it.** `rclone` has
-  failed `invalid_grant` since 2026-09-02; the last good Drive copy was 2026-08-31. Local
-  snapshots on the Pi are unaffected and current. The cause matches the trap already documented in
-  `AGENTS.local.md`: an OAuth app left in **"Testing"** expires refresh tokens after 7 days, and
-  the client_id migration was 2026-08-25 — exactly seven days before the first failure. Owner must
-  publish the app in the Google Cloud Console (personal/low-volume skips review — one "unverified
-  app" click-through), after which re-authorizing takes one `rclone authorize` run on a machine
-  with a browser, writing the token straight into the Pi's `rclone.conf`. Never `rclone config
-  update`, which hangs headlessly. **Still failing as of 2026-09-04 21:17** — re-checked from
-  this tick with `rclone lsd gdrive:`, same `invalid_grant`. Local snapshots remain current; the
-  manual backup run during this tick produced `workout-20260904-211731.db` on the Pi even though
-  the Drive leg failed, which is the chain ordering doing its job.
 - **#89 (backup alerting) needs a ping URL.** The owner creates a healthchecks.io check; the URL
   goes in `AGENTS.local.md` and into the cron line. #88 has now taken the cron weekly, so set the
   check's period to **weekly** — a daily period would alarm immediately against a schedule that no
@@ -70,14 +58,6 @@
   with it) are both still unfiled against `agent-scaffold`. The owner either sets up that
   credential or applies them by hand — `~/dev/agent-scaffold` is checked out locally. Not something
   a tick may work around by using the ambient token.
-- **How should the home branch reach `main`?** Related to the second entry above and needs a call
-  before the next tick. This tick deliberately did *not* open a PR from
-  `claude/workout-tracker-backlog-bu9qnw` to `main`, because that is exactly what deleted the
-  branch this morning. The cost is that `main`'s copy of `STATE.md`, `DECISIONS.md` and
-  `IMPROVEMENTS.md` now trails the live branch. Two options, both written up in `IMPROVEMENTS.md`:
-  keep merging and re-push the branch immediately every time, or stop merging it at all and
-  cherry-pick its doc commits onto short-lived branches so the home branch stays permanently
-  unmerged and therefore un-deletable.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -100,7 +80,26 @@
   2026-09-04), **any tick that merges this branch must re-push it and verify it exists before
   finishing.**
 
+  **This needs an owner call, because the workaround has its own cost.** The #88 tick chose the
+  other horn: it did not open a home-branch PR at all, pushing `STATE.md`/`DECISIONS.md`/
+  `IMPROVEMENTS.md` straight to the branch instead, so there was nothing for auto-delete to eat.
+  The price is that `main`'s copy of those three files now trails the live branch — the same
+  staleness that was a "Needs owner" item earlier the same day. Pick one: keep merging and re-push
+  every single time (one forgotten re-push silently disables collision protection), or stop merging
+  the home branch entirely and cherry-pick its doc commits onto short-lived branches, leaving it
+  permanently unmerged and therefore un-deletable. `IMPROVEMENTS.md` 2026-09-04 writes both up.
+
 ### Closed 2026-09-04
+- ~~**Google OAuth app publish status — off-site backups down**~~ — **resolved, verified**. The
+  owner published the app and re-authorized rclone during this session. Confirmed from the Pi at
+  21:24 BST: `rclone lsd gdrive:` succeeds, and `workout-20260904-212433.db` (172032 bytes) is in
+  `gdrive:workout-tracker-backups`. The run that produced it also exercised the new #88 success
+  path end to end — `data/backup-status.json` reads
+  `{"status":"ok","at":"2026-09-04T20:24:46Z","bytes":172032,"duration_s":13}` and `/api/health`
+  reports `ok`. Last good copy before this was 2026-08-31, so the gap was 2026-09-01..04. Keep the
+  cause written down: an OAuth app left in "Testing" publish status expires refresh grants every 7
+  days, and the client_id migration was exactly 7 days before the first failure.
+
 - ~~**Orphaned branches, manual cleanup scheduled**~~ — **done**. 28 dead remote branches deleted.
   The runner's long-standing 403 on `git push --delete` turned out to be specific to the GitHub
   App's permission set: the same command runs fine from the owner's Mac with the owner's own
@@ -152,7 +151,11 @@
   back, and the local snapshot `workout-20260904-211731.db` still landed despite the Drive leg
   failing. That last part is the chain ordering earning its keep in production rather than in a
   comment. The `"failed"` is honest: Google Drive is still `invalid_grant`, unchanged from the
-  start of this tick and not this tick's job.
+  start of this tick. It did not stay that way: the owner published the OAuth app and re-authorized
+  rclone while this tick was finishing, and a run at 21:24 BST put `workout-20260904-212433.db` in
+  Drive and flipped `/api/health` to `ok`. So the new mechanism has now been proven on both paths on
+  real hardware, failure first and success second, which is better coverage than a working Drive
+  would have given.
 
   **Feedback review (step 8) ran** because this tick logged three entries. Both `[local]` ones
   shipped as PR #92: step 4 no longer tells subagents to append to `IMPROVEMENTS.md` themselves
