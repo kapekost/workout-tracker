@@ -36,7 +36,14 @@ ordering is untouched — `rclone copy` still runs after `docker cp` has put the
 snapshot on the host's disk, which is why the local copies stayed current all
 through this week's Drive outage.
 
-Issue #88. Backend tests 88 → 91.
+One thing had to be put back deliberately. The old handler opened the
+database to run its query, so an unopenable DB failed the request as a side
+effect, and `scripts/deploy.sh` has always read anything other than a 200 here
+as "the deploy is not up". Reading a file instead removed that by accident, so
+`/api/health` now touches the database on purpose, with a test holding it in
+place.
+
+Issue #88. Backend tests 88 → 92.
 
 ## 2026-08-25 — Deployed `5247896` (UI/UX design-system initiative, all 5 upgrades)
 

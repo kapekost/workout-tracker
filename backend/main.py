@@ -271,6 +271,14 @@ def _last_backup():
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):
     response.headers["Cache-Control"] = "no-store"
+    # Touch the database on purpose. Until #88 this endpoint read the backup
+    # status out of the events table, so an unopenable DB failed the request as
+    # a side effect — and scripts/deploy.sh has always leaned on that, reading
+    # anything other than a 200 as "the deploy is not up". Now that the status
+    # comes from a file, nothing else here opens the DB, and without this
+    # /api/health would cheerfully report ok for an app whose database is gone.
+    with db() as conn:
+        conn.execute("SELECT 1")
     last_at, last_status = _last_backup()
     return {"status": "ok", "version": APP_VERSION,
             "last_backup_at": last_at, "last_backup_status": last_status}

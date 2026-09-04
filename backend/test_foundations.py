@@ -1,4 +1,4 @@
-import os, json, tempfile, importlib
+import os, tempfile, importlib
 from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
@@ -72,22 +72,13 @@ def test_analytics_summary_empty(client):
     summ = client.get("/api/analytics/summary").json()
     assert summ["by_name"] == [] and summ["by_screen"] == []
 
-def _write_backup_status(mainmod, body):
-    # backup.sh drops this file next to the DB, in the volume the app already
-    # mounts. `body` is either a dict (serialised) or raw text, for the
-    # malformed-file cases.
-    path = os.path.join(os.path.dirname(mainmod.DB_PATH), "backup-status.json")
-    with open(path, "w") as f:
-        f.write(body if isinstance(body, str) else json.dumps(body))
-    return path
-
-def test_health_reports_no_backup_then_ok(client, mainmod):
+def test_health_reports_no_backup_then_ok(client, write_backup_status):
     h = client.get("/api/health").json()
     assert h["status"] == "ok"
     assert h["last_backup_at"] is None and h["last_backup_status"] == "none"
 
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    _write_backup_status(mainmod, {"status": "ok", "at": at, "bytes": 1024})
+    write_backup_status({"status": "ok", "at": at, "bytes": 1024})
     h = client.get("/api/health").json()
     assert h["last_backup_status"] == "ok" and h["last_backup_at"] == at
 
