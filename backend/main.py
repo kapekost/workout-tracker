@@ -20,11 +20,13 @@ PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # inside the database being backed up (a restore used to drag stale heartbeats
 # back in with it), and there is no unauthenticated write endpoint to fence.
 BACKUP_STATUS_PATH = os.path.join(os.path.dirname(DB_PATH), "backup-status.json")
-# The backup cron runs weekly, so "late" starts at 8 days — the week plus a day
-# of grace. Left at the old nightly 26h, this would report stale every single
-# day, and a signal that is always red is one people stop reading: that is
-# exactly how three nights of failed off-site backups went unnoticed on
-# 2026-09-01..03. Move this threshold whenever the cron schedule moves.
+# Backups are manual (the cron was removed 2026-09-04), so this is a "it has
+# been a while" nudge rather than a missed-schedule alarm: an ok older than 8
+# days reads stale, and scripts/deploy.sh warns rather than failing on it. The
+# reason to keep the window generous is 2026-09-01..03, when three nights of
+# failed off-site backups went unnoticed — the lesson being that a signal which
+# is always red stops being read. If a schedule ever comes back, this threshold
+# moves with it rather than staying put.
 BACKUP_STALE_AFTER_S = 8 * 24 * 3600
 # Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
 # outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
