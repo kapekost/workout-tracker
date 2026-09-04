@@ -124,15 +124,14 @@ to one deployment. What's true for any deployment of this project:
   locally, no re-tagging trick needed.
 - Before any schema-changing deploy, snapshot via `GET /api/export`.
 - After every deploy, verify `/api/health` reports the commit you just
-  built and `last_backup_status` isn't `stale` (>8 days since the last ok
-  backup means the weekly chain stopped running). The status comes from
-  `data/backup-status.json`, which `scripts/backup.sh` writes; the 8-day
-  window is the weekly cron plus a day of grace, so if the cron schedule
-  ever moves, move `BACKUP_STALE_AFTER_S` in `backend/main.py` with it —
-  a staleness signal that's permanently red is one people stop reading.
-- Restore paths: `POST /api/import` (destructive, needs `confirm:true`,
-  auto-snapshots first) or a file-level DB swap. Re-drill a restore after
-  any schema change.
+  built and `last_backup_status` isn't `stale`.
+- Re-drill a restore after any schema change.
+
+**How the whole backup and recovery story fits together — every level, what
+each protects against, and the current known gaps — is `docs/BACKUPS.md`.**
+Read that rather than reassembling it from the notes scattered below; the
+copy-pasteable commands for this specific deployment are in
+`AGENTS.local.md`.
 
 ### Typical change loop
 Edit code → commit & push → **Build** → **Transfer** → **Run/update** →
@@ -258,18 +257,32 @@ smoke test (`/api/health` ok, `/` 200, `/api/sessions` 200), fresh DB
 migrating to `user_version = 5`, image 287 MB vs 283 MB (+4 MB, immaterial
 on the 1 GB box).
 
-**Known broken: off-site backups.** `rclone` has failed with
-`invalid_grant` since 2026-09-02; last successful Drive copy was
-2026-08-31. Local nightly snapshots in `~/backups` on the Pi are unaffected
-and current — the `rclone copy` step sits *after* the snapshot reaches the
-host's disk, so steps 1–2 kept succeeding. Cause is almost certainly the
-trap documented in `AGENTS.local.md`: the personal Google OAuth app left in
-**"Testing"** publish status expires refresh tokens after 7 days, and the
-client_id migration was 2026-08-25 — seven days before the first failure.
-**Fix needs the owner**: publish the OAuth app, then re-authorize via
-`rclone authorize` on a machine with a browser and write the token straight
-into the Pi's `rclone.conf` (never `rclone config update`, which hangs
-headlessly).
+**Off-site backups: working, but best-effort by decision (2026-09-04).**
+The 2026-09-01..04 outage (`invalid_grant`, four failed nights, last good
+Drive copy 2026-08-31) is resolved — re-authorized 2026-09-04, verified
+with a real snapshot landing in Drive and `/api/health` reading `ok`.
+
+Two things changed while fixing it. The rclone scope was narrowed from
+`drive` (**restricted**) to `drive.file` (**non-sensitive**), which Google
+explicitly recommends — a backup only touches files it created, so full
+Drive access was never warranted. Side effect: the old
+`workout-tracker-backups` folder was created by rclone's former shared
+client, so `drive.file` cannot see it and a fresh folder was created. Those
+older snapshots remain safe in Drive and downloadable from the web UI,
+simply outside rclone's view.
+
+**The app is still in `Testing` publishing status, where Google expires
+refresh tokens after 7 days — and the cron is weekly.** So most weekly
+off-site copies are expected to fail until the app is published. Publishing
+was deliberately deferred by the owner (#94) rather than pursued, because
+the consent screen still carries three restricted scopes from the old
+configuration and is shared project-wide with the Home Assistant / CCR
+Agent clients; clearing them is likely safe but was not verified.
+
+**Current honest position: local snapshots are reliable, off-site is
+best-effort.** Local retention is 90 days on the Pi and unaffected by any
+of this. See `docs/BACKUPS.md` for the full picture and #93/#94/#89 for the
+tracked gaps.
 
 **Previously running:** commit `5247896`, deployed 2026-08-25 — the UI/UX
 design-system initiative merged to `main` (5 upgrades: design tokens +
