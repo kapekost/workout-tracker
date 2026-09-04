@@ -3,6 +3,50 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-04 — Accounts: #67 and #68 are one workstream, not a sequence
+
+The 2026-09-02 decision that initial passwords are set through an emailed single-use link makes
+#67 and #68 mutually dependent — #67 cannot create a usable account without #68's Resend
+integration and token model. Both closed as superseded; execution split into #84-#87 in a hard
+dependency chain. Design: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`.
+
+Sub-decisions taken in the same conversation:
+
+- **No public self-signup.** Admin invites only.
+- **The owner's own account bootstraps through the normal invite path**, not a backdoor — schema
+  v6 adds `email`, a one-off script sets it on the seeded `kapekost` profile and mints a standard
+  invite. This proves Resend end-to-end on real infrastructure before anyone else is invited.
+- **Emailed links do not block on #27.** They point at the Tailscale URL now; `APP_BASE_URL` is
+  the single config seam the tunnel hostname replaces later. Accepted consequence: the invite flow
+  can't be tested with someone outside the tailnet until #27 lands.
+- **Export/import gets both behaviours** keyed off `role` — admin dumps/restores everything
+  (preserving the disaster-recovery path), members get only their own rows.
+- **bcrypt cost 12, not a memory-hard KDF.** Measured on the actual Pi. This is a hardware-driven
+  choice, not a security preference: OWASP's scrypt baseline needs 128 MiB against ~185 MiB free,
+  and every concurrent memory-hard hash reserves its full working set, so a few parallel logins to
+  an unauthenticated endpoint could OOM a container on a box that also runs Home Assistant. Do not
+  "upgrade" this to argon2 without re-measuring there.
+
+## 2026-09-04 — Backup heartbeat becomes a file; cron goes weekly
+
+`backup.sh` stops POSTing to `/api/events` and writes `data/backup-status.json` instead, which
+`/api/health` reads. Chosen over authenticating the endpoint with a shared secret: a token
+guarding a local process that already owns the database file buys nothing, and this deletes an
+unauthenticated write endpoint rather than fencing it — which matters once #27 makes the app
+public. It also moves backup status out of the database being backed up.
+
+Cron drops to weekly; the app isn't used enough to justify nightly. Revisit from `events` data if
+usage picks up.
+
+**`/api/health`'s 26h staleness threshold must move with the schedule.** A weekly cron would
+otherwise make it permanently `stale`, and a signal that is always red is one nobody reads — which
+is precisely how three consecutive nights of failed off-site backups went unnoticed in
+2026-09-01..03. Tracked as #88, and it blocks #86.
+
+Alerting (`HEARTBEAT_URL` → healthchecks.io) deferred to #89 rather than dropped. It is the only
+piece that would actively notify rather than wait to be looked at.
+
+
 ## 2026-08-30 — #33 (Nutrition guidance) shaped: standalone, needs bodyweight + height
 
 Owner Q&A: collect both bodyweight and height (new fields) for scientifically-grounded guidance,
