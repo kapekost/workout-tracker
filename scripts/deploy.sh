@@ -107,8 +107,14 @@ if actual != expected:
         f"deployment verification failed: /api/health version={actual!r}, expected={expected!r}"
     )
 
+# Warn, don't abort. Backups are manual as of 2026-09-04, so there is no
+# schedule for "stale" to be late against — it just means the last backup was
+# more than a week ago, which is worth saying out loud but is no reason to
+# refuse a deploy. A hard failure here would force a backup before every deploy
+# once a week had passed.
 if payload.get("last_backup_status") == "stale":
-    raise SystemExit("deployment verification failed: last_backup_status is stale")
+    print("warning: last_backup_status is stale — the last backup is over a week old.")
+    print("         run scripts/backup.sh on the host if you want a fresh one.")
 
 print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}")
 PY
