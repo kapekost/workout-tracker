@@ -57,9 +57,19 @@ docker save "$local_tag" \
   | ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" 'gunzip | docker load'
 
 echo "==> restarting service"
+# The deploy target supplies its own docker-compose.yml, from its own clone of
+# this repo, so that clone has to be current before compose runs. The tag to
+# start is taken from APP_COMMIT (`image: ...:${APP_COMMIT:-latest}`), and a
+# clone predating that change still pins a hardcoded `:latest` — which ignores
+# APP_COMMIT entirely and re-creates the *old* image, leaving the verification
+# below to fail with a version mismatch that looks like a build problem.
+# --ff-only so a diverged clone halts the deploy loudly rather than quietly
+# merging on the target.
 # shellcheck disable=SC2086
 ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
-  "cd '$DEPLOY_APP_DIR' && APP_COMMIT='$short_sha' docker compose up -d --force-recreate workout-tracker"
+  "cd '$DEPLOY_APP_DIR' \
+     && git pull --ff-only \
+     && APP_COMMIT='$short_sha' docker compose up -d --force-recreate workout-tracker"
 
 echo "==> verifying /api/health"
 # --force-recreate returns as soon as the container starts, not once uvicorn is
