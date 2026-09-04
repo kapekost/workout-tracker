@@ -147,7 +147,7 @@ two things living on it have a very different level of protection. Audited 2026-
 | What | Protection | Off-box? |
 |---|---|---|
 | **workout-tracker DB** | `scripts/backup.sh`, run manually; 2 local snapshots + the last one off-site | Yes |
-| **Home Assistant** | HA's own automatic backup, roughly monthly, into its Docker config volume | Copied by hand, 2026-09-04 |
+| **Home Assistant** | HA's own automatic backup, roughly monthly — now only off-box | Yes, by hand |
 | **The Raspberry Pi itself** | Nothing | **No** |
 
 Two gaps worth naming rather than discovering later:
@@ -156,8 +156,10 @@ Two gaps worth naming rather than discovering later:
   moves them automatically. The card dying would take them with it — the one failure this
   Pi has already had, in July 2026. The two that existed (~47 MB and ~65 MB, from
   2026-08-01 and 2026-09-01) were copied to `gdrive:homeassistant-backups` by hand on
-  2026-09-04 and hash-verified, so today's are safe. **Every new one HA writes is not**,
-  until someone repeats it:
+  2026-09-04, verified byte-for-byte by comparing md5 sums computed independently on each
+  side, and then **deleted from the card**. So they now exist off-box only, and
+  `/config/backups` is empty until HA writes its next one. **That next one will not be
+  copied anywhere**, until someone repeats this:
 
   ```bash
   # on the host — docker cp because the config volume is root-owned
@@ -168,10 +170,12 @@ Two gaps worth naming rather than discovering later:
   rm -rf ~/ha-staging
   ```
 
-  Deleting the on-card originals afterwards is optional and currently pointless: the Pi is
-  11% full with ~100 GB free, and keeping them is the fast restore path. The risk being
-  solved is the card dying, and the off-box copy solves that whether or not the local one
-  stays.
+  Verify before deleting anything — `rclone check`, or md5 both sides — because the point
+  of the exercise is that these are the only copies. Note the tradeoff that comes with
+  removing the originals: HA's own UI only lists backups present in `/config/backups`, so
+  restoring now means pulling the tar back down from Drive first. That is the intended
+  state here, not an oversight; disk space was never the reason (the Pi is 11% full with
+  ~100 GB free), getting them off a card that has already died once was.
 - **There is no image or filesystem backup of the Pi.** No timeshift, rpi-clone,
   rsnapshot, borg, restic or duplicity is installed, and no cron or systemd timer does
   anything of the kind. Losing the card means rebuilding the OS and every service by
