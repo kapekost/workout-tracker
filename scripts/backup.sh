@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Nightly off-site backup for the workout-tracker SQLite DB.
+# Weekly off-site backup for the workout-tracker SQLite DB.
 # Runs on the Raspberry Pi HOST via cron, but the DB snapshot (VACUUM INTO) is
 # taken INSIDE the container via `docker compose exec`, then copied out with
 # `docker cp`. Why: the app container runs as root and switches the DB to WAL
@@ -18,18 +18,24 @@ COMPOSE_FILE="${COMPOSE_FILE:-$HOME/workout-tracker/docker-compose.yml}"
 # shellcheck disable=SC2086  # intentional word-splitting: COMPOSE is a multi-word command
 COMPOSE="docker compose -f $COMPOSE_FILE"
 DB="${DB:-/app/data/workouts.db}"
-# NOT /tmp: that's tmpfs, which wipes the 14-day local retention on every reboot.
+# Where /api/health looks for the result — same directory as the DB, because
+# that is the one path both sides already agree on (backend/main.py derives it
+# from DATABASE_URL the same way).
+STATUS="$(dirname "$DB")/backup-status.json"
+# NOT /tmp: that's tmpfs, which wipes the 90-day local retention on every reboot.
 STAGE="${STAGE:-$HOME/backups}"
 REMOTE="${REMOTE:-gdrive:workout-tracker-backups}"
-# Empty = keep every off-site snapshot. Deliberate: the DB is ~45 KB, so a year
-# of nightlies is ~16 MB. Set e.g. REMOTE_KEEP_DAYS=180 to prune old ones.
+# Empty = keep every off-site snapshot. Deliberate: the DB is ~185 KB, so a
+# year of weeklies is ~10 MB. Set e.g. REMOTE_KEEP_DAYS=180 to prune old ones.
 REMOTE_KEEP_DAYS="${REMOTE_KEEP_DAYS:-}"
-APP="${APP:-http://127.0.0.1:8080}"
-# Optional independent heartbeat (e.g. a healthchecks.io ping URL). The in-app
-# heartbeat below is unreachable exactly when the likeliest failure happens —
-# the container being down — so an external receiver is the only way a failure
-# gets actively noticed. Until one is set, staleness of last_backup_at is the
-# signal (/api/health reports last_backup_status "stale" after 26h).
+# Optional independent heartbeat (e.g. a healthchecks.io ping URL). The status
+# file this script writes is only ever read by someone who goes and looks at
+# /api/health, so nothing actively tells you a backup broke — an external
+# receiver that alarms on a *missing* ping is the only way a failure gets
+# noticed instead of discovered later. Until one is set, /api/health is the
+# signal: it reports last_backup_status "failed" immediately, or "stale" once
+# an "ok" is more than 8 days old (the weekly cron plus a day of grace). If
+# the cron schedule changes, move that threshold in backend/main.py with it.
 HEARTBEAT_URL="${HEARTBEAT_URL:-}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="$STAGE/workout-$STAMP.db"
@@ -42,10 +48,35 @@ mkdir -p "$STAGE"
 cleanup_ctmp() { $COMPOSE exec -T workout-tracker rm -f "$CTMP" >/dev/null 2>&1 || true; }
 trap cleanup_ctmp EXIT
 
-heartbeat() { # $1 = event name, $2 = json props
-  curl -fsS -m 10 -X POST "$APP/api/events" \
-    -H 'Content-Type: application/json' \
-    -d "[{\"name\":\"$1\",\"props\":$2}]" >/dev/null 2>&1 || true
+# Records the result where /api/health reads it. Same shape of problem as the
+# VACUUM above, from the other direction: the status file has to land inside
+# the data volume, but ~/workout-tracker/data on the host is drwxr-xr-x root
+# root — Docker created it when it first mounted the volume — and the cron user
+# (kapekost, docker group, no passwordless sudo) is denied when it writes there
+# directly. So stage the JSON in a host temp file the cron user does own and
+# let `docker cp` place it: that runs as the Docker daemon, writes through the
+# bind mount onto the host filesystem, and the file even lands owned by the
+# host user. Verified on the Pi, 2026-09-04.
+# `ps -aq`, not `ps -q`: docker cp works against a *stopped* container, so
+# "the backup failed because the app was down" — precisely the case the old
+# HTTP heartbeat could never report, since it POSTed to the app itself — still
+# gets recorded and shows up the moment the container comes back.
+write_status() { # $1 = the JSON body
+  local tmp rc cid
+  tmp="/tmp/backup-status-$STAMP.json"
+  rc=0
+  if ! printf '%s\n' "$1" > "$tmp" 2>/dev/null; then
+    echo "backup.sh: could not stage the status file at $tmp" >&2
+    rc=1
+  elif ! cid=$($COMPOSE ps -aq workout-tracker 2>/dev/null) || [ -z "$cid" ]; then
+    echo "backup.sh: no workout-tracker container to write $STATUS into" >&2
+    rc=1
+  elif ! docker cp "$tmp" "$cid:$STATUS" >/dev/null 2>&1; then
+    echo "backup.sh: docker cp of the status file into $cid failed" >&2
+    rc=1
+  fi
+  rm -f "$tmp"
+  return $rc
 }
 
 ping_external() { # $1 = "" on success, "/fail" on failure
@@ -54,21 +85,36 @@ ping_external() { # $1 = "" on success, "/fail" on failure
   fi
 }
 
+now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
 start=$(date +%s)
+# Ordering is load-bearing: rclone runs only after docker cp has put the
+# snapshot on the host's disk. That is why the local copies stayed current all
+# through the Google Drive outage of 2026-09-01..03 — the first two steps kept
+# succeeding while the third failed. Don't reorder it.
 if $COMPOSE exec -T workout-tracker python -c "import sqlite3; sqlite3.connect('$DB').execute(\"VACUUM INTO '$CTMP'\")" \
    && cid=$($COMPOSE ps -q workout-tracker) \
    && docker cp "$cid:$CTMP" "$OUT" \
    && rclone copy "$OUT" "$REMOTE"; then
   bytes=$(stat -c%s "$OUT" 2>/dev/null || echo 0)  # GNU/Linux stat syntax only (Pi host is the only target)
   dur=$(( $(date +%s) - start ))
-  heartbeat backup_completed "{\"bytes\":$bytes,\"remote\":\"$REMOTE\",\"duration_s\":$dur}"
+  # No `|| true` here on purpose: the old heartbeat swallowed its own failures
+  # by construction, so a backup whose result never reached /api/health looked
+  # identical to one that never ran. A backup nobody can see the result of is
+  # not a finished backup — say so in the exit status.
+  if ! write_status "{\"status\":\"ok\",\"at\":\"$(now_utc)\",\"bytes\":$bytes,\"remote\":\"$REMOTE\",\"duration_s\":$dur}"; then
+    status=1
+  else
+    status=0
+  fi
   ping_external ""
   if [ -n "$REMOTE_KEEP_DAYS" ]; then
     rclone delete --min-age "${REMOTE_KEEP_DAYS}d" "$REMOTE" >/dev/null 2>&1 || true
   fi
-  status=0
 else
-  heartbeat backup_failed "{\"error\":\"backup.sh failed\"}"
+  if ! write_status "{\"status\":\"failed\",\"at\":\"$(now_utc)\",\"error\":\"backup.sh failed\"}"; then
+    echo "backup.sh: the failure above could not be recorded for /api/health either" >&2
+  fi
   ping_external "/fail"
   status=1
 fi
@@ -76,6 +122,9 @@ fi
 # Housekeeping — best-effort and OUTSIDE the success chain: a prune hiccup must
 # not flag a good backup as failed, and a Drive outage must not skip it.
 $COMPOSE exec -T workout-tracker python -c "import sqlite3; c = sqlite3.connect('$DB'); c.execute(\"DELETE FROM events WHERE ts < datetime('now','-12 months')\"); c.commit(); c.close()" >/dev/null 2>&1 || true
-find "$STAGE" -name 'workout-*.db' -mtime +14 -delete 2>/dev/null || true
+# 90 days is ~13 weekly snapshots, about what +14 gave under the old nightly
+# schedule; at a weekly cadence +14 would leave only two. The DB is ~185 KB,
+# so keeping a quarter's worth costs nothing on disk.
+find "$STAGE" -name 'workout-*.db' -mtime +90 -delete 2>/dev/null || true
 
 exit $status
