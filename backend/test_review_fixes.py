@@ -1,6 +1,6 @@
 """Tests for the 2026-07-09 review fixes (CODE-1/2/6/7/9/15/17, PI-7/9)."""
-import os, glob, tempfile, importlib
-from datetime import date, timedelta
+import os, glob, sqlite3, tempfile, importlib
+from datetime import date, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
@@ -126,19 +126,37 @@ def test_unknown_workout_day_rejected(client):
     assert client.post("/api/sessions", json={"workout_day": "upper_b"}).status_code == 200
 
 
-# --- CODE-4 (partial): a stale "ok" heartbeat is surfaced as such ---
+# --- CODE-4 (partial): a stale "ok" backup is surfaced as such ---
+# Since #88 the backup status arrives as data/backup-status.json written by
+# scripts/backup.sh, not as an events row POSTed to /api/events.
 
-def test_health_reports_stale_when_last_backup_is_old(client, mainmod):
-    with mainmod.db() as conn:
-        conn.execute(
-            "INSERT INTO events (name, ts) VALUES ('backup_completed', datetime('now','-30 hours'))")
-        conn.commit()
+def _ago(**delta):
+    return (datetime.now(timezone.utc) - timedelta(**delta)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def test_health_reports_stale_when_last_backup_is_old(client, write_backup_status):
+    write_backup_status({"status": "ok", "at": _ago(days=9)})
     h = client.get("/api/health").json()
     assert h["last_backup_status"] == "stale"
 
-def test_health_reports_ok_for_fresh_backup(client):
-    client.post("/api/events", json=[{"name": "backup_completed"}])
+def test_health_reports_ok_for_fresh_backup(client, write_backup_status):
+    write_backup_status({"status": "ok", "at": _ago(minutes=5)})
     assert client.get("/api/health").json()["last_backup_status"] == "ok"
+
+def test_health_reports_ok_for_backup_older_than_a_day(client, write_backup_status):
+    # The regression guard for #88. The cron is weekly now, so a 30h-old backup
+    # is exactly on schedule; the old 26h threshold called this "stale". A
+    # signal that is always red is one people stop reading, which is how three
+    # nights of failed off-site backups went unnoticed on 2026-09-01..03.
+    write_backup_status({"status": "ok", "at": _ago(hours=30)})
+    assert client.get("/api/health").json()["last_backup_status"] == "ok"
+
+def test_health_keeps_failed_status_no_matter_how_old(client, write_backup_status):
+    # A failure is already red. Ageing it into "stale" would only lose the one
+    # detail that distinguishes the two: the chain ran and broke, rather than
+    # never having run at all.
+    write_backup_status({"status": "failed", "at": _ago(days=30),
+                         "error": "backup.sh failed"})
+    assert client.get("/api/health").json()["last_backup_status"] == "failed"
 
 
 # --- review-of-review findings (2026-07-09 second pass) ---
@@ -161,13 +179,30 @@ def json_deepcopy(obj):
     return json.loads(json.dumps(obj))
 
 
-def test_health_survives_nonstandard_backup_ts(client, mainmod):
-    with mainmod.db() as conn:
-        conn.execute(
-            "INSERT INTO events (name, ts) VALUES ('backup_completed', '2026-07-09T10:00:00Z')")
-        conn.commit()
+def test_health_survives_nonstandard_backup_ts(client, write_backup_status):
+    write_backup_status({"status": "ok", "at": "last Tuesday"})
     r = client.get("/api/health")
     assert r.status_code == 200  # unparseable ts must not 500 the monitoring endpoint
+    # The status still stands; only the staleness comparison is skipped.
+    assert r.json()["last_backup_status"] == "ok"
+
+def test_health_fails_when_the_database_is_unopenable(mainmod, monkeypatch):
+    # #88 moved the backup status out of the events table, which removed the
+    # incidental DB read that used to make this endpoint fail on a broken
+    # database. scripts/deploy.sh reads anything other than a 200 here as "the
+    # deploy is not up", so the touch is deliberate now — and this is what
+    # stops a later cleanup from quietly dropping it again.
+    def unopenable():
+        raise sqlite3.OperationalError("unable to open database file")
+    monkeypatch.setattr(mainmod, "db", unopenable)
+    client = TestClient(mainmod.app, raise_server_exceptions=False)
+    assert client.get("/api/health").status_code == 500
+
+def test_health_survives_malformed_backup_status_file(client, write_backup_status):
+    write_backup_status("{ this is not json")  # e.g. a write cut short
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert r.json()["last_backup_status"] == "none" and r.json()["last_backup_at"] is None
 
 
 def test_all_progress_lists_only_exercises_with_completed_history(client):
