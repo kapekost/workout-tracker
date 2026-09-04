@@ -49,7 +49,10 @@ cues for a 4-day Upper/Lower split.
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
-  volume. Never commit the DB; `data/` is gitignored.
+  volume. Never commit the DB; `data/` is gitignored. Schema v4 (#66,
+  2026-08-31): added a `profiles` table + `profile_id` on every other table,
+  backfilled to a seeded `kapekost`/admin profile (`password_hash` left
+  `NULL` — no login yet, see #67).
 
 ## Where it runs
 
@@ -166,6 +169,31 @@ check (this session's sandbox blocks the Docker Hub CDN by org policy) —
 but watch for it specifically on the next real build, and apply the same
 fix pattern (explicit post-`npm ci` install of the missing platform
 binary, version-matched to the lockfile) if it does.
+
+**The node:20→26-alpine bump (#23) needed no lockfile change — the original
+failure didn't reproduce outside real Alpine.** Dependabot PR #7 (the same
+bump) passed CI but failed an actual `docker buildx build` with `npm error
+Missing: @esbuild/aix-ppc64@0.21.5 from lock file`, attributed to npm
+11.19.0 (bundled with `node:26-alpine`) resolving the lockfile differently
+than npm 10.x. Investigated for real rather than rubber-stamped: downloaded
+the genuine node v26.8.1 linux-x64 binary (confirmed npm 11.19.0, matching
+what `node:26-alpine` bundles) and ran real `npm ci` against (a) the current
+lockfile and (b) the exact pre-#59 lockfile that still pinned esbuild 0.21.5
+and contains the literal `@esbuild/aix-ppc64@0.21.5` entry PR #7's error
+named — both installed cleanly, no sync error, even forcing
+`--os=linux --cpu=x64 --libc=musl`. `npm install --package-lock-only` under
+node 26 against the current `package.json` also reproduced the committed
+lockfile byte-for-byte. Two things likely explain the gap: esbuild is no
+longer even a resolved dependency post-vite-8 (#59 regenerated the lockfile
+fresh for unrelated reasons, which happened to carry this along), and the
+original failure may simply be specific to the real Alpine/musl buildx
+environment (this sandbox has no Docker daemon — same constraint #21/#22
+hit) rather than a host-independent npm 10→11 incompatibility. Given the
+clean, repeated, real reproduction attempts above, no lockfile regeneration
+shipped with the bump. The Rolldown/arm64-musl risk in the entry above this
+one is a separate, still-open question — this investigation was on x64/glibc,
+not arm64/musl, so it neither confirms nor rules that one out. Watch the next
+real `docker buildx build` for both.
 
 Deploy-target-specific gotchas (SSH quirks, hardware limits, host
 maintenance history) live in `AGENTS.local.md`.

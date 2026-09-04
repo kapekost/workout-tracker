@@ -5,49 +5,29 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #23 shipped via #65 (2026-08-30). #29 triaged and closed, split into #66
-  (schema/migration), #67 (login, depends on #66), #68 (password reset via Resend, depends on
-  #67), #69 (switcher UI, depends on #66). **#66 shipped via #76 (2026-08-31)** — profiles table +
-  `profile_id` backfilled everywhere, schema v4. `code-review` caught a real, severe bug before
-  merge: restoring any pre-v4 backup would have permanently broken every future write (profiles
-  wiped with nothing to restore it) or rejected the whole import outright if it held real
-  `exercise_notes`/`personal_bests` data — fixed in the same PR, two new regression tests
-  confirmed failing without the fix and passing with it. #67 was labeled `ready` but is blocked
-  from unattended execution (see "Needs owner" — auth/session is destructive per GUARDRAILS).
-  **#69 shipped via #77 (2026-08-31)**, scoped to just its buildable slice — TopBar now shows the
-  active profile's icon/username (schema v5: nullable `icon` column, seeded 💪 for `kapekost`); the
-  emoji-picker-at-creation-time piece stays deferred to #67, which is the only place profile
-  creation will actually exist. `code-review` caught two more real bugs here too: a layout bug
-  where a longer username than the seeded one would wrap the brand title onto two lines (confirmed
-  live in a browser, fixed with proper flex overflow handling), and a migration-guard regression
-  test that could never actually fail due to a version-gate ordering mistake in its own setup
-  (fixed, verified failing/passing correctly on either side of the fix). #68 still waits on #67.
-  #30 and #32 now have a combined written spec
-  (`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`, merged via #73) covering both
-  at once (they share the same "structured AI output, reviewed and confirmed, then written" shape)
-  — still `intake` pending the actual split into `ready` children. #33 now has a written spec too
-  (`docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`, merged via #74) — flags one
-  proposed-not-decided design choice (§2: a contextual BMI figure as the concrete use for the
-  height field) for the owner to confirm or correct. #27 (the one DECISIONS.md flagged as
-  higher-stakes — home-network security, Home Assistant coexistence) now has a written spec too
-  (`docs/superpowers/specs/2026-08-31-public-access-design.md`, merged via #75) — two proposed,
-  not-yet-decided design choices flagged explicitly: Cloudflare Access as a second auth layer in
-  front of the tunnel (§4), and a concrete, checkable home-network verification list (§5) rather
-  than just an assertion of safety. All four intake issues (#27/#30/#32/#33) now have specs — none
-  yet split into `ready` children. #70 (cross-user competition/comparison screens) remains an
-  unshaped intake issue.
-- **Next action:** No `ready`, unblocked work remains that an unattended tick can pick — #67 is
-  `ready` but blocked on owner approval (destructive per GUARDRAILS), and #69's buildable slice is
-  done. #68 still needs the `ready` label added once #67 merges (and will need the same approval
-  gate). #30/#32
-  need splitting into `ready` child issues per their spec's
-  §7 (suggested split: import; coaching export+apply+targets-read — each `blocked-by` #66 and #67).
-  #33 needs splitting into a `ready` issue per its own spec (small enough it may not need
-  splitting into children at all — see the spec's §8) once the owner has skimmed §2's BMI proposal.
-  #27 needs an owner skim of §4/§5 before anything else — its own spec is explicit that this one
-  gets real scrutiny before being treated as settled, not the lighter pass a feature spec gets;
-  provisioning work could start in parallel with #67 per the spec's §6, but going *live* publicly
-  waits on #67. #70 needs a first triage pass.
+- **Current focus:** Accounts. #67 and #68 were **merged into one workstream and closed as
+  superseded** (2026-09-04) — the owner's 2026-09-02 decision that initial passwords are set
+  through an emailed single-use link means #67 cannot ship a working account without #68's Resend
+  integration and token model, so neither can precede the other. Design written and reviewed:
+  `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83). Split into four issues in a
+  hard dependency chain: **#84** (schema v6 + auth core, `ready`) → **#85** (Resend invite/reset,
+  rate limiting, owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend
+  login) → **#87** (export/import role behaviour). Two design choices are backed by measurement on
+  the real Pi rather than assumption: bcrypt cost 12 (627 ms there; OWASP's scrypt baseline needs
+  128 MiB against ~185 MiB free, and memory-hard KDFs would let a few parallel logins OOM the
+  container), and both bcrypt and argon2-cffi confirmed to ship aarch64 wheels so the no-gcc
+  constraint holds. Also shipped this tick: 28 dead remote branches deleted (the long-standing
+  "Needs owner" item — deletion works fine from the owner's Mac, it was only the GitHub App that
+  403'd), Dependabot #80/#81 hand-verified and merged, and #82 opened+merged to fix two gaps #81
+  left behind. Intake unchanged: #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
+- **Next action:** **#84 needs `/orchestrate approve 84` from the owner before any tick may
+  execute it** — it changes auth/session handling, which GUARDRAILS classifies as destructive.
+  #85/#86/#87 will each need the same. Nothing else in the accounts chain is pickable until then;
+  #85-#87 are `blocked` by design and should stay that way until their predecessor merges.
+  Independently pickable right now: **#88** (backup heartbeat → status file, and cron to weekly —
+  `ready`, P1) and **#89** (backup alerting — `ready`, P2, but needs a ping URL from the owner
+  first). **#88 must land before or with #86**: gating `/api/events` breaks the nightly backup
+  heartbeat, which posts there from cron with no session and swallows the failure via `|| true`.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -56,30 +36,24 @@
 (no branches in flight)
 
 ## Needs owner
-- **#67 (username/password login) is `ready` but blocked from unattended execution** — it changes
-  auth/session handling, which GUARDRAILS classifies as **destructive**, requiring the `approved`
-  label before any tick (attended or not) may execute it. No tick may add that label itself — see
-  GUARDRAILS "Approval is human-only." Run `/orchestrate approve 67` when ready to unblock it. #68
-  (password reset, depends on #67) will need the same treatment once it's `ready` — it handles a
-  Resend API key and reset tokens, same classification.
-- **Orphaned branches, manual cleanup scheduled** — owner has the exact `git push origin --delete
-  ...` command (given in chat 2026-08-30) covering the 12 branches from the abandoned prior
-  attempt (`ci/24-backend-tests-temp2`, `ci/24-backend-tests-temp3`, `tmp/repair-38-stacked`
-  through `-9`, `tmp/repair-final`) plus `claude/23-node26-docker-build` (newly merged via #65,
-  same auto-delete gap — see the entry below). Will run it in ~2 days. The runner still can't do
-  this itself: `git push --delete` 403s, no delete-ref tool in the GitHub MCP server.
-- **Branch auto-delete-on-merge is silently broken** — not just manual deletion. Every future PR
-  merged by this orchestration will leave its branch behind the same way #65's did, unless fixed.
-  Real fix (recommended over widening the App's permissions): enable GitHub's native repo setting
-  Settings → General → Pull Requests → "Automatically delete head branches" — runs outside our
-  App's permissions entirely, so the 403 gap doesn't apply to it. Owner to verify/enable. See
-  `DECISIONS.md`. **Confirmed still off as of 2026-08-31**, empirically: #71's own head branch
-  (`claude/playbook-intake-third-path`) was still present a day after that PR merged. Three more
-  joined the pile this tick — `claude/playbook-intake-third-path` (#71, noticed, not new),
-  `claude/66-profiles-schema-plan` (#72), `claude/30-32-ai-structured-io-spec` (#73) — bringing the
-  total stray-branch count to 16 (the original 13 the owner already has a delete command for, plus
-  these 3). Growing by 1+ every merge until the setting is flipped; the owner's existing cleanup
-  command won't cover the new ones without extending it.
+- **The whole accounts chain needs approval before any tick may execute it.** #84, #85, #86 and
+  #87 all change auth/session handling, which GUARDRAILS classifies as **destructive**, requiring
+  the `approved` label. No tick may add that label itself — see GUARDRAILS "Approval is
+  human-only." Run `/orchestrate approve 84` to start; approve each one as its predecessor merges,
+  rather than all four up front, since each step's scope is only settled once the one before it
+  lands.
+- **Google OAuth app publish status — off-site backups are down because of it.** `rclone` has
+  failed `invalid_grant` since 2026-09-02; the last good Drive copy was 2026-08-31. Local
+  snapshots on the Pi are unaffected and current. The cause matches the trap already documented in
+  `AGENTS.local.md`: an OAuth app left in **"Testing"** expires refresh tokens after 7 days, and
+  the client_id migration was 2026-08-25 — exactly seven days before the first failure. Owner must
+  publish the app in the Google Cloud Console (personal/low-volume skips review — one "unverified
+  app" click-through), after which re-authorizing takes one `rclone authorize` run on a machine
+  with a browser, writing the token straight into the Pi's `rclone.conf`. Never `rclone config
+  update`, which hangs headlessly.
+- **#89 (backup alerting) needs a ping URL.** The owner creates a healthchecks.io check; the URL
+  goes in `AGENTS.local.md` and into the cron line. Set its period *after* #88 takes the cron
+  weekly, or it alerts immediately on the old nightly expectation.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -89,25 +63,70 @@
   `isolation:'worktree'` for #66's execution, shared the parent session's own working
   directory/git checkout by default — its `git checkout -b ...` silently switched the
   orchestrator's own checked-out branch mid-session. Caught via a stale-file system-reminder, not
-  a loud failure. Worked around with separate plain `git worktree add` checkouts (not the harness
-  `EnterWorktree` tool, which is explicitly scoped to explicit user/CLAUDE.md requests) for the
-  controller's own concurrent work for the rest of this tick. Not fixable via a PR in this repo —
-  Agent-tool/harness default behavior. Real fix candidate for `PLAYBOOK.md`'s Execute step:
-  default to `isolation:'worktree'` for any subagent dispatch that does its own git branch/commit
-  work.
+  a loud failure. Not fixable via a PR in this repo — Agent-tool/harness default behavior. Real
+  fix candidate for `PLAYBOOK.md`'s Execute step: default to `isolation:'worktree'` for any
+  subagent dispatch that does its own git branch/commit work.
 
-- **`STATE.md` on `main` is stale and now conflicts with this branch (2026-08-31).** Every tick
-  since #64 recorded its state here and never landed it on `main`, so `main`'s copy is missing
-  #23, #66, #27/#30/#32/#33 specs, #67, #69, and this deploy. A PR from this branch to `main`
-  contributes only the three orchestration docs (`STATE.md`, `DECISIONS.md`, `IMPROVEMENTS.md` —
-  verified via three-dot diff; it does **not** revert any shipped feature), but `STATE.md` itself
-  hits a real content conflict against `main`. GUARDRAILS lists "a merge conflict needs human
-  judgment" as a hard stop with no flag override, so this deploy's tick entry below was committed
-  here only and **no PR to `main` was opened**. Resolving it means reconciling `main`'s tick log
-  (which stops at #63/#64) with this branch's — an append-vs-append conflict that reads as
-  mechanical but should be the owner's call, since it decides which history `main` presents.
+### Closed 2026-09-04
+- ~~**Orphaned branches, manual cleanup scheduled**~~ — **done**. 28 dead remote branches deleted.
+  The runner's long-standing 403 on `git push --delete` turned out to be specific to the GitHub
+  App's permission set: the same command runs fine from the owner's Mac with the owner's own
+  credentials. Worth remembering as the workaround rather than re-filing this each tick.
+- ~~**Branch auto-delete-on-merge is silently broken**~~ — **resolved**. Verified via
+  `gh api repos/kapekost/workout-tracker --jq .delete_branch_on_merge` → `true`. The setting is
+  on, so merged branches clean themselves up and the pile stops growing.
+- ~~**`STATE.md` on `main` is stale and conflicts with this branch**~~ — **resolved this tick**.
+  The conflict was real but turned out to be strictly additive: `main`'s side was empty in the
+  conflicting region, so this branch already contained every entry `main` had plus the newer ones.
+  Verified entry-by-entry that nothing on `main` was dropped before committing the resolution.
+  `IMPROVEMENTS.md` conflicted the same way and was resolved by keeping all four entries in date
+  order.
 
 ## Tick log
+- **2026-09-04 (owner-driven session — accounts designed, backups found broken):** Not an
+  unattended tick; the owner asked for a status pass and the next round of work.
+
+  **Found broken, needs the owner:** off-site Google Drive backups have been failing since
+  2026-09-02 (`invalid_grant`), last good copy 2026-08-31. Caught from `/api/health`'s
+  `last_backup_status: "failed"` while checking what was actually deployed. Local snapshots are
+  fine — `rclone copy` sits after the snapshot reaches the host's disk, so the chain kept
+  producing them. Cause matches the "Testing publish status expires grants every 7 days" trap
+  already written down in `AGENTS.local.md`; the client_id migration was exactly 7 days before the
+  first failure. See "Needs owner".
+
+  **Accounts designed.** #67 and #68 merged into one workstream and closed as superseded — the
+  owner's 2026-09-02 emailed-link decision makes them mutually dependent, so neither can go first.
+  Spec at `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83), split into #84-#87.
+  Two choices were settled by measuring on the real Pi instead of assuming, both of which changed
+  the answer: bcrypt cost 12 (627 ms) over any memory-hard KDF, because OWASP's scrypt baseline
+  wants 128 MiB against ~185 MiB free and each concurrent memory-hard hash reserves its full
+  working set — a few parallel logins to an unauthenticated endpoint could OOM the container on a
+  box that also runs Home Assistant; and confirming both bcrypt and argon2-cffi ship aarch64
+  wheels, so the Dockerfile's no-build-tools rule survives either way.
+
+  **Two sequencing traps found while designing, both recorded in the issues rather than left to be
+  rediscovered:** gating `/api/events` breaks the nightly backup heartbeat (it posts there from
+  cron with no session and swallows failures via `|| true`), so #88 must land before or with #86;
+  and taking the cron weekly makes `/api/health`'s 26h staleness check permanently `stale`, so the
+  threshold has to move with the schedule — a signal that is always red is one nobody reads, which
+  is how this week's failures went unnoticed for three nights.
+
+  **Dependabot #80/#81 hand-verified and merged.** Both were green in CI, which proves little for
+  #81: CI runs tests bare-metal and never builds the Dockerfile, the same blind spot that kept
+  #7/#23 open for weeks. Verified by hand instead — full `docker buildx build --platform
+  linux/arm64` (deps installed in 5.2s with no compilation, so the no-gcc premise still holds on
+  py3.14), 88 backend tests on py3.14 + pydantic 2.13.5, container smoke test, fresh DB migrating
+  to `user_version = 5`, image +4 MB. #81 left two things behind — CI still pinned to py3.11, and
+  a Dockerfile comment still asserting the wheel fact for py3.11 — both fixed in #82, which also
+  writes the "CI never builds this Dockerfile" warning into the comment so the next base-image
+  bump doesn't trust a green check either.
+
+  **Housekeeping:** 28 dead remote branches deleted, closing a "Needs owner" item that had been
+  open since 2026-08-30. The runner's 403 on `git push --delete` is specific to the GitHub App's
+  permissions — the same command works from the owner's Mac. `delete_branch_on_merge` also
+  verified on, so the pile stops growing. `AGENTS.md`'s Status section refreshed: it claimed
+  `5247896` was live and "nothing is unreleased", when `17bd4fc` is deployed and `main` is 4
+  commits ahead including a base-image change.
 - **2026-08-31 (deploy repair → #78):** `main` reached the Pi for the first time since
   2026-08-25. The running app was pinned at `5247896`, **53 commits behind**, because the deploy
   path was broken in two independent places — both shipped and closed without ever having been

@@ -3,7 +3,9 @@
 ARG APP_COMMIT=dev
 
 # Stage 1 — Build React frontend
-FROM node:20-alpine AS builder
+# node:26-alpine (bumped from node:20-alpine, #23/2026-08-30) — needed no
+# lockfile change; see AGENTS.md Gotchas for the reproduction that confirmed it.
+FROM node:26-alpine AS builder
 ARG APP_COMMIT
 ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /frontend
@@ -20,9 +22,11 @@ COPY frontend/ .
 RUN npm run build
 
 # Stage 2 — Python backend + serve built frontend
-# No build tools: every dep ships a manylinux aarch64 wheel for py3.11, so pip
-# never compiles (gcc alone was ~150 MB of dead weight on the 1 GB Pi).
-FROM python:3.11-slim
+# No build tools: every dep ships a manylinux aarch64 wheel for py3.14, so pip
+# never compiles (gcc alone was ~150 MB of dead weight on the 1 GB Pi). Re-verify
+# this holds on any future base-image bump: CI never builds this Dockerfile, so a
+# missing wheel shows up only as a real build failure here, never as a red check.
+FROM python:3.14-slim
 ARG APP_COMMIT
 ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /app
