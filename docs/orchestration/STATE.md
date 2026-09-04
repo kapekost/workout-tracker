@@ -5,35 +5,37 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts. #67 and #68 were **merged into one workstream and closed as
-  superseded** (2026-09-04) — the owner's 2026-09-02 decision that initial passwords are set
-  through an emailed single-use link means #67 cannot ship a working account without #68's Resend
-  integration and token model, so neither can precede the other. Design written and reviewed:
-  `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83). Split into four issues in a
-  hard dependency chain: **#84** (schema v6 + auth core, `ready`) → **#85** (Resend invite/reset,
-  rate limiting, owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend
-  login) → **#87** (export/import role behaviour). Two design choices are backed by measurement on
-  the real Pi rather than assumption: bcrypt cost 12 (627 ms there; OWASP's scrypt baseline needs
-  128 MiB against ~185 MiB free, and memory-hard KDFs would let a few parallel logins OOM the
-  container), and both bcrypt and argon2-cffi confirmed to ship aarch64 wheels so the no-gcc
-  constraint holds. Also shipped this tick: 28 dead remote branches deleted (the long-standing
-  "Needs owner" item — deletion works fine from the owner's Mac, it was only the GitHub App that
-  403'd), Dependabot #80/#81 hand-verified and merged, and #82 opened+merged to fix two gaps #81
-  left behind. Intake unchanged: #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
-- **Next action:** **#84 needs `/orchestrate approve 84` from the owner before any tick may
-  execute it** — it changes auth/session handling, which GUARDRAILS classifies as destructive.
-  #85/#86/#87 will each need the same. Nothing else in the accounts chain is pickable until then;
-  #85-#87 are `blocked` by design and should stay that way until their predecessor merges.
-  Independently pickable right now: **#88** (backup heartbeat → status file, and cron to weekly —
-  `ready`, P1) and **#89** (backup alerting — `ready`, P2, but needs a ping URL from the owner
-  first). **#88 must land before or with #86**: gating `/api/events` breaks the nightly backup
-  heartbeat, which posts there from cron with no session and swallows the failure via `|| true`.
+- **Current focus:** Accounts, still waiting on human approval. The whole #84-#87 chain
+  changes auth/session handling, which GUARDRAILS classifies as destructive, so no tick may touch
+  any of it until the owner runs `/orchestrate approve 84`. Design and reasoning are settled and
+  reviewed: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83), split into
+  **#84** (schema v6 + auth core, `ready` but not pickable) → **#85** (Resend invite/reset, rate
+  limiting, owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend
+  login) → **#87** (export/import role behaviour), the last three `blocked` by design. Two design
+  choices rest on measurement on the real Pi rather than assumption: bcrypt cost 12 (627 ms there;
+  OWASP's scrypt baseline wants 128 MiB against ~185 MiB free, and memory-hard KDFs would let a few
+  parallel logins OOM the container), and both bcrypt and argon2-cffi confirmed to ship aarch64
+  wheels so the no-gcc constraint holds.
+
+  **#88 shipped end to end this tick** (PR #91, merged `9e4bf65`), which unblocks #86. The backup
+  heartbeat is now a file instead of an `/api/events` POST, the staleness threshold moved 26h → 8
+  days, local retention 14 → 90 days, and the Pi's cron is weekly. `main` is deployed and verified
+  on the Pi at `9e4bf65` — the first deploy since `17bd4fc`, so py3.14 and pydantic 2.13.5 are now
+  actually running rather than merely hand-verified. Intake unchanged: #27/#30/#32/#33 have specs
+  but no `ready` children; #70 unshaped.
+- **Next action:** Nothing is pickable unattended. **#84 needs `/orchestrate approve 84` from the
+  owner** before any tick may execute it, and #85/#86/#87 each need the same as their predecessor
+  merges — approve them one at a time, since each step's scope only settles once the one before it
+  lands. The only other open `ready` issue is **#89** (backup alerting, P2), which is blocked on a
+  healthchecks.io ping URL only the owner can create. Set that check's period to **weekly**, not
+  daily: the cron moved this tick, and a daily period would alarm immediately on a schedule that no
+  longer exists.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#88** — claimed 2026-09-04T19:57:36Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **The whole accounts chain needs approval before any tick may execute it.** #84, #85, #86 and
@@ -50,10 +52,14 @@
   publish the app in the Google Cloud Console (personal/low-volume skips review — one "unverified
   app" click-through), after which re-authorizing takes one `rclone authorize` run on a machine
   with a browser, writing the token straight into the Pi's `rclone.conf`. Never `rclone config
-  update`, which hangs headlessly.
+  update`, which hangs headlessly. **Still failing as of 2026-09-04 21:17** — re-checked from
+  this tick with `rclone lsd gdrive:`, same `invalid_grant`. Local snapshots remain current; the
+  manual backup run during this tick produced `workout-20260904-211731.db` on the Pi even though
+  the Drive leg failed, which is the chain ordering doing its job.
 - **#89 (backup alerting) needs a ping URL.** The owner creates a healthchecks.io check; the URL
-  goes in `AGENTS.local.md` and into the cron line. Set its period *after* #88 takes the cron
-  weekly, or it alerts immediately on the old nightly expectation.
+  goes in `AGENTS.local.md` and into the cron line. #88 has now taken the cron weekly, so set the
+  check's period to **weekly** — a daily period would alarm immediately against a schedule that no
+  longer exists.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -92,6 +98,49 @@
   order.
 
 ## Tick log
+- **2026-09-04 (#88 shipped end to end — backup heartbeat, weekly cron, deployed):** Picked #88,
+  the only unblocked meaningful `ready` work; #84 carries `ready` but is not pickable without human
+  approval, and #89 is waiting on a URL only the owner can make. Claim pushed before any execution
+  and accepted as a fast-forward, so no competing tick was live.
+
+  **The design changed on contact with the real hardware.** The issue says "the script writes
+  `data/backup-status.json`", which reads as a plain shell redirect. It isn't possible:
+  `~/workout-tracker/data` on the Pi is `drwxr-xr-x root root`, created by Docker when it first
+  mounted the volume, and the cron user has no passwordless sudo — the same constraint that put
+  rclone in `~/.local/bin` as a static binary. Checked before writing any code rather than after
+  discovering it in a cron failure at 03:30. The script now stages the JSON in a host temp file it
+  owns and lets `docker cp` place it: that runs as the Docker daemon, writes through the bind
+  mount, and the file lands owned by the host user. `docker cp` also works against a *stopped*
+  container, so "the backup failed because the app was down" — the one case the old HTTP heartbeat
+  structurally could not report, since it POSTed to the app itself — now gets recorded.
+
+  **Caught in review, not by CI.** Reading the status from a file removed the `with db() as conn`
+  that the old handler used for its query, and with it an incidental liveness check: `/api/health`
+  would have returned 200 for an app whose database was unopenable, while `scripts/deploy.sh` has
+  always read anything other than a 200 as "the deploy is not up". The endpoint now touches the DB
+  deliberately, with a test that was confirmed to fail without the fix rather than assumed to.
+  Also folded the duplicated status-file test helper into `conftest.py`, which exists for exactly
+  that reason. Backend tests 88 → 92.
+
+  **Deployed, then flipped the cron, in that order.** Owner decision at the boundary (see
+  `DECISIONS.md`). `9e4bf65` is live and verified on the Pi — the first deploy since `17bd4fc`, so
+  the py3.11 → 3.14 base image and pydantic 2.13.5 are now actually running, not just
+  hand-verified. Then `crontab` went `30 3 * * *` → `30 3 * * 0`, with the old crontab saved on the
+  Pi at `~/crontab.backup-2026-09-04`. Flipping the cron first would have left `/api/health`
+  permanently stale, which is the precise failure the issue exists to prevent.
+
+  **Proved end to end on the Pi, not just in tests.** A manual `backup.sh` run wrote
+  `{"status":"failed","at":"2026-09-04T20:17:42Z",...}` through `docker cp`, `/api/health` read it
+  back, and the local snapshot `workout-20260904-211731.db` still landed despite the Drive leg
+  failing. That last part is the chain ordering earning its keep in production rather than in a
+  comment. The `"failed"` is honest: Google Drive is still `invalid_grant`, unchanged from the
+  start of this tick and not this tick's job.
+
+  **Not merged to main on purpose.** This home branch stays unmerged so the repo's
+  auto-delete-on-merge cannot eat it again the way it did this morning, taking the claim mechanism
+  with it. That leaves `main`'s copy of these orchestration docs behind the live branch — a real
+  tradeoff, and the underlying choice (keep merging and re-push every time, or stop merging and
+  cherry-pick doc commits) is written up in `IMPROVEMENTS.md` and wants an owner call.
 - **2026-09-04 (owner-driven session — accounts designed, backups found broken):** Not an
   unattended tick; the owner asked for a status pass and the next round of work.
 
