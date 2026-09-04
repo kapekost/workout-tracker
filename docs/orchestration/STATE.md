@@ -25,11 +25,17 @@
   but no `ready` children; #70 unshaped.
 - **Next action:** Nothing is pickable unattended. **#84 needs `/orchestrate approve 84` from the
   owner** before any tick may execute it, and #85/#86/#87 each need the same as their predecessor
-  merges — approve them one at a time, since each step's scope only settles once the one before it
-  lands. The only other open `ready` issue is **#89** (backup alerting, P2), which is blocked on a
-  healthchecks.io ping URL only the owner can create. Set that check's period to **weekly**, not
-  daily: the cron moved this tick, and a daily period would alarm immediately on a schedule that no
-  longer exists.
+  merges — approve one at a time, since each step's scope only settles once the one before it
+  lands. The backup workstream is finished and closed out: #88 shipped, #89 closed as not planned
+  (no schedule to alarm against), #94 closed (OAuth app published, remote verified). **#93** is the
+  one open backup issue — the status file conflates the local and off-site legs, so an off-site
+  failure masks a perfectly good local snapshot. It is unlabelled and untriaged; triage it before
+  treating it as pickable. `agent-scaffold` PR #2 is open and awaiting the owner's review.
+
+  **Heads up for the next tick: a second Claude session is active in this repo.** It authored
+  #93/#94/#95 (`docs/BACKUPS.md`) on 2026-09-04 without pushing an In-flight claim, and `main`
+  moved underneath this session mid-task as a result. The claim mechanism only works if every
+  driver uses it.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -44,12 +50,12 @@
   human-only." Run `/orchestrate approve 84` to start; approve each one as its predecessor merges,
   rather than all four up front, since each step's scope is only settled once the one before it
   lands.
-- **#89 (backup alerting) needs a ping URL.** The owner creates a healthchecks.io check; the URL
-  goes in `AGENTS.local.md` and into the cron line. #88 has now taken the cron weekly, so set the
-  check's period to **weekly** — a daily period would alarm immediately against a schedule that no
-  longer exists.
-- **Two `[template]` IMPROVEMENTS entries can't be filed, because the credential to file them
-  doesn't exist.** GUARDRAILS "Cross-repo writes" allows a template-repo PR only through a named,
+- **`agent-scaffold` PR #2 is open and needs a review** — the two `[template]` entries, filed
+  2026-09-04 once the owner asked for them directly. That direct ask is what unblocked them:
+  GUARDRAILS "Cross-repo writes" bars a tick from using this repo's ambient `gh` auth to write to
+  another repo on its own initiative, and a human asking for the PR is exactly the authorisation
+  that rule is protecting. No CI is configured on that repo; all four `tests/*.sh` were run locally
+  and pass. Superseded context, kept because it explains the rule: GUARDRAILS "Cross-repo writes" allows a template-repo PR only through a named,
   explicit credential set up for that purpose, "never implied by this repo's own `gh` auth" — and
   the only auth on this Mac is the owner's personal `gh` token. So the 2026-09-02 entry (intake
   splits can create children with no state label; `gh issue create` bypasses the ISSUE_TEMPLATE
@@ -71,23 +77,15 @@
   fix candidate for `PLAYBOOK.md`'s Execute step: default to `isolation:'worktree'` for any
   subagent dispatch that does its own git branch/commit work.
 
-- **Home branch survives only by hand right now.** Enabling auto-delete-on-merge (see Closed
-  below) deletes `claude/workout-tracker-backlog-bu9qnw` whenever its PR lands on `main` — PR #90
-  did exactly that on 2026-09-04, even though it was merged deliberately without
-  `--delete-branch`. That branch *is* the PLAYBOOK claim mechanism, so losing it silently disables
-  collision protection for every later tick. Restored by re-pushing the local ref, which only
-  worked because a local copy still existed. Until PLAYBOOK is fixed (see IMPROVEMENTS.md
-  2026-09-04), **any tick that merges this branch must re-push it and verify it exists before
-  finishing.**
-
-  **This needs an owner call, because the workaround has its own cost.** The #88 tick chose the
-  other horn: it did not open a home-branch PR at all, pushing `STATE.md`/`DECISIONS.md`/
-  `IMPROVEMENTS.md` straight to the branch instead, so there was nothing for auto-delete to eat.
-  The price is that `main`'s copy of those three files now trails the live branch — the same
-  staleness that was a "Needs owner" item earlier the same day. Pick one: keep merging and re-push
-  every single time (one forgotten re-push silently disables collision protection), or stop merging
-  the home branch entirely and cherry-pick its doc commits onto short-lived branches, leaving it
-  permanently unmerged and therefore un-deletable. `IMPROVEMENTS.md` 2026-09-04 writes both up.
+### Resolved 2026-09-04 — the home branch never merges
+- ~~**Home branch survives only by hand**~~ — **decided.** Enabling auto-delete-on-merge deletes
+  `claude/workout-tracker-backlog-bu9qnw` whenever its PR lands on `main`, even when merged
+  deliberately without `--delete-branch`; PR #90 did exactly that. That branch *is* the claim
+  mechanism, so losing it silently disables collision protection for every later tick. The owner
+  chose to **stop merging it at all**: orchestration doc commits go straight to the branch, and
+  when `main` should carry them they get cherry-picked onto a short-lived branch and PR'd from
+  there. The branch never merges, so auto-delete can never reach it, and nothing depends on
+  remembering to re-push. Fed upstream as `agent-scaffold` PR #2.
 
 ### Closed 2026-09-04
 - ~~**Google OAuth app publish status — off-site backups down**~~ — **resolved, verified**. The
