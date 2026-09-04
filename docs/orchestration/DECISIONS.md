@@ -3,6 +3,32 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-04 — Backups go manual; no alerting; home branch stops merging
+
+Three owner calls in one conversation, all reversing or settling things decided earlier
+the same day.
+
+**Backups are manual.** The cron is removed from the Pi entirely, not just slowed down —
+run `scripts/backup.sh` when you want a copy. Local snapshots pruned to two. The
+consequence had to be fixed with it: `scripts/deploy.sh` treated a `stale`
+`last_backup_status` as a hard deploy failure, so with no schedule every deploy would
+have started failing eight days after the last manual backup. It warns now, and `stale`
+is reframed as "it has been over a week" rather than "the schedule is broken". #88's
+actual mechanism (status file, no unauthenticated write endpoint) is untouched and still
+unblocks #86.
+
+**No external alerting.** #89 closed as not planned. healthchecks.io alarms on a ping
+that missed its schedule; a manual backup has no schedule, so it would fire forever —
+the same "always red, so nobody reads it" failure #88 existed to remove, relocated to
+another service. The `HEARTBEAT_URL` hook stays in the script, unused, so reinstating a
+cron plus a check later is a two-line change.
+
+**The orchestration home branch never merges to the default branch.** Chosen over
+"merge and re-push every time" because one forgotten re-push silently disables collision
+protection and nothing reports it. Doc commits go straight to the home branch; when
+`main` should carry them, cherry-pick onto a short-lived branch and PR that. Fed back
+upstream as `agent-scaffold` PR #2, together with the state-label-on-split-children fix.
+
 ## 2026-09-04 — #88 ships end to end: deploy the Pi, then flip the cron
 
 Asked at the deploy boundary, because #88's two halves only work together. The
