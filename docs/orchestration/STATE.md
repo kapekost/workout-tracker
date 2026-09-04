@@ -60,6 +60,24 @@
   goes in `AGENTS.local.md` and into the cron line. #88 has now taken the cron weekly, so set the
   check's period to **weekly** — a daily period would alarm immediately against a schedule that no
   longer exists.
+- **Two `[template]` IMPROVEMENTS entries can't be filed, because the credential to file them
+  doesn't exist.** GUARDRAILS "Cross-repo writes" allows a template-repo PR only through a named,
+  explicit credential set up for that purpose, "never implied by this repo's own `gh` auth" — and
+  the only auth on this Mac is the owner's personal `gh` token. So the 2026-09-02 entry (intake
+  splits can create children with no state label; `gh issue create` bypasses the ISSUE_TEMPLATE
+  default, which is how #68 sat invisible to both tracks for 3 days) and the 2026-09-04 entry
+  (GitHub's auto-delete-on-merge eats the orchestration home branch, taking the claim mechanism
+  with it) are both still unfiled against `agent-scaffold`. The owner either sets up that
+  credential or applies them by hand — `~/dev/agent-scaffold` is checked out locally. Not something
+  a tick may work around by using the ambient token.
+- **How should the home branch reach `main`?** Related to the second entry above and needs a call
+  before the next tick. This tick deliberately did *not* open a PR from
+  `claude/workout-tracker-backlog-bu9qnw` to `main`, because that is exactly what deleted the
+  branch this morning. The cost is that `main`'s copy of `STATE.md`, `DECISIONS.md` and
+  `IMPROVEMENTS.md` now trails the live branch. Two options, both written up in `IMPROVEMENTS.md`:
+  keep merging and re-push the branch immediately every time, or stop merging it at all and
+  cherry-pick its doc commits onto short-lived branches so the home branch stays permanently
+  unmerged and therefore un-deletable.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -135,6 +153,15 @@
   failing. That last part is the chain ordering earning its keep in production rather than in a
   comment. The `"failed"` is honest: Google Drive is still `invalid_grant`, unchanged from the
   start of this tick and not this tick's job.
+
+  **Feedback review (step 8) ran** because this tick logged three entries. Both `[local]` ones
+  shipped as PR #92: step 4 no longer tells subagents to append to `IMPROVEMENTS.md` themselves
+  (the log and its cursor live on the home branch, so a feature branch writing there leaves the
+  note unmerged and conflicting), and it now says what a fresh worktree lacks, which is what made
+  the subagent's verification commands fail for reasons unrelated to its change. The `[unsure]`
+  PATH entry turned out to be smaller than it looked: `AGENTS.local.md` already has a
+  "Local development tool paths" table for exactly this and was only missing a `gh` row, now added.
+  The two older `[template]` entries could not be filed — see "Needs owner". Cursor advanced to 8.
 
   **Not merged to main on purpose.** This home branch stays unmerged so the repo's
   auto-delete-on-merge cannot eat it again the way it did this morning, taking the claim mechanism
