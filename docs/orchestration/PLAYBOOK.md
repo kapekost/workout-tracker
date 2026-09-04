@@ -126,9 +126,19 @@ only because the owner happened to ask about it, not by anything in this file. H
 4. **Execute** via `superpowers:subagent-driven-development`. Lean: dispatch one subagent per task; it
    reads only the Issue + its plan doc + the named files, never the whole tree. If context bloats
    mid-task per GUARDRAILS, checkpoint and hand off to a fresh subagent rather than pushing through.
-   Tell the subagent to log friction as it goes: whenever it hits something worth noting (a wrong
-   guardrail, a missing tool, an outdated doc), run
-   `scripts/append_improvement.sh <local|template|unsure> "<note>"` inline rather than waiting.
+   Dispatch with worktree isolation whenever the subagent does its own branch/commit work, and
+   remember what a fresh worktree does *not* have: `backend/.venv` and `frontend/node_modules` are
+   gitignored and are not shared with the main checkout (`AGENTS.md` says so under Setup). Hand the
+   subagent the main checkout's absolute interpreter path, or tell it to install first — otherwise
+   its verification commands fail for reasons that have nothing to do with the change it made.
+   **Friction goes in the subagent's final report, not into `IMPROVEMENTS.md` directly.** The
+   improvements log and its `last-reviewed-count` cursor belong to the home branch — that is where
+   every tick appends and where step 8 reads from. A subagent on a feature branch running
+   `scripts/append_improvement.sh` writes the note somewhere it will sit unmerged until that PR
+   lands, and conflicts with the home branch when it does. So ask for friction (a wrong guardrail, a
+   missing tool, an outdated doc) as a named section of the subagent's result, and have the
+   controller log it with `scripts/append_improvement.sh <local|template|unsure> "<note>"` from the
+   home branch at step 8.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
 6. **PR:** open a PR referencing the Issue (`Closes #N`), then run
