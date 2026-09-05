@@ -3,6 +3,16 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-05 — #27 (public access) deprioritized to P3
+
+Owner: public access waits until the accounts system (#84/#85, now live) has been proven with a
+real human login on a phone, not just tested in CI — exposing the app before that adds attack
+surface to a system nobody has used yet. Two things unchanged: `APP_BASE_URL` stays the single
+config seam (emailed links point at the Tailscale URL now, swap later without a code change), and
+`APP_COOKIE_SECURE` stays `0` until whatever fronts the app terminates TLS. Still `intake` —
+direction was already decided 2026-08-30 (below); it still needs a real home-network security
+review before its spec's children can be sized.
+
 ## 2026-09-04 — Accounts: #67 and #68 are one workstream, not a sequence
 
 The 2026-09-02 decision that initial passwords are set through an emailed single-use link makes

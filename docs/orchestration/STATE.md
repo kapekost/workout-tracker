@@ -5,28 +5,34 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts. #67 and #68 were **merged into one workstream and closed as
-  superseded** (2026-09-04) — the owner's 2026-09-02 decision that initial passwords are set
-  through an emailed single-use link means #67 cannot ship a working account without #68's Resend
-  integration and token model, so neither can precede the other. Design written and reviewed:
-  `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83). Split into four issues in a
-  hard dependency chain: **#84** (schema v6 + auth core, `ready`) → **#85** (Resend invite/reset,
-  rate limiting, owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend
-  login) → **#87** (export/import role behaviour). Two design choices are backed by measurement on
-  the real Pi rather than assumption: bcrypt cost 12 (627 ms there; OWASP's scrypt baseline needs
-  128 MiB against ~185 MiB free, and memory-hard KDFs would let a few parallel logins OOM the
-  container), and both bcrypt and argon2-cffi confirmed to ship aarch64 wheels so the no-gcc
-  constraint holds. Also shipped this tick: 28 dead remote branches deleted (the long-standing
-  "Needs owner" item — deletion works fine from the owner's Mac, it was only the GitHub App that
-  403'd), Dependabot #80/#81 hand-verified and merged, and #82 opened+merged to fix two gaps #81
-  left behind. Intake unchanged: #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
-- **Next action:** **#84 is approved and pickable** — the owner ran `/orchestrate approve 84` on
-  2026-09-05, so the `approved` label is on it and the next tick may execute it. #85/#86/#87 each
-  still need their own `/orchestrate approve`, granted as their predecessor merges rather than all
-  up front; they stay `blocked` until then. The backup work that was listed here as independently
-  pickable has since shipped (#88, #89, #93, #94 all closed), so the accounts chain is the live
-  thread. The #88-before-#86 ordering constraint is satisfied: the heartbeat no longer posts to
-  `/api/events` from cron, so gating the data endpoints in #86 will not silently break backups.
+- **Current focus:** Accounts, continued. Since this cursor was last updated, **#84** (schema v6 +
+  auth core) and **#85** (Resend invite/reset, rate limiting, owner bootstrap) both shipped and
+  merged — the standing approval recorded below covered both. The owner then personally found and
+  filed a real cross-profile data leak (reads were never scoped to a profile, only writes were,
+  since #66) and it shipped same-day as **#110** (merged via #112): a single `acting_profile_id(conn)`
+  seam now scopes every read and 404s cross-profile `PATCH`/`DELETE`, independently of login. That
+  makes **#86** smaller than its issue body still says (comment posted narrowing it to: swap the
+  seam's body for a real session lookup, delete `_default_profile_id`, trim `/api/health`, gate
+  `/api/events`, add the frontend route guard + 401 handler). #86 also had its login/set-password
+  *screens* split out into new **#105** on 2026-09-05, so the UI can be used and proven before the
+  gate closes — #86 now only turns the door. Housekeeping shipped in the same window: backup
+  heartbeat → status file + weekly cron (#88), local/off-site backup status split apart (#93),
+  off-site Google Drive backups re-authorized and working but still on a 7-day clock the owner
+  deliberately deferred fixing (#94), active alerting deferred (#89), a CI secrets/env-file scan
+  (#111), deploy env vars moved to a target-side `.env` (#108), a Resend User-Agent/error-message
+  fix (#109). Owner deprioritized **#27** (public access) to P3 (2026-09-05): it waits until the
+  accounts system has been used for real, not just tested in CI. Intake otherwise unchanged:
+  #30/#32/#33 have specs but no `ready` children; #70 unshaped.
+- **Process note:** none of the above (10+ merged PRs, #101 through #112) was ever written back to
+  this Cursor/Tick log — reconstructed this tick from `git log` and live GitHub issue/comment state,
+  which were themselves current and consistent throughout. Only this file had drifted. Full
+  reconstruction is in this tick's log entry below.
+- **Next action:** **#105 is the next step and is unblocked** (its only blocker, #85, merged) —
+  relabeled `blocked` → `ready` this tick. It changes session-handling UI (login, set-password),
+  which GUARDRAILS treats as destructive same as its #84-#87 siblings. The standing approval below
+  names `#84-#87` exactly; #105 did not exist when that was written, so it is **not** literally
+  covered and needs its own fresh `/orchestrate approve 105` before the next tick can execute it —
+  see "Needs owner." #86 (blocked on #105) and #87 (blocked on #86) stay correctly blocked behind it.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -35,24 +41,29 @@
 (no branches in flight)
 
 ## Needs owner
-- **The accounts chain needs approval per step; #84 has it, #85-#87 do not yet.** All four change
-  auth/session handling, which GUARDRAILS classifies as **destructive**, requiring the `approved`
-  label. No tick may add that label itself — see GUARDRAILS "Approval is human-only."
-  **#84 approved 2026-09-05** by the owner (`/orchestrate approve 84`; rationale commented on the
-  Issue). Approve #85, then #86, then #87 as each predecessor merges, rather than all up front,
-  since each step's scope is only settled once the one before it lands.
-- **Google OAuth app publish status — off-site backups are down because of it.** `rclone` has
-  failed `invalid_grant` since 2026-09-02; the last good Drive copy was 2026-08-31. Local
-  snapshots on the Pi are unaffected and current. The cause matches the trap already documented in
-  `AGENTS.local.md`: an OAuth app left in **"Testing"** expires refresh tokens after 7 days, and
-  the client_id migration was 2026-08-25 — exactly seven days before the first failure. Owner must
-  publish the app in the Google Cloud Console (personal/low-volume skips review — one "unverified
-  app" click-through), after which re-authorizing takes one `rclone authorize` run on a machine
-  with a browser, writing the token straight into the Pi's `rclone.conf`. Never `rclone config
-  update`, which hangs headlessly.
-- **#89 (backup alerting) needs a ping URL.** The owner creates a healthchecks.io check; the URL
-  goes in `AGENTS.local.md` and into the cron line. Set its period *after* #88 takes the cron
-  weekly, or it alerts immediately on the old nightly expectation.
+- **#105 needs `/orchestrate approve 105`.** Genuinely unblocked (see Next action above) but not
+  literally named by the standing approval on file, and GUARDRAILS' approval rule has no
+  unattended-execution exception. This is the one thing between here and a working, testable login
+  — once approved, the next tick can ship a screen the owner can actually use: receive the real
+  invite email, set a password, log in, see the top bar change, log out.
+- **Off-site backups: working now, likely to lapse again around 2026-09-11/12.** Re-authorized
+  2026-09-04 21:24 (confirmed landing in Drive, `/api/health` reads `ok`), but the Google Cloud
+  OAuth app is still in "Testing" publish status, which expires refresh tokens every 7 days. Fixing
+  this for good was **deliberately deferred by the owner** (#94, closed `not_planned`) — full
+  reactivation steps (which OAuth scopes to drop, exact console URL, why it was left alone) are
+  written out in #94 for whenever it's picked up. Local snapshots (90-day retention on the Pi) are
+  unaffected either way. Backup alerting (healthchecks.io) is separately deferred, same owner call
+  (#89, closed).
+- **`#86`'s issue body is stale** — still describes replacing all 7 `_default_profile_id` call
+  sites, which #110 already did. Left a scope-narrowing comment on #86 rather than editing the
+  owner's own issue text; flagging here so it isn't mistaken for drift nobody noticed.
+- **`[template]` IMPROVEMENTS.md entry (2026-09-02), newly triaged this tick:** split-created child
+  Issues can land with no state label at all (real case: #68 sat invisible to both the `ready` and
+  `intake` tracks for 3 days). Belongs in `agent-scaffold` per GUARDRAILS "Cross-repo writes", which
+  requires "a named, explicit credential set up for that purpose — never implied by this repo's own
+  `gh` auth." This session has no such dedicated credential, only ordinary multi-repo access, so
+  flagging rather than opening that PR myself. Improvements cursor advanced to 4 regardless
+  (triaged, not silently dropped) — see `IMPROVEMENTS.md`.
 - **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
   silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
   invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
@@ -82,6 +93,39 @@
   order.
 
 ## Tick log
+- **2026-09-05 (state reconciliation — large untracked gap found, no execution):** Ran the normal
+  tick algorithm; step 2's reconcile found this file badly stale and spent the tick correcting it
+  rather than executing new work. Local checkout, `claude/orchestrate-xi7tyc`, and `origin/main`
+  were all identical (`240acc4`) — the drift was entirely in this file's Cursor/Tick log, not in
+  code or GitHub issue/comment state, which were internally consistent throughout.
+
+  **What actually shipped since the last recorded cursor** (reconstructed from `git log` and issue
+  state, since no tick wrote it down as it happened): **#84** (schema v6 + auth core — #101 plan,
+  #102 playbook fix, #103 execution, #104 deploy note) and **#85** (Resend invite/reset, rate
+  limiting, owner bootstrap — #107) both merged under the standing-approval mechanism (#106 added
+  it to GUARDRAILS). The owner then personally opened **#110** — a real cross-profile data leak
+  (reads never scoped to a profile, only writes were, since #66's deliberate deferral) — and it
+  shipped same-day via #112. #86 was rescoped in place (comment posted this tick narrowing it now
+  that #110 landed) and had its frontend screens split into new **#105**. Also merged in the same
+  window: #88/#93/#94/#89 (backup heartbeat-to-file, weekly cron, off-site/local status split,
+  OAuth publish deferred, alerting deferred — #91/#95-#100), #108 (deploy env vars → target `.env`),
+  #109 (Resend User-Agent fix), #111 (CI secrets/env-file scan). Owner also deprioritized #27 to P3
+  via an issue comment (2026-09-05) that was never logged to `DECISIONS.md` — added it this tick.
+
+  **Corrected this tick:** `STATE.md` Cursor/Next-action/Needs-owner rewritten to match reality;
+  `DECISIONS.md` gained the missing #27 entry; #105 relabeled `blocked` → `ready` (its only
+  blocker, #85, is merged) — it is not, however, literally named by the existing standing-approval
+  text (which says `#84-#87`), so it still needs its own `/orchestrate approve 105` rather than
+  being treated as covered; a scope-narrowing comment posted on #86; the `[template]`
+  IMPROVEMENTS.md entry from 2026-09-02 triaged (flagged to Needs-owner rather than actioned — no
+  dedicated cross-repo credential available this session per GUARDRAILS), cursor advanced 3 → 4.
+
+  **No code executed this tick** — with #105/#86/#87 all needing either a dependency or an owner
+  approval, and the only other track (intake: #30/#32/#33, already spec'd) being backlog grooming
+  rather than anything try-able, judged the highest-leverage use of this tick to be surfacing the
+  #105 approval ask clearly rather than spending the same budget on a intake split. Flagged as a
+  judgment call, not a rule — next tick can do the intake split if the owner would rather have that
+  than wait on an approval click.
 - **2026-09-04 (owner-driven session — accounts designed, backups found broken):** Not an
   unattended tick; the owner asked for a status pass and the next round of work.
 
