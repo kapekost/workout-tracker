@@ -50,7 +50,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#84** — claimed 2026-09-05T01:10:03Z, live session.
 
 ## Needs owner
 - **The whole accounts chain needs approval before any tick may execute it.** #84, #85, #86 and
