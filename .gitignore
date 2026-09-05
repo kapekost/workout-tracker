@@ -28,9 +28,10 @@ venv/
 # data, never belongs in a public repo.
 /pre-deploy-*.json
 
-# Env
+# Env — real values live only on the deploy target, never here.
 .env
 .env.*
+!.env.example
 
 # Editor / OS
 .DS_Store

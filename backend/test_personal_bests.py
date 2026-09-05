@@ -1,9 +1,9 @@
 def test_migration_creates_personal_bests_table(mainmod):
     with mainmod.db() as conn:
-        # schema v5 is the app's current terminal version (v4: #66 profiles +
-        # profile_id everywhere; v5: #69 profile icon) — personal_bests
-        # carries profile_id since v4.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        # schema v6 is the app's current terminal version (v4: #66 profiles +
+        # profile_id everywhere; v5: #69 profile icon; v6: #84 accounts) —
+        # personal_bests carries profile_id since v4.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         cols = {r[1] for r in conn.execute("PRAGMA table_info(personal_bests)").fetchall()}
         assert cols == {"id", "profile_id", "exercise_id", "exercise_name", "weight_kg", "reps",
                          "achieved_year", "achieved_note", "created_at"}
@@ -11,7 +11,7 @@ def test_migration_creates_personal_bests_table(mainmod):
 def test_migration_is_idempotent(mainmod):
     mainmod.init(); mainmod.init()  # second run must not error
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
 
 def _pb(exercise_id="bench_press", exercise_name="Bench Press", weight_kg=100.0, reps=3, achieved_year=2023, achieved_note=None):
     return {"exercise_id": exercise_id, "exercise_name": exercise_name, "weight_kg": weight_kg,
@@ -50,8 +50,13 @@ def test_delete_personal_best_removes_it(client):
     assert client.delete(f"/api/personal-bests/{pb_id}").json() == {"deleted": True}
     assert client.get("/api/personal-bests").json() == []
 
-def test_delete_nonexistent_personal_best_still_returns_deleted_true(client):
-    assert client.delete("/api/personal-bests/999").json() == {"deleted": True}
+def test_delete_nonexistent_personal_best_404s(client):
+    # #110: a personal best that is not the acting profile's — which a row that
+    # does not exist trivially is — must 404, never confirm a delete. "Gone" and
+    # "belongs to someone else" are deliberately indistinguishable so existence
+    # is not leaked across profiles. This replaces the pre-#110 idempotent-delete
+    # contract (nonexistent -> {"deleted": True}).
+    assert client.delete("/api/personal-bests/999").status_code == 404
 
 def _log_session(client, day, sets):
     sid = client.post("/api/sessions", json={"workout_day": day}).json()["id"]

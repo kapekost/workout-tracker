@@ -42,6 +42,15 @@ if [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then
   exit 1
 fi
 
+# Warn, never fail: mail config missing only means invites and resets cannot
+# send, which must not block deploying everything else. Checked before the build
+# so the warning is visible rather than buried under image transfer output.
+# shellcheck disable=SC2086
+if ! ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" "grep -qs '^RESEND_API_KEY=re_' '$DEPLOY_APP_DIR/.env'"; then
+  echo "warning: $DEPLOY_APP_DIR/.env on $DEPLOY_HOST has no RESEND_API_KEY."
+  echo "         Invite and password-reset emails will not send. See .env.example."
+fi
+
 echo "==> building $local_tag for linux/arm64"
 docker buildx build \
   --platform linux/arm64 \
@@ -116,7 +125,13 @@ if payload.get("last_backup_status") == "stale":
     print("warning: last_backup_status is stale — the last backup is over a week old.")
     print("         run scripts/backup.sh on the host if you want a fresh one.")
 
-print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}")
+# The off-site leg is reported separately (#93) and is never fatal here — the
+# local snapshot is the one that matters for a deploy. Printed so a chronically
+# broken Drive leg is at least visible at deploy time rather than only in
+# /api/health, which nobody reads unless they already suspect something.
+remote = payload.get("last_backup_remote_status")
+print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}"
+      + (f", off-site={remote}" if remote else ""))
 PY
 
 echo "==> deploy verified: $short_sha"

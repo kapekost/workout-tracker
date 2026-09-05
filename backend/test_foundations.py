@@ -38,8 +38,9 @@ def test_migrate_skips_realter_when_column_preexists(mainmod):
         conn.commit()
     mainmod.init()  # must not raise "duplicate column name: ended_at"
     with mainmod.db() as conn:
-        # schema v5 (#69: profile icon) is the app's current terminal version.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        # schema v6 (#84: accounts — email, auth_tokens, auth_sessions) is the
+        # app's current terminal version.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
 
 def test_set_validation_rejects_bad_input(client):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
@@ -76,11 +77,17 @@ def test_health_reports_no_backup_then_ok(client, write_backup_status):
     h = client.get("/api/health").json()
     assert h["status"] == "ok"
     assert h["last_backup_at"] is None and h["last_backup_status"] == "none"
+    # With no status file at all there is nothing to say about the off-site
+    # leg either, and "nothing to say" is null rather than a made-up status.
+    assert h["last_backup_remote_at"] is None and h["last_backup_remote_status"] is None
 
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    write_backup_status({"status": "ok", "at": at, "bytes": 1024})
+    write_backup_status({"local": {"status": "ok", "at": at, "bytes": 1024},
+                         "remote": {"status": "ok", "at": at,
+                                    "remote": "gdrive:workout-tracker-backups"}})
     h = client.get("/api/health").json()
     assert h["last_backup_status"] == "ok" and h["last_backup_at"] == at
+    assert h["last_backup_remote_status"] == "ok" and h["last_backup_remote_at"] == at
 
 def test_export_envelope_shape(client):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
@@ -89,7 +96,7 @@ def test_export_envelope_shape(client):
                       "set_number": 1, "reps": 8, "weight_kg": 80})
     exp = client.get("/api/export").json()
     assert set(exp["tables"].keys()) == {"profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"}
-    assert exp["schema_version"] == 5
+    assert exp["schema_version"] == 6
     assert exp["exported_at"].endswith("Z")
     assert len(exp["tables"]["sessions"]) == 1 and len(exp["tables"]["sets"]) == 1
 
@@ -178,5 +185,5 @@ def test_import_of_older_envelope_does_not_roll_user_version_backward(client, ma
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old})
     assert r.status_code == 200
     with mainmod.db() as conn:
-        # schema v5 (#69: profile icon) is the app's current terminal version.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        # schema v6 (#84: accounts) is the app's current terminal version.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6

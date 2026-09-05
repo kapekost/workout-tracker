@@ -77,6 +77,11 @@ safely on the host's disk. That ordering is why an off-site outage still leaves 
 good local snapshots — proven in the 2026-09-01..04 Drive failure, where four "failed"
 runs each produced a perfectly good local file. **Do not reorder this chain.**
 
+Since 2026-09-05 the two legs are also *reported* independently, which is what those four
+nights actually cost us: the run above now exits 0 and records `local: ok` alongside
+`remote: failed`, because the local snapshot is the copy standing between you and data
+loss. Only a local failure exits non-zero.
+
 Retention, as actually configured on 2026-09-04: **two** local snapshots, kept by hand,
 and whatever is off-site. The `-mtime +90` prune in the script is only a backstop against
 unbounded growth, not the policy — with no cadence there is nothing to size a window
@@ -113,6 +118,27 @@ it. Deliberately a file rather than an API call: the status no longer lives *ins
 database being backed up (a restore used to drag stale heartbeats back in), and there's
 no unauthenticated write endpoint to defend.
 
+Each leg gets its own entry, because each fails on its own:
+
+```json
+{
+  "local":  {"status": "ok",     "at": "2026-09-05T00:12:03Z", "bytes": 172032},
+  "remote": {"status": "failed", "at": "2026-09-05T00:12:09Z", "error": "rclone copy failed"}
+}
+```
+
+`/api/health` surfaces both — `last_backup_status`/`last_backup_at` for the local leg,
+`last_backup_remote_status`/`last_backup_remote_at` for the off-site one. The local leg
+keeps the unprefixed names on purpose: it is the one that matters most, and
+`scripts/deploy.sh` already reads it. Statuses are `ok`, `failed` or `stale` locally,
+plus `skipped` off-site for "the local leg failed, so we never tried". `skipped` and
+`failed` never age into `stale` — only an `ok` does, since relabelling the other two
+would lose the detail that separates "ran and broke" from "never ran".
+
+A remote leg of `null` means the file has nothing to say about it: no backup has run
+yet, or the file predates this split (a pre-2026-09-05 file has a single top-level
+status, which is read as the local leg). Unknown is not the same as failed.
+
 A successful backup older than 8 days reports `stale`. With backups manual, read that as
 "it has been over a week since you took one", not as a broken schedule — `scripts/deploy.sh`
 prints it as a warning and does **not** fail the deploy over it. `failed` is the one worth
@@ -147,15 +173,35 @@ two things living on it have a very different level of protection. Audited 2026-
 | What | Protection | Off-box? |
 |---|---|---|
 | **workout-tracker DB** | `scripts/backup.sh`, run manually; 2 local snapshots + the last one off-site | Yes |
-| **Home Assistant** | HA's own automatic backup, roughly monthly, into its Docker config volume | **No** |
+| **Home Assistant** | HA's own automatic backup, roughly monthly — now only off-box | Yes, by hand |
 | **The Raspberry Pi itself** | Nothing | **No** |
 
 Two gaps worth naming rather than discovering later:
 
-- **Home Assistant's backups are on the same SD card as Home Assistant.** They exist and
-  they are large (two tars, ~47 MB and ~65 MB, from 2026-08-01 and 2026-09-01), but
-  nothing copies them off the box. The card dying takes the backups with it — which is
-  the one failure this Pi has already had, in July 2026.
+- **Home Assistant's backups live on the same SD card as Home Assistant**, and nothing
+  moves them automatically. The card dying would take them with it — the one failure this
+  Pi has already had, in July 2026. The two that existed (~47 MB and ~65 MB, from
+  2026-08-01 and 2026-09-01) were copied to `gdrive:homeassistant-backups` by hand on
+  2026-09-04, verified byte-for-byte by comparing md5 sums computed independently on each
+  side, and then **deleted from the card**. So they now exist off-box only, and
+  `/config/backups` is empty until HA writes its next one. **That next one will not be
+  copied anywhere**, until someone repeats this:
+
+  ```bash
+  # on the host — docker cp because the config volume is root-owned
+  mkdir -p ~/ha-staging
+  docker cp homeassistant:/config/backups/<file>.tar ~/ha-staging/
+  rclone copy ~/ha-staging gdrive:homeassistant-backups
+  rclone check ~/ha-staging gdrive:homeassistant-backups   # expect "0 differences found"
+  rm -rf ~/ha-staging
+  ```
+
+  Verify before deleting anything — `rclone check`, or md5 both sides — because the point
+  of the exercise is that these are the only copies. Note the tradeoff that comes with
+  removing the originals: HA's own UI only lists backups present in `/config/backups`, so
+  restoring now means pulling the tar back down from Drive first. That is the intended
+  state here, not an oversight; disk space was never the reason (the Pi is 11% full with
+  ~100 GB free), getting them off a card that has already died once was.
 - **There is no image or filesystem backup of the Pi.** No timeshift, rpi-clone,
   rsnapshot, borg, restic or duplicity is installed, and no cron or systemd timer does
   anything of the kind. Losing the card means rebuilding the OS and every service by
