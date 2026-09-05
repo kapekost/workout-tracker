@@ -120,8 +120,10 @@ only because the owner happened to ask about it, not by anything in this file. H
    resolve the highest-ranked one via the Feature intake flow above instead. **The moment an Issue
    is picked, push its claim per "Claiming work" above — before any of the branches below, before
    any execution.** Then:
-   - If it is **destructive** (per GUARDRAILS) and lacks the `approved` label → skip to the next ready
-     Issue; if none, stop + notify.
+   - If it is **destructive** (per GUARDRAILS) and is neither `approved` nor covered by a standing
+     approval in `DECISIONS.md` → skip to the next ready Issue; if none, stop + notify. Check the
+     "Always needs a fresh human approval" list in GUARDRAILS first — a standing approval never
+     covers those, nor work that has grown beyond the spec it was granted against.
    - If it is `effort:L`/`XL` and has no sub-Issues yet → split it per GUARDRAILS "Task sizing" and stop.
    - **If it is not decomposed → plan it** (the `/orchestrate plan` flow) and stop. See "The plan
      gate" below for what decomposed means. **Gate on decomposition, not on effort size** — an
@@ -169,8 +171,25 @@ only because the owner happened to ask about it, not by anything in this file. H
    PR against the template repo per GUARDRAILS "Cross-repo writes"; `[unsure]` → `STATE.md` → Needs
    owner), then run `scripts/advance_improvements_cursor.sh` with the new total entry count. Skip this
    step entirely if nothing new was logged this tick.
-9. **Close the tick:** print a one-screen summary (position, what you did, next action, anything
-   needing the owner). If the tick ends with something the owner couldn't already know about without
+9. **Close the tick: report to the product owner, not to another engineer.** The summary's job is
+   to let the owner form an opinion, so lead with what they can now *see and try*, and end with the
+   feedback that would actually change what happens next. Owner's call, 2026-09-05: "I need to know
+   what to see and try out to give you feedback next time. Not too brief but also not too verbose."
+
+   Cover, in this order:
+   - **What's live and what it does** — in product terms. "You can set a password from an emailed
+     link and stay logged in", not "added POST /api/auth/set-password".
+   - **What to try, concretely** — the URL, the screen, the exact steps. If it can't be tried yet,
+     say so plainly and say what it's waiting on rather than implying it's usable.
+   - **What changed that they'd notice** — including anything that looks different but isn't
+     finished, so a half-built thing isn't reported as a bug.
+   - **What I'd like feedback on** — the specific judgement calls where the owner's answer would
+     change the next tick. Name them; don't fish.
+   - **What's blocked on them**, if anything, and what it costs to leave it.
+
+   Keep the engineering detail (commits, test counts, CI) to a line or two at the end — it's
+   evidence the work is real, not the point of the summary. Issue comments and `STATE.md` are where
+   the full record lives; do not restate them here. If the tick ends with something the owner couldn't already know about without
    checking — a new `intake`/`needs-clarification` question now waiting on them, a hard stop, or
    nothing left to do unattended — call `PushNotification` with a one-line summary. Skip it for routine
    ticks that ended cleanly with more `ready` work still queued; a notification for every tick is worse
