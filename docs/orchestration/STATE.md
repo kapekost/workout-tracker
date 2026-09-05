@@ -219,6 +219,46 @@
   order.
 
 ## Tick log
+- **2026-09-06 (the owner used it, and it was broken three ways):** #105 was reported to the owner as
+  ready to try after tests, a code review and a health-checked deploy. None of that had *looked at
+  it*. The owner opened it and hit three defects in a row.
+
+  **#120 was the real one: every client-side route 404'd.** `/login`, `/history`,
+  `/set-password?token=…` — all `{"detail":"Not Found"}`. `StaticFiles` serves files and knows
+  nothing about routes the bundle resolves at runtime, so the app only ever worked because every
+  route was reached by clicking. That made **#85's invite email unopenable since the day it
+  shipped** — there had never been a way to set a password, which is why login could not be used at
+  all. Fixed in PR #121 with `assets/` and `api/` deliberately still 404ing, and the regression
+  tests whose absence let it ship. Found by loading the URL, not by reading anything.
+
+  **#118 was two more:** the top bar named you when you had **no** session (it fell back to
+  `/profile/me`, so a username and a "Log in" link showed together — "signed in, no way to sign
+  out"), and `index.html` was served with no `Cache-Control` at all, so a phone could hold the
+  previous build indefinitely while the server ran the new one. Both in PR #119.
+
+  **Then the UI itself.** The owner: "it's nothing to standards expected login… messy very messy."
+  On `/login` the words "Log in" appeared three times — the TopBar action, the TopBar page-label
+  eyebrow beside it, and the `<h1>` — and the app's bottom nav sat on both auth screens. A UI/UX
+  review (PR #123) made both auth routes chrome-free with one "Back to workouts" link, gave the
+  fields a border, a 2px focus ring, 48px height and a show/hide toggle, moved the 12-character rule
+  beside its field, centred the layout, and rewrote the developer-framed copy. It also found two
+  things nobody had flagged: the error state was signalled by fill colour alone (now `aria-live`
+  plus a danger border) and `.btn-primary` had no disabled state despite five call sites disabling
+  it. 275 unit tests (was 259) and 16 Playwright (was 14). Deployed as `3e5389e` and **screenshotted
+  before being reported** — the new gate, applied to itself.
+
+  **Process consequence, owner's call, now in `DECISIONS.md` and PLAYBOOK step 5 (PR #122):** any
+  UI-touching change needs a UI/UX review of the *rendered* screen and someone to actually open it
+  in a browser, and both carry an explicit "efficient, not overengineered" constraint. The
+  justification is this tick: three defects through a green 259-test suite and a code review, all
+  three obvious in the first screenshot.
+
+  Owner also settled `APP_BASE_URL`: the LAN IP stays for now since it works over the VPN, to be
+  revisited later — not a bug, a deferral.
+
+  Four `IMPROVEMENTS.md` entries logged (cursor to 16): `gh pr merge` from a worktree printing a
+  scary-but-harmless git error, `AGENTS.md`'s stale test counts, no lint step in CI, and an
+  inconsistent sandbox heredoc refusal.
 - **2026-09-06 (owner tried #105; two real bugs, both fixed and deployed):** The first human use of
   the accounts UX did exactly what splitting #105 out of #86 was meant to make it do — it found
   problems while the app was still open, so the fix was an ordinary deploy rather than a recovery.
