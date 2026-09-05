@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
@@ -1207,11 +1208,39 @@ def cache_control_for(path: str) -> str:
     return ("public, max-age=31536000, immutable"
             if "/assets/" in path.replace(os.sep, "/") else "no-cache")
 
+def is_client_route(path: str) -> bool:
+    """Is this 404 a React Router path, or a genuinely missing file?
+
+    StaticFiles serves files. It has no idea that /login, /history and
+    /set-password are routes the bundle resolves once it is running, so it
+    404s them — the app only ever worked because every route was reached by
+    clicking, never by typing a URL, refreshing, or following a link. That
+    made the invite email unopenable: it points at /set-password?token=..., and
+    the server answered {"detail":"Not Found"}.
+
+    Two things must keep their real 404 rather than get the app shell. A
+    missing file under assets/ means a stale index.html is asking for a build
+    that no longer exists; answering with HTML turns that into a console MIME
+    error that hides the cause. And an unknown /api/ path is an API call, whose
+    caller wants JSON.
+    """
+    return not path.lstrip("/").startswith(("assets/", "api/"))
+
 class BuiltStatics(StaticFiles):
     def file_response(self, full_path, stat_result, scope, status_code=200):
         response = super().file_response(full_path, stat_result, scope, status_code)
         response.headers["Cache-Control"] = cache_control_for(str(full_path))
         return response
+
+    async def get_response(self, path, scope):
+        # StaticFiles *raises* on a miss rather than returning a 404, so this
+        # has to catch rather than inspect a status code.
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and is_client_route(path):
+                return await super().get_response("index.html", scope)
+            raise
 
 # Serve React — MUST be last
 if os.path.exists("static"):
