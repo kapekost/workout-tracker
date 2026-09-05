@@ -14,5 +14,9 @@ data
 docs
 .superpowers
 scripts
+# ...except the one operator script that runs inside the container with
+# `docker exec`. The rest of scripts/ is host tooling (deploy, backup) and must
+# stay out of the image.
+!scripts/bootstrap_owner.py
 *.md
 .dockerignore
