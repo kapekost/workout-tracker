@@ -445,3 +445,164 @@ def test_data_endpoints_are_still_open_in_this_step(client, path):
     owner is locked out of their own history. #86 flips this to expect 401
     (except /api/health, which stays open for the deploy smoke check)."""
     assert client.get(path).status_code == 200
+
+
+# --- per-profile data isolation (#110) ---
+# Writes have been attributed to a profile since #66, but reads were never
+# scoped — today any profile can see and modify any other profile's rows.
+# There is no login yet (#86 closes the gate), so these tests drive "who is
+# acting" the same way #86 eventually will: through acting_profile_id, a
+# single seam every data endpoint calls through instead of each hardcoding
+# _default_profile_id. Monkeypatching that one function is what lets a test
+# without real sessions still exercise write-attribution as two distinct
+# profiles, not just read-side isolation.
+
+@pytest.fixture
+def acting_as(mainmod, monkeypatch):
+    """Drive the acting profile for data endpoints (R2). Returns a setter:
+    acting_as(profile_id) makes every subsequent request act as that profile —
+    the same seam #86 replaces with a real session lookup, so this fixture (and
+    every test using it) needs no changes when that happens."""
+    state = {"id": None}
+    monkeypatch.setattr(mainmod, "acting_profile_id", lambda conn: state["id"])
+    def _set(profile_id):
+        state["id"] = profile_id
+    return _set
+
+
+def test_profiles_cannot_see_or_modify_each_others_data(mainmod, client, acting_as):
+    """Table-driven over the full in-scope route list from #110: a route added
+    later without scoping should fail this suite, not ship a leak.
+
+    Two profiles (A, B) each get a session with sets, a note and a personal
+    best, seeded by acting as each in turn so write-attribution is exercised
+    too. Every in-scope read, acting as A, must show A's rows and never B's; a
+    fresh profile C with no data must see an empty app. Every in-scope
+    mutation against B's row, acting as A, must 404 and leave B's row intact.
+    """
+    with mainmod.db() as conn:
+        a_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('iso_a', 'member')").lastrowid
+        b_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('iso_b', 'member')").lastrowid
+        c_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('iso_c', 'member')").lastrowid
+        conn.commit()
+
+    def seed(profile_id, tag, weight):
+        """One profile's data: two completed sessions on its own exercise (so
+        sessions/{sid}/prs has real prior history to protect), a note, and a
+        personal best. Returns everything a later assertion needs to identify
+        this profile's rows."""
+        acting_as(profile_id)
+        ex, note_ex = f"ex_{tag}", f"note_ex_{tag}"
+        base_sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+        client.post(f"/api/sessions/{base_sid}/sets", json={
+            "exercise_id": ex, "exercise_name": ex, "set_number": 1, "reps": 5, "weight_kg": weight})
+        client.patch(f"/api/sessions/{base_sid}", json={"completed": True})
+        sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+        set_row = client.post(f"/api/sessions/{sid}/sets", json={
+            "exercise_id": ex, "exercise_name": ex, "set_number": 1, "reps": 5,
+            "weight_kg": weight + 10}).json()
+        client.patch(f"/api/sessions/{sid}", json={"completed": True})
+        pb = client.post("/api/personal-bests", json={
+            "exercise_id": ex, "exercise_name": ex, "weight_kg": weight - 20,
+            "reps": 5, "achieved_year": 2024}).json()
+        client.put(f"/api/exercises/{note_ex}/note", json={"note": f"note-{tag}"})
+        client.post("/api/events", json=[{"name": f"evt_{tag}", "screen": "Workout"}])
+        return {"ex": ex, "note_ex": note_ex, "base_sid": base_sid, "sid": sid,
+                "set_id": set_row["id"], "pb_id": pb["id"], "weight": weight}
+
+    a, b = seed(a_id, "a", 50), seed(b_id, "b", 500)
+
+    # --- reads: acting as A must see A's data, and never B's ---
+    acting_as(a_id)
+
+    READS = [
+        ("GET /api/sessions",
+         lambda: client.get("/api/sessions").json(),
+         lambda j: {a["base_sid"], a["sid"]} <= {s["id"] for s in j},
+         lambda j: b["base_sid"] not in {s["id"] for s in j} and b["sid"] not in {s["id"] for s in j}),
+        ("GET /api/personal-bests",
+         lambda: client.get("/api/personal-bests").json(),
+         lambda j: a["pb_id"] in {p["id"] for p in j},
+         lambda j: b["pb_id"] not in {p["id"] for p in j}),
+        ("GET /api/notes",
+         lambda: client.get("/api/notes").json(),
+         lambda j: j.get(a["note_ex"]) == "note-a",
+         lambda j: b["note_ex"] not in j),
+        ("GET /api/progress",
+         lambda: client.get("/api/progress").json(),
+         lambda j: a["ex"] in {r["exercise_id"] for r in j},
+         lambda j: b["ex"] not in {r["exercise_id"] for r in j}),
+        ("GET /api/exercises/recency",
+         lambda: client.get("/api/exercises/recency").json(),
+         lambda j: a["ex"] in {r["exercise_id"] for r in j},
+         lambda j: b["ex"] not in {r["exercise_id"] for r in j}),
+        ("GET /api/analytics/summary",
+         lambda: client.get("/api/analytics/summary").json(),
+         lambda j: "evt_a" in {r["name"] for r in j["by_name"]},
+         lambda j: "evt_b" not in {r["name"] for r in j["by_name"]}),
+    ]
+    for name, call, owns_a, excludes_b in READS:
+        body = call()
+        assert owns_a(body), f"{name}: missing A's own data"
+        assert excludes_b(body), f"{name}: leaked B's data"
+
+    # Exercise-keyed reads: A's own exercise_id already excludes B's rows by
+    # accident (different key), so the real scoping proof is asking for B's
+    # own exercise_id while acting as A — that must come back empty, not B's
+    # real data, which is what an unscoped WHERE clause would otherwise return.
+    assert client.get(f"/api/progress/{a['ex']}").json()  # sanity: A has data
+    assert client.get(f"/api/progress/{b['ex']}").json() == []
+    assert client.get(f"/api/exercises/{a['ex']}/last").json() is not None
+    assert client.get(f"/api/exercises/{b['ex']}/last").json() is None
+
+    # Id-keyed read: B's session is invisible to A — 404, not 200.
+    assert client.get(f"/api/sessions/{a['sid']}").status_code == 200
+    assert client.get(f"/api/sessions/{b['sid']}").status_code == 404
+
+    # sessions/{sid}/prs aggregates "prior" history globally — an unscoped
+    # volume comparison lets B's unrelated (much larger) session volume
+    # suppress A's own genuine improvement. It must also 404 for a session A
+    # does not own rather than compute PRs from B's data.
+    prs = client.get(f"/api/sessions/{a['sid']}/prs").json()
+    assert "volume" in {p["type"] for p in prs}
+    assert client.get(f"/api/sessions/{b['sid']}/prs").status_code == 404
+
+    # --- fresh profile with no data sees an empty app, not someone else's history ---
+    acting_as(c_id)
+    assert client.get("/api/sessions").json() == []
+    assert client.get("/api/personal-bests").json() == []
+    assert client.get("/api/notes").json() == {}
+    assert client.get("/api/progress").json() == []
+    assert client.get(f"/api/progress/{a['ex']}").json() == []
+    assert client.get("/api/exercises/recency").json() == []
+    assert client.get(f"/api/exercises/{a['ex']}/last").json() is None
+    assert client.get("/api/analytics/summary").json()["by_name"] == []
+    assert client.get(f"/api/sessions/{a['sid']}").status_code == 404
+
+    # --- mutations: every in-scope mutation against B's row, acting as A, 404s ---
+    acting_as(a_id)
+    MUTATIONS = [
+        ("PATCH session", lambda: client.patch(f"/api/sessions/{b['sid']}", json={"completed": False})),
+        ("DELETE session", lambda: client.delete(f"/api/sessions/{b['sid']}")),
+        ("DELETE set", lambda: client.delete(f"/api/sessions/{b['sid']}/sets/{b['set_id']}")),
+        ("DELETE personal best", lambda: client.delete(f"/api/personal-bests/{b['pb_id']}")),
+        ("POST set into foreign session", lambda: client.post(f"/api/sessions/{b['sid']}/sets", json={
+            "exercise_id": "hack", "exercise_name": "hack", "set_number": 9, "reps": 1, "weight_kg": 1})),
+    ]
+    for name, call in MUTATIONS:
+        r = call()
+        assert r.status_code == 404, f"{name}: expected 404, got {r.status_code}"
+
+    # B's data is unchanged by every rejected mutation attempt above.
+    acting_as(b_id)
+    b_session = client.get(f"/api/sessions/{b['sid']}").json()
+    assert b_session["completed"] == 1
+    assert {st["id"] for st in b_session["sets"]} == {b["set_id"]}
+    assert any(p["id"] == b["pb_id"] for p in client.get("/api/personal-bests").json())
+
+    # Notes are keyed (profile_id, exercise_id): A writing under B's exercise
+    # id creates A's own row and must never touch B's.
+    acting_as(a_id)
+    client.put(f"/api/exercises/{b['note_ex']}/note", json={"note": "leak-attempt"})
+    acting_as(b_id)
+    assert client.get("/api/notes").json()[b["note_ex"]] == "note-b"

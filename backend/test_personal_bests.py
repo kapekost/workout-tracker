@@ -50,8 +50,13 @@ def test_delete_personal_best_removes_it(client):
     assert client.delete(f"/api/personal-bests/{pb_id}").json() == {"deleted": True}
     assert client.get("/api/personal-bests").json() == []
 
-def test_delete_nonexistent_personal_best_still_returns_deleted_true(client):
-    assert client.delete("/api/personal-bests/999").json() == {"deleted": True}
+def test_delete_nonexistent_personal_best_404s(client):
+    # #110: a personal best that is not the acting profile's — which a row that
+    # does not exist trivially is — must 404, never confirm a delete. "Gone" and
+    # "belongs to someone else" are deliberately indistinguishable so existence
+    # is not leaked across profiles. This replaces the pre-#110 idempotent-delete
+    # contract (nonexistent -> {"deleted": True}).
+    assert client.delete("/api/personal-bests/999").status_code == 404
 
 def _log_session(client, day, sets):
     sid = client.post("/api/sessions", json={"workout_day": day}).json()["id"]
