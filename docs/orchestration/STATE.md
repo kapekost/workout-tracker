@@ -5,7 +5,7 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, **step 1 of 4 shipped**. #84 (schema v6 + auth core) merged as
+- **Current focus:** Accounts, **step 1 of 4 shipped and deployed**. #84 (schema v6 + auth core) merged as
   `3ed18a4` (PR #103) — 152 backend tests (101 existing + 51 new) and 216 frontend tests green.
   Six TDD commits: schema v6 → bcrypt cost-12 helpers → session store and `wt_session` cookie →
   `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` → `POST /api/auth/logout`, plus a
@@ -18,6 +18,17 @@
   **#87** (export/import role behaviour), each `blocked` and each needing its own approval. Design
   of record: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`. Intake unchanged:
   #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
+
+  **Deployed the same session** (`3ed18a4`, 2026-09-05), jumping the Pi from `9e4bf65` and so also
+  taking #93/#95/#96/#97/#98/#99/#100 live. Verified on the box: schema version 6, row counts
+  unchanged against the pre-deploy snapshot (1/2/33/0/814/0), auth tables absent from the export
+  envelope, `/api/auth/me` 401, login refused for the seeded NULL-hash profile, and the data
+  endpoints still 200 — the gate is open, as #84 requires. Restore drill re-run per the
+  post-schema-change rule and passing (`integrity_check` ok, `user_version` 5, counts matched).
+  The arm64 image build that could not run before the merge ran here as `deploy.sh`'s first step,
+  so the no-build-tools premise is confirmed end to end rather than only by wheel resolution.
+  Recorded in `docs/CHANGELOG.md` and `AGENTS.md` Status (PR #104) — both were stale, Status by a
+  week, still naming `17bd4fc` as running with #79-#82 unreleased.
 
   **The orchestration process changed this session** (PR #102, owner-reviewed). The plan gate now
   keys on **decomposition, not effort size** — an Issue whose spec already yields an ordered,
@@ -34,17 +45,15 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **#84 is shipped and merged (PR #103, `3ed18a4`) but not deployed.** Two things
-  follow, in this order. (1) **Deploy it** — a schema migration, so per `AGENTS.md` an
-  `/api/export` snapshot first and a restore drill after; confirm `PRAGMA user_version` reads 6 on
-  the Pi, and leave `APP_COOKIE_SECURE` unset (plain HTTP until #27; a `Secure` cookie over plain
-  HTTP is accepted and then never sent back, breaking login silently). The deploy also **closes the
-  one verification that did not run this session** — the by-hand `docker buildx build --platform
-  linux/arm64`, skipped because the Docker daemon was down, which `scripts/deploy.sh` performs
-  anyway. (2) **#85 needs `/orchestrate approve 85`** before any tick may touch it; #84's approval
-  does not carry forward. #85 inherits a finished foundation: `auth_tokens` exists,
-  `validate_password`/`hash_password` are ready for set-password, and `revoke_sessions` is what its
-  reset must call. Login is deliberately unthrottled until #85 adds rate limiting.
+- **Next action:** **#85 needs `/orchestrate approve 85`** — the only thing standing between the
+  runner and the next step. #84's approval does not carry forward; each step of the chain is
+  approved as its predecessor merges. #85 inherits a finished, deployed foundation: `auth_tokens`
+  exists in the live schema, `validate_password`/`hash_password` are ready for its set-password
+  endpoint, and `revoke_sessions` — shipped unused and tested — is what its password reset must
+  call. Login is deliberately unthrottled until #85 adds rate limiting (10 per 15 minutes, by IP
+  and username), which matters most once #86 closes the gate and #27 exposes the app.
+  **#84 is done and deployed** (`3ed18a4`, 2026-09-05): schema 6 live, row counts unchanged, the
+  restore drill re-run and passing, the gate verified still open. Nothing outstanding on it.
 
 ## Stop-condition
 (none — runner proceeds normally)
