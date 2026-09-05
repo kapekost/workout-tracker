@@ -159,6 +159,100 @@ def test_health_keeps_failed_status_no_matter_how_old(client, write_backup_statu
     assert client.get("/api/health").json()["last_backup_status"] == "failed"
 
 
+# --- #93: the local and off-site legs are reported independently ---
+# The old all-or-nothing chain reported `failed` for a Drive outage even though
+# the local snapshot was sitting safely on the host's disk — four such nights
+# in a row, 2026-09-01..04. `last_backup_status` stays the LOCAL leg: it is the
+# one standing between us and data loss, and scripts/deploy.sh reads that key.
+
+def test_health_reports_both_legs_when_both_succeeded(client, write_backup_status):
+    at = _ago(minutes=5)
+    write_backup_status({"local": {"status": "ok", "at": at, "bytes": 172032,
+                                   "duration_s": 12},
+                         "remote": {"status": "ok", "at": at,
+                                    "remote": "gdrive:workout-tracker-backups"}})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "ok" and h["last_backup_at"] == at
+    assert h["last_backup_remote_status"] == "ok" and h["last_backup_remote_at"] == at
+
+def test_health_reports_local_ok_when_only_the_off_site_leg_failed(client, write_backup_status):
+    # The case #93 exists for: the snapshot is on disk, only the copy off the
+    # box is missing. Calling that a failed backup is what taught us to stop
+    # reading the signal.
+    local_at, remote_at = _ago(minutes=5), _ago(minutes=4)
+    write_backup_status({"local": {"status": "ok", "at": local_at, "bytes": 1024},
+                         "remote": {"status": "failed", "at": remote_at,
+                                    "error": "rclone copy failed"}})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "ok" and h["last_backup_at"] == local_at
+    assert h["last_backup_remote_status"] == "failed"
+    assert h["last_backup_remote_at"] == remote_at
+
+def test_health_reports_the_remote_leg_as_skipped_when_the_local_one_failed(client, write_backup_status):
+    # "We never tried" has to stay distinguishable from "we tried and it broke".
+    at = _ago(minutes=5)
+    write_backup_status({"local": {"status": "failed", "at": at,
+                                   "error": "docker cp failed"},
+                         "remote": {"status": "skipped", "at": at}})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "failed"
+    assert h["last_backup_remote_status"] == "skipped"
+
+def test_an_old_local_leg_goes_stale_without_dragging_the_remote_with_it(client, write_backup_status):
+    write_backup_status({"local": {"status": "ok", "at": _ago(days=9)},
+                         "remote": {"status": "ok", "at": _ago(minutes=5)}})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "stale"
+    assert h["last_backup_remote_status"] == "ok"
+
+def test_an_old_remote_leg_goes_stale_without_dragging_the_local_with_it(client, write_backup_status):
+    write_backup_status({"local": {"status": "ok", "at": _ago(minutes=5)},
+                         "remote": {"status": "ok", "at": _ago(days=9)}})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "ok"
+    assert h["last_backup_remote_status"] == "stale"
+
+def test_a_skipped_remote_leg_never_ages_into_stale(client, write_backup_status):
+    # Same reasoning as "failed": only an "ok" ages. Relabelling either would
+    # drop the detail that says whether the leg ran at all.
+    write_backup_status({"local": {"status": "failed", "at": _ago(days=30)},
+                         "remote": {"status": "skipped", "at": _ago(days=30)}})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "failed"
+    assert h["last_backup_remote_status"] == "skipped"
+
+def test_health_still_reads_a_legacy_single_leg_status_file(client, write_backup_status):
+    # The deploy-transition guard. The Pi is carrying a pre-#93 file right now,
+    # written before this split existed, and /api/health has to keep reporting
+    # it rather than going blank the moment the new image lands. Its top-level
+    # "remote" is the remote's *name*, not a leg, and must not be read as one.
+    at = _ago(minutes=5)
+    write_backup_status({"status": "ok", "at": at, "bytes": 1024,
+                         "remote": "gdrive:workout-tracker-backups",
+                         "duration_s": 9})
+    h = client.get("/api/health").json()
+    assert h["last_backup_status"] == "ok" and h["last_backup_at"] == at
+    assert h["last_backup_remote_status"] is None
+    assert h["last_backup_remote_at"] is None
+
+def test_health_survives_an_unparseable_at_in_either_leg(client, write_backup_status):
+    write_backup_status({"local": {"status": "ok", "at": "last Tuesday"},
+                         "remote": {"status": "ok", "at": 1757030400}})
+    r = client.get("/api/health")
+    assert r.status_code == 200  # a bad timestamp must not 500 the monitoring endpoint
+    # The local status still stands; only its staleness comparison is skipped.
+    assert r.json()["last_backup_status"] == "ok"
+    # A non-string "at" is not a leg we can report at all.
+    assert r.json()["last_backup_remote_status"] is None
+
+def test_health_survives_legs_that_are_not_objects(client, write_backup_status):
+    write_backup_status({"local": "ok", "remote": ["failed"]})
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert r.json()["last_backup_status"] == "none"
+    assert r.json()["last_backup_remote_status"] is None
+
+
 # --- review-of-review findings (2026-07-09 second pass) ---
 
 def test_failed_imports_also_prune_snapshots(client, mainmod):
@@ -203,6 +297,8 @@ def test_health_survives_malformed_backup_status_file(client, write_backup_statu
     r = client.get("/api/health")
     assert r.status_code == 200
     assert r.json()["last_backup_status"] == "none" and r.json()["last_backup_at"] is None
+    assert r.json()["last_backup_remote_status"] is None
+    assert r.json()["last_backup_remote_at"] is None
 
 
 def test_all_progress_lists_only_exercises_with_completed_history(client):

@@ -77,6 +77,11 @@ safely on the host's disk. That ordering is why an off-site outage still leaves 
 good local snapshots — proven in the 2026-09-01..04 Drive failure, where four "failed"
 runs each produced a perfectly good local file. **Do not reorder this chain.**
 
+Since 2026-09-05 the two legs are also *reported* independently, which is what those four
+nights actually cost us: the run above now exits 0 and records `local: ok` alongside
+`remote: failed`, because the local snapshot is the copy standing between you and data
+loss. Only a local failure exits non-zero.
+
 Retention, as actually configured on 2026-09-04: **two** local snapshots, kept by hand,
 and whatever is off-site. The `-mtime +90` prune in the script is only a backstop against
 unbounded growth, not the policy — with no cadence there is nothing to size a window
@@ -112,6 +117,27 @@ anything.
 it. Deliberately a file rather than an API call: the status no longer lives *inside* the
 database being backed up (a restore used to drag stale heartbeats back in), and there's
 no unauthenticated write endpoint to defend.
+
+Each leg gets its own entry, because each fails on its own:
+
+```json
+{
+  "local":  {"status": "ok",     "at": "2026-09-05T00:12:03Z", "bytes": 172032},
+  "remote": {"status": "failed", "at": "2026-09-05T00:12:09Z", "error": "rclone copy failed"}
+}
+```
+
+`/api/health` surfaces both — `last_backup_status`/`last_backup_at` for the local leg,
+`last_backup_remote_status`/`last_backup_remote_at` for the off-site one. The local leg
+keeps the unprefixed names on purpose: it is the one that matters most, and
+`scripts/deploy.sh` already reads it. Statuses are `ok`, `failed` or `stale` locally,
+plus `skipped` off-site for "the local leg failed, so we never tried". `skipped` and
+`failed` never age into `stale` — only an `ok` does, since relabelling the other two
+would lose the detail that separates "ran and broke" from "never ran".
+
+A remote leg of `null` means the file has nothing to say about it: no backup has run
+yet, or the file predates this split (a pre-2026-09-05 file has a single top-level
+status, which is read as the local leg). Unknown is not the same as failed.
 
 A successful backup older than 8 days reports `stale`. With backups manual, read that as
 "it has been over a week since you took one", not as a broken schedule — `scripts/deploy.sh`

@@ -3,6 +3,33 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-09-05 — The backup's two legs are reported separately (`chore/93-split-backup-legs`)
+
+`scripts/backup.sh` was one all-or-nothing chain: a failure anywhere wrote
+`backup_failed`, so the 2026-09-01..04 Google Drive outage produced four
+"failed" nights that had each left a perfectly good snapshot on the host's
+disk. With the OAuth app staying in *Testing* — where refresh tokens expire
+every 7 days — that was set to be the normal reading rather than the exception,
+and a signal that is always red is one people stop reading. Exactly the failure
+mode #88 had just fixed from the other direction.
+
+The chain is unchanged (`VACUUM INTO` → `docker cp` → `rclone copy`, in that
+order, deliberately), but the local and off-site legs are now recorded
+independently in `data/backup-status.json` and surfaced independently by
+`/api/health` as `last_backup_status`/`last_backup_at` and
+`last_backup_remote_status`/`last_backup_remote_at`. The local leg keeps the
+unprefixed names: it is the copy standing between us and data loss, and
+`scripts/deploy.sh` already reads it. **Local success is exit 0** — an
+off-site failure is recorded and visible but no longer fails the run, while a
+local failure still exits non-zero and marks the off-site leg `skipped`
+("never tried" stays distinguishable from "tried and broke"; neither ages into
+`stale`, since only an `ok` does).
+
+`/api/health` keeps reading a pre-split file — the Pi is carrying one until the
+next backup runs there — as a local-only status, with the off-site leg reported
+as `null` rather than invented. Its top-level `remote` key is the remote's
+*name*, not a leg, and is not read as one.
+
 ## 2026-09-04 — Backup status becomes a file, staleness becomes 8 days (`chore/88-backup-status-file`)
 
 `scripts/backup.sh` no longer POSTs its result to `/api/events`. It writes

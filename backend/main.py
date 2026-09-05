@@ -239,25 +239,23 @@ class PersonalBestIn(BaseModel):
             raise ValueError("achieved_year cannot be in the future")
         return v
 
-def _last_backup():
-    """Read (at, status) out of backup-status.json. Never raises.
+def _leg(raw, allowed):
+    """(at, status) for one leg of the backup chain, or (None, None) if there
+    is nothing reportable there. Never raises.
 
-    /api/health is the thing that tells us the backup chain is alive, so it
-    must not become the thing that breaks: an absent file, a write cut short,
-    missing keys or a timestamp nothing can parse all degrade to a report.
+    A leg we cannot read is not the same as a leg that failed, so an absent,
+    misshapen or unparseable one reports nothing at all rather than inventing
+    a status for it.
     """
-    try:
-        with open(BACKUP_STATUS_PATH) as f:
-            data = json.load(f)
-        at, status = data["at"], data["status"]
-        if not isinstance(at, str) or status not in ("ok", "failed"):
-            return None, "none"
-    except (OSError, ValueError, KeyError, TypeError):
-        return None, "none"
+    if not isinstance(raw, dict):
+        return None, None
+    at, status = raw.get("at"), raw.get("status")
+    if not isinstance(at, str) or status not in allowed:
+        return None, None
     if status == "ok":
-        # Only an "ok" ages into "stale". A "failed" is already red, and
-        # relabelling it would drop the one detail that separates the two:
-        # the chain ran and broke, rather than never having run.
+        # Only an "ok" ages into "stale". A "failed" is already red, and a
+        # "skipped" leg never ran; relabelling either would drop the one
+        # detail that separates them from a backup that simply got old.
         try:
             # fromisoformat handles the trailing Z on 3.11+ (this runs on 3.14),
             # but a hand-edited or naive timestamp still has to not 500 us.
@@ -268,6 +266,38 @@ def _last_backup():
         except (ValueError, TypeError):
             pass  # keep the reported status, skip the staleness comparison
     return at, status
+
+def _last_backup():
+    """Read both backup legs out of backup-status.json. Never raises.
+
+    Returns (local_at, local_status, remote_at, remote_status). The two legs
+    are reported independently because they fail independently (#93): the
+    snapshot lands on the host's disk before rclone ever runs, so a Drive
+    outage leaves a perfectly good local copy behind. Reporting that as one
+    failed backup is what taught us to stop reading the signal — four such
+    nights in a row, 2026-09-01..04. `local` stays the headline status: it is
+    the leg standing between us and data loss, and scripts/deploy.sh reads it.
+
+    /api/health is the thing that tells us the backup chain is alive, so it
+    must not become the thing that breaks: an absent file, a write cut short,
+    missing keys or a timestamp nothing can parse all degrade to a report.
+    """
+    try:
+        with open(BACKUP_STATUS_PATH) as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("backup-status.json is not an object")
+    except (OSError, ValueError):
+        return None, "none", None, None
+    if "local" in data:
+        local = _leg(data.get("local"), ("ok", "failed"))
+        remote = _leg(data.get("remote"), ("ok", "failed", "skipped"))
+    else:
+        # A pre-#93 file, still on the Pi until the next backup runs there.
+        # Its top-level "remote" is the remote's *name*, not a leg, so the
+        # off-site status is genuinely unknown rather than absent.
+        local, remote = _leg(data, ("ok", "failed")), (None, None)
+    return local[0], local[1] or "none", remote[0], remote[1]
 
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
@@ -281,9 +311,11 @@ def health(response: Response):
     # /api/health would cheerfully report ok for an app whose database is gone.
     with db() as conn:
         conn.execute("SELECT 1")
-    last_at, last_status = _last_backup()
+    last_at, last_status, remote_at, remote_status = _last_backup()
     return {"status": "ok", "version": APP_VERSION,
-            "last_backup_at": last_at, "last_backup_status": last_status}
+            "last_backup_at": last_at, "last_backup_status": last_status,
+            "last_backup_remote_at": remote_at,
+            "last_backup_remote_status": remote_status}
 
 @app.get("/api/profile/me")
 def get_current_profile():
