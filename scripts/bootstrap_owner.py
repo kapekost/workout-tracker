@@ -53,8 +53,8 @@ def run(argv):
         print(f"sent:     yes — check {result['email']}, then follow the link to set a password")
         return 0
     print("sent:     NO — the token exists but the email did not go out.", file=sys.stderr)
-    print("          Check RESEND_API_KEY and MAIL_FROM, then re-run to send again.",
-          file=sys.stderr)
+    print(f"          {result['error']}", file=sys.stderr)
+    print("          Fix the cause, then re-run to send again.", file=sys.stderr)
     return 1
 
 
