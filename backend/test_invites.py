@@ -387,3 +387,41 @@ def test_bootstrap_reports_a_send_failure_instead_of_raising(fast, monkeypatch):
     assert result["sent"] is False
     with fast.db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM auth_tokens").fetchone()[0] == 1
+
+
+# --- the Resend request itself ---
+
+def test_send_email_sets_a_real_user_agent(fast, monkeypatch):
+    """Cloudflare fronts api.resend.com and blocks urllib's default agent with a
+    403 (Cloudflare error 1010), which reads exactly like a bad API key. Caught
+    on the first real send, 2026-09-05."""
+    seen = {}
+
+    class _Resp:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(fast, "RESEND_API_KEY", "re_test")
+    monkeypatch.setattr(fast, "MAIL_FROM", "Test <t@example.com>")
+    monkeypatch.setattr(fast.urllib.request, "urlopen",
+                        lambda req, timeout=None: seen.update(req.headers) or _Resp())
+    fast.send_email("to@example.com", "subject", "body")
+    agent = seen.get("User-agent", "")
+    assert agent and not agent.startswith("Python-urllib")
+
+
+def test_send_email_reports_the_response_body_on_an_http_error(fast, monkeypatch):
+    import io
+    import urllib.error
+
+    def boom(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {},
+                                     io.BytesIO(b"error code: 1010"))
+
+    monkeypatch.setattr(fast, "RESEND_API_KEY", "re_test")
+    monkeypatch.setattr(fast, "MAIL_FROM", "Test <t@example.com>")
+    monkeypatch.setattr(fast.urllib.request, "urlopen", boom)
+    with pytest.raises(RuntimeError, match="1010"):
+        # A bare "403" sent the first diagnosis down the wrong path.
+        fast.send_email("to@example.com", "subject", "body")
