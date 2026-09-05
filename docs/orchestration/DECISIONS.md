@@ -3,6 +3,29 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-05 — Secrets live in `.env` on the target; reuse services, not accounts
+
+**Mechanism.** Secrets go in a `.env` beside `docker-compose.yml` on the deploy target, gitignored
+and mode 600, loaded automatically by Compose. Not `env_file:` — that requires the file to exist, so
+a forgotten `.env` on a rebuilt host would fail the deploy; every value has a default instead, and a
+missing file means mail stops sending rather than a broken deploy. `AGENTS.local.md` records only
+where keys live and where they came from, never a value: a key in a gitignored Markdown file is
+still a key in a file people open, copy and quote into Issues.
+
+**Audited before assuming.** All 364 commits scanned for Resend, Google OAuth, SSH, Tailscale, AWS,
+GitHub and Slack credential shapes. Clean — nothing to rotate. The CI guard that was meant to
+prevent this only checked `.mcp.json` for three patterns, so it was widened to every tracked file
+plus a hard ban on tracked env files, and verified against planted secrets rather than only being
+seen to pass (PR #111).
+
+**Reuse services, not accounts.** Owner's standing preference, 2026-09-05: use what already exists
+and only create something new when there is no alternative. Email therefore stays on the Resend
+account `kapekost-web` already uses, with its already-verified `kapekost.co.uk` sender — no new
+provider, no new account. The one refinement: take a **separate key on that same account** rather
+than literally reusing the website's key, so revoking one app's key does not take the other's
+contact form down with it. That is still reuse of the service, which is what the preference is
+protecting.
+
 ## 2026-09-05 — Standing approval: the accounts workstream (#105, #86, #87)
 
 **This is the standing-approval record GUARDRAILS requires.**
