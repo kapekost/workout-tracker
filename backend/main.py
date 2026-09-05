@@ -252,6 +252,13 @@ class SessionPatch(BaseModel):
 class NoteIn(BaseModel):
     note: str = Field(max_length=2000)
 
+class LoginIn(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    # Bounded so an over-long body can't be turned into free bcrypt work. The
+    # real rules live in validate_password, which only runs when a password is
+    # being *set* (#85), never when one is checked.
+    password: str = Field(min_length=1, max_length=256)
+
 class EventIn(BaseModel):
     name: str = Field(max_length=64)
     screen: Optional[str] = Field(default=None, max_length=64)
@@ -426,6 +433,18 @@ def set_session_cookie(response: Response, session_id: str) -> None:
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE, path="/")
 
+_dummy_hash_cache: dict[int, str] = {}
+
+def _dummy_hash() -> str:
+    """A real hash at the live cost, so a login for an unknown username pays the
+    same CPU as one for a real account and the two cannot be told apart by
+    timing. Cached per cost, so the first bogus login pays for it rather than
+    import time — which would tax every test-module reload."""
+    if BCRYPT_ROUNDS not in _dummy_hash_cache:
+        _dummy_hash_cache[BCRYPT_ROUNDS] = bcrypt.hashpw(
+            secrets.token_bytes(16), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("ascii")
+    return _dummy_hash_cache[BCRYPT_ROUNDS]
+
 def current_profile(request: Request) -> dict:
     """Request-scoped identity, from the session cookie.
 
@@ -457,6 +476,26 @@ def health(response: Response):
             "last_backup_at": last_at, "last_backup_status": last_status,
             "last_backup_remote_at": remote_at,
             "last_backup_remote_status": remote_status}
+
+@app.post("/api/auth/login")
+def login(body: LoginIn, response: Response):
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, username, role, icon, email, password_hash FROM profiles "
+            "WHERE username = ?", (body.username,)).fetchone()
+        stored = row["password_hash"] if row is not None else None
+        # verify_password runs first on every path — against the real hash, or
+        # against _dummy_hash() when the username is unknown or the stored hash
+        # is NULL — so all three cost the same. Only then do the identity checks
+        # reject. One generic message for every failure.
+        ok = verify_password(body.password, stored or _dummy_hash())
+        if not ok or row is None or stored is None:
+            raise HTTPException(401, "invalid username or password")
+        session_id = issue_session(conn, row["id"])
+        conn.commit()
+    set_session_cookie(response, session_id)
+    return {"id": row["id"], "username": row["username"], "role": row["role"],
+            "icon": row["icon"], "email": row["email"]}
 
 @app.get("/api/auth/me")
 def auth_me(profile: dict = Depends(current_profile)):

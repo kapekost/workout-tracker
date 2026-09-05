@@ -312,3 +312,77 @@ def test_auth_me_returns_the_profile_for_a_live_session(mainmod, client):
     assert r.status_code == 200
     assert r.json() == {"id": pid, "username": "kapekost", "role": "admin",
                         "icon": "\U0001F4AA", "email": None}
+
+
+# --- login ---
+
+@pytest.fixture
+def member(fast_bcrypt):
+    """A profile with a real password. There is no API to create one until #85."""
+    with fast_bcrypt.db() as conn:
+        pid = conn.execute(
+            "INSERT INTO profiles (username, password_hash, role, icon) VALUES (?,?,?,?)",
+            ("tester", fast_bcrypt.hash_password("correct horse battery"), "member", "\U0001F3CB")
+        ).lastrowid
+        conn.commit()
+    return {"id": pid, "username": "tester", "password": "correct horse battery"}
+
+
+def test_login_succeeds_and_sets_a_session_cookie(client, member):
+    r = client.post("/api/auth/login",
+                    json={"username": "tester", "password": "correct horse battery"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"id": member["id"], "username": "tester", "role": "member",
+                        "icon": "\U0001F3CB", "email": None}
+    assert "wt_session=" in r.headers["set-cookie"]
+    assert "httponly" in r.headers["set-cookie"].lower()
+
+
+def test_login_response_never_contains_the_password_hash(client, member):
+    r = client.post("/api/auth/login",
+                    json={"username": "tester", "password": "correct horse battery"})
+    assert "password_hash" not in r.json()
+
+
+def test_the_cookie_login_returns_is_usable_on_auth_me(client, member):
+    login = client.post("/api/auth/login",
+                        json={"username": "tester", "password": "correct horse battery"})
+    assert login.status_code == 200
+    me = client.get("/api/auth/me")  # TestClient keeps the cookie jar
+    assert me.status_code == 200 and me.json()["username"] == "tester"
+
+
+def test_login_with_the_wrong_password_401s_and_sets_no_cookie(client, member):
+    r = client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+    assert r.status_code == 401
+    assert "set-cookie" not in r.headers
+
+
+def test_login_with_an_unknown_username_401s_with_the_same_message(client, member):
+    unknown = client.post("/api/auth/login",
+                          json={"username": "nobody", "password": "correct horse battery"})
+    wrong = client.post("/api/auth/login",
+                        json={"username": "tester", "password": "wrong horse battery"})
+    assert unknown.status_code == wrong.status_code == 401
+    assert unknown.json()["detail"] == wrong.json()["detail"]
+
+
+def test_login_is_refused_for_a_profile_that_has_never_set_a_password(client):
+    # The seeded kapekost profile has password_hash NULL — it must go through
+    # #85's invite, not authenticate on an empty or guessed password.
+    for attempt in ("", "anything at all", "correct horse battery"):
+        r = client.post("/api/auth/login", json={"username": "kapekost", "password": attempt})
+        assert r.status_code in (401, 422), attempt
+
+
+def test_login_creates_exactly_one_session_row(mainmod, client, member):
+    client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+    with mainmod.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions WHERE profile_id = ?",
+                            (member["id"],)).fetchone()[0] == 1
+
+
+def test_a_failed_login_creates_no_session_row(mainmod, client, member):
+    client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+    with mainmod.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
