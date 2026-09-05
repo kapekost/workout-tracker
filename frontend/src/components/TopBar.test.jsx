@@ -22,6 +22,14 @@ function signedInAs(profile) {
   auth.me.mockResolvedValue(profile)
 }
 
+function renderTopBarAt(path) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <SessionProvider><TopBar /></SessionProvider>
+    </MemoryRouter>
+  )
+}
+
 function signedOut() {
   auth.me.mockRejectedValue(Object.assign(new Error('401'), { status: 401 }))
 }
@@ -111,5 +119,68 @@ describe('TopBar session state', () => {
     await screen.findByRole('link', { name: 'Log in' })
     expect(auth.logout).toHaveBeenCalled()
     expect(screen.queryByText('invited')).not.toBeInTheDocument()
+  })
+})
+
+// The owner's report, in their words: "after i press login the login screen
+// prints it twice, messy very messy". It was actually three times -- this
+// bar's "Log in" link, this bar's page-label eyebrow reading "LOG IN" beside
+// it, and the page's own <h1>. On /set-password the same collision read
+// "Log in  PASSWORD" above a heading that said "Set your password".
+describe('TopBar on the auth screens', () => {
+  it('says "log in" exactly nowhere on /login, leaving the page its own heading', async () => {
+    signedOut()
+    renderTopBarAt('/login')
+
+    await screen.findByText('🏋 Gym Tracker')
+    // Covers both offenders at once: the eyebrow is uppercased in CSS, so its
+    // DOM text is the same string the link carried.
+    expect(screen.queryByText('Log in')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument()
+  })
+
+  it('drops the page label on /set-password too', async () => {
+    signedOut()
+    renderTopBarAt('/set-password')
+
+    await screen.findByText('🏋 Gym Tracker')
+    expect(screen.queryByText('Password')).not.toBeInTheDocument()
+    expect(screen.queryByText('Log in')).not.toBeInTheDocument()
+  })
+
+  it('offers a way back into the app instead, since NavBar is gone there', async () => {
+    signedOut()
+    renderTopBarAt('/login')
+
+    expect(await screen.findByRole('link', { name: 'Back to workouts' }))
+      .toHaveAttribute('href', '/')
+  })
+
+  it('leaves identity out of the bar on an auth screen', async () => {
+    signedInAs({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
+    renderTopBarAt('/login')
+
+    await screen.findByRole('link', { name: 'Back to workouts' })
+    expect(screen.queryByText('invited')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
+  })
+
+  it('still labels the ordinary app screens and still offers the door', async () => {
+    signedOut()
+    renderTopBarAt('/history')
+
+    expect(await screen.findByRole('link', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.getByText('History')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Back to workouts' })).not.toBeInTheDocument()
+  })
+
+  // #86 has not closed the gate: Home shows your workouts with no session, so
+  // a mint "Log in" in the corner read as a demand the app was waiting on.
+  it('keeps the session control quiet rather than accented', async () => {
+    signedOut()
+    renderTopBarAt('/')
+
+    expect(await screen.findByRole('link', { name: 'Log in' }))
+      .toHaveStyle({ color: 'rgb(156, 163, 175)' })
   })
 })

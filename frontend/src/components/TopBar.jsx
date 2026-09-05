@@ -22,8 +22,14 @@ function isAuthScreen(pathname) {
   return pathname.startsWith('/login') || pathname.startsWith('/set-password')
 }
 
+// Muted, not mint. The bar's session control and the mint page label sat
+// adjacent in the same accent colour, which read as one blob -- and a mint
+// "Log in" in the corner of a Home screen already showing your workouts read
+// as a demand rather than an option. Until #86 closes the gate, logging in IS
+// optional; the only accent on these screens belongs to the page's own primary
+// action, which is never in this bar.
 const actionStyle = {
-  fontSize: '0.8rem', fontWeight: type.weight.semibold, color: colors.mint,
+  fontSize: '0.8rem', fontWeight: type.weight.semibold, color: colors.muted,
   background: 'none', border: 'none', padding: 0, cursor: 'pointer',
   whiteSpace: 'nowrap', flexShrink: 0, textDecoration: 'none',
 }
