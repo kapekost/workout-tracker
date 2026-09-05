@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import TopBar from './TopBar'
+import { SessionProvider } from '../lib/session'
 
 vi.mock('../api', () => ({
   api: { get: vi.fn() },
+  auth: { me: vi.fn(), logout: vi.fn() },
 }))
-import { api } from '../api'
+import { api, auth } from '../api'
 
 function renderTopBar() {
   return render(<MemoryRouter><TopBar /></MemoryRouter>)
@@ -49,5 +51,51 @@ describe('TopBar', () => {
     const title = screen.getByText('🏋 Gym Tracker')
     expect(title).toHaveStyle({ whiteSpace: 'nowrap', flexShrink: '0' })
     expect(username).toHaveStyle({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
+  })
+})
+
+describe('TopBar session state', () => {
+  function renderWithSession() {
+    return render(
+      <MemoryRouter>
+        <SessionProvider><TopBar /></SessionProvider>
+      </MemoryRouter>
+    )
+  }
+
+  it('offers a way to log in when there is no session', async () => {
+    api.get.mockResolvedValue({ id: 1, username: 'kapekost', role: 'admin', icon: '💪' })
+    auth.me.mockRejectedValue(Object.assign(new Error('401'), { status: 401 }))
+    renderWithSession()
+
+    const link = await screen.findByRole('link', { name: 'Log in' })
+    expect(link).toHaveAttribute('href', '/login')
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
+  })
+
+  it('shows the session profile and a way to log out when there is one', async () => {
+    api.get.mockResolvedValue({ id: 1, username: 'seeded', role: 'admin', icon: '💪' })
+    auth.me.mockResolvedValue({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
+    renderWithSession()
+
+    await screen.findByRole('button', { name: 'Log out' })
+    // The session's own profile wins over /profile/me's acting profile.
+    expect(screen.getByText('invited')).toBeInTheDocument()
+    expect(screen.getByText('🔥')).toBeInTheDocument()
+    expect(screen.queryByText('seeded')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument()
+  })
+
+  it('logging out clears the session and returns the bar to its logged-out shape', async () => {
+    api.get.mockRejectedValue(new Error('network'))
+    auth.me.mockResolvedValue({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
+    auth.logout.mockResolvedValue(null)
+    renderWithSession()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+
+    await screen.findByRole('link', { name: 'Log in' })
+    expect(auth.logout).toHaveBeenCalled()
+    expect(screen.queryByText('invited')).not.toBeInTheDocument()
   })
 })
