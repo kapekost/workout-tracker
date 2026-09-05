@@ -20,14 +20,13 @@
   "Needs owner" item — deletion works fine from the owner's Mac, it was only the GitHub App that
   403'd), Dependabot #80/#81 hand-verified and merged, and #82 opened+merged to fix two gaps #81
   left behind. Intake unchanged: #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
-- **Next action:** **#84 needs `/orchestrate approve 84` from the owner before any tick may
-  execute it** — it changes auth/session handling, which GUARDRAILS classifies as destructive.
-  #85/#86/#87 will each need the same. Nothing else in the accounts chain is pickable until then;
-  #85-#87 are `blocked` by design and should stay that way until their predecessor merges.
-  Independently pickable right now: **#88** (backup heartbeat → status file, and cron to weekly —
-  `ready`, P1) and **#89** (backup alerting — `ready`, P2, but needs a ping URL from the owner
-  first). **#88 must land before or with #86**: gating `/api/events` breaks the nightly backup
-  heartbeat, which posts there from cron with no session and swallows the failure via `|| true`.
+- **Next action:** **#84 is approved and pickable** — the owner ran `/orchestrate approve 84` on
+  2026-09-05, so the `approved` label is on it and the next tick may execute it. #85/#86/#87 each
+  still need their own `/orchestrate approve`, granted as their predecessor merges rather than all
+  up front; they stay `blocked` until then. The backup work that was listed here as independently
+  pickable has since shipped (#88, #89, #93, #94 all closed), so the accounts chain is the live
+  thread. The #88-before-#86 ordering constraint is satisfied: the heartbeat no longer posts to
+  `/api/events` from cron, so gating the data endpoints in #86 will not silently break backups.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -36,12 +35,12 @@
 (no branches in flight)
 
 ## Needs owner
-- **The whole accounts chain needs approval before any tick may execute it.** #84, #85, #86 and
-  #87 all change auth/session handling, which GUARDRAILS classifies as **destructive**, requiring
-  the `approved` label. No tick may add that label itself — see GUARDRAILS "Approval is
-  human-only." Run `/orchestrate approve 84` to start; approve each one as its predecessor merges,
-  rather than all four up front, since each step's scope is only settled once the one before it
-  lands.
+- **The accounts chain needs approval per step; #84 has it, #85-#87 do not yet.** All four change
+  auth/session handling, which GUARDRAILS classifies as **destructive**, requiring the `approved`
+  label. No tick may add that label itself — see GUARDRAILS "Approval is human-only."
+  **#84 approved 2026-09-05** by the owner (`/orchestrate approve 84`; rationale commented on the
+  Issue). Approve #85, then #86, then #87 as each predecessor merges, rather than all up front,
+  since each step's scope is only settled once the one before it lands.
 - **Google OAuth app publish status — off-site backups are down because of it.** `rclone` has
   failed `invalid_grant` since 2026-09-02; the last good Drive copy was 2026-08-31. Local
   snapshots on the Pi are unaffected and current. The cause matches the trap already documented in
