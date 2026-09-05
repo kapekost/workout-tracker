@@ -42,6 +42,15 @@ if [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then
   exit 1
 fi
 
+# Warn, never fail: mail config missing only means invites and resets cannot
+# send, which must not block deploying everything else. Checked before the build
+# so the warning is visible rather than buried under image transfer output.
+# shellcheck disable=SC2086
+if ! ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" "grep -qs '^RESEND_API_KEY=re_' '$DEPLOY_APP_DIR/.env'"; then
+  echo "warning: $DEPLOY_APP_DIR/.env on $DEPLOY_HOST has no RESEND_API_KEY."
+  echo "         Invite and password-reset emails will not send. See .env.example."
+fi
+
 echo "==> building $local_tag for linux/arm64"
 docker buildx build \
   --platform linux/arm64 \
