@@ -161,6 +161,43 @@ def _migrate(conn):
             conn.execute("ALTER TABLE profiles ADD COLUMN icon TEXT")
         conn.execute("UPDATE profiles SET icon = '💪' WHERE username = 'kapekost' AND icon IS NULL")
         conn.execute("PRAGMA user_version = 5")
+    # --- v5 -> v6: accounts (#84) — email, invite/reset tokens, server-side sessions ---
+    if v < 6:
+        if not _column_exists(conn, "profiles", "email"):
+            conn.execute("ALTER TABLE profiles ADD COLUMN email TEXT")
+        # A partial unique index, not a UNIQUE column: several profiles may sit
+        # at NULL email ("not yet invited") without colliding with each other.
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_email "
+                     "ON profiles(email) WHERE email IS NOT NULL")
+        # Created here, but not minted until #85 (invite/reset). Only the
+        # SHA-256 of a token is ever stored, so a leaked database — or a leaked
+        # backup — cannot be replayed into account access.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS auth_tokens (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                token_hash TEXT NOT NULL UNIQUE,
+                kind       TEXT NOT NULL CHECK(kind IN ('invite', 'reset')),
+                expires_at TEXT NOT NULL,
+                used_at    TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_tokens_profile ON auth_tokens(profile_id)")
+        # Named auth_sessions to avoid colliding with the workout `sessions`
+        # table. Neither this nor auth_tokens joins TABLES/TABLE_INTRODUCED_AT:
+        # restoring a backup must never resurrect a live session or an unused
+        # invite, and a backup should not be a store of credential material.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS auth_sessions (
+                id         TEXT PRIMARY KEY,
+                profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile ON auth_sessions(profile_id)")
+        conn.execute("PRAGMA user_version = 6")
 
 def init():
     with db() as conn:
