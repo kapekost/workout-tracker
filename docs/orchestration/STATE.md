@@ -80,7 +80,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#30** — claimed 2026-09-05T18:35:00Z, live session. Intake triage (Import), not code execution.
+- **#105** — claimed 2026-09-05T18:55:00Z, live session. Login + set-password screens; executing under the recorded standing approval (owner re-confirmed live this tick).
 
 ## Needs owner
 - **The accounts chain needs approval per step; #84 and #85 have it, #105/#86/#87 do not.** All of
