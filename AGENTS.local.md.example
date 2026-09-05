@@ -50,6 +50,19 @@ DEPLOY_APP_DIR=/home/user/workout-tracker
 DEPLOY_SSH_OPTS='-o BatchMode=yes'
 ```
 
+## Application environment
+
+Injected into the container as env vars (`docker run -e ...`). Placeholders
+only — the real values belong in your own untracked `AGENTS.local.md`.
+
+```
+APP_COOKIE_SECURE=0   # 1 once the app is served over HTTPS; 0 for a plain-HTTP LAN/tailnet URL
+```
+
+`APP_COOKIE_SECURE` drives the `Secure` flag on the session cookie. Setting it
+before TLS actually terminates in front of the app breaks login silently — the
+browser accepts the `Set-Cookie` and then never sends it back.
+
 ## Gotchas and incident history
 
 Deployment-specific lessons learned the hard way — hardware quirks, past
