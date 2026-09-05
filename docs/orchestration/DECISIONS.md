@@ -3,6 +3,35 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-05 — Prove the accounts UX before closing the gate; public access drops to P3
+
+Two owner calls after #84 deployed, both pointing the same way: exercise the accounts system as a
+human before anything is enforced or exposed.
+
+**#86 split; the accounts chain is now five steps.** #86 bundled the login screens with the gate
+flip, so the first time anyone saw the login flow would have been the same deploy that could lock
+the owner out of their own history. The screens moved to **#105** ("Accounts 3/5: login and
+set-password screens, before the gate"), which ships them while the app is still open. #86 keeps
+only the enforcement — `current_profile` on the data endpoints, deleting `_default_profile_id`,
+trimming `/api/health`, gating `/api/events`, plus the route guard and the central 401 handler,
+which are the two frontend pieces that only mean anything once something returns 401.
+
+**#105 deliberately ships no route guard.** A guard before the gate would close the *UI* while the
+API stayed open — a soft lockout with no safety benefit, since the data endpoints would still answer
+unauthenticated. So after #105 the app remains usable with no session, exactly as today, and a
+logged-in session changes nothing about which rows are read or written until #86. #105 carries a
+test asserting the app still works unauthenticated; #86 is where that test flips.
+
+**The bootstrap is a real Resend send to the owner's own address**, reconfirmed rather than assumed.
+It produces the actual email #105 is then tested against, and proves the integration on real
+infrastructure before anyone else is invited.
+
+**#27 (public access) → P3.** Its original ask was public access *for 3-4 accounts*, so it was always
+downstream of real auth; the remaining risk is not the tunnel but whether invite, set-password, login
+and logout work for a human on a phone. Exposing an app nobody has logged into yet only adds surface.
+`APP_BASE_URL` remains the single config seam, so this blocks nothing — and `APP_COOKIE_SECURE` stays
+`0` until something actually terminates TLS, since flipping it early breaks login silently.
+
 ## 2026-09-05 — Plan when it isn't decomposed, not when it's big; plans stop carrying code
 
 Owner review of how the runner decides when to implement. Four calls, shipped as PR #102.
