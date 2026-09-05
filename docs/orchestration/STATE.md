@@ -45,16 +45,16 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **#110 (per-profile data isolation)** — `ready`, needs no approval (not
-  destructive: no auth, session or token handling changes), and it is where the real product risk
-  sits. Reads have never been scoped to a profile, so with two profiles everyone sees everyone's
-  history. Then **#105** (login screens), then #86, then #87.
+- **Next action:** **#110 (per-profile data isolation)** — `ready`, no approval needed, and the
+  highest-value work left: reads have never been scoped to a profile, so a second account would see
+  the first's entire history. Then **#105** (login screens), **#86** (gate), **#87** (roles).
+  Checkpointing here rather than starting #110 at the tail of a long session, per GUARDRAILS'
+  per-tick budget — #110 wants a full tick.
 
-  **Blocked on the owner:** a valid `RESEND_API_KEY`. `kapekost-web`'s `.env.local` turned out to
-  hold `re_placeholder`, not a live key — the real one exists only in Vercel's environment. Until a
-  working key is in the Pi's `.env`, no invite or reset email can send, so the owner cannot set a
-  password and #105 has nothing to demonstrate against. Everything else about #85 is live and
-  verified.
+  **Mail is unblocked and proven end to end.** The owner minted a Resend key, it is on the Pi's
+  `.env` (mode 600), and the bootstrap invite was received. `MAIL_FROM` is
+  `noreply@contact.kapekost.co.uk`. **Nothing is waiting on the owner** except deciding what to
+  build next.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -145,6 +145,30 @@
   order.
 
 ## Tick log
+- **2026-09-05 (live session — mail works end to end, secrets audited):** The owner minted a Resend
+  key and passed it without it entering the transcript (clipboard to a local file, copied to the
+  Pi's `.env`, temp file deleted).
+
+  **Two sender-domain findings, both the opposite of what was assumed.** The apex
+  `kapekost.co.uk` is **not** verified on this Resend account — sending from it returns a 403. That
+  had been assumed verified because `kapekost-web`'s code sends from `hello@kapekost.co.uk`. What
+  *is* verified is the **`contact.kapekost.co.uk` subdomain**, confirmed by probing the send
+  directly rather than by minting another token. `MAIL_FROM` is now
+  `noreply@contact.kapekost.co.uk`, which also lifts the restriction that briefly applied while
+  using Resend's `onboarding@resend.dev` fallback — that works with no verified domain but delivers
+  only to the account owner, so it could never have invited anyone else.
+
+  **The owner received the invite email.** The full chain — key, token, Resend, link — is proven on
+  real infrastructure, which is what the spec wanted before anyone else is invited. Setting the
+  password still needs a `curl` until #105 ships the screen. Several orphaned invite tokens exist
+  from the failed sends; harmless, since their raw values never left the process, and they expire in
+  7 days.
+
+  **Secrets audited across all 364 commits** — Resend, Google OAuth, SSH, Tailscale, AWS, GitHub and
+  Slack shapes. Clean, nothing to rotate. The CI guard meant to prevent exactly this only checked
+  `.mcp.json` for three patterns, so it now scans every tracked file and hard-bans committed env
+  files, verified against planted secrets rather than only seen to pass (PR #111).
+
 - **2026-09-05 (live session — #85 deployed, secrets moved out of Markdown, mail blocked):**
 
   **Secrets left `AGENTS.local.md`.** The owner's call: "we probably dont add keys in md files."
