@@ -5,68 +5,88 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, still waiting on human approval. The whole #84-#87 chain
-  changes auth/session handling, which GUARDRAILS classifies as destructive, so no tick may touch
-  any of it until the owner runs `/orchestrate approve 84`. Design and reasoning are settled and
-  reviewed: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83), split into
-  **#84** (schema v6 + auth core, `ready` but not pickable) → **#85** (Resend invite/reset, rate
-  limiting, owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend
-  login) → **#87** (export/import role behaviour), the last three `blocked` by design. Two design
-  choices rest on measurement on the real Pi rather than assumption: bcrypt cost 12 (627 ms there;
-  OWASP's scrypt baseline wants 128 MiB against ~185 MiB free, and memory-hard KDFs would let a few
-  parallel logins OOM the container), and both bcrypt and argon2-cffi confirmed to ship aarch64
-  wheels so the no-gcc constraint holds.
+- **Current focus:** Accounts, now executing. The owner approved **#84** on 2026-09-05
+  (`/orchestrate approve 84` — label added, rationale commented on the Issue), which unblocks the
+  chain at step 1. This tick found #84 `effort:M` with no linked plan and, per PLAYBOOK step 3,
+  **planned it rather than executing**: `docs/superpowers/plans/2026-09-05-accounts-auth-core.md`,
+  merged as PR #101. Six TDD tasks — schema v6 migration → bcrypt cost-12 helpers → server-side
+  session store and `wt_session` cookie → `current_profile` + `GET /api/auth/me` → `POST
+  /api/auth/login` → `POST /api/auth/logout`. The chain behind it is unchanged: **#85** (Resend
+  invite/reset, rate limiting, owner bootstrap) → **#86** (flip the gate, delete
+  `_default_profile_id`, frontend login) → **#87** (export/import role behaviour), all three
+  `blocked` by design and each needing its own approval. Design of record:
+  `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83). Intake unchanged:
+  #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
 
-  **#93 shipped this tick** (PR #99, merged `69baa6c`): the backup's local and off-site legs are
-  now reported independently, so a Drive outage no longer marks a perfectly good local snapshot
-  as a failed backup. `/api/health` gained `last_backup_remote_status`/`last_backup_remote_at`
-  alongside the existing (now local-only) `last_backup_status`/`last_backup_at`; local success is
-  exit 0, a local failure marks the off-site leg `skipped`. **Not yet deployed to the Pi.** Intake
-  unchanged: #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
+  **Three things the plan settles that the spec left to execution**, recorded here because they
+  are the kind of decision a later tick would otherwise re-derive from scratch. Auth code stays in
+  `backend/main.py` in one delimited `# --- Auth ---` section rather than a new module —
+  `Dockerfile:35` COPYs `backend/main.py` by name, so a split is a Dockerfile change and a deploy
+  risk step 1 has no reason to take. Session expiry is computed by SQLite
+  (`datetime('now', '+30 days')`), not Python, so stored timestamps share one format with every
+  other timestamp in the schema and string comparison is well-defined by construction rather than
+  by luck. And bcrypt cost 12 is a module constant tests monkeypatch down to 4, with a single test
+  guarding the real number — at cost 12 every hashing test would cost ~200 ms on CI and 627 ms on
+  the Pi.
 
-  **This tick recovered a subagent that died mid-task.** The dispatched agent hit the account's
-  five-hour session limit (429) right after writing its RED tests and before running them; the
-  work survived only as uncommitted changes in its isolation worktree. Because the dead agent's
-  session id matched this one, the live `#93` claim was correctly read as this driver's own rather
-  than a competing tick's, and the tick continued from the RED tests in the main thread instead of
-  re-dispatching into the same rate limit. Logged as a `[template]` improvement — PLAYBOOK has
-  nothing to say about abnormal subagent termination, and re-running from scratch would have
-  silently discarded the tests.
-- **Next action:** Nothing is pickable unattended. **#84 needs `/orchestrate approve 84` from the
-  owner** before any tick may execute it, and #85/#86/#87 each need the same as their predecessor
-  merges — approve one at a time, since each step's scope only settles once the one before it
-  lands. The backup workstream is now **finished**: #88, #93 shipped; #89 closed as not planned;
-  #94 closed. The only backup follow-up is a deploy — `main` is at `61f3c91`, the Pi is running
-  `9e4bf65`, so the two-leg reporting is not live yet. Note that until `scripts/backup.sh` next
-  runs on the Pi, `/api/health` will read the pre-split status file there and report
-  `last_backup_remote_status: null` (unknown, by design, with a test pinning it).
-  `agent-scaffold` PR #2 is open and awaiting the owner's review.
+  **The plan makes two checks non-optional.** A by-hand `docker buildx build --platform
+  linux/arm64` before merge: `bcrypt` is the first new runtime dependency since the py3.14
+  base-image bump, and `Dockerfile:25-28` already warns that CI never builds this Dockerfile, so a
+  missing aarch64 wheel is invisible to every green check and surfaces only as a failed build on
+  the Pi. (bcrypt 5.0.0 does publish `manylinux_2_17_aarch64` wheels for cp314 — the build is what
+  proves it.) And a table-driven test asserting the data endpoints are **still open**, so flipping
+  the gate early — #86's job, and something that would lock the owner out of their own history
+  before the invite flow exists — fails the suite instead of shipping.
+
+  **State was split across two branches and is now reconciled.** The owner's approval commit
+  (`366e9f3`) landed on `main`, on a copy of `STATE.md` that predated the #88/#93 tick entries
+  living only here — so each branch held facts the other lacked. This file is authoritative and now
+  carries both. `main`'s copy stays behind by design (the home branch never merges, per the
+  2026-09-04 decision); logged as a `[template]` improvement, because the approve variant never
+  says which branch its record goes on.
 
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
+- **Next action:** **Execute the #84 plan.** It is approved, planned, and unblocked — no further
+  owner input is needed to start. Follow
+  `docs/superpowers/plans/2026-09-05-accounts-auth-core.md` task by task via
+  `superpowers:subagent-driven-development`; dispatch with `isolation:'worktree'` and hand the
+  subagent the main checkout's absolute interpreter path (or tell it to build its own venv with
+  `python3.14`), since a fresh worktree has no `backend/.venv`. Run `/security-review` before the
+  PR — this is auth/session handling. **#85 needs its own `/orchestrate approve 85`** once #84
+  merges; do not carry #84's approval forward. Backup work is finished (#88, #93 shipped; #89
+  closed not planned; #94 closed); the only outstanding piece there is a deploy — `main` now
+  carries the two-leg reporting, the Pi is still on `9e4bf65`, and until `scripts/backup.sh` next
+  runs there `/api/health` reports `last_backup_remote_status: null` (unknown, by design, with a
+  test pinning it).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#84** — claimed 2026-09-05T01:10:03Z, live session.
+(no branches in flight)
 
 ## Needs owner
-- **The whole accounts chain needs approval before any tick may execute it.** #84, #85, #86 and
-  #87 all change auth/session handling, which GUARDRAILS classifies as **destructive**, requiring
-  the `approved` label. No tick may add that label itself — see GUARDRAILS "Approval is
-  human-only." Run `/orchestrate approve 84` to start; approve each one as its predecessor merges,
-  rather than all four up front, since each step's scope is only settled once the one before it
-  lands.
-- **A new `[template]` improvement is queued and cannot be filed unattended (2026-09-05).**
-  PLAYBOOK says nothing about recovering from a subagent that dies mid-task — it should require
-  the controller to inspect the dead agent's worktree for uncommitted work before re-dispatching,
-  and to read a live claim from a dead agent of its own session as still held rather than as a
-  competing driver's. Both were needed for real this tick. Filing it means a PR against
-  `agent-scaffold`, which GUARDRAILS "Cross-repo writes" allows only through a named credential
-  or a direct owner ask; the same bar that gated the two entries in PR #2. Say the word and it
-  goes on that PR.
+- **The accounts chain needs approval per step; #84 has it, #85-#87 do not yet.** All four
+  change auth/session handling, which GUARDRAILS classifies as **destructive**, requiring the
+  `approved` label. No tick may add that label itself — see GUARDRAILS "Approval is human-only."
+  **#84 approved 2026-09-05** by the owner (`/orchestrate approve 84`; rationale commented on the
+  Issue), and it is now planned and ready to execute — nothing further is needed from the owner to
+  start it. Approve **#85**, then #86, then #87 as each predecessor merges rather than all up
+  front, since each step's scope is only settled once the one before it lands.
+- **Two `[template]` improvements are queued and cannot be filed unattended (2026-09-05).**
+  Both want the same destination: `agent-scaffold` PR #2, which is already open. (1) PLAYBOOK says
+  nothing about recovering from a subagent that dies mid-task — it should require the controller to
+  inspect the dead agent's worktree for uncommitted work before re-dispatching, and to read a live
+  claim from a dead agent of its own session as still held rather than as a competing driver's.
+  (2) The `/orchestrate approve` variant never says which branch its record goes on, and the
+  2026-09-04 "home branch never merges" decision made that ambiguity load-bearing: the #84 approval
+  was committed to `STATE.md` on `main`, whose copy predated the #88/#93 entries, leaving two
+  divergent state files that this tick had to reconcile by hand before it could claim anything.
+  Filing either means a PR against `agent-scaffold`, which GUARDRAILS "Cross-repo writes" allows
+  only through a named credential or a direct owner ask — the same bar that gated the two entries
+  already in PR #2. Say the word and both go on that PR.
 - **`agent-scaffold` PR #2 is open and needs a review** — the two `[template]` entries, filed
   2026-09-04 once the owner asked for them directly. That direct ask is what unblocked them:
   GUARDRAILS "Cross-repo writes" bars a tick from using this repo's ambient `gh` auth to write to
@@ -130,6 +150,41 @@
   order.
 
 ## Tick log
+- **2026-09-05 (live session — #84 planned, state reconciled):** Picked #84, the first pickable
+  Issue since the owner approved it. It is `effort:M` with no linked plan, so PLAYBOOK step 3
+  planned it and stopped rather than executing.
+
+  **Plan shipped:** `docs/superpowers/plans/2026-09-05-accounts-auth-core.md`, PR #101, green on
+  all three checks, squash-merged as `cd2e951`. Six TDD tasks with the actual test and
+  implementation code in each, not prose: schema v6 migration → bcrypt cost-12 helpers → session
+  store and `wt_session` cookie → `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` →
+  `POST /api/auth/logout`.
+
+  **Both constraints from the approval comment are carried as tests, not prose.** The gate stays
+  off the data endpoints, guarded by a table-driven test asserting `/api/sessions`, `/api/notes`,
+  `/api/export`, `/api/profile/me` and the rest still answer 200 without a cookie — so flipping the
+  gate early fails the suite instead of shipping. And `auth_tokens`/`auth_sessions` stay out of
+  `TABLES`/`TABLE_INTRODUCED_AT`, asserted directly plus a check that the export envelope's table
+  set is unchanged at schema 6.
+
+  **One addition beyond the Issue's literal wording, flagged in the plan for a reviewer to drop:** a
+  `_dummy_hash()` on the login path, so an unknown username pays the same bcrypt cost as a real
+  account. Without it the two are trivially distinguishable by response time. The spec takes exactly
+  that position for `/api/auth/forgot-password`; the plan applies it to the endpoint #84 ships.
+
+  **Found and reconciled: state was split across two branches.** The owner's approval commit
+  (`366e9f3`) went to `STATE.md` on `main`, but `main`'s copy predated the #88/#93 tick entries that
+  live only on this branch — so each side held facts the other lacked, and neither was a superset.
+  This file now carries both; `main`'s stays behind by design, since the home branch never merges
+  (2026-09-04 decision). Logged as a `[template]` improvement: the approve variant never says which
+  branch its record goes on, which is exactly the ambiguity that decision made load-bearing.
+
+  **Verified before merging rather than assumed:** `bcrypt` 5.0.0 publishes
+  `manylinux_2_17_aarch64` wheels for cp314, checked against PyPI, so the Dockerfile's no-build-tools
+  premise should survive the new dependency. The plan still makes a by-hand
+  `docker buildx build --platform linux/arm64` non-optional, because CI never builds that Dockerfile
+  and a wheel that is missing at build time would be invisible to every green check.
+
 - **2026-09-05 (#93 shipped — the backup's two legs report independently; a dead subagent
   recovered):** The tick opened on a live `#93` claim timestamped five minutes earlier, which
   PLAYBOOK's "Claiming work" would normally read as another driver and back off from. It wasn't:
