@@ -5,7 +5,7 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, **steps 1 and 2 of 5 shipped**; step 1 deployed. #84 (schema v6 + auth core) merged as
+- **Current focus:** Accounts, **steps 1 and 2 of 5 shipped and deployed** (`c9442d8`). #84 (schema v6 + auth core) merged as
   `3ed18a4` (PR #103) — 152 backend tests (101 existing + 51 new) and 216 frontend tests green.
   Six TDD commits: schema v6 → bcrypt cost-12 helpers → session store and `wt_session` cookie →
   `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` → `POST /api/auth/logout`, plus a
@@ -45,14 +45,16 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **Deploy #85, then execute #105.** #85 merged (`1cfcc6b`) but is not deployed,
-  and it cannot be exercised until the owner adds `RESEND_API_KEY` and `MAIL_FROM` to
-  `AGENTS.local.md` — the invite email is the whole point of the step, and nothing can send without
-  them. `APP_BASE_URL` must also be set to the URL the app is actually opened on; the bootstrap
-  script refuses to run while it still points at localhost rather than mailing an unusable link.
-  Sequence: owner adds config → deploy → run `scripts/bootstrap_owner.py` for the first real send →
-  then #105 puts screens in front of that link. **#105 needs no approval** — it is covered by the
-  standing approval recorded in `DECISIONS.md`.
+- **Next action:** **#110 (per-profile data isolation)** — `ready`, needs no approval (not
+  destructive: no auth, session or token handling changes), and it is where the real product risk
+  sits. Reads have never been scoped to a profile, so with two profiles everyone sees everyone's
+  history. Then **#105** (login screens), then #86, then #87.
+
+  **Blocked on the owner:** a valid `RESEND_API_KEY`. `kapekost-web`'s `.env.local` turned out to
+  hold `re_placeholder`, not a live key — the real one exists only in Vercel's environment. Until a
+  working key is in the Pi's `.env`, no invite or reset email can send, so the owner cannot set a
+  password and #105 has nothing to demonstrate against. Everything else about #85 is live and
+  verified.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -143,6 +145,35 @@
   order.
 
 ## Tick log
+- **2026-09-05 (live session — #85 deployed, secrets moved out of Markdown, mail blocked):**
+
+  **Secrets left `AGENTS.local.md`.** The owner's call: "we probably dont add keys in md files."
+  They now live in a `.env` beside `docker-compose.yml` on the target, loaded automatically by
+  Compose for `${...}` substitution — deliberately *not* `env_file:`, which requires the file to
+  exist and would turn a forgotten `.env` on a rebuilt host into a failed deploy. Every value has a
+  default, so a missing `.env` means mail stops sending, not a broken deploy. `.env.example` tracked;
+  `AGENTS.local.md` now records only where keys live and where they come from. PR #108.
+
+  **#85 deployed** (`6da2e22`, then `c9442d8`), and the first real invite send **failed twice, both
+  times usefully.** First: HTTP 403, Cloudflare error 1010 — Cloudflare fronts `api.resend.com` and
+  blocks urllib's default `Python-urllib/3.x` agent, which presents exactly like a rejected API key
+  and sent the first diagnosis down the wrong path. Fixed with a real User-Agent, plus wrapping
+  `HTTPError` so failures carry the response body; a failure that will not say why is barely better
+  than a silent one (PR #109). Second, with the reason now visible: **401, "API key is invalid"** —
+  the key copied from `kapekost-web` is `re_placeholder`, 14 characters. That repo never had a live
+  key; it exists only in Vercel. Verified the transfer itself was faithful (identical SHA-256 either
+  side) before blaming the key.
+
+  Neither failure was reachable by the test suite, which fakes Resend at the boundary and would have
+  gone on passing forever. This is precisely the argument the spec made for the bootstrap being a
+  real send before anyone else is invited.
+
+  **#110 opened** after the owner asked to exercise multi-user UX before login. Reads have never been
+  scoped to a profile — deliberate in #66, invisible with one profile, a data leak with two. Scoping
+  is separable from authentication and ships while the app is open; a profile *switcher* was
+  deliberately not opened as an issue, since switching without a login is a backdoor that #86 would
+  have to delete.
+
 - **2026-09-05 (live session — approvals restructured, #85 shipped):** The owner asked to stop
   approving step by step ("i have not got much context per number to review or know") and for tick
   summaries written for a product owner rather than an engineer. Both are now policy (PR #106).
