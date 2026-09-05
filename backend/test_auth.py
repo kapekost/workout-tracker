@@ -25,6 +25,16 @@ def _seed_id(mainmod):
         return conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
 
 
+def _as_session(client, session_id):
+    """Put a session cookie on the client.
+
+    Per-request `cookies=` is deprecated in starlette's TestClient (cookie
+    persistence there is ambiguous), so set it on the instance instead.
+    """
+    client.cookies.set("wt_session", session_id)
+    return client
+
+
 # --- schema v6 ---
 
 def test_migration_v6_adds_email_column_and_auth_tables(mainmod):
@@ -272,3 +282,33 @@ def test_cookie_is_secure_when_app_cookie_secure_is_set(mainmod, monkeypatch):
     r = Response()
     mainmod.set_session_cookie(r, "abc123")
     assert "secure" in r.headers["set-cookie"].lower()
+
+
+# --- current_profile / GET /api/auth/me ---
+
+def test_auth_me_401s_without_a_cookie(client):
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_auth_me_401s_on_an_unknown_cookie(client):
+    assert _as_session(client, "not-a-real-session").get("/api/auth/me").status_code == 401
+
+
+def test_auth_me_401s_on_an_expired_session(mainmod, client):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        conn.execute("INSERT INTO auth_sessions (id, profile_id, expires_at) "
+                     "VALUES ('stale', ?, datetime('now', '-1 second'))", (pid,))
+        conn.commit()
+    assert _as_session(client, "stale").get("/api/auth/me").status_code == 401
+
+
+def test_auth_me_returns_the_profile_for_a_live_session(mainmod, client):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        sid = mainmod.issue_session(conn, pid)
+        conn.commit()
+    r = _as_session(client, sid).get("/api/auth/me")
+    assert r.status_code == 200
+    assert r.json() == {"id": pid, "username": "kapekost", "role": "admin",
+                        "icon": "\U0001F4AA", "email": None}

@@ -426,6 +426,20 @@ def set_session_cookie(response: Response, session_id: str) -> None:
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE, path="/")
 
+def current_profile(request: Request) -> dict:
+    """Request-scoped identity, from the session cookie.
+
+    Defined here but deliberately NOT applied to the data endpoints: #86 flips
+    the gate across all of them and deletes _default_profile_id. Wiring it in
+    early would close the app before the invite flow (#85) and the owner
+    bootstrap exist, locking the owner out of their own history.
+    """
+    with db() as conn:
+        row = session_profile(conn, request.cookies.get(SESSION_COOKIE))
+    if row is None:
+        raise HTTPException(401, "not authenticated")
+    return dict(row)
+
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):
@@ -443,6 +457,10 @@ def health(response: Response):
             "last_backup_at": last_at, "last_backup_status": last_status,
             "last_backup_remote_at": remote_at,
             "last_backup_remote_status": remote_status}
+
+@app.get("/api/auth/me")
+def auth_me(profile: dict = Depends(current_profile)):
+    return profile
 
 @app.get("/api/profile/me")
 def get_current_profile():
