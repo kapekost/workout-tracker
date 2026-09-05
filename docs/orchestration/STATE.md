@@ -5,7 +5,31 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#110 (per-profile data isolation) shipped and deployed** (`240acc4`, PR #112,
+- **Current focus:** **#105 (login and set-password screens) shipped and deployed** (`7d06bae`,
+  PR #117, 2026-09-05). Accounts is **3 of 5 done**. There is now a real login flow a human can use:
+  `/login` (username + password, with a forgot-password path) and `/set-password?token=…`, the path
+  the invite and reset emails already point at. `lib/session.jsx` holds the `/auth/me` result, the
+  TopBar shows "Log in" or profile + "Log out", and `api.js` gained `auth.*` helpers plus two fixes
+  the auth endpoints forced (errors now carry `status` and a string `detail`, since the auth
+  endpoints answer with deliberately generic messages the screens must show verbatim; and a 204 no
+  longer trips `res.json()`, which `/auth/logout` returns). **Nothing is enforced** — no route
+  guard, no forced redirect, no central 401 handler. `App.test.jsx` asserts that open behaviour, so
+  #86 must flip a test rather than quietly change it. 258 frontend tests green, up from 216; no
+  backend change, and the client payloads were checked against `LoginIn`/`SetPasswordIn`/
+  `ForgotPasswordIn` rather than assumed, since the frontend tests mock the API and cannot catch a
+  contract mismatch. Deployed and health-verified (`version=7d06bae`, `last_backup_status=ok`).
+
+  **Executed under the standing approval, no label added.** The runner did not add `approved` and
+  none was needed — `DECISIONS.md`'s "Standing approval: the accounts workstream (#105, #86, #87)"
+  covers it. Getting to that took most of the tick; see the tick log.
+
+  **The implementing subagent was killed mid-task by a session rate limit (429)** after five clean
+  TDD commits, with the route wiring uncommitted in its worktree. Recovered exactly as the
+  2026-09-05 `[template]` improvement prescribes: inspect the dead agent's worktree before
+  re-dispatching. Its work was complete and green; the controller committed the last step, reviewed
+  the diff, and shipped it. Second time this failure mode has hit (also #110).
+
+- **Previously:** **#110 (per-profile data isolation) shipped and deployed** (`240acc4`, PR #112,
   2026-09-05). Reads had never been scoped since #66, so any second profile would have seen the
   first's entire history; now every read and every mutation routes through one
   `acting_profile_id(conn)` seam (returns the seed profile today; #86 swaps its body for the session
@@ -61,13 +85,14 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **#105 (login and set-password screens)** — the data model is now safe for
-  multiple users (#110), so the thing the owner cares about next is logging in as different people
-  and actually seeing the isolation. #105 is `blocked` and needs its own `/orchestrate approve` (it
-  changes auth/session handling → destructive; the standing approval is granted per-step as each
-  predecessor lands). Then **#86** (flip the gate, delete `_default_profile_id` — its call sites now
-  all route through `acting_profile_id`, so this is a one-function change), then **#87**
-  (export/import role behaviour).
+- **Next action:** **#86 (flip the gate)** — covered by the same standing approval, so it needs no
+  new label. Its remaining scope is small: swap `acting_profile_id(conn)`'s body for a real session
+  lookup, delete `_default_profile_id`, trim `/api/health`, gate `/api/events`, and add the frontend
+  route guard + central 401 handler that #105 deliberately left out. Then **#87** (export/import
+  role behaviour). **Do not start #86 until the owner has exercised #105 by hand** — that ordering
+  is the entire reason the screens were split out (`DECISIONS.md`, "Prove the accounts UX before
+  closing the gate"). #86 is the deploy that could lock the owner out of their own history, and the
+  only thing that de-risks it is a human having logged in successfully first.
 
   **Mail is unblocked and proven end to end.** The owner minted a Resend key, it is on the Pi's
   `.env` (mode 600), and the bootstrap invite was received. `MAIL_FROM` is
@@ -80,9 +105,26 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#105** — claimed 2026-09-05T18:55:00Z, live session. Login + set-password screens; executing under the recorded standing approval (owner re-confirmed live this tick).
+(no branches in flight)
 
 ## Needs owner
+- **Try the login flow on your phone — #86 is waiting on it.** Deployed at `7d06bae`. The path:
+  open the invite email from the #85 bootstrap, follow the link, set a password, land on Home
+  logged in, check the top bar shows your profile, log out, then log back in at `/login`. Also
+  worth confirming while you are in there: your own history is all still present after #110. If
+  anything is wrong, the app still works exactly as before — nothing is gated yet, which is the
+  point of shipping this step separately.
+- **#30/#32 need a 5-minute spec skim, not a decision.**
+  `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114)
+  gates itself on an owner skim before either Issue may be split into `ready` children. Every
+  fork-in-the-road question in it was already answered by owner Q&A on 2026-08-30 — the skim is
+  confirming the spec-writer's mechanism design, not re-deciding anything. Until it happens, #30 and
+  #32 stay `intake` and cannot become executable work.
+- **A third `[template]` improvement is queued (2026-09-05), same destination as the two below.**
+  PLAYBOOK step 1 named the three orchestration docs to read but not the branch to read them from,
+  so a tick reads `main` — whose copies lag, because the home branch never merges there. Fixed
+  locally in PR #116; `agent-scaffold` has the same gap. Filing it needs the named credential or a
+  direct owner ask, same bar as the other two.
 - ~~**The accounts chain needs approval per step**~~ — **wrong, and corrected 2026-09-05.** This
   bullet said #105/#86/#87 each still needed their own `/orchestrate approve`. `DECISIONS.md`'s
   "Standing approval: the accounts workstream (#105, #86, #87)" says the opposite in as many words,
@@ -167,6 +209,45 @@
   order.
 
 ## Tick log
+- **2026-09-05 later (#105 shipped and deployed; `main`'s orchestration docs found to be a trap):**
+
+  **The tick began by getting it wrong, which is the part worth keeping.** Step 2 read `STATE.md`,
+  `GUARDRAILS.md` and `DECISIONS.md` from the working tree — `main` — found no standing-approval
+  entry in `DECISIONS.md`, and concluded the accounts chain was blocked on an owner approval. It
+  then spent the tick on the intake track instead, shipping #114 (refreshing the AI-structured-IO
+  spec, which still named the superseded #67 as its login dependency and still told an executor to
+  scope rows with `_default_profile_id` — the exact call site #86 exists to delete) and reporting
+  the approval gap as a finding.
+
+  **That finding was false.** The standing approval exists, names #105/#86/#87 explicitly, and
+  quotes the owner: "let's trust the process on these approvals." It lives on **this branch**, which
+  by owner decision (2026-09-04) never merges to `main`; doc commits land here and reach `main` only
+  by selective cherry-pick. `main` was six `DECISIONS.md` entries and 28 `STATE.md` commits behind.
+  PLAYBOOK step 1 never said which branch to read from, so both this tick and PR #113 before it read
+  the stale copy and reported work blocked that was not. It surfaced only because clearing an
+  In-flight claim forced a merge that exposed the divergence — nothing in the loop would have caught
+  it otherwise.
+
+  **Fixed, not just noted (PR #116):** step 1 now names the branch and gives the `git show` command;
+  `main`'s `DECISIONS.md` was synced to this branch's 20 entries (its one unique entry, the thinner
+  "#27 → P3", verified as fully subsumed before overwriting); and this file's own contradictory
+  "approval per step" wording — the phrasing that misled two ticks — is gone. Logged as `[template]`
+  friction, cursor advanced to 12.
+
+  **Then the actual work.** With the owner confirming the standing-approval reading live, #105 was
+  claimed and dispatched. The subagent was killed by a session-limit 429 after five clean TDD
+  commits with the route wiring uncommitted — the same failure that hit #110, and the recovery the
+  2026-09-05 `[template]` entry prescribes worked: its worktree held complete, green work, so the
+  controller committed the last step rather than re-running from scratch. Reviewed the diff before
+  shipping, including checking the client payloads against the real `LoginIn`/`SetPasswordIn`/
+  `ForgotPasswordIn` models, since the frontend tests mock the API and cannot catch a contract
+  mismatch. CI green on the pushed head (`a024b3c`), squash-merged as `7d06bae`, deployed and
+  health-verified. Owner asked at the deploy boundary and said go.
+
+  **Intake, for the record:** #30 was picked before #105 became available and stays `intake` — its
+  spec is complete but gates itself on an owner skim. #114 made that skim worth doing against
+  current reality. One real find fell out: #110 delivered per-profile scoping independently of
+  login, so #30/#32 depend only on #86, not the whole accounts chain.
 - **2026-09-05 (#110 → PR #112, shipped + deployed):** Per-profile data isolation. Reconciled first:
   `main`'s `STATE.md` was stale (still named #84 as next), so the live cursor was read from this home
   branch per "Claiming work" — #110 was the sole `ready` issue and the recorded next action. Not
