@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob
+import sqlite3, os, json, glob, secrets
+import bcrypt
 from datetime import datetime, timezone
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
@@ -335,6 +336,45 @@ def _last_backup():
         # off-site status is genuinely unknown rather than absent.
         local, remote = _leg(data, ("ok", "failed")), (None, None)
     return local[0], local[1] or "none", remote[0], remote[1]
+
+# --- Auth (#84) ---
+# Deliberately unwired from the data endpoints: #86 flips the gate and deletes
+# _default_profile_id. Keeping it in one block means #85 can lift the whole
+# section into its own module if it outgrows main.py — note that doing so also
+# needs a Dockerfile change, since it COPYs backend/main.py by name.
+
+# Cost 12 = 627 ms on the deploy target (Pi 3 B+, aarch64), measured, not
+# assumed. bcrypt rather than a memory-hard KDF because each concurrent
+# scrypt/argon2 hash reserves its full working set, and a handful of parallel
+# logins could OOM a container on a box with ~185 MiB free running Home
+# Assistant beside it. See the design doc before changing either fact.
+BCRYPT_ROUNDS = 12
+PASSWORD_MIN_LEN = 12
+# bcrypt's own input limit. bcrypt >= 4.2 raises rather than silently
+# truncating, but validating first turns that into a clear 400, not a 500.
+PASSWORD_MAX_BYTES = 72
+
+def validate_password(password: str) -> None:
+    if len(password) < PASSWORD_MIN_LEN:
+        raise ValueError(f"password must be at least {PASSWORD_MIN_LEN} characters")
+    if len(password.encode("utf-8")) > PASSWORD_MAX_BYTES:
+        raise ValueError(f"password must be at most {PASSWORD_MAX_BYTES} bytes")
+
+def hash_password(password: str) -> str:
+    validate_password(password)
+    return bcrypt.hashpw(password.encode("utf-8"),
+                         bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("ascii")
+
+def verify_password(password: str, password_hash: str | None) -> bool:
+    # A NULL hash means "invited, never set a password" and must never
+    # authenticate. A malformed hash returns False rather than raising, so a
+    # corrupt row is a failed login rather than a 500 on the login path.
+    if not password_hash:
+        return False
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("ascii"))
+    except ValueError:
+        return False
 
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])

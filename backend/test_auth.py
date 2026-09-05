@@ -106,3 +106,60 @@ def test_a_v5_envelope_still_imports(client):
                       "personal_bests": []}}
     r = client.post("/api/import", json={"envelope": env, "mode": "replace", "confirm": True})
     assert r.status_code == 200, r.text
+
+
+# --- password hashing ---
+
+@pytest.fixture
+def fast_bcrypt(mainmod, monkeypatch):
+    """Cost 12 is ~627 ms per hash on the deploy target and ~200 ms here. These
+    tests care about the helpers' behaviour, not the work factor, so drop the
+    cost — test_bcrypt_cost_is_twelve below is what guards the real number."""
+    monkeypatch.setattr(mainmod, "BCRYPT_ROUNDS", 4)
+    return mainmod
+
+
+def test_bcrypt_cost_is_twelve(mainmod):
+    # Measured on the actual Pi at 627 ms. Do not raise it, and do not swap in a
+    # memory-hard KDF, without re-measuring there — see
+    # docs/superpowers/specs/2026-09-04-accounts-auth-design.md.
+    assert mainmod.BCRYPT_ROUNDS == 12
+
+
+def test_hash_and_verify_round_trip(fast_bcrypt):
+    h = fast_bcrypt.hash_password("correct horse battery")
+    assert h.startswith("$2b$")
+    assert fast_bcrypt.verify_password("correct horse battery", h) is True
+    assert fast_bcrypt.verify_password("wrong horse battery", h) is False
+
+
+def test_two_hashes_of_the_same_password_differ(fast_bcrypt):
+    assert fast_bcrypt.hash_password("correct horse battery") != \
+           fast_bcrypt.hash_password("correct horse battery")
+
+
+def test_verify_rejects_a_null_hash(fast_bcrypt):
+    # NULL password_hash means "invited but never set a password" — it must
+    # never authenticate, and must never raise either.
+    assert fast_bcrypt.verify_password("anything at all", None) is False
+    assert fast_bcrypt.verify_password("anything at all", "") is False
+
+
+def test_verify_rejects_a_malformed_hash_without_raising(fast_bcrypt):
+    assert fast_bcrypt.verify_password("anything at all", "not-a-bcrypt-hash") is False
+
+
+def test_password_shorter_than_twelve_is_rejected(fast_bcrypt):
+    with pytest.raises(ValueError, match="at least 12"):
+        fast_bcrypt.hash_password("short")
+
+
+def test_password_longer_than_72_bytes_is_rejected_not_truncated(fast_bcrypt):
+    with pytest.raises(ValueError, match="72 bytes"):
+        fast_bcrypt.hash_password("a" * 73)
+
+
+def test_password_length_is_measured_in_bytes_not_characters(fast_bcrypt):
+    # 30 four-byte emoji = 120 bytes, which bcrypt would otherwise cut at 72.
+    with pytest.raises(ValueError, match="72 bytes"):
+        fast_bcrypt.hash_password("\U0001F4AA" * 30)
