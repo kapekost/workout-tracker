@@ -3,6 +3,29 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-06 — Any UI change gets a UI/UX review, and gets looked at in a browser
+
+Owner, after opening #105's login screen for the first time: "it's nothing to standards expected
+login, please review with ui ux expert any time we touch the UI, and also make sure the code is
+efficient and not overengineered."
+
+**Two standing requirements, both now in PLAYBOOK step 5:**
+
+1. **A change that touches the UI is not done until a UI/UX review has seen it.** Not a code review
+   with a glance at the JSX — a review whose subject is the rendered screen: hierarchy, spacing,
+   affordance, copy, accessibility, and how it reads on a phone.
+2. **Render it and look at it.** Deploy or run it, open the page, screenshot it. This is not
+   ceremony: on 2026-09-06 three separate defects in freshly shipped, fully-tested, code-reviewed
+   screens were invisible in the source and obvious in one screenshot — the header printing "Log in"
+   twice, the app's bottom nav sitting on an auth screen, and (found by loading the URL at all)
+   every client-side route returning `{"detail":"Not Found"}`, which had made the invite email
+   unopenable since #85. 259 frontend tests were green throughout.
+
+**And keep the code lean.** The owner's second clause is a design constraint, not a platitude:
+reuse the existing tokens and CSS classes, do not add a component library, a CSS framework or a
+design-system layer to a small personal app. A UI/UX review that returns a rewrite is the wrong
+answer to this instruction.
+
 ## 2026-09-05 — Secrets live in `.env` on the target; reuse services, not accounts
 
 **Mechanism.** Secrets go in a `.env` beside `docker-compose.yml` on the deploy target, gitignored
