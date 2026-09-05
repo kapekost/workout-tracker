@@ -376,6 +376,56 @@ def verify_password(password: str, password_hash: str | None) -> bool:
     except ValueError:
         return False
 
+SESSION_COOKIE = "wt_session"
+SESSION_TTL_DAYS = 30           # a phone-first app opened a few times a week
+# Off for the current plain-HTTP tailnet URL; flipped to 1 once #27's tunnel
+# terminates TLS. Shipping Secure before HTTPS exists silently breaks login.
+APP_COOKIE_SECURE = os.environ.get("APP_COOKIE_SECURE", "0") == "1"
+
+def issue_session(conn, profile_id: int) -> str:
+    """Insert a session row and return its opaque id. Does not commit."""
+    session_id = secrets.token_urlsafe(32)
+    # Expiry is computed by SQLite so it shares one format with every other
+    # timestamp in the schema and string comparison stays well-defined.
+    conn.execute("INSERT INTO auth_sessions (id, profile_id, expires_at) "
+                 f"VALUES (?, ?, datetime('now', '+{SESSION_TTL_DAYS} days'))",
+                 (session_id, profile_id))
+    return session_id
+
+def session_profile(conn, session_id):
+    """The profile behind a live session, or None. Expired rows are deleted on
+    the way past — opportunistic cleanup, no reaper process."""
+    if not session_id:
+        return None
+    row = conn.execute(
+        "SELECT profile_id, expires_at <= datetime('now') AS expired "
+        "FROM auth_sessions WHERE id = ?", (session_id,)).fetchone()
+    if row is None:
+        return None
+    if row["expired"]:
+        conn.execute("DELETE FROM auth_sessions WHERE id = ?", (session_id,))
+        conn.commit()
+        return None
+    return conn.execute(
+        "SELECT id, username, role, icon, email FROM profiles WHERE id = ?",
+        (row["profile_id"],)).fetchone()
+
+def revoke_sessions(conn, profile_id: int) -> None:
+    """Kill every session for a profile. Does not commit.
+
+    This is why sessions are server-side rows rather than a signed stateless
+    cookie: #85's password reset must be able to end sessions that already
+    exist, which a self-contained token cannot do before it expires.
+    """
+    conn.execute("DELETE FROM auth_sessions WHERE profile_id = ?", (profile_id,))
+
+def set_session_cookie(response: Response, session_id: str) -> None:
+    response.set_cookie(SESSION_COOKIE, session_id, max_age=SESSION_TTL_DAYS * 86400,
+                        httponly=True, samesite="lax", secure=APP_COOKIE_SECURE, path="/")
+
+def clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/")
+
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):

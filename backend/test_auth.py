@@ -163,3 +163,112 @@ def test_password_length_is_measured_in_bytes_not_characters(fast_bcrypt):
     # 30 four-byte emoji = 120 bytes, which bcrypt would otherwise cut at 72.
     with pytest.raises(ValueError, match="72 bytes"):
         fast_bcrypt.hash_password("\U0001F4AA" * 30)
+
+
+# --- sessions ---
+
+def test_issue_session_stores_a_row_and_returns_an_opaque_id(mainmod):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        sid = mainmod.issue_session(conn, pid)
+        conn.commit()
+    assert isinstance(sid, str) and len(sid) >= 32
+    with mainmod.db() as conn:
+        row = conn.execute("SELECT profile_id, expires_at FROM auth_sessions WHERE id = ?",
+                           (sid,)).fetchone()
+        assert row["profile_id"] == pid
+        # ~30 days out, bracketed generously so the assertion isn't clock-flaky
+        assert conn.execute("SELECT ? > datetime('now', '+29 days') "
+                            "AND ? < datetime('now', '+31 days')",
+                            (row["expires_at"], row["expires_at"])).fetchone()[0] == 1
+
+
+def test_session_ids_are_unique_per_issue(mainmod):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        a, b = mainmod.issue_session(conn, pid), mainmod.issue_session(conn, pid)
+        conn.commit()
+    assert a != b
+
+
+def test_session_profile_returns_the_profile_for_a_live_session(mainmod):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        sid = mainmod.issue_session(conn, pid)
+        conn.commit()
+        row = mainmod.session_profile(conn, sid)
+        assert row["id"] == pid and row["username"] == "kapekost" and row["role"] == "admin"
+        assert "password_hash" not in row.keys()  # never hand the hash back out
+
+
+def test_session_profile_rejects_unknown_and_empty_ids(mainmod):
+    with mainmod.db() as conn:
+        assert mainmod.session_profile(conn, "nope") is None
+        assert mainmod.session_profile(conn, None) is None
+        assert mainmod.session_profile(conn, "") is None
+
+
+def test_expired_session_is_rejected_and_deleted_on_lookup(mainmod):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        conn.execute("INSERT INTO auth_sessions (id, profile_id, expires_at) "
+                     "VALUES ('stale', ?, datetime('now', '-1 day'))", (pid,))
+        conn.commit()
+        assert mainmod.session_profile(conn, "stale") is None
+    with mainmod.db() as conn:  # opportunistic cleanup, no reaper process
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions WHERE id = 'stale'").fetchone()[0] == 0
+
+
+def test_revoke_sessions_deletes_every_session_for_that_profile_only(mainmod):
+    pid = _seed_id(mainmod)
+    with mainmod.db() as conn:
+        other = conn.execute("INSERT INTO profiles (username, role) VALUES ('other','member')").lastrowid
+        mine_a, mine_b = mainmod.issue_session(conn, pid), mainmod.issue_session(conn, pid)
+        theirs = mainmod.issue_session(conn, other)
+        conn.commit()
+        mainmod.revoke_sessions(conn, pid)
+        conn.commit()
+        assert mainmod.session_profile(conn, mine_a) is None
+        assert mainmod.session_profile(conn, mine_b) is None
+        assert mainmod.session_profile(conn, theirs) is not None
+
+
+def test_deleting_a_profile_cascades_to_its_sessions(mainmod):
+    with mainmod.db() as conn:
+        other = conn.execute("INSERT INTO profiles (username, role) VALUES ('other','member')").lastrowid
+        sid = mainmod.issue_session(conn, other)
+        conn.commit()
+        conn.execute("DELETE FROM profiles WHERE id = ?", (other,))
+        conn.commit()
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions WHERE id = ?", (sid,)).fetchone()[0] == 0
+
+
+# --- cookie ---
+
+def test_set_session_cookie_is_httponly_lax_and_thirty_days(mainmod):
+    from fastapi import Response
+    r = Response()
+    mainmod.set_session_cookie(r, "abc123")
+    header = r.headers["set-cookie"]
+    assert "wt_session=abc123" in header
+    assert "httponly" in header.lower()
+    assert "samesite=lax" in header.lower()
+    assert "Max-Age=2592000" in header
+    assert "Path=/" in header
+
+
+def test_cookie_is_not_secure_by_default(mainmod):
+    from fastapi import Response
+    r = Response()
+    mainmod.set_session_cookie(r, "abc123")
+    # The deploy target is plain HTTP on a tailnet today. Shipping Secure before
+    # #27 terminates TLS would silently break login.
+    assert "secure" not in r.headers["set-cookie"].lower()
+
+
+def test_cookie_is_secure_when_app_cookie_secure_is_set(mainmod, monkeypatch):
+    from fastapi import Response
+    monkeypatch.setattr(mainmod, "APP_COOKIE_SECURE", True)
+    r = Response()
+    mainmod.set_session_cookie(r, "abc123")
+    assert "secure" in r.headers["set-cookie"].lower()
