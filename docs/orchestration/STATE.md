@@ -45,15 +45,20 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **#85 needs `/orchestrate approve 85`** — the only thing standing between the
-  runner and the next step. #84's approval does not carry forward; each step of the chain is
-  approved as its predecessor merges. #85 inherits a finished, deployed foundation: `auth_tokens`
-  exists in the live schema, `validate_password`/`hash_password` are ready for its set-password
-  endpoint, and `revoke_sessions` — shipped unused and tested — is what its password reset must
-  call. Login is deliberately unthrottled until #85 adds rate limiting (10 per 15 minutes, by IP
-  and username), which matters most once #86 closes the gate and #27 exposes the app.
-  **#84 is done and deployed** (`3ed18a4`, 2026-09-05): schema 6 live, row counts unchanged, the
-  restore drill re-run and passing, the gate verified still open. Nothing outstanding on it.
+- **Next action:** **#85 needs `/orchestrate approve 85`** — it is now `ready` (unblocked by #84
+  shipping) and is the only thing waiting on the owner. It changes token and password handling, so
+  no tick may execute it without the label.
+
+  **The chain is five steps now, not four** (owner call, 2026-09-05): #84 done → **#85** Resend
+  invite/reset, rate limiting, owner bootstrap → **#105** login and set-password screens, *before*
+  the gate → **#86** flip the gate, delete `_default_profile_id`, enforce login → **#87**
+  export/import roles. #105 was split out of #86 so the login flow can be used and proven while the
+  app is still open; it deliberately ships **no route guard**, because guarding the UI while the API
+  stays open is a soft lockout that buys nothing. The goal driving the split is a manual acceptance
+  run: the owner receives the real invite email from #85's bootstrap, follows it on a phone, sets a
+  password, logs in, sees the top bar change, logs out — all before #86 enforces anything.
+
+  Approve one step at a time, as its predecessor merges. #105 and #86 will each need their own.
 
 ## Stop-condition
 (none — runner proceeds normally)
