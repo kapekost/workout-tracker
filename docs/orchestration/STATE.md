@@ -48,24 +48,23 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **Execute the #84 plan.** It is approved, planned, and unblocked — no further
-  owner input is needed to start. Follow
-  `docs/superpowers/plans/2026-09-05-accounts-auth-core.md` task by task via
-  `superpowers:subagent-driven-development`; dispatch with `isolation:'worktree'` and hand the
-  subagent the main checkout's absolute interpreter path (or tell it to build its own venv with
-  `python3.14`), since a fresh worktree has no `backend/.venv`. Run `/security-review` before the
-  PR — this is auth/session handling. **#85 needs its own `/orchestrate approve 85`** once #84
-  merges; do not carry #84's approval forward. Backup work is finished (#88, #93 shipped; #89
-  closed not planned; #94 closed); the only outstanding piece there is a deploy — `main` now
-  carries the two-leg reporting, the Pi is still on `9e4bf65`, and until `scripts/backup.sh` next
-  runs there `/api/health` reports `last_backup_remote_status: null` (unknown, by design, with a
-  test pinning it).
+- **Next action:** **#84 is shipped and merged (PR #103, `3ed18a4`) but not deployed.** Two things
+  follow, in this order. (1) **Deploy it** — a schema migration, so per `AGENTS.md` an
+  `/api/export` snapshot first and a restore drill after; confirm `PRAGMA user_version` reads 6 on
+  the Pi, and leave `APP_COOKIE_SECURE` unset (plain HTTP until #27; a `Secure` cookie over plain
+  HTTP is accepted and then never sent back, breaking login silently). The deploy also **closes the
+  one verification that did not run this session** — the by-hand `docker buildx build --platform
+  linux/arm64`, skipped because the Docker daemon was down, which `scripts/deploy.sh` performs
+  anyway. (2) **#85 needs `/orchestrate approve 85`** before any tick may touch it; #84's approval
+  does not carry forward. #85 inherits a finished foundation: `auth_tokens` exists,
+  `validate_password`/`hash_password` are ready for set-password, and `revoke_sessions` is what its
+  reset must call. Login is deliberately unthrottled until #85 adds rate limiting.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#84** — claimed 2026-09-05T08:52:37Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **The accounts chain needs approval per step; #84 has it, #85-#87 do not yet.** All four
