@@ -83,13 +83,15 @@
 - **#105** — claimed 2026-09-05T18:55:00Z, live session. Login + set-password screens; executing under the recorded standing approval (owner re-confirmed live this tick).
 
 ## Needs owner
-- **The accounts chain needs approval per step; #84 and #85 have it, #105/#86/#87 do not.** All of
-  them change auth, session, token or password handling, which GUARDRAILS classifies as
-  **destructive**, requiring the `approved` label. No tick may add that label itself — see GUARDRAILS
-  "Approval is human-only." **#84 approved 2026-09-05** (shipped and deployed). **#85 approved
-  2026-09-05** (`/orchestrate approve 85`; rationale and the constraints execution must respect are
-  commented on the Issue). Approve **#105**, then **#86**, then **#87** as each predecessor merges —
-  each step's scope is only settled once the one before it lands.
+- ~~**The accounts chain needs approval per step**~~ — **wrong, and corrected 2026-09-05.** This
+  bullet said #105/#86/#87 each still needed their own `/orchestrate approve`. `DECISIONS.md`'s
+  "Standing approval: the accounts workstream (#105, #86, #87)" says the opposite in as many words,
+  and the owner re-confirmed that reading live. The per-step phrasing predates that record and was
+  carried forward by successive cursors; it is what two ticks then acted on, one of them reporting
+  the chain blocked on an approval that had already been granted. **#105, #86 and #87 need no
+  `approved` label**, only the standing approval already on file — and it stops covering any of them
+  the moment its scope grows past the spec. #84 and #85 carry their own labels and shipped.
+  Unchanged and untouched by any of this: no agent may ever add the `approved` label itself.
 - **Two `[template]` improvements are queued and cannot be filed unattended (2026-09-05).**
   Both want the same destination: `agent-scaffold` PR #2, which is already open. (1) PLAYBOOK says
   nothing about recovering from a subagent that dies mid-task — it should require the controller to
