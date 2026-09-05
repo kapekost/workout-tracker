@@ -3,6 +3,42 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-05 — Plan when it isn't decomposed, not when it's big; plans stop carrying code
+
+Owner review of how the runner decides when to implement. Four calls, shipped as PR #102.
+
+**The plan gate keys on decomposition, not effort size.** The old rule ("`effort:M` or larger and
+no linked plan → plan and stop") fired on size alone and cost a whole tick on #84, which arrived
+approved with a 315-line spec that already contained the schema DDL, endpoint list, test list and
+an explicit "Implementation order" section. Execute when scope, an ordered sequence of testable
+steps, named acceptance tests and no open owner question are all present; plan only what's missing.
+
+**Plans carry decisions, not code.** #84's plan was 1091 lines, ~700 of them test and
+implementation bodies that get written again during execution — the change authored twice, and an
+executor handed finished code to transcribe, which defeats the red step of the TDD the plan asks
+for. Plans now hold task ordering, the decisions the spec left open, test case *names*, and the
+verification steps easy to skip. ~200-300 lines for an `effort:M` issue; that plan was re-cut to
+266 as the reference shape.
+
+**Plans are linked from their Issue** (`**Plan:** <path>` in the body), because no Issue in the
+repo referenced one and the gate was reading a directory listing instead.
+
+**`blocked-by` is the `blocked` label.** PLAYBOOK mandated GitHub's native dependency relationship
+and forbade a label, but the field it names doesn't exist on this API, so the check had always
+silently passed while practice used the label.
+
+**Effort split, soft:** ~60% implementation, ~30% planning, ~10% review, review being regular
+rather than terminal — get to running code early so reviews land on code, not prose. Research-heavy
+work may take more investigation and should say so in `STATE.md`. Two caveats keep it honest:
+review is a gate, not a budget line, and verification belongs to implementation.
+
+**#84 stays `effort:M`, checked rather than assumed.** Its plan runs to six tasks, which reads
+large, but that is TDD granularity, not scope: five files touched (`backend/main.py`,
+`backend/test_auth.py`, `backend/test_profiles.py`, `backend/requirements.txt`,
+`AGENTS.local.md.example`), one cohesive surface, far inside GUARDRAILS' 40-file / 150k-token
+split threshold. Splitting further would break the property that makes step 1 coherent — that it
+is safe to deploy while the app is still open.
+
 ## 2026-09-04 — Backups go manual; no alerting; home branch stops merging
 
 Three owner calls in one conversation, all reversing or settling things decided earlier
