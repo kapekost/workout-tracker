@@ -241,30 +241,29 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-09-04 (deployed `17bd4fc`; `main` is ahead — see below)._
+_Last updated: 2026-09-05 (deployed `3ed18a4`; `main` == the deployed image)._
 
-**Running now:** commit `17bd4fc`, deployed 2026-08-31. Container healthy,
-`/api/health` `status: ok`. Schema v5 (profiles + TopBar profile display,
-#66/#76 and #69/#77). Verified live 2026-09-03.
+**Running now:** commit `3ed18a4`, deployed 2026-09-05. Container healthy,
+`/api/health` `status: ok`. **Schema v6** — accounts groundwork (#84):
+`profiles.email`, `auth_tokens`, `auth_sessions`. Verified live: schema
+version 6, row counts unchanged across the migration (1 profile, 2 sessions,
+33 sets, 814 events), auth tables absent from the export envelope.
 
-**Unreleased — `main` is 4 commits ahead of the deployed image.** One of
-them changes the runtime, so the next deploy is not a no-op:
+**The login gate is deliberately NOT on.** #84 shipped the machinery —
+bcrypt hashing, server-side sessions, the `wt_session` cookie, a
+`current_profile` dependency, and `/api/auth/login` · `/logout` · `/me` —
+but no data endpoint requires a session yet, and `_default_profile_id` is
+untouched. That is #86, and it must not land before #85's emailed invite
+flow and the owner bootstrap work, or the owner is locked out of their own
+history. Verified live after this deploy: `/api/auth/me` 401 without a
+cookie, login refused for the seeded profile (its `password_hash` is NULL
+until it is invited), and `/api/sessions`, `/api/notes`, `/api/personal-bests`
+and `/api/profile/me` all still 200 unauthenticated.
 
-- `0d8576b` — base image `python:3.11-slim` → `3.14-slim` (#81)
-- `65a1804` — pydantic 2.13.4 → 2.13.5 (#80)
-- `4cb2a08` — CI now tests on py3.14 to match the base image (#82)
-- `79cc6c8` — docs only (#79)
-
-Both dependency bumps were hand-verified before merge rather than trusted
-on green checks, because **CI never builds this Dockerfile** — it runs
-tests bare-metal on the runner, so a base image whose deps lack aarch64
-wheels would fail the real build while CI stays green (the trap that kept
-#7/#23 open for weeks). Verified: full `docker buildx build
---platform linux/arm64` clean with deps installing in 5.2s and no
-compilation, 88 backend tests green on py3.14 + pydantic 2.13.5, container
-smoke test (`/api/health` ok, `/` 200, `/api/sessions` 200), fresh DB
-migrating to `user_version = 5`, image 287 MB vs 283 MB (+4 MB, immaterial
-on the 1 GB box).
+This deploy also brought the previously-undeployed backlog live in one jump
+from `9e4bf65`: the two-leg backup reporting (#93), the manual-backup change
+and the `deploy.sh` warn-don't-fail behaviour (#96), and the backup
+documentation consolidation (#95/#97/#98/#99/#100).
 
 **Off-site backups: working, but best-effort by decision (2026-09-04).**
 The 2026-09-01..04 outage (`invalid_grant`, four failed nights, last good
@@ -281,8 +280,9 @@ older snapshots remain safe in Drive and downloadable from the web UI,
 simply outside rclone's view.
 
 **The app is still in `Testing` publishing status, where Google expires
-refresh tokens after 7 days — and the cron is weekly.** So most weekly
-off-site copies are expected to fail until the app is published. Publishing
+refresh tokens after 7 days.** Backups are manual as of 2026-09-04 (the cron
+was removed, not just slowed), so an off-site copy succeeds only when
+`backup.sh` is run inside a 7-day window of the last re-authorization. Publishing
 was deliberately deferred by the owner (#94) rather than pursued, because
 the consent screen still carries three restricted scopes from the old
 configuration and is shared project-wide with the Home Assistant / CCR
