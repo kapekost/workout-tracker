@@ -42,7 +42,9 @@ export default function App() {
               <TopBar />
               <ResumeBanner />
             </div>
-            <div className="page-shell" style={{ paddingTop: headerHeight }}>
+            {/* --header-height lets a page size itself against the space the
+                fixed header actually leaves it (index.css's .auth-shell). */}
+            <div className="page-shell" style={{ paddingTop: headerHeight, '--header-height': `${headerHeight}px` }}>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/workout/:sessionId" element={<Workout />} />
