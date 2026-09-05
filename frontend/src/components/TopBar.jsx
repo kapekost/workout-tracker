@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
 import { colors, type } from '../lib/theme'
-import { api } from '../api'
 import { useSession } from '../lib/session'
 
 function pageLabel(pathname) {
@@ -25,20 +23,12 @@ const actionStyle = {
 export default function TopBar() {
   const { pathname } = useLocation()
   const label = pageLabel(pathname)
-  const { profile: sessionProfile, signOut } = useSession()
-  const [actingProfile, setActingProfile] = useState(null)
-
-  useEffect(() => {
-    // The acting profile, for the still-open unauthenticated app: until #86
-    // flips the gate, an anonymous visitor's writes really are attributed to
-    // the seeded profile, so showing it is accurate rather than a placeholder.
-    // Failing silently just means the app name shows alone, same as before #69.
-    api.get('/profile/me').then(setActingProfile).catch(() => {})
-  }, [])
-
-  // A live session names itself; /profile/me is only the fallback, and #86
-  // deletes that endpoint along with the rest of the pre-login shim.
-  const profile = sessionProfile || actingProfile
+  // Only a real session names anyone here. This used to fall back to
+  // /profile/me -- the acting profile every anonymous write is attributed to
+  // until #86 -- which was accurate but unreadable: the bar showed a username
+  // and a "Log in" link at the same time, so the app looked logged in with no
+  // way to log out. Reported by the owner within a day of #105 shipping.
+  const { profile, signOut } = useSession()
 
   return (
     <div style={{
@@ -66,7 +56,7 @@ export default function TopBar() {
               </span>
             </span>
           )}
-          {sessionProfile
+          {profile
             ? (
               <button type="button" onClick={signOut} className="tap-target" style={actionStyle}>
                 Log out
