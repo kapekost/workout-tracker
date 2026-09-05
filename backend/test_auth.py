@@ -159,6 +159,12 @@ def test_verify_rejects_a_malformed_hash_without_raising(fast_bcrypt):
     assert fast_bcrypt.verify_password("anything at all", "not-a-bcrypt-hash") is False
 
 
+def test_verify_rejects_a_non_ascii_hash_without_raising(fast_bcrypt):
+    # A bcrypt hash is always ASCII, so this is a corrupt row — still a failed
+    # login rather than a UnicodeEncodeError escaping onto the login path.
+    assert fast_bcrypt.verify_password("anything at all", "n\u00f8t-ascii-💪") is False
+
+
 def test_password_shorter_than_twelve_is_rejected(fast_bcrypt):
     with pytest.raises(ValueError, match="at least 12"):
         fast_bcrypt.hash_password("short")

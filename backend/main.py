@@ -380,7 +380,10 @@ def verify_password(password: str, password_hash: str | None) -> bool:
         return False
     try:
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("ascii"))
-    except ValueError:
+    except (ValueError, UnicodeEncodeError):
+        # ValueError: not a bcrypt hash. UnicodeEncodeError: not even ASCII, so
+        # not a hash this ever wrote. Both are corrupt rows, and the contract
+        # above says this returns False rather than 500ing the login path.
         return False
 
 SESSION_COOKIE = "wt_session"
