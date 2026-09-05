@@ -27,12 +27,30 @@
   this Cursor/Tick log — reconstructed this tick from `git log` and live GitHub issue/comment state,
   which were themselves current and consistent throughout. Only this file had drifted. Full
   reconstruction is in this tick's log entry below.
-- **Next action:** **#105 is the next step and is unblocked** (its only blocker, #85, merged) —
-  relabeled `blocked` → `ready` this tick. It changes session-handling UI (login, set-password),
-  which GUARDRAILS treats as destructive same as its #84-#87 siblings. The standing approval below
-  names `#84-#87` exactly; #105 did not exist when that was written, so it is **not** literally
-  covered and needs its own fresh `/orchestrate approve 105` before the next tick can execute it —
-  see "Needs owner." #86 (blocked on #105) and #87 (blocked on #86) stay correctly blocked behind it.
+- **Next action:** **#105, unchanged — still the whole queue, still waiting on
+  `/orchestrate approve 105`.** It is decomposed enough to execute the moment it is approved (scope,
+  out-of-scope and named tests are all in the Issue body, so no plan tick is needed first).
+  #86 → #87 stay correctly blocked behind it.
+
+  **Root cause of the repeated approval asks, found this tick:** there is **no standing approval
+  recorded anywhere**. GUARDRAILS' "Standing approval for an owner-approved workstream" (added
+  2026-09-05 in #106, precisely to stop asking per step) only takes effect via a `DECISIONS.md`
+  entry naming the spec and the exact Issue numbers — and #106 shipped the GUARDRAILS section
+  without ever writing that entry. `grep -i approv docs/orchestration/DECISIONS.md` returns nothing.
+  So the earlier cursor's reading ("the standing approval names #84-#87, #105 isn't covered") was
+  describing a record that does not exist; #84 and #85 executed on their own explicit `approved`
+  labels, which they each carry. Nothing was executed unapproved — but the ceremony #106 was meant
+  to remove is still fully in place. Writing that entry is an owner act, not a runner act
+  (GUARDRAILS: "Approval is human-only"), so it is flagged below rather than fixed here.
+
+  **This tick took the intake track** since the `ready` track was blocked: picked #30 (highest-ranked
+  intake after #27, which the owner deferred to P3). It stays `intake` — its spec exists and is
+  complete, but the spec's own Status block gates splitting on an owner skim that has not happened.
+  Refreshed that spec instead (#114, merged) so the skim lands against reality: it still named the
+  superseded #67 as its login dependency and still told an executor to scope rows with
+  `_default_profile_id`, the exact call site #86 exists to delete. Also learned the dependency is
+  narrower than the spec assumed — #110 shipped per-profile scoping independently of login, so
+  #30/#32 wait only on #86 swapping the `acting_profile_id(conn)` seam to a session lookup.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -41,6 +59,20 @@
 (no branches in flight)
 
 ## Needs owner
+- **The standing-approval record GUARDRAILS requires was never written.** #106 added the mechanism
+  ("an owner-approved design doc carries its approval to the child Issues it decomposes into,
+  recorded in DECISIONS.md naming the spec and the exact issue numbers") but shipped no such entry,
+  so the mechanism has never once fired. One owner action would fix both this and the item below:
+  record a standing approval naming `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` and
+  Issues **#105, #86, #87**, and the rest of the accounts chain stops asking per step. Only a human
+  may write it.
+- **#30/#32 need a 5-minute spec skim, not a decision.**
+  `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114)
+  gates itself on an owner skim before either Issue may be split into `ready` children. Every
+  fork-in-the-road question in it was already answered by owner Q&A on 2026-08-30; the skim is
+  confirming the spec-writer's mechanism design, not re-deciding anything. Until it happens, #30 and
+  #32 stay `intake` and cannot become executable work — which matters more than usual right now,
+  because with #105 unapproved the executable queue is empty.
 - **#105 needs `/orchestrate approve 105`.** Genuinely unblocked (see Next action above) but not
   literally named by the standing approval on file, and GUARDRAILS' approval rule has no
   unattended-execution exception. This is the one thing between here and a working, testable login
@@ -93,6 +125,41 @@
   order.
 
 ## Tick log
+- **2026-09-05 later (both tracks owner-gated — spec refreshed, approval gap found):** Ready track
+  stopped at step 3: #105 is the only `ready` Issue and carries no `approved` label, so GUARDRAILS
+  forbade executing it and forbade fixing that here. Took the intake track instead (#30 claimed on
+  the live branch before any work, per "Claiming work").
+
+  **The approval gap is a documentation bug, not a policy one.** #106 (2026-09-05) added GUARDRAILS'
+  standing-approval mechanism specifically because the accounts chain was producing one approval
+  request per step against a design the owner had already read once in full — the owner's words,
+  quoted in that commit: "i have not got much context per number to review or know". But the commit
+  touched only `GUARDRAILS.md`; the `DECISIONS.md` entry the mechanism requires to take effect was
+  never written, and `grep -i approv DECISIONS.md` is empty. So the previous cursor's claim that
+  "the standing approval names #84-#87" was describing something that isn't there. #84 and #85 were
+  fine — both carry their own `approved` label. But every remaining step still asks individually,
+  which is exactly the outcome #106 set out to prevent. Flagged under "Needs owner"; a runner
+  writing that entry itself would be granting its own approval, which GUARDRAILS forbids outright.
+
+  **Intake: #30 picked, stays `intake`, and the reason is narrow.** Its mechanism is fully specced
+  (`2026-08-31-ai-structured-io-design.md`, shared with #32), but that spec's own Status block gates
+  splitting on an owner skim — it was drafted from recorded Q&A rather than walked through live.
+  Not a failed INVEST gate and not a guess to be made; PLAYBOOK's third intake outcome (waiting on a
+  spec, not on an answer) covers it exactly.
+
+  **What was actually shipped: #114**, refreshing that spec so the skim is against reality. Two of
+  its statements had become traps rather than staleness: it named #67 as the login dependency (closed
+  as superseded 2026-09-04) and instructed an executor to scope rows with `_default_profile_id`
+  "until #67 supplies the real one" — which #110 has since replaced with a single
+  `acting_profile_id(conn)` seam (`backend/main.py:63`) and which #86 deletes outright, so following
+  the spec literally would have reintroduced the exact call site #86 exists to remove. Its four
+  `backend/main.py` line references had also drifted ~650 lines. Design decisions untouched; CI green
+  on the pushed head (`d7ff9c8`), squash-merged. A real find fell out of it: #110 delivered
+  per-profile scoping independently of login, so #30/#32 depend only on #86, not the whole chain.
+
+  **No IMPROVEMENTS.md entry this tick** — the one piece of friction found (the missing standing
+  approval) is a gap in this repo's own docs, already tracked under "Needs owner", not feedback about
+  the template or the harness.
 - **2026-09-05 (state reconciliation — large untracked gap found, no execution):** Ran the normal
   tick algorithm; step 2's reconcile found this file badly stale and spent the tick correcting it
   rather than executing new work. Local checkout, `claude/orchestrate-xi7tyc`, and `origin/main`
