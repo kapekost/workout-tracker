@@ -16,8 +16,22 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+    # Secrets and per-deployment values come from a `.env` file sitting next to
+    # this one, which Compose loads automatically for ${...} substitution. That
+    # file is gitignored and lives only on the deploy target — see `.env.example`.
+    # Every value below has a default, so a missing or partial `.env` degrades
+    # (mail stops working) rather than breaking the deploy.
     environment:
       - DATABASE_URL=/app/data/workouts.db
       # Session dates use local wall-clock; without this the container is UTC
       # and a workout logged after midnight local lands on the previous day.
       - TZ=Europe/London
+      # What emailed invite/reset links point at. Wrong value = a link nobody
+      # can open, so it has no silent default.
+      - APP_BASE_URL=${APP_BASE_URL:-}
+      # 1 only once something in front of this app terminates TLS. Setting it
+      # early breaks login silently: the browser takes the cookie and never
+      # sends it back.
+      - APP_COOKIE_SECURE=${APP_COOKIE_SECURE:-0}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - MAIL_FROM=${MAIL_FROM:-}
