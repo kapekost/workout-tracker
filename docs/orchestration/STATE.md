@@ -17,31 +17,40 @@
   parallel logins OOM the container), and both bcrypt and argon2-cffi confirmed to ship aarch64
   wheels so the no-gcc constraint holds.
 
-  **#88 shipped end to end this tick** (PR #91, merged `9e4bf65`), which unblocks #86. The backup
-  heartbeat is now a file instead of an `/api/events` POST, the staleness threshold moved 26h → 8
-  days, local retention 14 → 90 days, and the Pi's cron is weekly. `main` is deployed and verified
-  on the Pi at `9e4bf65` — the first deploy since `17bd4fc`, so py3.14 and pydantic 2.13.5 are now
-  actually running rather than merely hand-verified. Intake unchanged: #27/#30/#32/#33 have specs
-  but no `ready` children; #70 unshaped.
+  **#93 shipped this tick** (PR #99, merged `69baa6c`): the backup's local and off-site legs are
+  now reported independently, so a Drive outage no longer marks a perfectly good local snapshot
+  as a failed backup. `/api/health` gained `last_backup_remote_status`/`last_backup_remote_at`
+  alongside the existing (now local-only) `last_backup_status`/`last_backup_at`; local success is
+  exit 0, a local failure marks the off-site leg `skipped`. **Not yet deployed to the Pi.** Intake
+  unchanged: #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
+
+  **This tick recovered a subagent that died mid-task.** The dispatched agent hit the account's
+  five-hour session limit (429) right after writing its RED tests and before running them; the
+  work survived only as uncommitted changes in its isolation worktree. Because the dead agent's
+  session id matched this one, the live `#93` claim was correctly read as this driver's own rather
+  than a competing tick's, and the tick continued from the RED tests in the main thread instead of
+  re-dispatching into the same rate limit. Logged as a `[template]` improvement — PLAYBOOK has
+  nothing to say about abnormal subagent termination, and re-running from scratch would have
+  silently discarded the tests.
 - **Next action:** Nothing is pickable unattended. **#84 needs `/orchestrate approve 84` from the
   owner** before any tick may execute it, and #85/#86/#87 each need the same as their predecessor
   merges — approve one at a time, since each step's scope only settles once the one before it
-  lands. The backup workstream is finished and closed out: #88 shipped, #89 closed as not planned
-  (no schedule to alarm against), #94 closed (OAuth app published, remote verified). **#93** is the
-  one open backup issue — the status file conflates the local and off-site legs, so an off-site
-  failure masks a perfectly good local snapshot. It is unlabelled and untriaged; triage it before
-  treating it as pickable. `agent-scaffold` PR #2 is open and awaiting the owner's review.
+  lands. The backup workstream is now **finished**: #88, #93 shipped; #89 closed as not planned;
+  #94 closed. The only backup follow-up is a deploy — `main` is at `61f3c91`, the Pi is running
+  `9e4bf65`, so the two-leg reporting is not live yet. Note that until `scripts/backup.sh` next
+  runs on the Pi, `/api/health` will read the pre-split status file there and report
+  `last_backup_remote_status: null` (unknown, by design, with a test pinning it).
+  `agent-scaffold` PR #2 is open and awaiting the owner's review.
 
-  **Heads up for the next tick: a second Claude session is active in this repo.** It authored
-  #93/#94/#95 (`docs/BACKUPS.md`) on 2026-09-04 without pushing an In-flight claim, and `main`
-  moved underneath this session mid-task as a result. The claim mechanism only works if every
-  driver uses it.
+  **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
+  2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
+  uses it.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#93** — claimed 2026-09-04T23:16:14Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **The whole accounts chain needs approval before any tick may execute it.** #84, #85, #86 and
@@ -50,6 +59,14 @@
   human-only." Run `/orchestrate approve 84` to start; approve each one as its predecessor merges,
   rather than all four up front, since each step's scope is only settled once the one before it
   lands.
+- **A new `[template]` improvement is queued and cannot be filed unattended (2026-09-05).**
+  PLAYBOOK says nothing about recovering from a subagent that dies mid-task — it should require
+  the controller to inspect the dead agent's worktree for uncommitted work before re-dispatching,
+  and to read a live claim from a dead agent of its own session as still held rather than as a
+  competing driver's. Both were needed for real this tick. Filing it means a PR against
+  `agent-scaffold`, which GUARDRAILS "Cross-repo writes" allows only through a named credential
+  or a direct owner ask; the same bar that gated the two entries in PR #2. Say the word and it
+  goes on that PR.
 - **`agent-scaffold` PR #2 is open and needs a review** — the two `[template]` entries, filed
   2026-09-04 once the owner asked for them directly. That direct ask is what unblocked them:
   GUARDRAILS "Cross-repo writes" bars a tick from using this repo's ambient `gh` auth to write to
@@ -113,6 +130,39 @@
   order.
 
 ## Tick log
+- **2026-09-05 (#93 shipped — the backup's two legs report independently; a dead subagent
+  recovered):** The tick opened on a live `#93` claim timestamped five minutes earlier, which
+  PLAYBOOK's "Claiming work" would normally read as another driver and back off from. It wasn't:
+  a task notification arrived naming the claiming subagent, and its session id was this session's
+  own — the `/clear` between them is what made the claim look foreign. The agent had died on the
+  account's five-hour session limit (429, resetting 01:30 BST) immediately after writing 11 RED
+  tests, which existed only as uncommitted changes in its isolation worktree. Re-dispatching would
+  have hit the same limit and thrown the tests away, so the tick finished the work in the main
+  thread, whose requests were still being served.
+
+  The tests were a good contract and were kept as written. `/api/health` now returns four backup
+  keys instead of two, splitting a single `_last_backup()` into a per-leg `_leg()` helper: the
+  local leg keeps the unprefixed `last_backup_status`/`last_backup_at` (it is the copy standing
+  between us and data loss, and `scripts/deploy.sh` reads it), and the off-site leg reports
+  alongside it. `scripts/backup.sh` splits its one all-or-nothing chain into two independently
+  recorded legs **without reordering it** — `rclone` still runs last, after the snapshot is on the
+  host's disk, which is exactly why the local copies survived 2026-09-01..04. Local success is
+  exit 0; a local failure exits non-zero and records the off-site leg as `skipped`, keeping "never
+  tried" distinct from "tried and broke". Neither ages into `stale`, since only an `ok` does.
+
+  Two details worth keeping. **A pre-split status file still reads correctly**: the Pi is carrying
+  one and will until `backup.sh` next runs there, so `/api/health` reads a legacy single-status
+  file as a local-only result and reports the off-site leg as `null` — unknown, not failed — with
+  a test pinning it. Its top-level `remote` key is the remote's *name*, not a leg. And an
+  incidental bug went with it: the old success branch pinged `HEARTBEAT_URL` as a success even
+  when `write_status` had failed and set `status=1`; the ping now follows the final exit status.
+
+  101 backend tests pass (from 11 failed / 90 passed), all three CI checks green on the verified
+  head commit, merged `69baa6c`. Feedback review ran: the `[local]` entry — `AGENTS.md` telling
+  you to build the venv with `python3`, which is 3.9.6 on stock macOS and cannot install the
+  pinned 3.14 requirements, costing a wasted venv build this very tick — shipped as PR #100
+  (`61f3c91`). The `[template]` entry is queued under "Needs owner". Cursor advanced to 10.
+
 - **2026-09-04 (#88 shipped end to end — backup heartbeat, weekly cron, deployed):** Picked #88,
   the only unblocked meaningful `ready` work; #84 carries `ready` but is not pickable without human
   approval, and #89 is waiting on a URL only the owner can make. Claim pushed before any execution
