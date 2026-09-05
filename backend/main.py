@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, Response, Request, Depends
+from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets
+import sqlite3, os, json, glob, secrets, hashlib, time, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone
 
@@ -252,6 +252,17 @@ class SessionPatch(BaseModel):
 class NoteIn(BaseModel):
     note: str = Field(max_length=2000)
 
+class SetPasswordIn(BaseModel):
+    token: str = Field(min_length=1, max_length=256)
+    password: str = Field(min_length=1, max_length=256)
+
+class ForgotPasswordIn(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+class ProfileIn(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    email: str = Field(min_length=3, max_length=254)
+
 class LoginIn(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     # Bounded so an over-long body can't be turned into free bcrypt work. The
@@ -448,6 +459,122 @@ def _dummy_hash() -> str:
             secrets.token_bytes(16), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("ascii")
     return _dummy_hash_cache[BCRYPT_ROUNDS]
 
+# --- Invites and resets (#85) ---
+# Invite and reset are one mechanism. They differ only in kind, expiry, and
+# what triggers them.
+TOKEN_TTL = {
+    # An invite goes to someone expecting it who may not act for days.
+    "invite": "+7 days",
+    # A reset can be triggered by anyone who knows an address, so keep the
+    # window short.
+    "reset": "+1 hour",
+}
+# The Tailscale URL today; #27's tunnel hostname replaces this one value later,
+# which is the whole reason it is config and not a constant.
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8080")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+MAIL_FROM = os.environ.get("MAIL_FROM", "")
+
+# Rate limiting, on /api/auth/login and /api/auth/forgot-password only.
+# In-memory is honest for a single-container deployment: there is one process,
+# so there is nothing to share state with, and a restart clearing the counters
+# is acceptable for this threat. A table would add a write on the login path for
+# no benefit at this scale.
+RATE_LIMIT_MAX = 10
+RATE_LIMIT_WINDOW_S = 15 * 60
+_rate_windows: dict[str, tuple[float, int]] = {}
+
+def reset_rate_limits() -> None:
+    """Tests only — the window store is process-global by design."""
+    _rate_windows.clear()
+
+def _rate_limit_hit(key: str) -> bool:
+    """Count one attempt against a fixed window. True once over the limit."""
+    now = time.time()
+    start, count = _rate_windows.get(key, (now, 0))
+    if now - start >= RATE_LIMIT_WINDOW_S:
+        start, count = now, 0
+    count += 1
+    _rate_windows[key] = (start, count)
+    return count > RATE_LIMIT_MAX
+
+def enforce_rate_limit(request: Request, *keys: str) -> None:
+    """429 if any of the caller's counters is over. Keyed by IP *and* by the
+    subject (username or email), per the design.
+
+    This exists because cost-12 hashing is 627 ms of CPU on a 4-core box that
+    also runs Home Assistant — an unthrottled login endpoint is a CPU amplifier
+    pointed at the house. So callers must invoke this *before* doing any hashing;
+    rejecting afterwards would leave the amplifier fully intact.
+    """
+    ip = request.client.host if request.client else "unknown"
+    # Every counter is evaluated, not short-circuited, so one key going over
+    # does not stop the others from recording the attempt.
+    over = [_rate_limit_hit(k) for k in (f"ip:{ip}", *keys)]
+    if any(over):
+        raise HTTPException(429, "too many attempts; try again in a few minutes")
+
+def hash_token(raw: str) -> str:
+    """Tokens are stored as their SHA-256 and never in the clear.
+
+    A database read — including a leaked backup — therefore cannot be replayed
+    into account access. The raw value exists in the email and nowhere else.
+    Plain SHA-256 rather than bcrypt on purpose: this input is 32 bytes of
+    CSPRNG output, so there is no guessable password to slow an attacker down
+    against, and lookup happens on every redemption.
+    """
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+def mint_token(conn, profile_id: int, kind: str) -> str:
+    """Insert a token row and return the raw value. Does not commit."""
+    if kind not in TOKEN_TTL:
+        raise ValueError(f"unknown token kind: {kind}")
+    raw = secrets.token_urlsafe(32)
+    conn.execute("INSERT INTO auth_tokens (profile_id, token_hash, kind, expires_at) "
+                 f"VALUES (?, ?, ?, datetime('now', '{TOKEN_TTL[kind]}'))",
+                 (profile_id, hash_token(raw), kind))
+    return raw
+
+def send_email(to: str, subject: str, body: str) -> None:
+    """The mailer seam — tests replace this; the owner bootstrap uses it for real.
+
+    urllib rather than the `resend` package: this is one POST, and every runtime
+    dependency has to clear the aarch64-wheel bar in Dockerfile:25-28.
+    """
+    if not RESEND_API_KEY or not MAIL_FROM:
+        raise RuntimeError("RESEND_API_KEY and MAIL_FROM must be set to send mail")
+    payload = json.dumps({"from": MAIL_FROM, "to": [to],
+                          "subject": subject, "text": body}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.resend.com/emails", data=payload, method="POST",
+        headers={"Authorization": f"Bearer {RESEND_API_KEY}",
+                 "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        if resp.status >= 300:
+            raise RuntimeError(f"resend returned HTTP {resp.status}")
+
+def _token_email(to: str, raw: str, kind: str) -> None:
+    link = f"{APP_BASE_URL}/set-password?token={raw}"
+    if kind == "invite":
+        send_email(to, "Your Workout Tracker invite",
+                   "You have been invited to Workout Tracker.\n\n"
+                   f"Set your password here:\n{link}\n\n"
+                   "The link works once and expires in 7 days.")
+    else:
+        send_email(to, "Reset your Workout Tracker password",
+                   "Someone asked to reset your Workout Tracker password.\n\n"
+                   f"Set a new one here:\n{link}\n\n"
+                   "The link works once and expires in 1 hour. "
+                   "If this was not you, you can ignore this email.")
+
+def _token_email_quietly(to: str, raw: str, kind: str) -> None:
+    """Send and swallow failures. Only for /api/auth/forgot-password, where a
+    visible send failure would itself be an enumeration signal."""
+    try:
+        _token_email(to, raw, kind)
+    except Exception:
+        pass
+
 def current_profile(request: Request) -> dict:
     """Request-scoped identity, from the session cookie.
 
@@ -461,6 +588,40 @@ def current_profile(request: Request) -> dict:
     if row is None:
         raise HTTPException(401, "not authenticated")
     return dict(row)
+
+def bootstrap_owner(email: str, username: str = "kapekost") -> dict:
+    """Give an existing profile an email address and mail it a real invite.
+
+    This is how the owner's own account comes into being — through the same
+    invite path as everyone else, with no backdoor and no password argument.
+    Running it is the first genuine Resend send, which is the point: the
+    integration is proven on live infrastructure before anyone else is invited.
+
+    Returns what happened rather than raising on a send failure, so a mail
+    outage leaves a valid token to re-send rather than a half-done bootstrap.
+    """
+    with db() as conn:
+        row = conn.execute("SELECT id, password_hash FROM profiles WHERE username = ?",
+                           (username,)).fetchone()
+        if row is None:
+            raise ValueError(f"no profile named {username!r}")
+        conn.execute("UPDATE profiles SET email = ? WHERE id = ?", (email, row["id"]))
+        # Same rule as forgot-password: an account with no password gets an
+        # invite, one that has a password gets a reset.
+        kind = "reset" if row["password_hash"] else "invite"
+        raw = mint_token(conn, row["id"], kind)
+        conn.commit()
+    sent = True
+    try:
+        _token_email(email, raw, kind)
+    except Exception:
+        sent = False
+    return {"username": username, "email": email, "kind": kind, "sent": sent}
+
+def require_admin(profile: dict = Depends(current_profile)) -> dict:
+    if profile["role"] != "admin":
+        raise HTTPException(403, "admin only")
+    return profile
 
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
@@ -480,8 +641,84 @@ def health(response: Response):
             "last_backup_remote_at": remote_at,
             "last_backup_remote_status": remote_status}
 
+@app.post("/api/auth/set-password")
+def set_password(body: SetPasswordIn, response: Response):
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, profile_id FROM auth_tokens WHERE token_hash = ? "
+            "AND used_at IS NULL AND expires_at > datetime('now')",
+            (hash_token(body.token),)).fetchone()
+        # Unknown, expired and already-used all give the same message: which one
+        # it was is not the caller's business.
+        if row is None:
+            raise HTTPException(400, "this link is invalid or has expired")
+        try:
+            password_hash = hash_password(body.password)
+        except ValueError as exc:
+            # A clear 400 rather than a 500 out of bcrypt — and the token is
+            # still unused, so a too-short password costs the user nothing.
+            raise HTTPException(400, str(exc))
+        conn.execute("UPDATE profiles SET password_hash = ? WHERE id = ?",
+                     (password_hash, row["profile_id"]))
+        conn.execute("UPDATE auth_tokens SET used_at = datetime('now') WHERE id = ?", (row["id"],))
+        # Every existing session dies here. This is the entire reason sessions
+        # are server-side rows: a reset must end sessions a thief already holds.
+        revoke_sessions(conn, row["profile_id"])
+        session_id = issue_session(conn, row["profile_id"])
+        conn.commit()
+        profile = conn.execute(
+            "SELECT id, username, role, icon, email FROM profiles WHERE id = ?",
+            (row["profile_id"],)).fetchone()
+    set_session_cookie(response, session_id)
+    return dict(profile)
+
+@app.post("/api/auth/forgot-password")
+def forgot_password(body: ForgotPasswordIn, background: BackgroundTasks, request: Request):
+    enforce_rate_limit(request, f"email:{body.email}")
+    with db() as conn:
+        row = conn.execute("SELECT id, email, password_hash FROM profiles WHERE email = ?",
+                           (body.email,)).fetchone()
+        if row is not None:
+            # A profile that never set a password gets an invite-equivalent
+            # rather than an error, so someone who missed their invite can
+            # self-serve instead of needing an admin.
+            kind = "reset" if row["password_hash"] else "invite"
+            raw = mint_token(conn, row["id"], kind)
+            conn.commit()
+            # Sent after the response so the network call cannot be timed —
+            # a send that happens only for real addresses would otherwise be an
+            # enumeration oracle no matter how identical the body is.
+            background.add_task(_token_email_quietly, row["email"], raw, kind)
+    # Identical status and body whether or not the address exists.
+    return {"status": "ok"}
+
+@app.post("/api/profiles", status_code=201)
+def create_profile(body: ProfileIn, admin: dict = Depends(require_admin)):
+    with db() as conn:
+        if conn.execute("SELECT 1 FROM profiles WHERE username = ? OR email = ?",
+                        (body.username, body.email)).fetchone():
+            raise HTTPException(409, "username or email already exists")
+        profile_id = conn.execute(
+            "INSERT INTO profiles (username, email, role) VALUES (?, ?, 'member')",
+            (body.username, body.email)).lastrowid
+        raw = mint_token(conn, profile_id, "invite")
+        conn.commit()
+    # Sent inline, not in the background: this caller is an authenticated admin
+    # who needs to know whether the invite actually went out. A send failure
+    # leaves a real profile and an unused token, so re-inviting is the fix —
+    # never a 500, and never a half-created account.
+    invite_sent = True
+    try:
+        _token_email(body.email, raw, "invite")
+    except Exception:
+        invite_sent = False
+    return {"id": profile_id, "username": body.username, "email": body.email,
+            "role": "member", "invite_sent": invite_sent}
+
 @app.post("/api/auth/login")
-def login(body: LoginIn, response: Response):
+def login(body: LoginIn, response: Response, request: Request):
+    # Before any hashing — see enforce_rate_limit.
+    enforce_rate_limit(request, f"user:{body.username}")
     with db() as conn:
         row = conn.execute(
             "SELECT id, username, role, icon, email, password_hash FROM profiles "
