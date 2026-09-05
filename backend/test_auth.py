@@ -386,3 +386,56 @@ def test_a_failed_login_creates_no_session_row(mainmod, client, member):
     client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
     with mainmod.db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
+
+
+# --- logout ---
+
+def test_logout_deletes_the_session_row_and_expires_the_cookie(mainmod, client, member):
+    client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+    r = client.post("/api/auth/logout")
+    assert r.status_code == 204
+    header = r.headers.get("set-cookie", "")
+    assert "wt_session=" in header
+    assert "max-age=0" in header.lower() or "expires=" in header.lower()
+    with mainmod.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_logout_is_idempotent_and_reveals_nothing(client):
+    assert client.post("/api/auth/logout").status_code == 204
+    assert _as_session(client, "nope").post("/api/auth/logout").status_code == 204
+
+
+def test_logout_leaves_other_sessions_alone(mainmod, client, member):
+    with mainmod.db() as conn:
+        other = mainmod.issue_session(conn, member["id"])
+        conn.commit()
+    client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+    client.post("/api/auth/logout")
+    with mainmod.db() as conn:
+        # Logout ends this device's session, not every session for the account —
+        # that is revoke_sessions, and #85's password reset is what calls it.
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions WHERE id = ?",
+                            (other,)).fetchone()[0] == 1
+
+
+# --- the gate is deliberately still open (#86 closes it) ---
+
+@pytest.mark.parametrize("path", [
+    "/api/sessions",
+    "/api/notes",
+    "/api/personal-bests",
+    "/api/progress",
+    "/api/exercises/recency",
+    "/api/analytics/summary",
+    "/api/export",
+    "/api/profile/me",
+    "/api/health",
+])
+def test_data_endpoints_are_still_open_in_this_step(client, path):
+    """#84 must be deployable while the app is still open — the invite flow
+    (#85) and the owner bootstrap have to work before the gate closes, or the
+    owner is locked out of their own history. #86 flips this to expect 401
+    (except /api/health, which stays open for the deploy smoke check)."""
+    assert client.get(path).status_code == 200

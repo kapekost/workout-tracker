@@ -497,6 +497,18 @@ def login(body: LoginIn, response: Response):
     return {"id": row["id"], "username": row["username"], "role": row["role"],
             "icon": row["icon"], "email": row["email"]}
 
+@app.post("/api/auth/logout", status_code=204)
+def logout(request: Request, response: Response):
+    # 204 whether or not the cookie named a live session: logout must not double
+    # as a way to probe which session ids exist. Ends this session only — every
+    # session for the account is revoke_sessions, which #85's reset calls.
+    session_id = request.cookies.get(SESSION_COOKIE)
+    if session_id:
+        with db() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE id = ?", (session_id,))
+            conn.commit()
+    clear_session_cookie(response)
+
 @app.get("/api/auth/me")
 def auth_me(profile: dict = Depends(current_profile)):
     return profile
