@@ -157,6 +157,20 @@ only because the owner happened to ask about it, not by anything in this file. H
    home branch at step 8.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
+
+   **If the change touches the UI, two extra gates apply** (owner's call 2026-09-06, see
+   `DECISIONS.md`):
+   - **Look at it rendered.** Deploy it or run it, open the actual page, take a screenshot. Reading
+     the diff is not looking at it. Three defects shipped on 2026-09-05 through a green suite and a
+     code review, and every one was obvious in the first screenshot: a header printing "Log in"
+     twice, the app's bottom nav on an auth screen, and every client-side route 404ing — which had
+     silently made the invite email unopenable since #85.
+   - **Get a UI/UX review** whose subject is the rendered screen, not the JSX: hierarchy, spacing,
+     affordance, copy, accessibility, one-handed phone use. Hand it the screenshots.
+
+   Both gates carry the owner's second constraint with them: **efficient, not overengineered.**
+   Reuse the existing tokens and CSS classes; a review that comes back recommending a component
+   library or a design-system layer for this app has answered the wrong question.
 6. **PR:** open a PR referencing the Issue (`Closes #N`), then run
    `gh pr checks <PR> --watch --fail-fast` to block until CI finishes. **Right after any push** (new PR
    or a new commit on one already open), `--watch` can return a stale rollup for the *previous* commit
