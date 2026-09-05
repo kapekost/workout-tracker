@@ -1189,6 +1189,30 @@ def import_data(payload: ImportIn):
             raise HTTPException(400, "import failed; rolled back, live DB unchanged")
     return {"restored": restored}
 
+def cache_control_for(path: str) -> str:
+    """What to send for one built asset.
+
+    Starlette's StaticFiles sets ETag and Last-Modified but never
+    Cache-Control, which leaves the browser to invent a freshness lifetime for
+    index.html. Because Vite fingerprints every filename under assets/, a
+    stale index.html pins the whole app to the previous build — old code, no
+    error, nothing to indicate it. That is not theoretical: #105 shipped the
+    login screens on 2026-09-05 and they were missing on a phone the next day.
+
+    So index.html (and anything else unfingerprinted) must revalidate every
+    time, and only the fingerprinted assets may be cached forever. A new build
+    gives them new names, so "immutable" is honest for them and a lie for
+    everything else.
+    """
+    return ("public, max-age=31536000, immutable"
+            if "/assets/" in path.replace(os.sep, "/") else "no-cache")
+
+class BuiltStatics(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        response.headers["Cache-Control"] = cache_control_for(str(full_path))
+        return response
+
 # Serve React — MUST be last
 if os.path.exists("static"):
-    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+    app.mount("/", BuiltStatics(directory="static", html=True), name="static")

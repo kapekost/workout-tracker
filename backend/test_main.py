@@ -64,3 +64,22 @@ def test_new_top_weight_gives_weight_pr_only_no_reps_pr(client):
     types = [p["type"] for p in prs]
     assert "weight" in types
     assert "reps" not in types  # no prior reps at 65kg to beat
+
+
+# Cache-Control on the built frontend. Starlette sets ETag/Last-Modified but
+# leaves Cache-Control unset, so the browser invents a freshness lifetime for
+# index.html — and since Vite fingerprints everything under assets/, a stale
+# index.html pins the app to the previous build with no visible error. Real
+# incident: #105's login screens were live on the server and absent on a phone
+# the following day.
+def test_index_html_must_revalidate(mainmod):
+    assert mainmod.cache_control_for("/app/static/index.html") == "no-cache"
+
+def test_unfingerprinted_root_files_must_revalidate(mainmod):
+    # Same name across every build, so they can never be cached forever.
+    for path in ("/app/static/favicon.ico", "/app/static/manifest.webmanifest"):
+        assert mainmod.cache_control_for(path) == "no-cache"
+
+def test_fingerprinted_assets_are_immutable(mainmod):
+    cc = mainmod.cache_control_for("/app/static/assets/index-Dn7kvad8.js")
+    assert "immutable" in cc and "max-age=31536000" in cc

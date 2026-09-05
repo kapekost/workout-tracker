@@ -11,31 +11,58 @@ vi.mock('../api', () => ({
 import { api, auth } from '../api'
 
 function renderTopBar() {
-  return render(<MemoryRouter><TopBar /></MemoryRouter>)
+  return render(
+    <MemoryRouter>
+      <SessionProvider><TopBar /></SessionProvider>
+    </MemoryRouter>
+  )
+}
+
+function signedInAs(profile) {
+  auth.me.mockResolvedValue(profile)
+}
+
+function signedOut() {
+  auth.me.mockRejectedValue(Object.assign(new Error('401'), { status: 401 }))
 }
 
 beforeEach(() => { vi.clearAllMocks() })
 
 describe('TopBar', () => {
-  it('shows the active profile\'s icon and username once loaded', async () => {
-    api.get.mockResolvedValue({ id: 1, username: 'kapekost', role: 'admin', icon: '💪' })
+  it("shows the session profile's icon and username once loaded", async () => {
+    signedInAs({ id: 1, username: 'kapekost', role: 'admin', icon: '💪' })
     renderTopBar()
     await waitFor(() => expect(screen.getByText('kapekost')).toBeInTheDocument())
     expect(screen.getByText('💪')).toBeInTheDocument()
   })
 
   it('falls back to a generic icon when the profile has none set', async () => {
-    api.get.mockResolvedValue({ id: 2, username: 'other', role: 'member', icon: null })
+    signedInAs({ id: 2, username: 'other', role: 'member', icon: null })
     renderTopBar()
     await waitFor(() => expect(screen.getByText('other')).toBeInTheDocument())
     expect(screen.getByText('👤')).toBeInTheDocument()
   })
 
-  it('renders the app name even if the profile fetch fails', async () => {
-    api.get.mockRejectedValue(new Error('network'))
+  it('renders the app name even if the session lookup fails', async () => {
+    auth.me.mockRejectedValue(new Error('network'))
     renderTopBar()
     await screen.findByText('🏋 Gym Tracker')
     expect(screen.queryByText('kapekost')).not.toBeInTheDocument()
+  })
+
+  // The bug this file exists to keep fixed: the bar used to fall back to
+  // /profile/me, so a logged-out visitor saw a username AND a "Log in" link --
+  // it read as "signed in, with no way to sign out". Identity in this bar means
+  // a session and nothing else.
+  it('names nobody when there is no session, even though writes still land on a profile', async () => {
+    signedOut()
+    api.get.mockResolvedValue({ id: 1, username: 'kapekost', role: 'admin', icon: '💪' })
+    renderTopBar()
+
+    await screen.findByRole('link', { name: 'Log in' })
+    expect(screen.queryByText('kapekost')).not.toBeInTheDocument()
+    expect(screen.queryByText('💪')).not.toBeInTheDocument()
+    expect(api.get).not.toHaveBeenCalledWith('/profile/me')
   })
 
   it('keeps the brand title on one line and truncates a long username instead', async () => {
@@ -45,7 +72,7 @@ describe('TopBar', () => {
     // prevent the title from wrapping to two lines when a long username
     // competes for space in the same flex row (verified in a real browser
     // during review).
-    api.get.mockResolvedValue({ id: 3, username: 'alexandra_thompson', role: 'member', icon: '🔥' })
+    signedInAs({ id: 3, username: 'alexandra_thompson', role: 'member', icon: '🔥' })
     renderTopBar()
     const username = await screen.findByText('alexandra_thompson')
     const title = screen.getByText('🏋 Gym Tracker')
@@ -55,18 +82,9 @@ describe('TopBar', () => {
 })
 
 describe('TopBar session state', () => {
-  function renderWithSession() {
-    return render(
-      <MemoryRouter>
-        <SessionProvider><TopBar /></SessionProvider>
-      </MemoryRouter>
-    )
-  }
-
   it('offers a way to log in when there is no session', async () => {
-    api.get.mockResolvedValue({ id: 1, username: 'kapekost', role: 'admin', icon: '💪' })
-    auth.me.mockRejectedValue(Object.assign(new Error('401'), { status: 401 }))
-    renderWithSession()
+    signedOut()
+    renderTopBar()
 
     const link = await screen.findByRole('link', { name: 'Log in' })
     expect(link).toHaveAttribute('href', '/login')
@@ -74,23 +92,19 @@ describe('TopBar session state', () => {
   })
 
   it('shows the session profile and a way to log out when there is one', async () => {
-    api.get.mockResolvedValue({ id: 1, username: 'seeded', role: 'admin', icon: '💪' })
-    auth.me.mockResolvedValue({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
-    renderWithSession()
+    signedInAs({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
+    renderTopBar()
 
     await screen.findByRole('button', { name: 'Log out' })
-    // The session's own profile wins over /profile/me's acting profile.
     expect(screen.getByText('invited')).toBeInTheDocument()
     expect(screen.getByText('🔥')).toBeInTheDocument()
-    expect(screen.queryByText('seeded')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument()
   })
 
   it('logging out clears the session and returns the bar to its logged-out shape', async () => {
-    api.get.mockRejectedValue(new Error('network'))
-    auth.me.mockResolvedValue({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
+    signedInAs({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
     auth.logout.mockResolvedValue(null)
-    renderWithSession()
+    renderTopBar()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Log out' }))
 
