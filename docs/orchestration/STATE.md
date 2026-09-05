@@ -45,20 +45,20 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **#85 needs `/orchestrate approve 85`** — it is now `ready` (unblocked by #84
-  shipping) and is the only thing waiting on the owner. It changes token and password handling, so
-  no tick may execute it without the label.
+- **Next action:** **Execute #85** — approved by the owner 2026-09-05, `ready`, unblocked, and
+  pickable by the next tick with no further owner input. Under the decomposition gate (PR #102) it
+  needs a decomposition check first: the spec covers it in detail (token model, expiries, the
+  enumeration and send-failure behaviours, rate-limit numbers, config keys) but does **not** give an
+  ordered task sequence for it, so expect to plan the sequencing rather than execute straight off —
+  and plan only what the spec leaves open, not a restatement of it.
 
-  **The chain is five steps now, not four** (owner call, 2026-09-05): #84 done → **#85** Resend
-  invite/reset, rate limiting, owner bootstrap → **#105** login and set-password screens, *before*
-  the gate → **#86** flip the gate, delete `_default_profile_id`, enforce login → **#87**
-  export/import roles. #105 was split out of #86 so the login flow can be used and proven while the
-  app is still open; it deliberately ships **no route guard**, because guarding the UI while the API
-  stays open is a soft lockout that buys nothing. The goal driving the split is a manual acceptance
-  run: the owner receives the real invite email from #85's bootstrap, follows it on a phone, sets a
-  password, logs in, sees the top bar change, logs out — all before #86 enforces anything.
-
-  Approve one step at a time, as its predecessor merges. #105 and #86 will each need their own.
+  **The chain is five steps:** #84 done and deployed → **#85 approved, next** → **#105** login and
+  set-password screens, *before* the gate → **#86** flip the gate, delete `_default_profile_id`,
+  enforce login → **#87** export/import roles. #105 and #86 each still need their own
+  `/orchestrate approve`, granted as their predecessor merges. The goal driving the ordering is a
+  manual acceptance run: the owner receives the real invite email from #85's bootstrap, follows it
+  on a phone, sets a password, logs in, sees the top bar change, logs out — all before #86 enforces
+  anything.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -67,13 +67,13 @@
 (no branches in flight)
 
 ## Needs owner
-- **The accounts chain needs approval per step; #84 has it, #85-#87 do not yet.** All four
-  change auth/session handling, which GUARDRAILS classifies as **destructive**, requiring the
-  `approved` label. No tick may add that label itself — see GUARDRAILS "Approval is human-only."
-  **#84 approved 2026-09-05** by the owner (`/orchestrate approve 84`; rationale commented on the
-  Issue), and it is now planned and ready to execute — nothing further is needed from the owner to
-  start it. Approve **#85**, then #86, then #87 as each predecessor merges rather than all up
-  front, since each step's scope is only settled once the one before it lands.
+- **The accounts chain needs approval per step; #84 and #85 have it, #105/#86/#87 do not.** All of
+  them change auth, session, token or password handling, which GUARDRAILS classifies as
+  **destructive**, requiring the `approved` label. No tick may add that label itself — see GUARDRAILS
+  "Approval is human-only." **#84 approved 2026-09-05** (shipped and deployed). **#85 approved
+  2026-09-05** (`/orchestrate approve 85`; rationale and the constraints execution must respect are
+  commented on the Issue). Approve **#105**, then **#86**, then **#87** as each predecessor merges —
+  each step's scope is only settled once the one before it lands.
 - **Two `[template]` improvements are queued and cannot be filed unattended (2026-09-05).**
   Both want the same destination: `agent-scaffold` PR #2, which is already open. (1) PLAYBOOK says
   nothing about recovering from a subagent that dies mid-task — it should require the controller to
