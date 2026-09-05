@@ -60,6 +60,19 @@ def _default_profile_id(conn):
     # below is removed/replaced in #67, not extended further.
     return conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
 
+def acting_profile_id(conn):
+    """The profile whose data a request may read and mutate — the single seam
+    every data endpoint scopes through, for reads and writes alike.
+
+    Today it returns the default profile: #84's gate is still open, so there is
+    no request-scoped identity yet, and routing every endpoint through one place
+    keeps behaviour identical for now. #110 uses it to stop data leaking between
+    profiles (reads were never scoped); #86 then replaces this body with the
+    session lookup and deletes _default_profile_id — one function to change, not
+    every call site.
+    """
+    return _default_profile_id(conn)
+
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
     # --- v0 -> v1: baseline + ended_at (guarded; existing prod DBs already have it) ---
@@ -772,7 +785,7 @@ def get_current_profile():
     # Temporary, like _default_profile_id: "the acting profile" is the seed
     # admin until #67 introduces real login. Replaced there, not extended.
     with db() as conn:
-        profile_id = _default_profile_id(conn)
+        profile_id = acting_profile_id(conn)
         row = conn.execute(
             "SELECT id, username, role, icon FROM profiles WHERE id = ?", (profile_id,)).fetchone()
         return dict(row)
@@ -780,7 +793,7 @@ def get_current_profile():
 @app.post("/api/sessions")
 def create_session(s: SessionIn):
     with db() as conn:
-        profile_id = _default_profile_id(conn)
+        profile_id = acting_profile_id(conn)
         cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
                            (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()
@@ -790,13 +803,16 @@ def create_session(s: SessionIn):
 @app.get("/api/sessions")
 def list_sessions():
     with db() as conn:
-        rows = conn.execute("SELECT * FROM sessions ORDER BY created_at DESC LIMIT 60").fetchall()
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE profile_id = ? ORDER BY created_at DESC LIMIT 60",
+            (acting_profile_id(conn),)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}")
 def get_session(sid: int):
     with db() as conn:
-        s = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
+        s = conn.execute("SELECT * FROM sessions WHERE id = ? AND profile_id = ?",
+                         (sid, acting_profile_id(conn))).fetchone()
         if not s:
             raise HTTPException(404)
         sets = conn.execute("SELECT * FROM sets WHERE session_id = ? ORDER BY logged_at", (sid,)).fetchall()
@@ -805,6 +821,11 @@ def get_session(sid: int):
 @app.patch("/api/sessions/{sid}")
 def patch_session(sid: int, p: SessionPatch):
     with db() as conn:
+        # 404 (not 403) when the session belongs to another profile — its
+        # existence is not the caller's business (#110).
+        if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
+                            (sid, acting_profile_id(conn))).fetchone():
+            raise HTTPException(404)
         if p.completed is not None:
             if p.completed:
                 conn.execute(
@@ -822,6 +843,10 @@ def patch_session(sid: int, p: SessionPatch):
 @app.delete("/api/sessions/{sid}")
 def delete_session(sid: int):
     with db() as conn:
+        # 404 when the session belongs to another profile (#110).
+        if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
+                            (sid, acting_profile_id(conn))).fetchone():
+            raise HTTPException(404)
         conn.execute("DELETE FROM sets WHERE session_id = ?", (sid,))
         conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
         conn.commit()
@@ -830,9 +855,12 @@ def delete_session(sid: int):
 @app.post("/api/sessions/{sid}/sets")
 def add_set(sid: int, s: SetIn):
     with db() as conn:
-        if not conn.execute("SELECT id FROM sessions WHERE id = ?", (sid,)).fetchone():
+        profile_id = acting_profile_id(conn)
+        # 404 when the session is another profile's — adding a set to a session
+        # you do not own is a cross-profile write, same rule as PATCH/DELETE (#110).
+        if not conn.execute("SELECT id FROM sessions WHERE id = ? AND profile_id = ?",
+                            (sid, profile_id)).fetchone():
             raise HTTPException(404)
-        profile_id = _default_profile_id(conn)
         cur = conn.execute(
             "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg, profile_id) "
             "VALUES (?,?,?,?,?,?,?)",
@@ -844,6 +872,13 @@ def add_set(sid: int, s: SetIn):
 @app.delete("/api/sessions/{sid}/sets/{set_id}")
 def delete_set(sid: int, set_id: int):
     with db() as conn:
+        # 404 unless the set's session belongs to the acting profile (#110).
+        owned = conn.execute(
+            "SELECT 1 FROM sets st JOIN sessions s ON s.id = st.session_id "
+            "WHERE st.id = ? AND st.session_id = ? AND s.profile_id = ?",
+            (set_id, sid, acting_profile_id(conn))).fetchone()
+        if not owned:
+            raise HTTPException(404)
         conn.execute("DELETE FROM sets WHERE id = ? AND session_id = ?", (set_id, sid))
         conn.commit()
         return {"deleted": True}
@@ -851,7 +886,7 @@ def delete_set(sid: int, set_id: int):
 @app.post("/api/personal-bests")
 def create_personal_best(pb: PersonalBestIn):
     with db() as conn:
-        profile_id = _default_profile_id(conn)  # temporary — see Task 5
+        profile_id = acting_profile_id(conn)
         try:
             cur = conn.execute(
                 "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, profile_id) "
@@ -867,12 +902,17 @@ def create_personal_best(pb: PersonalBestIn):
 def list_personal_bests():
     with db() as conn:
         rows = conn.execute(
-            "SELECT * FROM personal_bests ORDER BY exercise_name, weight_kg DESC").fetchall()
+            "SELECT * FROM personal_bests WHERE profile_id = ? "
+            "ORDER BY exercise_name, weight_kg DESC", (acting_profile_id(conn),)).fetchall()
         return [dict(r) for r in rows]
 
 @app.delete("/api/personal-bests/{pb_id}")
 def delete_personal_best(pb_id: int):
     with db() as conn:
+        # 404 when the personal best belongs to another profile (#110).
+        if not conn.execute("SELECT 1 FROM personal_bests WHERE id = ? AND profile_id = ?",
+                            (pb_id, acting_profile_id(conn))).fetchone():
+            raise HTTPException(404)
         conn.execute("DELETE FROM personal_bests WHERE id = ?", (pb_id,))
         conn.commit()
         return {"deleted": True}
@@ -887,11 +927,11 @@ def get_progress(exercise_id: str):
                 SELECT s.date as date, MAX(st.weight_kg) as max_weight,
                        st.reps as reps, s.id as sid
                 FROM sets st JOIN sessions s ON st.session_id = s.id
-                WHERE st.exercise_id = ? AND s.completed = 1
+                WHERE st.exercise_id = ? AND s.completed = 1 AND s.profile_id = ?
                 GROUP BY s.id, s.date
                 ORDER BY s.date DESC, s.id DESC LIMIT 60
             ) ORDER BY date ASC, sid ASC
-        """, (exercise_id,)).fetchall()
+        """, (exercise_id, acting_profile_id(conn))).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/progress")
@@ -904,22 +944,23 @@ def all_progress():
         rows = conn.execute("""
             SELECT st.exercise_id, st.exercise_name, MAX(st.weight_kg) as max_weight
             FROM sets st JOIN sessions s ON st.session_id = s.id
-            WHERE s.completed = 1
+            WHERE s.completed = 1 AND s.profile_id = ?
             GROUP BY st.exercise_id, st.exercise_name ORDER BY st.exercise_name
-        """).fetchall()
+        """, (acting_profile_id(conn),)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/notes")
 def get_notes():
     with db() as conn:
-        rows = conn.execute("SELECT exercise_id, note FROM exercise_notes").fetchall()
+        rows = conn.execute("SELECT exercise_id, note FROM exercise_notes WHERE profile_id = ?",
+                           (acting_profile_id(conn),)).fetchall()
         return {r["exercise_id"]: r["note"] for r in rows}
 
 @app.put("/api/exercises/{exercise_id}/note")
 def put_note(exercise_id: str, n: NoteIn):
     note = n.note.strip()
     with db() as conn:
-        profile_id = _default_profile_id(conn)  # temporary — see Task 5
+        profile_id = acting_profile_id(conn)
         if note:
             conn.execute(
                 "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) VALUES (?,?,?,datetime('now')) "
@@ -940,9 +981,10 @@ def last_performance(exercise_id: str, exclude_session: int | None = None):
         row = conn.execute(
             "SELECT s.id, s.date FROM sessions s "
             "JOIN sets st ON st.session_id = s.id "
-            "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? "
+            "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? AND s.profile_id = ? "
             "ORDER BY s.created_at DESC LIMIT 1",
-            (exercise_id, exclude_session if exclude_session is not None else -1)).fetchone()
+            (exercise_id, exclude_session if exclude_session is not None else -1,
+             acting_profile_id(conn))).fetchone()
         if not row:
             return None
         sets = conn.execute(
@@ -981,7 +1023,7 @@ def exercises_recency():
                        ) AS rn
                 FROM sets st
                 JOIN sessions s ON s.id = st.session_id
-                WHERE s.completed = 1
+                WHERE s.completed = 1 AND s.profile_id = ?
                 GROUP BY st.exercise_id, s.id, s.date
             )
             SELECT cur.exercise_id, cur.date AS last_date, cur.last_at,
@@ -991,23 +1033,29 @@ def exercises_recency():
                    ON prev.exercise_id = cur.exercise_id AND prev.rn = 2
             WHERE cur.rn = 1
             ORDER BY cur.exercise_id
-        """).fetchall()
+        """, (acting_profile_id(conn),)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}/prs")
 def session_prs(sid: int):
     with db() as conn:
+        pid = acting_profile_id(conn)
+        # 404 when the session belongs to another profile — its PRs are computed
+        # only against that profile's own history, never across profiles (#110).
+        if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
+                            (sid, pid)).fetchone():
+            raise HTTPException(404)
         cur_sets = conn.execute("SELECT exercise_id, exercise_name, weight_kg, reps FROM sets WHERE session_id = ?", (sid,)).fetchall()
         prior = conn.execute(
             "SELECT st.exercise_id, st.weight_kg, st.reps FROM sets st "
-            "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.id != ?", (sid,)).fetchall()
+            "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.id != ? AND s.profile_id = ?", (sid, pid)).fetchall()
         pb_rows = conn.execute(
-            "SELECT exercise_id, weight_kg, reps FROM personal_bests").fetchall()
+            "SELECT exercise_id, weight_kg, reps FROM personal_bests WHERE profile_id = ?", (pid,)).fetchall()
         prior = list(prior) + list(pb_rows)
         # session volumes for the volume PR
         vol_rows = conn.execute(
             "SELECT st.session_id, SUM(st.weight_kg*st.reps) v FROM sets st "
-            "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 GROUP BY st.session_id").fetchall()
+            "JOIN sessions s ON s.id = st.session_id WHERE s.completed = 1 AND s.profile_id = ? GROUP BY st.session_id", (pid,)).fetchall()
 
     prs = []
     by_ex = {}
@@ -1044,7 +1092,7 @@ def ingest_events(events: list[EventIn]):
     if not events:
         return
     with db() as conn:
-        profile_id = _default_profile_id(conn)
+        profile_id = acting_profile_id(conn)
         conn.executemany(
             "INSERT INTO events (name, screen, props, profile_id) VALUES (?,?,?,?)",
             [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None, profile_id) for e in events])
@@ -1054,12 +1102,13 @@ def ingest_events(events: list[EventIn]):
 def analytics_summary(days: int = 30):
     window = f"-{int(days)} days"
     with db() as conn:
+        pid = acting_profile_id(conn)
         by_name = conn.execute(
-            "SELECT name, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) "
-            "GROUP BY name ORDER BY c DESC", (window,)).fetchall()
+            "SELECT name, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND profile_id = ? "
+            "GROUP BY name ORDER BY c DESC", (window, pid)).fetchall()
         by_screen = conn.execute(
-            "SELECT screen, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND screen IS NOT NULL "
-            "GROUP BY screen ORDER BY c DESC", (window,)).fetchall()
+            "SELECT screen, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND screen IS NOT NULL AND profile_id = ? "
+            "GROUP BY screen ORDER BY c DESC", (window, pid)).fetchall()
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 @app.get("/api/export")
