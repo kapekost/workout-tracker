@@ -5,7 +5,23 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, **steps 1 and 2 of 5 shipped and deployed** (`c9442d8`). #84 (schema v6 + auth core) merged as
+- **Current focus:** **#110 (per-profile data isolation) shipped and deployed** (`240acc4`, PR #112,
+  2026-09-05). Reads had never been scoped since #66, so any second profile would have seen the
+  first's entire history; now every read and every mutation routes through one
+  `acting_profile_id(conn)` seam (returns the seed profile today; #86 swaps its body for the session
+  lookup and deletes `_default_profile_id`). 11 reads scoped, mutations 404 cross-profile by
+  ownership, `/api/export` and `/api/import` left for #87. A table-driven leak test beside #84's
+  open-gate test proves it and fails any future unscoped route; backend **183 green**, #84's
+  open-gate test still green (the app ships still open). Deployed to the Pi and health-verified
+  (`version=240acc4`, backups ok). One behaviour change: `DELETE /api/personal-bests/{id}` of a
+  non-owned/missing row now 404s (was idempotent `{"deleted": true}`). **NOTE:** two-user isolation
+  cannot be clicked through until #105/#86 add login (`acting_profile_id` returns the seed for every
+  request today) — it is proven by the leak test on the deployed commit, not yet by a live
+  multi-login. Executed inline by the controller after a subagent implementer was cut off mid-task by
+  the account usage limit (its complete leak test was salvaged and committed); review was inline for
+  the same reason.
+
+  Accounts, **steps 1 and 2 of 5 shipped and deployed** (`c9442d8`). #84 (schema v6 + auth core) merged as
   `3ed18a4` (PR #103) — 152 backend tests (101 existing + 51 new) and 216 frontend tests green.
   Six TDD commits: schema v6 → bcrypt cost-12 helpers → session store and `wt_session` cookie →
   `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` → `POST /api/auth/logout`, plus a
@@ -45,22 +61,26 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **#110 (per-profile data isolation)** — `ready`, no approval needed, and the
-  highest-value work left: reads have never been scoped to a profile, so a second account would see
-  the first's entire history. Then **#105** (login screens), **#86** (gate), **#87** (roles).
-  Checkpointing here rather than starting #110 at the tail of a long session, per GUARDRAILS'
-  per-tick budget — #110 wants a full tick.
+- **Next action:** **#105 (login and set-password screens)** — the data model is now safe for
+  multiple users (#110), so the thing the owner cares about next is logging in as different people
+  and actually seeing the isolation. #105 is `blocked` and needs its own `/orchestrate approve` (it
+  changes auth/session handling → destructive; the standing approval is granted per-step as each
+  predecessor lands). Then **#86** (flip the gate, delete `_default_profile_id` — its call sites now
+  all route through `acting_profile_id`, so this is a one-function change), then **#87**
+  (export/import role behaviour).
 
   **Mail is unblocked and proven end to end.** The owner minted a Resend key, it is on the Pi's
   `.env` (mode 600), and the bootstrap invite was received. `MAIL_FROM` is
-  `noreply@contact.kapekost.co.uk`. **Nothing is waiting on the owner** except deciding what to
-  build next.
+  `noreply@contact.kapekost.co.uk`. Waiting on the owner: approve **#105** when they want login
+  built, and a quick in-app check that their own history is all still there after #110 (the one live
+  regression risk — scoping should return the owner all their own rows, since the seed profile is
+  today's acting profile).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#110** — claimed 2026-09-05T11:16:46Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **The accounts chain needs approval per step; #84 and #85 have it, #105/#86/#87 do not.** All of
@@ -145,6 +165,38 @@
   order.
 
 ## Tick log
+- **2026-09-05 (#110 → PR #112, shipped + deployed):** Per-profile data isolation. Reconciled first:
+  `main`'s `STATE.md` was stale (still named #84 as next), so the live cursor was read from this home
+  branch per "Claiming work" — #110 was the sole `ready` issue and the recorded next action. Not
+  destructive (no schema/auth/session/token change, reversible), so no approval; passed the
+  decomposition gate (issue body is the spec) → executed, not planned. Claim pushed to this branch
+  before any work (`a22c507..b45cbd1`).
+
+  **Implementer subagent (sonnet, worktree) was cut off mid-task by the account usage limit** ("resets
+  2:30pm BST") while still exploring — but it had already written a complete, high-quality
+  table-driven leak test (161 lines: an `acting_as` monkeypatch fixture, sets read via
+  `GET /api/sessions/{id}`, `POST /sets`→404, the "ask for B's exercise while acting as A → empty"
+  scoping proof, fresh-profile-empty, B-unchanged). Inspected the dead worktree per the recovery
+  discipline (the queued `[template]` improvement), salvaged the test to a commit rather than losing
+  it. Owner chose to continue **inline** rather than wait for the reset; re-dispatching a subagent
+  would just re-trip the limit. TDD red confirmed with the seam-only ("GET /api/sessions: leaked B's
+  data"), then implemented: one `acting_profile_id(conn)` seam (returns `_default_profile_id` today),
+  every in-scope read scoped and every mutation ownership-checked (404, not 403), `/api/export` and
+  `/api/import` left for #87. One expected regression: `test_delete_nonexistent_personal_best_*` now
+  asserts 404 — the isolation model makes "gone" and "not yours" indistinguishable; renamed and
+  re-justified. Backend **183 green** (was 182; +1 leak test), #84 open-gate test green. Reviewed as
+  a full diff **inline by the controller** (a forced deviation — the usage limit was tripping reviewer
+  subagents), with CI and the live check as the additional gates.
+
+  Squash-merged to `main` (`240acc4`) on green CI (test/Backend tests/sanity). **Deployed to the Pi**
+  (owner ran `deploy.sh` after a PATH-only hiccup): arm64 `240acc4` built, shipped to
+  `kapekost@192.168.1.170`, container recreated, `/api/health` `version=240acc4`, backups ok. Dead
+  worktree + merged branch cleaned up. **Live two-user isolation is not clickable until #105/#86 add
+  login** — today `acting_profile_id` returns the seed for every request, so the API always acts as
+  one profile; the isolation is proven by the leak test on the deployed commit, and the live
+  regression risk (scoping hiding the owner's own data) is an in-app check left with the owner.
+  Rulings: /api/profile/me routed through the seam though the spec didn't name it (consistency; #86
+  otherwise has to change it separately); inline execution + inline review under the usage limit.
 - **2026-09-05 (live session — mail works end to end, secrets audited):** The owner minted a Resend
   key and passed it without it entering the transcript (clipboard to a local file, copied to the
   Pi's `.env`, temp file deleted).
