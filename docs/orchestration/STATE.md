@@ -5,7 +5,7 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, **step 1 of 4 shipped and deployed**. #84 (schema v6 + auth core) merged as
+- **Current focus:** Accounts, **steps 1 and 2 of 5 shipped**; step 1 deployed. #84 (schema v6 + auth core) merged as
   `3ed18a4` (PR #103) — 152 backend tests (101 existing + 51 new) and 216 frontend tests green.
   Six TDD commits: schema v6 → bcrypt cost-12 helpers → session store and `wt_session` cookie →
   `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` → `POST /api/auth/logout`, plus a
@@ -45,26 +45,20 @@
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
   uses it.
-- **Next action:** **Execute #85** — approved by the owner 2026-09-05, `ready`, unblocked, and
-  pickable by the next tick with no further owner input. Under the decomposition gate (PR #102) it
-  needs a decomposition check first: the spec covers it in detail (token model, expiries, the
-  enumeration and send-failure behaviours, rate-limit numbers, config keys) but does **not** give an
-  ordered task sequence for it, so expect to plan the sequencing rather than execute straight off —
-  and plan only what the spec leaves open, not a restatement of it.
-
-  **The chain is five steps:** #84 done and deployed → **#85 approved, next** → **#105** login and
-  set-password screens, *before* the gate → **#86** flip the gate, delete `_default_profile_id`,
-  enforce login → **#87** export/import roles. #105 and #86 each still need their own
-  `/orchestrate approve`, granted as their predecessor merges. The goal driving the ordering is a
-  manual acceptance run: the owner receives the real invite email from #85's bootstrap, follows it
-  on a phone, sets a password, logs in, sees the top bar change, logs out — all before #86 enforces
-  anything.
+- **Next action:** **Deploy #85, then execute #105.** #85 merged (`1cfcc6b`) but is not deployed,
+  and it cannot be exercised until the owner adds `RESEND_API_KEY` and `MAIL_FROM` to
+  `AGENTS.local.md` — the invite email is the whole point of the step, and nothing can send without
+  them. `APP_BASE_URL` must also be set to the URL the app is actually opened on; the bootstrap
+  script refuses to run while it still points at localhost rather than mailing an unusable link.
+  Sequence: owner adds config → deploy → run `scripts/bootstrap_owner.py` for the first real send →
+  then #105 puts screens in front of that link. **#105 needs no approval** — it is covered by the
+  standing approval recorded in `DECISIONS.md`.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#85** — claimed 2026-09-05T10:01:25Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **The accounts chain needs approval per step; #84 and #85 have it, #105/#86/#87 do not.** All of
@@ -149,6 +143,34 @@
   order.
 
 ## Tick log
+- **2026-09-05 (live session — approvals restructured, #85 shipped):** The owner asked to stop
+  approving step by step ("i have not got much context per number to review or know") and for tick
+  summaries written for a product owner rather than an engineer. Both are now policy (PR #106).
+
+  **The approval change is a narrowing, not a weakening.** The destructive trigger "changes auth,
+  session, secret, or token handling" fires on every step of an auth feature by definition, which is
+  why one workstream produced five approval requests against a design already approved in full. An
+  owner-approved spec now carries its approval to the children it decomposes into, recorded in
+  `DECISIONS.md` naming the spec and the exact issues. **"Approval is human-only" is untouched** — no
+  agent may grant a label; what changed is how much needs one. A new hard-gated list keeps the truly
+  irreversible out of it, including a new entry: making a private deployment publicly reachable,
+  which is the real irreversible step in #27 and should never have ridden along on a workstream
+  approval.
+
+  **#85 shipped** (PR #107, `1cfcc6b`): token minting, the Resend seam, set-password,
+  forgot-password, admin invites, rate limiting and the owner bootstrap. 28 new tests, 180 backend
+  green. Two design points beyond the spec's letter: identical response bodies were not enough for
+  enumeration, since a send that happens only for real addresses can be *timed*, so forgot-password
+  sends after the response via `BackgroundTasks`; and the rate limiter runs **before** any hashing,
+  because rejecting afterwards would leave the 627 ms CPU amplifier fully intact.
+
+  **Self-review caught two bugs CI could never have caught.** The bootstrap script's own instructions
+  told the operator to run it inside the container, but the Dockerfile copied only `backend/main.py`;
+  adding the `COPY` still failed because `.dockerignore` excluded `scripts/` wholesale. Both surfaced
+  only by running `docker buildx build --platform linux/arm64` by hand — the blind spot
+  `Dockerfile:25-28` exists to warn about. That same build finally proved #84's bcrypt dependency
+  installs from an aarch64 wheel with no compilation, end to end.
+
 - **2026-09-05 (live session — process retuned, then #84 shipped end to end):** Two ticks and an
   owner review, in one session.
 
