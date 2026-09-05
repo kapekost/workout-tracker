@@ -108,7 +108,17 @@
 (no branches in flight)
 
 ## Needs owner
-- **Try the login flow on your phone — #86 is waiting on it.** Deployed at `7d06bae`. The path:
+- **Try the login flow again — two bugs found and fixed since the first attempt.** Now at
+  `73ebdce`. The owner's report (2026-09-06, *"i cant logout or sth, so how can i login or see my
+  profile stuff?"*) had two causes, both filed as #118 and both shipped in PR #119: the top bar
+  named you when you had **no** session (it fell back to `/profile/me`, so a username and a "Log in"
+  link showed together — "signed in, with no way to sign out"), and `index.html` was served with no
+  `Cache-Control` at all, so a phone could hold the pre-#105 build indefinitely while the server ran
+  the new one. Headers verified live: `index.html` → `no-cache`, `assets/*` → `immutable`.
+  **Still open:** whether the seeded profile has a password set at all. A direct read of the
+  production DB was refused by the sandbox and was not worked around; asked the owner instead.
+  If no invite was ever completed, there is nothing to log in with and a fresh invite must be minted.
+- **The original try-it path — #86 is still waiting on it.** Deployed at `7d06bae`. The path:
   open the invite email from the #85 bootstrap, follow the link, set a password, land on Home
   logged in, check the top bar shows your profile, log out, then log back in at `/login`. Also
   worth confirming while you are in there: your own history is all still present after #110. If
@@ -209,6 +219,30 @@
   order.
 
 ## Tick log
+- **2026-09-06 (owner tried #105; two real bugs, both fixed and deployed):** The first human use of
+  the accounts UX did exactly what splitting #105 out of #86 was meant to make it do — it found
+  problems while the app was still open, so the fix was an ordinary deploy rather than a recovery.
+
+  **Bug 1, the reported one:** `TopBar` fell back to `/api/profile/me` when there was no session, so
+  a logged-out visitor saw a username *and* a "Log in" link simultaneously. Accurate (anonymous
+  writes really are attributed to the seeded profile until #86) and unreadable: it looks like you
+  are signed in with no way to sign out. #105's own scope had said the bar reflects *session* state;
+  the fallback quietly contradicted it. Identity there now requires a session, with a test asserting
+  the logged-out bar names nobody and never calls `/profile/me`.
+
+  **Bug 2, found while diagnosing the first:** the frontend is served by Starlette `StaticFiles`,
+  which sets `ETag`/`Last-Modified` but never `Cache-Control` — confirmed against the live server,
+  where `index.html` returned no `Cache-Control` at all. Since Vite fingerprints everything under
+  `assets/`, a stale `index.html` pins the whole app to the previous build with no error and no
+  clue. That silently undermined **every** deploy this project has ever done, not just this one.
+  Fixed: unfingerprinted files revalidate, fingerprinted assets are immutable. Verified on the live
+  server after deploying.
+
+  Diagnosis went to the deployed artifact rather than the source: grepping the served bundle proved
+  the new code *was* shipped, which ruled out a bad deploy and pointed at the two causes above.
+  A direct read of the production DB (to check whether a password is set) was refused by the
+  sandbox; that was reported to the owner rather than worked around. Filed as #118, shipped as
+  PR #119 (`73ebdce`), backend 186 tests, frontend 259.
 - **2026-09-05 later (#105 shipped and deployed; `main`'s orchestration docs found to be a trap):**
 
   **The tick began by getting it wrong, which is the part worth keeping.** Step 2 read `STATE.md`,
