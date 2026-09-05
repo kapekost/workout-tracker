@@ -548,10 +548,23 @@ def send_email(to: str, subject: str, body: str) -> None:
     req = urllib.request.Request(
         "https://api.resend.com/emails", data=payload, method="POST",
         headers={"Authorization": f"Bearer {RESEND_API_KEY}",
-                 "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        if resp.status >= 300:
-            raise RuntimeError(f"resend returned HTTP {resp.status}")
+                 "Content-Type": "application/json",
+                 # Required, not cosmetic. Cloudflare fronts api.resend.com and
+                 # blocks urllib's default "Python-urllib/3.x" agent outright —
+                 # a 403 with Cloudflare error 1010, which looks exactly like a
+                 # bad API key. Found on the first real send, 2026-09-05.
+                 "User-Agent": f"workout-tracker/{APP_VERSION}"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status >= 300:
+                raise RuntimeError(f"resend returned HTTP {resp.status}")
+    except urllib.error.HTTPError as exc:
+        # Carry the body: "403" alone sent the first diagnosis down the wrong
+        # path (a suspected bad key) when the answer was in the response.
+        detail = exc.read().decode("utf-8", "replace")[:300].strip()
+        raise RuntimeError(f"resend returned HTTP {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"could not reach resend: {exc.reason}") from exc
 
 def _token_email(to: str, raw: str, kind: str) -> None:
     link = f"{APP_BASE_URL}/set-password?token={raw}"
@@ -611,12 +624,13 @@ def bootstrap_owner(email: str, username: str = "kapekost") -> dict:
         kind = "reset" if row["password_hash"] else "invite"
         raw = mint_token(conn, row["id"], kind)
         conn.commit()
-    sent = True
+    sent, error = True, None
     try:
         _token_email(email, raw, kind)
-    except Exception:
-        sent = False
-    return {"username": username, "email": email, "kind": kind, "sent": sent}
+    except Exception as exc:
+        sent, error = False, str(exc)
+    return {"username": username, "email": email, "kind": kind,
+            "sent": sent, "error": error}
 
 def require_admin(profile: dict = Depends(current_profile)) -> dict:
     if profile["role"] != "admin":
