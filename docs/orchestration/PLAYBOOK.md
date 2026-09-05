@@ -62,11 +62,13 @@ fails — too vague, too large for its stated effort, or not independently actio
 Feature intake starts labeled `intake`, not `needs-clarification` — see that section above for the
 distinction.
 
-Issue dependencies (`blocked-by`) are tracked via GitHub's native issue-dependency relationship,
-not a label: set it through the Issue UI's "Blockers" panel, since there is no plain `gh issue`
-subcommand for it (it's a GraphQL-only feature, reachable via `gh api graphql` if scripting it
-later). Until that's automated, check an Issue's blocked status by reading its "Blocked by" panel
-in the UI (or `gh api graphql` for the same data) before treating it as pickable in step 3 below.
+Issue dependencies are tracked with the **`blocked` label**, and the blocking Issue is named in
+the blocked Issue's body. This file previously mandated GitHub's native issue-dependency
+relationship and explicitly forbade a label — that instruction never worked and was never followed:
+the GraphQL field it points at does not exist on this API (`issueDependenciesBlockedBy` →
+`undefinedField`), so step 3's "no unresolved dependency" check has always silently passed. The
+label is what practice actually uses (#85/#86/#87 all carry it today), so the label is what the
+runner checks. Revisit only if GitHub ships a dependency API `gh` can reach.
 
 ## Claiming work (avoid concurrent-tick collisions)
 
@@ -114,14 +116,17 @@ only because the owner happened to ask about it, not by anything in this file. H
 3. **Pick the next action.** Intake triage and `ready`-issue execution are independent, non-blocking
    tracks — an untriaged `intake` Issue does not block picking a `ready` Issue this tick
    (`DECISIONS.md` 2026-08-30 "Sequencing"). Pick the highest-ranked open Issue with the `ready`
-   label and no unresolved `blocked-by` dependency; if none exists but `intake` Issues are waiting,
+   label, not carrying the `blocked` label; if none exists but `intake` Issues are waiting,
    resolve the highest-ranked one via the Feature intake flow above instead. **The moment an Issue
    is picked, push its claim per "Claiming work" above — before any of the branches below, before
    any execution.** Then:
-   - If it has no linked plan and is `effort:M` or larger → run the `/orchestrate plan` flow and stop.
-   - If it is `effort:L`/`XL` and has no sub-Issues yet → split it per GUARDRAILS "Task sizing" and stop.
    - If it is **destructive** (per GUARDRAILS) and lacks the `approved` label → skip to the next ready
      Issue; if none, stop + notify.
+   - If it is `effort:L`/`XL` and has no sub-Issues yet → split it per GUARDRAILS "Task sizing" and stop.
+   - **If it is not decomposed → plan it** (the `/orchestrate plan` flow) and stop. See "The plan
+     gate" below for what decomposed means. **Gate on decomposition, not on effort size** — an
+     Issue whose spec already lays out an ordered, testable sequence gets executed, whatever its
+     effort label says.
    - Else → execute.
 4. **Execute** via `superpowers:subagent-driven-development`. Lean: dispatch one subagent per task; it
    reads only the Issue + its plan doc + the named files, never the whole tree. If context bloats
@@ -170,6 +175,68 @@ only because the owner happened to ask about it, not by anything in this file. H
    nothing left to do unattended — call `PushNotification` with a one-line summary. Skip it for routine
    ticks that ended cleanly with more `ready` work still queued; a notification for every tick is worse
    than none.
+
+## The plan gate — decomposed, not big
+
+A plan exists to turn an ask into an ordered sequence of testable steps. If that sequence already
+exists, writing it out again costs a whole tick and delivers nothing. **Execute when all four hold:**
+
+- the scope and the out-of-scope are written down (Issue body, or a spec it names);
+- there is an ordered sequence of steps, each ending in something testable — a spec's
+  "Implementation order" section counts, so does a scoped Issue body;
+- the acceptance tests are named, not merely implied;
+- no open question needs the owner.
+
+Plan when any of those is missing — and plan the *missing* part, not the whole thing again.
+
+Two failures this rule exists to prevent, both seen for real:
+
+- **Planning what the spec already said.** #84 (2026-09-05) arrived approved, with a 315-line design
+  spec carrying the schema DDL, endpoint list, config table, test list and an explicit
+  "Implementation order" section, plus an Issue body enumerating scope, out-of-scope, constraints
+  and tests. The old effort-size gate stopped the tick anyway and produced a 1091-line plan that
+  largely restated the spec.
+- **Executing something nobody has scoped.** The gate is not gone — it just keys on the right thing.
+
+### Plan shape
+
+A plan for an `effort:M` Issue should land around **200-300 lines**. What belongs in it:
+
+- **task ordering** and the boundary of each task (files touched, what it produces for later tasks);
+- **decisions the spec left open** — module placement, a library's work factor, where a value is
+  computed — with the reasoning, since this is what a later tick would otherwise re-derive;
+- **test case names**, so nothing is forgotten and coverage is reviewable at a glance;
+- **verification steps that are easy to skip** and expensive to miss (a by-hand arm64 image build
+  when CI never builds the Dockerfile, say).
+
+What does not: **full test bodies and full implementation bodies.** Writing the change twice — once
+as a plan, once as code — costs a tick, and handing an executor finished code to transcribe defeats
+the red step of the TDD the plan is asking for. Give the test's *name and intent*; let the executor
+write it and watch it fail. `2026-09-05-accounts-auth-core.md` is the reference shape (266 lines,
+after being cut down from 1091); the four `2026-08-25-*` plans are the lean end for `effort:S` work.
+
+### Linking a plan to its Issue
+
+A plan is only "linked" if the Issue says so. When a plan merges, **add its path to the Issue body**
+(a `**Plan:** docs/superpowers/plans/<file>.md` line) as well as commenting it. Step 3 reads the
+Issue, so an unlinked plan is an invisible one — before this rule, no Issue in the repo referenced
+its plan and the gate was deciding from a directory listing.
+
+## Where the effort goes
+
+A soft guideline for how a workstream's effort should divide, owner's call 2026-09-05:
+
+| | share | |
+|---|---|---|
+| **Implementation** | ~60% | Get to running code early; reviews on real code beat reviews on prose. |
+| **Planning** | ~30% | Decomposition and the decisions a spec left open. Not transcription. |
+| **Review** | ~10% | Regularly, not only at the end. |
+
+Deliberately soft. Research-heavy or genuinely novel work needs more investigation up front and
+should take it; say so in `STATE.md` rather than quietly overrunning. Two things the split does not
+mean: review is a **gate, not a budget line** — a review that finds something real costs whatever it
+costs, and 10% is a floor on frequency, not a ceiling on depth. And verification (running the tests,
+building the image) is part of implementation, not part of review.
 
 ## Budget & checkpointing
 Track work against the GUARDRAILS per-tick token budget. When near the limit, finish the current
