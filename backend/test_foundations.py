@@ -76,11 +76,17 @@ def test_health_reports_no_backup_then_ok(client, write_backup_status):
     h = client.get("/api/health").json()
     assert h["status"] == "ok"
     assert h["last_backup_at"] is None and h["last_backup_status"] == "none"
+    # With no status file at all there is nothing to say about the off-site
+    # leg either, and "nothing to say" is null rather than a made-up status.
+    assert h["last_backup_remote_at"] is None and h["last_backup_remote_status"] is None
 
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    write_backup_status({"status": "ok", "at": at, "bytes": 1024})
+    write_backup_status({"local": {"status": "ok", "at": at, "bytes": 1024},
+                         "remote": {"status": "ok", "at": at,
+                                    "remote": "gdrive:workout-tracker-backups"}})
     h = client.get("/api/health").json()
     assert h["last_backup_status"] == "ok" and h["last_backup_at"] == at
+    assert h["last_backup_remote_status"] == "ok" and h["last_backup_remote_at"] == at
 
 def test_export_envelope_shape(client):
     sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]

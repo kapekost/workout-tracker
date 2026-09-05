@@ -39,7 +39,9 @@ REMOTE_KEEP_DAYS="${REMOTE_KEEP_DAYS:-}"
 # you the result directly — non-zero exit, stderr, and last_backup_status in
 # /api/health, which reports "failed" immediately or "stale" once an "ok" is
 # more than 8 days old. That 8 days is now a "it's been a while" nudge rather
-# than a missed-schedule alarm; nothing fails a deploy over it.
+# than a missed-schedule alarm; nothing fails a deploy over it. Note that
+# last_backup_status is the LOCAL leg only; the off-site one is reported
+# separately as last_backup_remote_status and never fails the run (#93).
 HEARTBEAT_URL="${HEARTBEAT_URL:-}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="$STAGE/workout-$STAMP.db"
@@ -98,30 +100,46 @@ start=$(date +%s)
 # succeeding while the third failed. Don't reorder it.
 if $COMPOSE exec -T workout-tracker python -c "import sqlite3; sqlite3.connect('$DB').execute(\"VACUUM INTO '$CTMP'\")" \
    && cid=$($COMPOSE ps -q workout-tracker) \
-   && docker cp "$cid:$CTMP" "$OUT" \
-   && rclone copy "$OUT" "$REMOTE"; then
+   && docker cp "$cid:$CTMP" "$OUT"; then
   bytes=$(stat -c%s "$OUT" 2>/dev/null || echo 0)  # GNU/Linux stat syntax only (Pi host is the only target)
   dur=$(( $(date +%s) - start ))
-  # No `|| true` here on purpose: the old heartbeat swallowed its own failures
-  # by construction, so a backup whose result never reached /api/health looked
-  # identical to one that never ran. A backup nobody can see the result of is
-  # not a finished backup — say so in the exit status.
-  if ! write_status "{\"status\":\"ok\",\"at\":\"$(now_utc)\",\"bytes\":$bytes,\"remote\":\"$REMOTE\",\"duration_s\":$dur}"; then
-    status=1
+  local_json="{\"status\":\"ok\",\"at\":\"$(now_utc)\",\"bytes\":$bytes,\"duration_s\":$dur}"
+  status=0
+  # The off-site leg is reported on its own because it fails on its own: the
+  # snapshot is already on the host's disk by now, and that copy is the one
+  # standing between us and data loss. Calling the whole run failed because
+  # Drive was unreachable is what taught us to stop reading the signal — four
+  # such nights in a row, 2026-09-01..04 (#93). So a broken rclone leg is
+  # recorded and visible in /api/health, but it does not fail the run.
+  if rclone copy "$OUT" "$REMOTE"; then
+    remote_json="{\"status\":\"ok\",\"at\":\"$(now_utc)\",\"remote\":\"$REMOTE\"}"
+    if [ -n "$REMOTE_KEEP_DAYS" ]; then
+      rclone delete --min-age "${REMOTE_KEEP_DAYS}d" "$REMOTE" >/dev/null 2>&1 || true
+    fi
   else
-    status=0
-  fi
-  ping_external ""
-  if [ -n "$REMOTE_KEEP_DAYS" ]; then
-    rclone delete --min-age "${REMOTE_KEEP_DAYS}d" "$REMOTE" >/dev/null 2>&1 || true
+    remote_json="{\"status\":\"failed\",\"at\":\"$(now_utc)\",\"remote\":\"$REMOTE\",\"error\":\"rclone copy failed\"}"
+    echo "backup.sh: the snapshot is safe at $OUT, but copying it to $REMOTE failed" >&2
   fi
 else
-  if ! write_status "{\"status\":\"failed\",\"at\":\"$(now_utc)\",\"error\":\"backup.sh failed\"}"; then
-    echo "backup.sh: the failure above could not be recorded for /api/health either" >&2
-  fi
-  ping_external "/fail"
+  local_json="{\"status\":\"failed\",\"at\":\"$(now_utc)\",\"error\":\"snapshot or docker cp failed\"}"
+  # "Never tried" has to stay distinguishable from "tried and broke", which is
+  # why this branch records a leg it never ran rather than leaving it out.
+  remote_json="{\"status\":\"skipped\",\"at\":\"$(now_utc)\"}"
   status=1
 fi
+
+# No `|| true` here on purpose: the old heartbeat swallowed its own failures by
+# construction, so a backup whose result never reached /api/health looked
+# identical to one that never ran. A backup nobody can see the result of is not
+# a finished backup — say so in the exit status.
+if ! write_status "{\"local\":$local_json,\"remote\":$remote_json}"; then
+  if [ "$status" -ne 0 ]; then
+    echo "backup.sh: the failure above could not be recorded for /api/health either" >&2
+  fi
+  status=1
+fi
+
+if [ "$status" -eq 0 ]; then ping_external ""; else ping_external "/fail"; fi
 
 # Housekeeping — best-effort and OUTSIDE the success chain: a prune hiccup must
 # not flag a good backup as failed, and a Drive outage must not skip it.

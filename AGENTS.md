@@ -127,7 +127,9 @@ to one deployment. What's true for any deployment of this project:
   built. `last_backup_status` is informational: backups are manual, so
   `stale` only means the last one is over a week old, and `scripts/deploy.sh`
   warns rather than failing on it. `failed` is the one to chase — it means
-  the chain ran and broke.
+  the chain ran and broke. It reports the **local** leg; the off-site copy is
+  `last_backup_remote_status` and fails on its own (#93), so `ok` there with
+  `failed` off-site means the snapshot is safe on the host but never left it.
 - Re-drill a restore after any schema change.
 
 **How the whole backup and recovery story fits together — every level, what

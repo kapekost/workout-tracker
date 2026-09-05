@@ -116,7 +116,13 @@ if payload.get("last_backup_status") == "stale":
     print("warning: last_backup_status is stale — the last backup is over a week old.")
     print("         run scripts/backup.sh on the host if you want a fresh one.")
 
-print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}")
+# The off-site leg is reported separately (#93) and is never fatal here — the
+# local snapshot is the one that matters for a deploy. Printed so a chronically
+# broken Drive leg is at least visible at deploy time rather than only in
+# /api/health, which nobody reads unless they already suspect something.
+remote = payload.get("last_backup_remote_status")
+print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}"
+      + (f", off-site={remote}" if remote else ""))
 PY
 
 echo "==> deploy verified: $short_sha"
