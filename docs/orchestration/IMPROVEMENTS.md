@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 3 -->
+<!-- last-reviewed-count: 4 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
