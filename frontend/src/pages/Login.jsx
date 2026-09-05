@@ -2,16 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../api'
 import { useSession } from '../lib/session'
-import { colors, type, radius, space } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
-const labelStyle = {
-  display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
-  letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 6,
-}
-const fieldStyle = {
-  width: '100%', background: colors.border, color: colors.text, border: 'none',
-  borderRadius: radius.sm, padding: '12px 10px', fontSize: '1rem',
-}
 const linkButtonStyle = {
   background: 'none', border: 'none', color: colors.mint, fontSize: type.size.lg,
   fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0,
@@ -27,6 +19,7 @@ export default function Login() {
   const { signIn } = useSession()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [forgot, setForgot] = useState(false)
@@ -63,35 +56,44 @@ export default function Login() {
   }
 
   return (
-    <div style={{ paddingTop: space.xxxl, maxWidth: 420 }}>
+    <div className="auth-shell">
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: space.xs }}>
         Log in
       </h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: space.xxl }}>
-        Your workouts stay on this device's tracker either way — logging in just
-        ties them to your own profile.
+        Your workouts are saved either way — logging in keeps them under your
+        own profile.
       </p>
 
       <form onSubmit={submit} className="card" style={{ padding: space.xl, marginBottom: space.xxl }}>
-        <label style={labelStyle} htmlFor="login-username">Username</label>
-        <input id="login-username" type="text" value={username} autoComplete="username"
-          autoCapitalize="none" autoCorrect="off"
+        <label className="field-label" htmlFor="login-username">Username</label>
+        <input id="login-username" className="field" type="text" value={username}
+          autoComplete="username" autoCapitalize="none" autoCorrect="off"
           onChange={e => setUsername(e.target.value)}
-          style={{ ...fieldStyle, marginBottom: space.lg }} />
+          style={{ marginBottom: space.lg }} />
 
-        <label style={labelStyle} htmlFor="login-password">Password</label>
-        <input id="login-password" type="password" value={password} autoComplete="current-password"
-          onChange={e => setPassword(e.target.value)}
-          style={{ ...fieldStyle, marginBottom: space.xl }} />
+        <label className="field-label" htmlFor="login-password">Password</label>
+        <div className="field-row" style={{ marginBottom: space.xl }}>
+          {/* type flips to "text" when revealed, which is also why the iOS
+              text-entry hints are set here: without them the keyboard would
+              autocapitalise and autocorrect a shown password. */}
+          <input id="login-password" className="field" type={showPassword ? 'text' : 'password'}
+            value={password} autoComplete="current-password"
+            autoCapitalize="none" autoCorrect="off" spellCheck="false"
+            onChange={e => setPassword(e.target.value)} />
+          <button type="button" className="field-toggle" aria-pressed={showPassword}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            onClick={() => setShowPassword(v => !v)}>
+            {showPassword ? 'Hide' : 'Show'}
+          </button>
+        </div>
 
         {error && (
-          <p role="alert" style={{
-            color: colors.text, background: colors.dangerBg, borderRadius: radius.sm,
-            padding: '10px 12px', fontSize: type.size.lg, marginBottom: space.xl,
-          }}>{error}</p>
+          <p className="form-error" role="alert" aria-live="assertive"
+            style={{ marginBottom: space.xl }}>{error}</p>
         )}
 
-        <button type="submit" className="btn-primary" disabled={busy} style={{ width: '100%' }}>
+        <button type="submit" className="btn-primary" disabled={busy}>
           {busy ? 'Logging in…' : 'Log in'}
         </button>
       </form>
@@ -104,11 +106,11 @@ export default function Login() {
 
       {forgot && (
         <form onSubmit={sendReset} className="card" style={{ padding: space.xl }}>
-          <label style={labelStyle} htmlFor="reset-email">Email</label>
-          <input id="reset-email" type="email" value={email} autoComplete="email"
-            autoCapitalize="none" autoCorrect="off"
+          <label className="field-label" htmlFor="reset-email">Email</label>
+          <input id="reset-email" className="field" type="email" value={email}
+            autoComplete="email" autoCapitalize="none" autoCorrect="off"
             onChange={e => setEmail(e.target.value)}
-            style={{ ...fieldStyle, marginBottom: space.lg }} />
+            style={{ marginBottom: space.lg }} />
           {sent
             ? <p style={{ color: colors.mint, fontSize: type.size.lg }}>{RESET_SENT}</p>
             : (
