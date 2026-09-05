@@ -3,6 +3,82 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-09-05 — Accounts, step 1: schema v6 and the auth core (`claude/84-auth-core`)
+
+Deployed `3ed18a4`. The machinery for real logins, with the door still open.
+
+Schema v6 adds `profiles.email` (nullable, behind a *partial* unique index so
+several profiles can sit at NULL — "not yet invited" — without colliding),
+plus `auth_tokens` (created here, minted by #85) and `auth_sessions`. Neither
+auth table joins `TABLES`/`TABLE_INTRODUCED_AT`, so neither reaches the export
+envelope: restoring a backup must never resurrect a live session or an unused
+invite, and a backup file should not be a store of credential material.
+
+Passwords are bcrypt at **cost 12** — 627 ms measured on this Pi, not assumed.
+A memory-hard KDF was rejected on hardware grounds rather than taste: OWASP's
+scrypt baseline wants 128 MiB against ~185 MiB free, and every concurrent
+memory-hard hash reserves its full working set, so a handful of parallel logins
+to an unauthenticated endpoint could OOM a container on a box that also runs
+Home Assistant. bcrypt uses ~4 KB per hash, so contention degrades service
+instead of killing it. Length is capped at 72 **bytes**, not characters —
+bcrypt's own limit is bytes, and 30 four-byte emoji would otherwise be silently
+truncated.
+
+Sessions are server-side `auth_sessions` rows rather than a signed stateless
+cookie, for one reason: #85's password reset must be able to revoke sessions
+that *already exist*, which a self-contained token cannot do before it expires.
+SQLite computes the expiry (`datetime('now', '+30 days')`), so stored timestamps
+share one format with the rest of the schema. Expired rows are deleted on
+lookup — no reaper process. The cookie is `HttpOnly`, `SameSite=Lax`, 30 days,
+and **not** `Secure` until `APP_COOKIE_SECURE=1`; shipping `Secure` before #27
+terminates TLS would have broken login silently, since the browser accepts the
+cookie and then never sends it back.
+
+**No data endpoint is gated.** `current_profile` exists and guards only
+`/api/auth/me`; `_default_profile_id` is untouched. Closing the gate is #86 and
+must not precede #85's invite flow and the owner bootstrap, or the owner loses
+access to their own history. A parametrized test holds nine endpoints open so
+that closing it early fails the suite rather than shipping.
+
+`/api/auth/login` returns one generic 401 for every failure and does the same
+bcrypt work on every path — including a dummy hash for an unknown username, so
+the two cannot be told apart by response time. It is deliberately unthrottled;
+rate limiting is #85's scope.
+
+Verified on the deploy target: schema version 6, row counts unchanged
+(1/2/33/0/814/0) against the pre-deploy snapshot, auth tables absent from the
+envelope, `/api/auth/me` 401, login refused for the seeded NULL-hash profile,
+data endpoints still 200. Restore drill re-run per the post-schema-change rule:
+newest local snapshot opened read-only, `PRAGMA integrity_check` ok, row counts
+matched live.
+
+## 2026-09-05 — The backup's two legs are reported separately (`chore/93-split-backup-legs`)
+
+`scripts/backup.sh` was one all-or-nothing chain: a failure anywhere wrote
+`backup_failed`, so the 2026-09-01..04 Google Drive outage produced four
+"failed" nights that had each left a perfectly good snapshot on the host's
+disk. With the OAuth app staying in *Testing* — where refresh tokens expire
+every 7 days — that was set to be the normal reading rather than the exception,
+and a signal that is always red is one people stop reading. Exactly the failure
+mode #88 had just fixed from the other direction.
+
+The chain is unchanged (`VACUUM INTO` → `docker cp` → `rclone copy`, in that
+order, deliberately), but the local and off-site legs are now recorded
+independently in `data/backup-status.json` and surfaced independently by
+`/api/health` as `last_backup_status`/`last_backup_at` and
+`last_backup_remote_status`/`last_backup_remote_at`. The local leg keeps the
+unprefixed names: it is the copy standing between us and data loss, and
+`scripts/deploy.sh` already reads it. **Local success is exit 0** — an
+off-site failure is recorded and visible but no longer fails the run, while a
+local failure still exits non-zero and marks the off-site leg `skipped`
+("never tried" stays distinguishable from "tried and broke"; neither ages into
+`stale`, since only an `ok` does).
+
+`/api/health` keeps reading a pre-split file — the Pi is carrying one until the
+next backup runs there — as a local-only status, with the off-site leg reported
+as `null` rather than invented. Its top-level `remote` key is the remote's
+*name*, not a leg, and is not read as one.
+
 ## 2026-09-04 — Backup status becomes a file, staleness becomes 8 days (`chore/88-backup-status-file`)
 
 `scripts/backup.sh` no longer POSTs its result to `/api/events`. It writes

@@ -54,8 +54,37 @@ A task is **destructive** if it does any of:
 - Any other irreversible action (history rewrite, remote branch deletion).
 
 **Flow:** a destructive task stays blocked until its Issue has the `approved` label (or, for
-orchestrator-level tasks, `STATE.md` has its `- [x] APPROVE <task-id>` box checked). Unattended: flag
-present → execute; flag absent → queue + report; **never guess**.
+orchestrator-level tasks, `STATE.md` has its `- [x] APPROVE <task-id>` box checked), **or is covered
+by a standing approval below**. Unattended: covered → execute; not covered → queue + report;
+**never guess**.
+
+### Standing approval for an owner-approved workstream
+
+When the owner has approved a **written design doc** that decomposes a feature into linked child
+Issues, that approval covers those children. They do not each need their own `approved` label.
+
+This exists because the trigger "changes auth, session, secret, or token handling" fires on *every
+step* of an auth feature, by definition — so a five-step accounts workstream produced five approval
+requests for a design the owner had already read and approved once, in full. An approval the owner
+cannot evaluate any better the fifth time than the first is delay, not safety. Owner's call,
+2026-09-05, after four rounds of it.
+
+To take effect, a standing approval must be recorded in `DECISIONS.md` naming **the spec and the
+exact Issue numbers it covers**. It never covers work the spec does not describe: an Issue that grows
+new scope beyond its design doc leaves the standing approval behind and needs a fresh human one.
+
+**Nothing here changes who may add the `approved` label — see "Approval is human-only" below, which
+is untouched.** This narrows what *requires* a label; it does not let an agent grant one.
+
+### Always needs a fresh human approval, standing approval or not
+
+The genuinely irreversible, where being wrong cannot be fixed by a redeploy:
+
+- Dropping or renaming a table or column, or any migration that loses data.
+- Deleting more than 10 tracked files in one task.
+- History rewrite, force-push, or remote branch deletion.
+- Anything that would write a real secret or credential into a tracked file.
+- Making a previously private deployment reachable from the public internet.
 
 ### Approval is human-only
 - `/orchestrate approve <issue>` exists only to be typed by a human, at a

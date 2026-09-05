@@ -8,11 +8,20 @@ the shared mechanism design and the concrete schemas, which is spec-writer work,
 work. Needs a quick owner skim before either issue is split into `ready` children, same as any
 spec — not pre-approved the way `2026-08-17-personal-bests-design.md` was (that one was walked
 through live; this one wasn't).
-**Depends on:** #66 (Profiles schema) — both workstreams write `profile_id`-scoped rows. Sequenced
-behind #66 *and* #67 (real login), per the existing DECISIONS.md call: importing/coaching "for a
-profile" is hollow while every write still lands on the single seeded admin profile via #66's
-temporary shim (see its plan, `2026-08-31-profiles-schema-migration.md`, Task 5). Not relitigating
-that sequencing here — restating it so it's not lost between two source documents.
+**Depends on:** #66 (Profiles schema, shipped) — both workstreams write `profile_id`-scoped rows.
+Sequenced behind **#86** (flip the gate), per the existing DECISIONS.md call: importing/coaching
+"for a profile" is hollow while every write still lands on the single seeded admin profile. Not
+relitigating that sequencing here — restating it so it's not lost between two source documents.
+
+> **Dependency refresh, 2026-09-05.** This doc originally named #67 as the login dependency. #67 was
+> closed as superseded (DECISIONS.md 2026-09-04) and the accounts work now runs as #84 (schema v6 +
+> auth core, shipped) → #85 (invite/reset email, shipped) → #105 (login screens) → #86 (flip the
+> gate) → #87. Separately, **#110 already did the profile-scoping half of what this doc was waiting
+> for**: every read and mutation now resolves its profile through one `acting_profile_id(conn)` seam
+> (`backend/main.py:63`), and cross-profile `PATCH`/`DELETE` 404 rather than leaking. So the
+> remaining dependency is narrower than "real login" — it is #86 swapping that seam's body for a
+> real session lookup. Endpoints designed here should call `acting_profile_id(conn)` and inherit
+> that switch for free; they must **not** call `_default_profile_id` directly, which #86 deletes.
 
 ---
 
@@ -80,11 +89,12 @@ Coaching (#32):  app exports the user's own training data + a prompt template
 this explicitly, and it's the one hard rule this whole design exists to enforce. Concretely: every
 endpoint that accepts AI-authored JSON takes the same `{"envelope": {...}, "confirm": bool}` shape
 already established by the existing `/api/import` disaster-recovery endpoint
-(`backend/main.py:473-476`) — `confirm: false` (or omitted) validates and returns a preview summary
-with **zero** writes; `confirm: true` performs the real write, in a transaction, rolling back
-whole on any failure (same pattern as `/api/import`'s existing `BEGIN`/`commit`/`rollback`,
-`backend/main.py:506-527`). Reusing this convention rather than inventing a parallel one keeps the
-review-before-write guarantee in one recognizable shape across the app.
+(`backend/main.py:1123`, model at `:293`) — `confirm: false` (or omitted) validates and returns a
+preview summary with **zero** writes; `confirm: true` performs the real write, in a transaction,
+rolling back whole on any failure (same pattern as `/api/import`'s existing
+`BEGIN`/`commit`/`rollback`, `backend/main.py:1157-1188`). Reusing this convention rather than
+inventing a parallel one keeps the review-before-write guarantee in one recognizable shape across
+the app.
 
 **Deliberately not sharing backend code between the two endpoints** — the payload shapes,
 validation rules, and what gets written are different enough (sessions/sets vs. exercise targets)
@@ -98,7 +108,7 @@ per §5, the frontend review-screen component.
 ### 3.1 Endpoint
 
 `POST /api/import/sessions` — **additive**, separate from the existing `/api/import`
-(`backend/main.py:473`), which stays exactly what it is today: a full-envelope disaster-recovery
+(`backend/main.py:1123`), which stays exactly what it is today: a full-envelope disaster-recovery
 replace. Reusing it here was explicitly ruled out by the issue itself ("must not be repurposed").
 
 ```python
@@ -123,8 +133,9 @@ class ImportSessionsIn(BaseModel):
 
 ### 3.2 Overwrite semantics (per DECISIONS.md 30.3)
 
-For each session in the envelope, scoped to the acting profile (`_default_profile_id` per #66's
-plan, until #67 supplies the real one):
+For each session in the envelope, scoped to the acting profile via `acting_profile_id(conn)`
+(`backend/main.py:63`) — the seam #86 switches to a real session lookup, so nothing here changes
+when it does:
 - `id` present **and** it names an existing session owned by this profile → `UPDATE` its
   `date`/`workout_day`.
 - Otherwise → `INSERT` a new session.
@@ -176,7 +187,7 @@ just-completed session). Returns:
 }
 ```
 
-Scoped to the acting profile, same temporary-shim caveat as #30 until #67 lands.
+Scoped to the acting profile via `acting_profile_id(conn)`, same caveat as #30 until #86 lands.
 
 ### 4.2 The recovery-science constraint is structural, not requested
 
@@ -250,7 +261,7 @@ shows "3 new sessions, 1 updated, 14 sets, spanning 2026-06-01 to 2026-06-15"; c
 `target_updates` as a small table (exercise, current → proposed) plus the `general_note` text. A
 failed validation shows the specific error (which field, which entry), not a generic "invalid
 JSON" — matching `/api/import`'s existing precedent of specific 400 messages
-(`backend/main.py:478-492`).
+(`backend/main.py:1125-1134`).
 
 ## 6. Testing
 
@@ -269,5 +280,5 @@ partially-invalid envelope; Confirm is disabled until a successful parse.
 Once skimmed by the owner: split into `ready` child issues the same way #29 → #66/#67/#68/#69 was
 split (this doc plays the same role #29's closing comment + DECISIONS.md played there). Suggested
 split: one child per endpoint pair (import; coaching export+apply+targets-read), each `blocked-by`
-#66 and #67. Not splitting here — that's the next `/orchestrate` action on these issues, not this
+#86. Not splitting here — that's the next `/orchestrate` action on these issues, not this
 document's job.

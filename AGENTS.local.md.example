@@ -50,6 +50,26 @@ DEPLOY_APP_DIR=/home/user/workout-tracker
 DEPLOY_SSH_OPTS='-o BatchMode=yes'
 ```
 
+## Application environment
+
+**Secrets do not live in this file.** They live in a `.env` file next to
+`docker-compose.yml` on the deploy target, which Compose loads automatically and
+which is gitignored. See `.env.example` in the repo for the keys and what each
+one does.
+
+This section records only *where* things are and anything surprising about them
+— never a value:
+
+- Path to the `.env` on the target (e.g. `/home/user/app/.env`).
+- Which account or dashboard each key comes from, so it can be rotated without
+  archaeology.
+- Anything a key is shared with (e.g. one Resend account serving several apps),
+  since revoking it then breaks more than one thing.
+
+A key pasted into a Markdown file is still a key pasted into a file that gets
+opened, copied, and quoted into Issues. Keep the two kinds of information apart:
+this file is documentation, `.env` is configuration.
+
 ## Gotchas and incident history
 
 Deployment-specific lessons learned the hard way — hardware quirks, past
