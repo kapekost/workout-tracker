@@ -3,15 +3,166 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
-## 2026-09-05 — #27 (public access) deprioritized to P3
+## 2026-09-05 — Secrets live in `.env` on the target; reuse services, not accounts
 
-Owner: public access waits until the accounts system (#84/#85, now live) has been proven with a
-real human login on a phone, not just tested in CI — exposing the app before that adds attack
-surface to a system nobody has used yet. Two things unchanged: `APP_BASE_URL` stays the single
-config seam (emailed links point at the Tailscale URL now, swap later without a code change), and
-`APP_COOKIE_SECURE` stays `0` until whatever fronts the app terminates TLS. Still `intake` —
-direction was already decided 2026-08-30 (below); it still needs a real home-network security
-review before its spec's children can be sized.
+**Mechanism.** Secrets go in a `.env` beside `docker-compose.yml` on the deploy target, gitignored
+and mode 600, loaded automatically by Compose. Not `env_file:` — that requires the file to exist, so
+a forgotten `.env` on a rebuilt host would fail the deploy; every value has a default instead, and a
+missing file means mail stops sending rather than a broken deploy. `AGENTS.local.md` records only
+where keys live and where they came from, never a value: a key in a gitignored Markdown file is
+still a key in a file people open, copy and quote into Issues.
+
+**Audited before assuming.** All 364 commits scanned for Resend, Google OAuth, SSH, Tailscale, AWS,
+GitHub and Slack credential shapes. Clean — nothing to rotate. The CI guard that was meant to
+prevent this only checked `.mcp.json` for three patterns, so it was widened to every tracked file
+plus a hard ban on tracked env files, and verified against planted secrets rather than only being
+seen to pass (PR #111).
+
+**Reuse services, not accounts.** Owner's standing preference, 2026-09-05: use what already exists
+and only create something new when there is no alternative. Email therefore stays on the Resend
+account `kapekost-web` already uses, with its already-verified `kapekost.co.uk` sender — no new
+provider, no new account. The one refinement: take a **separate key on that same account** rather
+than literally reusing the website's key, so revoking one app's key does not take the other's
+contact form down with it. That is still reuse of the service, which is what the preference is
+protecting.
+
+## 2026-09-05 — Standing approval: the accounts workstream (#105, #86, #87)
+
+**This is the standing-approval record GUARDRAILS requires.**
+
+**Spec:** `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`, owner-approved in chat
+2026-09-04 and reviewed as PR #83.
+
+**Covers:** **#105** (login and set-password screens), **#86** (flip the gate, delete
+`_default_profile_id`, enforce login) and **#87** (export/import role behaviour). #84 and #85 already
+carry their own `approved` label and are unaffected.
+
+**Why.** The destructive trigger "changes auth, session, secret, or token handling" fires on every
+step of an auth feature by definition, so this one workstream generated an approval request per step
+against a design the owner had already read in full. The owner's words: "i have not got much context
+per number to review or know... let's trust the process on these approvals." An approval that cannot
+be evaluated any better the fifth time than the first is delay, not safety.
+
+**Limits, which are the point of writing it down.** This covers only what the spec describes. If any
+of those three grows scope beyond its design doc, it leaves this approval behind and needs a fresh
+human one. And it never covers GUARDRAILS' "always needs a fresh human approval" list — in
+particular **making the deployment publicly reachable (#27) is explicitly outside it**, which is why
+that item was added to the list in the same change.
+
+No agent may add an `approved` label under this, or any other, arrangement. The label stays
+human-only; this record simply means those three Issues do not need one.
+
+## 2026-09-05 — Tick summaries are written for the product owner
+
+Owner: "as product owner i need to know what to see and try out to give you feedback next time. not
+too brief but also not too verbose." PLAYBOOK step 9 now leads with what is live in product terms
+and what to try concretely, flags anything half-built so it is not mistaken for a bug, names the
+specific judgement calls where owner feedback would change the next tick, and keeps commits, test
+counts and CI to a closing line as evidence rather than content.
+
+## 2026-09-05 — Prove the accounts UX before closing the gate; public access drops to P3
+
+Two owner calls after #84 deployed, both pointing the same way: exercise the accounts system as a
+human before anything is enforced or exposed.
+
+**#86 split; the accounts chain is now five steps.** #86 bundled the login screens with the gate
+flip, so the first time anyone saw the login flow would have been the same deploy that could lock
+the owner out of their own history. The screens moved to **#105** ("Accounts 3/5: login and
+set-password screens, before the gate"), which ships them while the app is still open. #86 keeps
+only the enforcement — `current_profile` on the data endpoints, deleting `_default_profile_id`,
+trimming `/api/health`, gating `/api/events`, plus the route guard and the central 401 handler,
+which are the two frontend pieces that only mean anything once something returns 401.
+
+**#105 deliberately ships no route guard.** A guard before the gate would close the *UI* while the
+API stayed open — a soft lockout with no safety benefit, since the data endpoints would still answer
+unauthenticated. So after #105 the app remains usable with no session, exactly as today, and a
+logged-in session changes nothing about which rows are read or written until #86. #105 carries a
+test asserting the app still works unauthenticated; #86 is where that test flips.
+
+**The bootstrap is a real Resend send to the owner's own address**, reconfirmed rather than assumed.
+It produces the actual email #105 is then tested against, and proves the integration on real
+infrastructure before anyone else is invited.
+
+**#27 (public access) → P3.** Its original ask was public access *for 3-4 accounts*, so it was always
+downstream of real auth; the remaining risk is not the tunnel but whether invite, set-password, login
+and logout work for a human on a phone. Exposing an app nobody has logged into yet only adds surface.
+`APP_BASE_URL` remains the single config seam, so this blocks nothing — and `APP_COOKIE_SECURE` stays
+`0` until something actually terminates TLS, since flipping it early breaks login silently.
+
+## 2026-09-05 — Plan when it isn't decomposed, not when it's big; plans stop carrying code
+
+Owner review of how the runner decides when to implement. Four calls, shipped as PR #102.
+
+**The plan gate keys on decomposition, not effort size.** The old rule ("`effort:M` or larger and
+no linked plan → plan and stop") fired on size alone and cost a whole tick on #84, which arrived
+approved with a 315-line spec that already contained the schema DDL, endpoint list, test list and
+an explicit "Implementation order" section. Execute when scope, an ordered sequence of testable
+steps, named acceptance tests and no open owner question are all present; plan only what's missing.
+
+**Plans carry decisions, not code.** #84's plan was 1091 lines, ~700 of them test and
+implementation bodies that get written again during execution — the change authored twice, and an
+executor handed finished code to transcribe, which defeats the red step of the TDD the plan asks
+for. Plans now hold task ordering, the decisions the spec left open, test case *names*, and the
+verification steps easy to skip. ~200-300 lines for an `effort:M` issue; that plan was re-cut to
+266 as the reference shape.
+
+**Plans are linked from their Issue** (`**Plan:** <path>` in the body), because no Issue in the
+repo referenced one and the gate was reading a directory listing instead.
+
+**`blocked-by` is the `blocked` label.** PLAYBOOK mandated GitHub's native dependency relationship
+and forbade a label, but the field it names doesn't exist on this API, so the check had always
+silently passed while practice used the label.
+
+**Effort split, soft:** ~60% implementation, ~30% planning, ~10% review, review being regular
+rather than terminal — get to running code early so reviews land on code, not prose. Research-heavy
+work may take more investigation and should say so in `STATE.md`. Two caveats keep it honest:
+review is a gate, not a budget line, and verification belongs to implementation.
+
+**#84 stays `effort:M`, checked rather than assumed.** Its plan runs to six tasks, which reads
+large, but that is TDD granularity, not scope: five files touched (`backend/main.py`,
+`backend/test_auth.py`, `backend/test_profiles.py`, `backend/requirements.txt`,
+`AGENTS.local.md.example`), one cohesive surface, far inside GUARDRAILS' 40-file / 150k-token
+split threshold. Splitting further would break the property that makes step 1 coherent — that it
+is safe to deploy while the app is still open.
+
+## 2026-09-04 — Backups go manual; no alerting; home branch stops merging
+
+Three owner calls in one conversation, all reversing or settling things decided earlier
+the same day.
+
+**Backups are manual.** The cron is removed from the Pi entirely, not just slowed down —
+run `scripts/backup.sh` when you want a copy. Local snapshots pruned to two. The
+consequence had to be fixed with it: `scripts/deploy.sh` treated a `stale`
+`last_backup_status` as a hard deploy failure, so with no schedule every deploy would
+have started failing eight days after the last manual backup. It warns now, and `stale`
+is reframed as "it has been over a week" rather than "the schedule is broken". #88's
+actual mechanism (status file, no unauthenticated write endpoint) is untouched and still
+unblocks #86.
+
+**No external alerting.** #89 closed as not planned. healthchecks.io alarms on a ping
+that missed its schedule; a manual backup has no schedule, so it would fire forever —
+the same "always red, so nobody reads it" failure #88 existed to remove, relocated to
+another service. The `HEARTBEAT_URL` hook stays in the script, unused, so reinstating a
+cron plus a check later is a two-line change.
+
+**The orchestration home branch never merges to the default branch.** Chosen over
+"merge and re-push every time" because one forgotten re-push silently disables collision
+protection and nothing reports it. Doc commits go straight to the home branch; when
+`main` should carry them, cherry-pick onto a short-lived branch and PR that. Fed back
+upstream as `agent-scaffold` PR #2, together with the state-label-on-split-children fix.
+
+## 2026-09-04 — #88 ships end to end: deploy the Pi, then flip the cron
+
+Asked at the deploy boundary, because #88's two halves only work together. The
+owner chose to take the tick all the way: merge, deploy, then change the Pi's
+crontab to weekly in the same window. Deploying carried the py3.11 to 3.14 base
+image bump and pydantic 2.13.5, which had been sitting on main hand-verified but
+undeployed since 2026-09-04; those were the only runtime changes in the backlog,
+everything else was docs.
+
+The ordering is the point. Flipping the cron before the 8-day threshold is
+running on the Pi would leave /api/health permanently stale, which is the exact
+failure the issue exists to prevent. Deploy first, cron second, always.
 
 ## 2026-09-04 — Accounts: #67 and #68 are one workstream, not a sequence
 
