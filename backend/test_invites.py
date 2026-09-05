@@ -246,3 +246,144 @@ def test_a_duplicate_username_or_email_is_rejected(fast, client, sent):
     assert c.post("/api/profiles", json={"username": "newbie", "email": "n@example.com"}).status_code == 201
     assert c.post("/api/profiles", json={"username": "newbie", "email": "other@example.com"}).status_code == 409
     assert c.post("/api/profiles", json={"username": "other", "email": "n@example.com"}).status_code == 409
+
+
+# --- rate limiting ---
+
+@pytest.fixture
+def limited(fast):
+    """A clean limiter per test — it is process-global by design."""
+    fast.reset_rate_limits()
+    return fast
+
+
+def test_login_429s_after_ten_attempts_in_the_window(limited, client):
+    _profile(limited, username="tester", email="t@example.com",
+             password_hash=limited.hash_password("correct horse battery"))
+    bad = {"username": "tester", "password": "wrong horse battery"}
+    codes = [client.post("/api/auth/login", json=bad).status_code for _ in range(10)]
+    assert codes == [401] * 10
+    # Cost-12 hashing is 627 ms of CPU on a 4-core box that also runs Home
+    # Assistant. Unthrottled, this endpoint is a CPU amplifier.
+    assert client.post("/api/auth/login", json=bad).status_code == 429
+
+
+def test_the_limiter_blocks_the_correct_password_too(limited, client):
+    _profile(limited, username="tester", email="t@example.com",
+             password_hash=limited.hash_password("correct horse battery"))
+    for _ in range(10):
+        client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+    # Otherwise the limiter is trivially bypassed by guessing right eventually.
+    r = client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+    assert r.status_code == 429
+    assert "set-cookie" not in r.headers
+
+
+def test_a_rate_limited_login_does_no_hashing(limited, client, monkeypatch):
+    _profile(limited, username="tester", email="t@example.com",
+             password_hash=limited.hash_password("correct horse battery"))
+    bad = {"username": "tester", "password": "wrong horse battery"}
+    for _ in range(10):
+        client.post("/api/auth/login", json=bad)
+    calls = []
+    monkeypatch.setattr(limited, "verify_password",
+                        lambda *a, **k: calls.append(1) or False)
+    client.post("/api/auth/login", json=bad)
+    # The point of the limit is to *not spend the CPU*. Rejecting after hashing
+    # would leave the amplifier fully intact.
+    assert calls == []
+
+
+def test_forgot_password_is_rate_limited_too(limited, client, sent):
+    _profile(limited, email="known@example.com")
+    body = {"email": "known@example.com"}
+    codes = [client.post("/api/auth/forgot-password", json=body).status_code for _ in range(10)]
+    assert codes == [200] * 10
+    assert client.post("/api/auth/forgot-password", json=body).status_code == 429
+
+
+def test_the_window_expires(limited, client, monkeypatch):
+    _profile(limited, username="tester", email="t@example.com",
+             password_hash=limited.hash_password("correct horse battery"))
+    bad = {"username": "tester", "password": "wrong horse battery"}
+    for _ in range(10):
+        client.post("/api/auth/login", json=bad)
+    assert client.post("/api/auth/login", json=bad).status_code == 429
+    now = limited.time.time()
+    monkeypatch.setattr(limited.time, "time", lambda: now + limited.RATE_LIMIT_WINDOW_S + 1)
+    assert client.post("/api/auth/login", json=bad).status_code == 401
+
+
+def test_the_ip_counter_also_bites_across_usernames(limited, client):
+    _profile(limited, username="tester", email="t@example.com",
+             password_hash=limited.hash_password("correct horse battery"))
+    _profile(limited, username="other", email="o@example.com",
+             password_hash=limited.hash_password("another good password"))
+    for _ in range(10):
+        client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+    # Per the spec, the limit is keyed by IP *and* by username, so a source
+    # hammering one account is throttled even when it switches usernames.
+    # Accepted consequence: a household behind one NAT shares the IP budget for
+    # the rest of the window. Worth revisiting if #27 ever makes this public and
+    # real users start colliding — for 3-4 accounts it is the right trade.
+    r = client.post("/api/auth/login", json={"username": "other", "password": "another good password"})
+    assert r.status_code == 429
+
+
+def test_a_different_source_ip_is_counted_separately(limited, client):
+    _profile(limited, username="tester", email="t@example.com",
+             password_hash=limited.hash_password("correct horse battery"))
+    for _ in range(11):
+        client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+    assert limited._rate_limit_hit("ip:198.51.100.7") is False
+
+
+# --- owner bootstrap ---
+
+def test_bootstrap_sets_the_email_and_mints_an_invite(fast, sent):
+    result = fast.bootstrap_owner("owner@example.com", username="kapekost")
+    assert result["kind"] == "invite"      # seeded profile has no password yet
+    assert result["sent"] is True
+    with fast.db() as conn:
+        assert conn.execute("SELECT email FROM profiles WHERE username='kapekost'"
+                            ).fetchone()[0] == "owner@example.com"
+        assert conn.execute("SELECT kind FROM auth_tokens").fetchone()[0] == "invite"
+    assert [m["to"] for m in sent] == ["owner@example.com"]
+
+
+def test_bootstrap_goes_through_the_normal_invite_path_not_a_backdoor(fast, sent, client):
+    fast.bootstrap_owner("owner@example.com", username="kapekost")
+    raw = _token_from(sent[0]["body"])
+    # The owner's account is created by exactly the mechanism every other
+    # account uses — that is what proves the flow before anyone else is invited.
+    r = client.post("/api/auth/set-password", json={"token": raw, "password": "correct horse battery"})
+    assert r.status_code == 200
+    assert r.json()["role"] == "admin"
+    assert client.post("/api/auth/login",
+                       json={"username": "kapekost", "password": "correct horse battery"}
+                       ).status_code == 200
+
+
+def test_bootstrap_on_an_account_that_already_has_a_password_sends_a_reset(fast, sent):
+    with fast.db() as conn:
+        conn.execute("UPDATE profiles SET password_hash = ? WHERE username='kapekost'",
+                     (fast.hash_password("correct horse battery"),))
+        conn.commit()
+    assert fast.bootstrap_owner("owner@example.com", username="kapekost")["kind"] == "reset"
+
+
+def test_bootstrap_refuses_an_unknown_username(fast, sent):
+    with pytest.raises(ValueError, match="no profile"):
+        fast.bootstrap_owner("owner@example.com", username="nobody")
+
+
+def test_bootstrap_reports_a_send_failure_instead_of_raising(fast, monkeypatch):
+    def boom(to, subject, body):
+        raise RuntimeError("resend is down")
+    monkeypatch.setattr(fast, "send_email", boom)
+    result = fast.bootstrap_owner("owner@example.com", username="kapekost")
+    # The token is minted and the email is recorded either way — re-running the
+    # script re-sends rather than leaving a half-done bootstrap.
+    assert result["sent"] is False
+    with fast.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_tokens").fetchone()[0] == 1

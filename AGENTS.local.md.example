@@ -56,8 +56,17 @@ Injected into the container as env vars (`docker run -e ...`). Placeholders
 only — the real values belong in your own untracked `AGENTS.local.md`.
 
 ```
-APP_COOKIE_SECURE=0   # 1 once the app is served over HTTPS; 0 for a plain-HTTP LAN/tailnet URL
+APP_COOKIE_SECURE=0                            # 1 once the app is served over HTTPS; 0 for a plain-HTTP LAN/tailnet URL
+APP_BASE_URL=http://your-host:8080             # what emailed invite/reset links point at
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx         # https://resend.com/api-keys — never commit the real one
+MAIL_FROM=Workout Tracker <you@your-domain>    # must be a verified sender in Resend
 ```
+
+`APP_BASE_URL` is the single seam a future public hostname replaces — invite and
+reset links are built from it, so getting it wrong mails people a link they
+cannot open. `RESEND_API_KEY` and `MAIL_FROM` are needed only to actually send;
+the app runs fine without them until someone triggers an invite or a reset, and
+`scripts/bootstrap_owner.py` refuses to run rather than pretending to send.
 
 `APP_COOKIE_SECURE` drives the `Secure` flag on the session cookie. Setting it
 before TLS actually terminates in front of the app breaks login silently — the

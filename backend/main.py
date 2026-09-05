@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets, hashlib, urllib.request, urllib.error
+import sqlite3, os, json, glob, secrets, hashlib, time, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone
 
@@ -475,6 +475,45 @@ APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8080")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 MAIL_FROM = os.environ.get("MAIL_FROM", "")
 
+# Rate limiting, on /api/auth/login and /api/auth/forgot-password only.
+# In-memory is honest for a single-container deployment: there is one process,
+# so there is nothing to share state with, and a restart clearing the counters
+# is acceptable for this threat. A table would add a write on the login path for
+# no benefit at this scale.
+RATE_LIMIT_MAX = 10
+RATE_LIMIT_WINDOW_S = 15 * 60
+_rate_windows: dict[str, tuple[float, int]] = {}
+
+def reset_rate_limits() -> None:
+    """Tests only — the window store is process-global by design."""
+    _rate_windows.clear()
+
+def _rate_limit_hit(key: str) -> bool:
+    """Count one attempt against a fixed window. True once over the limit."""
+    now = time.time()
+    start, count = _rate_windows.get(key, (now, 0))
+    if now - start >= RATE_LIMIT_WINDOW_S:
+        start, count = now, 0
+    count += 1
+    _rate_windows[key] = (start, count)
+    return count > RATE_LIMIT_MAX
+
+def enforce_rate_limit(request: Request, *keys: str) -> None:
+    """429 if any of the caller's counters is over. Keyed by IP *and* by the
+    subject (username or email), per the design.
+
+    This exists because cost-12 hashing is 627 ms of CPU on a 4-core box that
+    also runs Home Assistant — an unthrottled login endpoint is a CPU amplifier
+    pointed at the house. So callers must invoke this *before* doing any hashing;
+    rejecting afterwards would leave the amplifier fully intact.
+    """
+    ip = request.client.host if request.client else "unknown"
+    # Every counter is evaluated, not short-circuited, so one key going over
+    # does not stop the others from recording the attempt.
+    over = [_rate_limit_hit(k) for k in (f"ip:{ip}", *keys)]
+    if any(over):
+        raise HTTPException(429, "too many attempts; try again in a few minutes")
+
 def hash_token(raw: str) -> str:
     """Tokens are stored as their SHA-256 and never in the clear.
 
@@ -550,6 +589,35 @@ def current_profile(request: Request) -> dict:
         raise HTTPException(401, "not authenticated")
     return dict(row)
 
+def bootstrap_owner(email: str, username: str = "kapekost") -> dict:
+    """Give an existing profile an email address and mail it a real invite.
+
+    This is how the owner's own account comes into being — through the same
+    invite path as everyone else, with no backdoor and no password argument.
+    Running it is the first genuine Resend send, which is the point: the
+    integration is proven on live infrastructure before anyone else is invited.
+
+    Returns what happened rather than raising on a send failure, so a mail
+    outage leaves a valid token to re-send rather than a half-done bootstrap.
+    """
+    with db() as conn:
+        row = conn.execute("SELECT id, password_hash FROM profiles WHERE username = ?",
+                           (username,)).fetchone()
+        if row is None:
+            raise ValueError(f"no profile named {username!r}")
+        conn.execute("UPDATE profiles SET email = ? WHERE id = ?", (email, row["id"]))
+        # Same rule as forgot-password: an account with no password gets an
+        # invite, one that has a password gets a reset.
+        kind = "reset" if row["password_hash"] else "invite"
+        raw = mint_token(conn, row["id"], kind)
+        conn.commit()
+    sent = True
+    try:
+        _token_email(email, raw, kind)
+    except Exception:
+        sent = False
+    return {"username": username, "email": email, "kind": kind, "sent": sent}
+
 def require_admin(profile: dict = Depends(current_profile)) -> dict:
     if profile["role"] != "admin":
         raise HTTPException(403, "admin only")
@@ -605,7 +673,8 @@ def set_password(body: SetPasswordIn, response: Response):
     return dict(profile)
 
 @app.post("/api/auth/forgot-password")
-def forgot_password(body: ForgotPasswordIn, background: BackgroundTasks):
+def forgot_password(body: ForgotPasswordIn, background: BackgroundTasks, request: Request):
+    enforce_rate_limit(request, f"email:{body.email}")
     with db() as conn:
         row = conn.execute("SELECT id, email, password_hash FROM profiles WHERE email = ?",
                            (body.email,)).fetchone()
@@ -647,7 +716,9 @@ def create_profile(body: ProfileIn, admin: dict = Depends(require_admin)):
             "role": "member", "invite_sent": invite_sent}
 
 @app.post("/api/auth/login")
-def login(body: LoginIn, response: Response):
+def login(body: LoginIn, response: Response, request: Request):
+    # Before any hashing — see enforce_rate_limit.
+    enforce_rate_limit(request, f"user:{body.username}")
     with db() as conn:
         row = conn.execute(
             "SELECT id, username, role, icon, email, password_hash FROM profiles "
