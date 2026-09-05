@@ -94,9 +94,10 @@ paths before re-discovering them.
 cd frontend && npm install && npm test          # vitest, ~2 s
 npm run dev                                     # Vite dev server, proxies /api
 
-# Backend
+# Backend — name the interpreter; bare `python3` is 3.9 on stock macOS and the
+# pinned requirements need 3.14 (pip just reports it can't satisfy fastapi).
 cd backend
-python3 -m venv .venv
+python3.14 -m venv .venv                        # Homebrew: brew install python@3.14
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest -q                   # ~1 s
 .venv/bin/python -m uvicorn main:app --reload   # DATABASE_URL defaults to /app/data — override locally
@@ -104,6 +105,9 @@ python3 -m venv .venv
 
 Both `.venv/` and `node_modules/` are gitignored, so each git worktree needs its own —
 they are not shared with the main checkout.
+
+The 3.14 above is the version the Dockerfile's base image (`python:3.14-slim`) and CI
+(`.github/workflows/backend-tests.yml`) both pin; keep all three in step.
 
 ## Runbook
 
