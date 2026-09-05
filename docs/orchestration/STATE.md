@@ -5,45 +5,31 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, now executing. The owner approved **#84** on 2026-09-05
-  (`/orchestrate approve 84` — label added, rationale commented on the Issue), which unblocks the
-  chain at step 1. This tick found #84 `effort:M` with no linked plan and, per PLAYBOOK step 3,
-  **planned it rather than executing**: `docs/superpowers/plans/2026-09-05-accounts-auth-core.md`,
-  merged as PR #101. Six TDD tasks — schema v6 migration → bcrypt cost-12 helpers → server-side
-  session store and `wt_session` cookie → `current_profile` + `GET /api/auth/me` → `POST
-  /api/auth/login` → `POST /api/auth/logout`. The chain behind it is unchanged: **#85** (Resend
-  invite/reset, rate limiting, owner bootstrap) → **#86** (flip the gate, delete
-  `_default_profile_id`, frontend login) → **#87** (export/import role behaviour), all three
-  `blocked` by design and each needing its own approval. Design of record:
-  `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83). Intake unchanged:
+- **Current focus:** Accounts, **step 1 of 4 shipped**. #84 (schema v6 + auth core) merged as
+  `3ed18a4` (PR #103) — 152 backend tests (101 existing + 51 new) and 216 frontend tests green.
+  Six TDD commits: schema v6 → bcrypt cost-12 helpers → session store and `wt_session` cookie →
+  `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` → `POST /api/auth/logout`, plus a
+  self-review fix (`verify_password` could raise `UnicodeEncodeError` on a non-ASCII stored hash,
+  contradicting its own "never raises" contract). Both approval constraints shipped **as tests**: a
+  parametrized test holds nine data endpoints open without a cookie, and the two auth tables are
+  asserted out of `TABLES`/`TABLE_INTRODUCED_AT` with the envelope unchanged at schema 6.
+  `_default_profile_id` is untouched. Remaining chain: **#85** (Resend invite/reset, rate limiting,
+  owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend login) →
+  **#87** (export/import role behaviour), each `blocked` and each needing its own approval. Design
+  of record: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`. Intake unchanged:
   #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
 
-  **Three things the plan settles that the spec left to execution**, recorded here because they
-  are the kind of decision a later tick would otherwise re-derive from scratch. Auth code stays in
-  `backend/main.py` in one delimited `# --- Auth ---` section rather than a new module —
-  `Dockerfile:35` COPYs `backend/main.py` by name, so a split is a Dockerfile change and a deploy
-  risk step 1 has no reason to take. Session expiry is computed by SQLite
-  (`datetime('now', '+30 days')`), not Python, so stored timestamps share one format with every
-  other timestamp in the schema and string comparison is well-defined by construction rather than
-  by luck. And bcrypt cost 12 is a module constant tests monkeypatch down to 4, with a single test
-  guarding the real number — at cost 12 every hashing test would cost ~200 ms on CI and 627 ms on
-  the Pi.
-
-  **The plan makes two checks non-optional.** A by-hand `docker buildx build --platform
-  linux/arm64` before merge: `bcrypt` is the first new runtime dependency since the py3.14
-  base-image bump, and `Dockerfile:25-28` already warns that CI never builds this Dockerfile, so a
-  missing aarch64 wheel is invisible to every green check and surfaces only as a failed build on
-  the Pi. (bcrypt 5.0.0 does publish `manylinux_2_17_aarch64` wheels for cp314 — the build is what
-  proves it.) And a table-driven test asserting the data endpoints are **still open**, so flipping
-  the gate early — #86's job, and something that would lock the owner out of their own history
-  before the invite flow exists — fails the suite instead of shipping.
-
-  **State was split across two branches and is now reconciled.** The owner's approval commit
-  (`366e9f3`) landed on `main`, on a copy of `STATE.md` that predated the #88/#93 tick entries
-  living only here — so each branch held facts the other lacked. This file is authoritative and now
-  carries both. `main`'s copy stays behind by design (the home branch never merges, per the
-  2026-09-04 decision); logged as a `[template]` improvement, because the approve variant never
-  says which branch its record goes on.
+  **The orchestration process changed this session** (PR #102, owner-reviewed). The plan gate now
+  keys on **decomposition, not effort size** — an Issue whose spec already yields an ordered,
+  testable sequence gets executed, whatever its effort label. Plans carry task ordering, the
+  decisions the spec left open, test *names* and the easy-to-skip verifications — not test and
+  implementation bodies; #84's plan was re-cut 1091 → 266 lines as the reference shape. Plans are
+  now linked from their Issue (`**Plan:**` line in the body), because none were and the gate was
+  reading a directory listing. `blocked-by` is documented as the `blocked` label the repo actually
+  uses, since the native dependency field PLAYBOOK named does not exist on this API. And a soft
+  effort split is on record: ~60% implementation, ~30% planning, ~10% review, review being regular
+  rather than terminal. The rule change paid for itself immediately — #84 was planned and stopped
+  under the old gate, then executed end-to-end under the new one in the same session.
 
   **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
   2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
@@ -149,6 +135,30 @@
   order.
 
 ## Tick log
+- **2026-09-05 (live session — process retuned, then #84 shipped end to end):** Two ticks and an
+  owner review, in one session.
+
+  **The owner reviewed how the runner decides when to implement**, prompted by the first tick
+  planning #84 instead of building it. Four changes, PR #102: the plan gate keys on decomposition
+  rather than effort size; plans carry decisions and test names rather than test and implementation
+  bodies (#84's was re-cut 1091 → 266 lines); plans are linked from their Issue; and `blocked-by` is
+  documented as the label the repo actually uses, since the native GraphQL field PLAYBOOK mandated
+  returns `undefinedField`. A soft 60/30/10 implementation/planning/review split is on record, with
+  review as a gate rather than a budget line. Recorded in `DECISIONS.md`.
+
+  **#84 then shipped under the new gate** — PR #103, `3ed18a4`. Six TDD commits, 51 new backend
+  tests, 152 backend and 216 frontend passing, CI green. Self-review before the PR caught one real
+  defect: `verify_password` promised "never raises" but only caught `ValueError`, so a stored hash
+  that was not even ASCII would have escaped as a 500 on the login path.
+
+  **One verification did not run, and is recorded rather than glossed:** the by-hand
+  `docker buildx build --platform linux/arm64`, because the Docker daemon was down. The risk it
+  guards was checked more broadly instead — `pip download --only-binary=:all: --platform
+  manylinux_2_17_aarch64 --python-version 3.14` resolved the entire runtime dependency set with no
+  source distribution anywhere, `bcrypt-5.0.0-cp39-abi3-manylinux2014_aarch64` included, which is
+  precisely what `Dockerfile:25-28` exists to protect. `scripts/deploy.sh` builds the image anyway,
+  so the gate binds at deploy, not at merge.
+
 - **2026-09-05 (live session — #84 planned, state reconciled):** Picked #84, the first pickable
   Issue since the owner approved it. It is `effort:M` with no linked plan, so PLAYBOOK step 3
   planned it and stopped rather than executing.
