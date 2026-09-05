@@ -29,6 +29,7 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
   --muted: #9ca3af;
   --muted-2: #6b7280;
   --danger: #ef4444;
+  --danger-bg: #2a1a1a;
   --content-max-width: 28rem;
   --page-gutter: 1rem;
   --navbar-height: 77px;
@@ -77,6 +78,56 @@ button, a, .tap-target { touch-action: manipulation; }
   transition: background 0.15s;
 }
 .btn-icon:active { background: #2a2a42; }
+.btn-primary:disabled { opacity: 0.55; cursor: default; }
+.btn-primary:focus-visible, .btn-secondary:focus-visible, .btn-icon:focus-visible {
+  outline: 2px solid var(--mint); outline-offset: 2px;
+}
+
+/* Auth forms (Login, SetPassword). Both screens carried their own copy of
+   these as inline style objects, borderless and with no focus state at all --
+   the fields read as flat filled blocks rather than as something you type
+   into. One shared set of classes instead, since both screens need exactly
+   the same field. */
+.field-label {
+  display: block; color: var(--muted); font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px;
+}
+.field {
+  width: 100%; min-height: 48px; padding: 12px 14px;
+  background: var(--bg); color: #fff;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: inherit;
+  /* Exactly 1rem: iOS Safari zooms the whole page in when a focused input is
+     any smaller, which on a phone throws the rest of the form off-screen. */
+  font-size: 1rem;
+}
+.field:focus {
+  outline: 2px solid var(--mint); outline-offset: 1px; border-color: var(--mint);
+}
+/* A field that carries the show/hide password button. */
+.field-row { position: relative; }
+.field-row .field { padding-right: 4.5rem; }
+.field-toggle {
+  position: absolute; top: 0; right: 0; bottom: 0; min-width: 60px;
+  background: none; border: none; border-radius: 8px; cursor: pointer;
+  color: var(--mint); font-family: inherit; font-size: 0.8rem; font-weight: 600;
+}
+.field-toggle:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; }
+.form-error {
+  color: #fff; background: var(--danger-bg);
+  border-left: 3px solid var(--danger); border-radius: 8px;
+  padding: 10px 12px; font-size: 0.875rem;
+}
+/* .page-shell reserves 6rem at the bottom for a NavBar the auth screens do
+   not render, and --header-height (App.jsx) is the padding its fixed header
+   costs. Subtracting both leaves the form optically centred on a tall
+   viewport and changes nothing on a short one, where the content is taller
+   than the min-height and simply scrolls. */
+.auth-shell {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 1.5rem 0 1rem;
+  min-height: calc(100dvh - var(--header-height, 0px) - 6rem);
+}
 .tap-target { position: relative; }
 .tap-target::after {
   content: ''; position: absolute; left: 50%; top: 50%;

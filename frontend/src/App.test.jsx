@@ -103,3 +103,41 @@ describe('auth routes', () => {
     expect(screen.getByText('invited')).toBeInTheDocument()
   })
 })
+
+// Chrome, not gating. Nothing here stops anyone reaching anything -- the auth
+// screens simply stop rendering the app's primary nav, so it can't compete
+// with the single action they exist to ask for. The gate is still #86.
+describe('auth screens are chrome-free', () => {
+  it('leaves the app nav off /login, and still offers a way back', async () => {
+    unauthenticated()
+    window.history.pushState({}, '', '/login')
+    render(<App />)
+
+    await screen.findByLabelText('Username')
+    expect(screen.queryByRole('button', { name: /Progress/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /History/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to workouts' })).toBeInTheDocument()
+  })
+
+  it('leaves it off /set-password too', async () => {
+    unauthenticated()
+    window.history.pushState({}, '', '/set-password?token=raw-token')
+    render(<App />)
+
+    await screen.findByLabelText('New password')
+    expect(screen.queryByRole('button', { name: /History/i })).not.toBeInTheDocument()
+  })
+
+  it('brings the nav straight back on the way out', async () => {
+    unauthenticated()
+    window.history.pushState({}, '', '/login')
+    render(<App />)
+    await screen.findByLabelText('Username')
+
+    fireEvent.click(screen.getByRole('link', { name: 'Back to workouts' }))
+
+    await screen.findByText(/Next up/i)
+    expect(screen.getByRole('button', { name: /History/i })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+  })
+})

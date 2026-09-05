@@ -121,3 +121,37 @@ describe('SetPassword', () => {
     await screen.findByText('Home screen')
   })
 })
+
+describe('SetPassword — the form itself', () => {
+  it('reveals both fields from one toggle, since the point is comparing them', () => {
+    renderSetPassword()
+    const password = screen.getByLabelText('New password')
+    const confirm = screen.getByLabelText('Confirm password')
+    expect(password).toHaveAttribute('type', 'password')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show passwords' }))
+    expect(password).toHaveAttribute('type', 'text')
+    expect(confirm).toHaveAttribute('type', 'text')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide passwords' }))
+    expect(password).toHaveAttribute('type', 'password')
+    expect(confirm).toHaveAttribute('type', 'password')
+  })
+
+  // The rule used to exist only as prose in the intro paragraph, which a
+  // screen reader never ties to the field and an eye skips straight past.
+  it('attaches the length rule to the field it governs', () => {
+    renderSetPassword()
+    const describedBy = screen.getByLabelText('New password').getAttribute('aria-describedby')
+    expect(document.getElementById(describedBy)).toHaveTextContent('At least 12 characters')
+  })
+
+  it('announces the failure rather than only colouring it', async () => {
+    renderSetPassword()
+
+    fillPassword('a long enough password', 'a different password')
+    fireEvent.click(screen.getByRole('button', { name: 'Set password' }))
+
+    expect(await screen.findByRole('alert')).toHaveAttribute('aria-live', 'assertive')
+  })
+})

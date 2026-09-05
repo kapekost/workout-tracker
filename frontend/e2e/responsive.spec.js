@@ -65,6 +65,9 @@ const PAGES = [
   { name: 'History', path: '/history', ready: (page) => page.getByRole('heading', { name: 'History', level: 1 }) },
   { name: 'Progress', path: '/progress', ready: (page) => page.getByRole('button', { name: 'Bench Press' }) },
   { name: 'Exercise', path: `/exercise/${WORKOUT_DAY}/${EXERCISE_ID}`, ready: (page) => page.getByRole('heading', { name: 'Bench Press', level: 1 }) },
+  // The one page that renders no NavBar (see NavBar.jsx) — so it is also the
+  // only one whose tap-target floor is carried entirely by its own controls.
+  { name: 'Login', path: '/login', ready: (page) => page.getByRole('heading', { name: 'Log in', level: 1 }) },
 ]
 
 async function gotoReady(page, entry) {
@@ -96,11 +99,13 @@ test.describe('320x568 floor', () => {
   for (const entry of PAGES) {
     test(`${entry.name}: tap targets are >=44px tall`, async ({ page }) => {
       await gotoReady(page, entry)
-      const targets = page.locator('.tap-target, .btn-icon, nav button')
+      const targets = page.locator('.tap-target, .btn-icon, .field-toggle, nav button')
       const count = await targets.count()
       // A selector that silently matched nothing would make this loop a
-      // no-op. Every page here always renders NavBar's 3 items at minimum,
-      // so this floor should never trip — if it does, something upstream
+      // no-op. Every page here renders at least one match — NavBar's 3 items
+      // on the app screens, and on Login (which deliberately has no NavBar)
+      // the header's "Back to workouts" link, the show/hide password toggle
+      // and "Forgot your password?". If this floor trips, something upstream
       // (routing, the mock fixture) broke, not just this assertion.
       expect(count).toBeGreaterThan(0)
       for (let i = 0; i < count; i++) {
@@ -182,7 +187,7 @@ test.describe('320x568 floor — DisclosureRow expanded', () => {
     }))
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
 
-    const targets = await page.locator('.tap-target, .btn-icon, nav button').all()
+    const targets = await page.locator('.tap-target, .btn-icon, .field-toggle, nav button').all()
     for (const el of targets) {
       const size = await el.evaluate((node) => {
         if (node.classList.contains('tap-target')) {

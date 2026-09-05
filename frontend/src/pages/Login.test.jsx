@@ -152,3 +152,43 @@ describe('Login — forgot password', () => {
     expect(await screen.findByText(/if that address has an account/i)).toBeInTheDocument()
   })
 })
+
+describe('Login — the form itself', () => {
+  it('lets you check what you typed, and hide it again', () => {
+    renderLogin()
+    const field = screen.getByLabelText('Password')
+    expect(field).toHaveAttribute('type', 'password')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(field).toHaveAttribute('type', 'text')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(field).toHaveAttribute('type', 'password')
+  })
+
+  it('gives a password manager the field names it needs', () => {
+    renderLogin()
+    expect(screen.getByLabelText('Username')).toHaveAttribute('autocomplete', 'username')
+    expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password')
+  })
+
+  it('announces the failure rather than only colouring it', async () => {
+    auth.login.mockRejectedValue(apiError(401, 'invalid username or password'))
+    renderLogin()
+
+    fillCredentials('kapekost', 'wrong')
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(await screen.findByRole('alert')).toHaveAttribute('aria-live', 'assertive')
+  })
+
+  // The old intro explained the app's internals ("Your workouts stay on this
+  // device's tracker either way -- logging in just ties them to your own
+  // profile"). It still has to say logging in is optional, because until #86
+  // it genuinely is, but it now says it in the reader's terms.
+  it('says why you would log in without describing the implementation', () => {
+    renderLogin()
+    expect(screen.queryByText(/this device's tracker/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/saved either way/i)).toBeInTheDocument()
+  })
+})
