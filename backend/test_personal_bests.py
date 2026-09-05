@@ -1,9 +1,9 @@
 def test_migration_creates_personal_bests_table(mainmod):
     with mainmod.db() as conn:
-        # schema v5 is the app's current terminal version (v4: #66 profiles +
-        # profile_id everywhere; v5: #69 profile icon) — personal_bests
-        # carries profile_id since v4.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        # schema v6 is the app's current terminal version (v4: #66 profiles +
+        # profile_id everywhere; v5: #69 profile icon; v6: #84 accounts) —
+        # personal_bests carries profile_id since v4.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         cols = {r[1] for r in conn.execute("PRAGMA table_info(personal_bests)").fetchall()}
         assert cols == {"id", "profile_id", "exercise_id", "exercise_name", "weight_kg", "reps",
                          "achieved_year", "achieved_note", "created_at"}
@@ -11,7 +11,7 @@ def test_migration_creates_personal_bests_table(mainmod):
 def test_migration_is_idempotent(mainmod):
     mainmod.init(); mainmod.init()  # second run must not error
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
 
 def _pb(exercise_id="bench_press", exercise_name="Bench Press", weight_kg=100.0, reps=3, achieved_year=2023, achieved_note=None):
     return {"exercise_id": exercise_id, "exercise_name": exercise_name, "weight_kg": weight_kg,
