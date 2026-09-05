@@ -2,23 +2,12 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth } from '../api'
 import { useSession } from '../lib/session'
-import { colors, type, radius, space } from '../lib/theme'
-
-const labelStyle = {
-  display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
-  letterSpacing: type.labelTracking, textTransform: 'uppercase', marginBottom: 6,
-}
-const fieldStyle = {
-  width: '100%', background: colors.border, color: colors.text, border: 'none',
-  borderRadius: radius.sm, padding: '12px 10px', fontSize: '1rem',
-}
+import { colors, type, space } from '../lib/theme'
 
 function Alert({ children }) {
   return (
-    <p role="alert" style={{
-      color: colors.text, background: colors.dangerBg, borderRadius: radius.sm,
-      padding: '10px 12px', fontSize: type.size.lg, marginBottom: space.xl,
-    }}>{children}</p>
+    <p className="form-error" role="alert" aria-live="assertive"
+      style={{ marginBottom: space.xl }}>{children}</p>
   )
 }
 
@@ -29,6 +18,7 @@ export default function SetPassword() {
   const token = params.get('token')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -56,14 +46,18 @@ export default function SetPassword() {
     }
   }
 
+  // One toggle for both fields: they have to match, so revealing one without
+  // the other tells you nothing about the typo you are hunting for. A second
+  // button on the confirm field would only repeat this one's accessible name.
+  const fieldType = showPassword ? 'text' : 'password'
+
   return (
-    <div style={{ paddingTop: space.xxxl, maxWidth: 420 }}>
+    <div className="auth-shell">
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: space.xs }}>
         Set your password
       </h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: space.xxl }}>
-        Pick something at least 12 characters long. You'll be logged in straight
-        after.
+        Choose a password for your account. You'll be logged in straight after.
       </p>
 
       {!token ? (
@@ -75,19 +69,37 @@ export default function SetPassword() {
         </div>
       ) : (
         <form onSubmit={submit} className="card" style={{ padding: space.xl }}>
-          <label style={labelStyle} htmlFor="new-password">New password</label>
-          <input id="new-password" type="password" value={password} autoComplete="new-password"
-            onChange={e => setPassword(e.target.value)}
-            style={{ ...fieldStyle, marginBottom: space.lg }} />
+          <label className="field-label" htmlFor="new-password">New password</label>
+          {/* The rule the API enforces, stated next to the field it applies
+              to instead of buried in the intro paragraph. */}
+          <p id="password-rule" style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 6 }}>
+            At least 12 characters.
+          </p>
+          <div className="field-row" style={{ marginBottom: space.lg }}>
+            {/* The iOS text-entry hints matter because the toggle flips both
+                fields to type="text": a shown password would otherwise be
+                autocapitalised and autocorrected as you type it. */}
+            <input id="new-password" className="field" type={fieldType} value={password}
+              autoComplete="new-password" aria-describedby="password-rule"
+              autoCapitalize="none" autoCorrect="off" spellCheck="false"
+              onChange={e => setPassword(e.target.value)} />
+            <button type="button" className="field-toggle" aria-pressed={showPassword}
+              aria-label={showPassword ? 'Hide passwords' : 'Show passwords'}
+              onClick={() => setShowPassword(v => !v)}>
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
-          <label style={labelStyle} htmlFor="confirm-password">Confirm password</label>
-          <input id="confirm-password" type="password" value={confirm} autoComplete="new-password"
+          <label className="field-label" htmlFor="confirm-password">Confirm password</label>
+          <input id="confirm-password" className="field" type={fieldType} value={confirm}
+            autoComplete="new-password"
+            autoCapitalize="none" autoCorrect="off" spellCheck="false"
             onChange={e => setConfirm(e.target.value)}
-            style={{ ...fieldStyle, marginBottom: space.xl }} />
+            style={{ marginBottom: space.xl }} />
 
           {error && <Alert>{error}</Alert>}
 
-          <button type="submit" className="btn-primary" disabled={busy} style={{ width: '100%' }}>
+          <button type="submit" className="btn-primary" disabled={busy}>
             {busy ? 'Saving…' : 'Set password'}
           </button>
 

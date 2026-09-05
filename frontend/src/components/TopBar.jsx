@@ -9,19 +9,34 @@ function pageLabel(pathname) {
   if (pathname.startsWith('/history')) return 'History'
   if (pathname.startsWith('/workout')) return 'Workout'
   if (pathname.startsWith('/exercise')) return 'Exercise'
-  if (pathname.startsWith('/login')) return 'Log in'
-  if (pathname.startsWith('/set-password')) return 'Password'
   return ''
 }
 
+// The auth screens carry their own <h1> and exactly one action, so the bar
+// drops both its page label and its "Log in" link there. Printing "Log in"
+// next to an eyebrow reading "LOG IN" (and "Log in  PASSWORD" on the other
+// screen) looked broken, and the link pointed at the page you were already
+// standing on. NavBar.jsx hides itself on the same two paths -- keep the two
+// lists in step.
+function isAuthScreen(pathname) {
+  return pathname.startsWith('/login') || pathname.startsWith('/set-password')
+}
+
+// Muted, not mint. The bar's session control and the mint page label sat
+// adjacent in the same accent colour, which read as one blob -- and a mint
+// "Log in" in the corner of a Home screen already showing your workouts read
+// as a demand rather than an option. Until #86 closes the gate, logging in IS
+// optional; the only accent on these screens belongs to the page's own primary
+// action, which is never in this bar.
 const actionStyle = {
-  fontSize: '0.8rem', fontWeight: type.weight.semibold, color: colors.mint,
+  fontSize: '0.8rem', fontWeight: type.weight.semibold, color: colors.muted,
   background: 'none', border: 'none', padding: 0, cursor: 'pointer',
   whiteSpace: 'nowrap', flexShrink: 0, textDecoration: 'none',
 }
 
 export default function TopBar() {
   const { pathname } = useLocation()
+  const authScreen = isAuthScreen(pathname)
   const label = pageLabel(pathname)
   // Only a real session names anyone here. This used to fall back to
   // /profile/me -- the acting profile every anonymous write is attributed to
@@ -45,29 +60,40 @@ export default function TopBar() {
           🏋 Gym Tracker
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          {profile && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem',
-              color: colors.text, minWidth: 0, overflow: 'hidden'
-            }}>
-              <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || '👤'}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {profile.username}
-              </span>
-            </span>
+          {authScreen ? (
+            // With NavBar gone from these screens, this is the only way back
+            // into the app for someone who tapped "Log in" and changed their
+            // mind -- an installed PWA offers no browser back button.
+            <Link to="/" className="tap-target" style={actionStyle}>
+              Back to workouts
+            </Link>
+          ) : (
+            <>
+              {profile && (
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem',
+                  color: colors.text, minWidth: 0, overflow: 'hidden'
+                }}>
+                  <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || '👤'}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {profile.username}
+                  </span>
+                </span>
+              )}
+              {profile
+                ? (
+                  <button type="button" onClick={signOut} className="tap-target" style={actionStyle}>
+                    Log out
+                  </button>
+                )
+                : (
+                  <Link to="/login" className="tap-target" style={actionStyle}>
+                    Log in
+                  </Link>
+                )}
+              {label && <Eyebrow color={colors.mint} size={type.size.sm}>{label}</Eyebrow>}
+            </>
           )}
-          {profile
-            ? (
-              <button type="button" onClick={signOut} className="tap-target" style={actionStyle}>
-                Log out
-              </button>
-            )
-            : (
-              <Link to="/login" className="tap-target" style={actionStyle}>
-                Log in
-              </Link>
-            )}
-          <Eyebrow color={colors.mint} size={type.size.sm}>{label}</Eyebrow>
         </div>
       </div>
     </div>

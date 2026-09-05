@@ -13,6 +13,14 @@ export default function NavBar() {
   const nav = useNavigate()
   const active = pathname === '/' ? '/' : tabs.find(t => pathname.startsWith(t.path) && t.path !== '/')?.path ?? '/'
 
+  // The auth screens are deliberately chrome-free. Keeping the app's primary
+  // nav on a screen with exactly one action pulled the eye to the bottom of an
+  // otherwise empty page and made the door look like a broken app page.
+  // TopBar.jsx drops its label and action on the same two paths -- keep the
+  // two lists in step. This is presentation only: nothing here (or anywhere)
+  // guards a route or forces a redirect; that is #86.
+  if (pathname.startsWith('/login') || pathname.startsWith('/set-password')) return null
+
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
