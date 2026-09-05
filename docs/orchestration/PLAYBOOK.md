@@ -103,7 +103,16 @@ only because the owner happened to ask about it, not by anything in this file. H
   write-back — `## In-flight` returns to `(no branches in flight)`.
 
 ## The tick (for `/orchestrate` with no arg)
-1. **Read** `STATE.md`, `GUARDRAILS.md`, `DECISIONS.md`. Do not read source files yet.
+1. **Read** `STATE.md`, `GUARDRAILS.md`, `DECISIONS.md` — **from the live
+   `claude/workout-tracker-backlog-bu9qnw` branch, not the working tree and not `main`.** The home
+   branch never merges to the default branch (`DECISIONS.md` 2026-09-04), so `main`'s copies of
+   these files are a partial, hand-cherry-picked subset that silently lags. This is not a
+   hypothetical: on 2026-09-05 two consecutive ticks read `main`'s `DECISIONS.md`, found no standing
+   approval in it, and reported the accounts chain as blocked on an owner approval that had in fact
+   been recorded on the home branch hours earlier — the second tick only caught it because a merge
+   conflict exposed 28 commits `main` had never seen. Read them with
+   `git show origin/claude/workout-tracker-backlog-bu9qnw:docs/orchestration/<file>`, or from a
+   worktree checked out on that branch. Do not read source files yet.
 2. **Reconcile reality:** `git status`, `gh pr list`, `gh issue list --label ready --state open`
    (sorted by the Project's manual rank). If reality diverged from `STATE.md`, correct `STATE.md` and
    continue. Also check for new owner comments since the last tick on any Issue currently in
