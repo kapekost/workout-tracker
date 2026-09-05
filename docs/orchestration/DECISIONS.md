@@ -3,6 +3,40 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-05 — Standing approval: the accounts workstream (#105, #86, #87)
+
+**This is the standing-approval record GUARDRAILS requires.**
+
+**Spec:** `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`, owner-approved in chat
+2026-09-04 and reviewed as PR #83.
+
+**Covers:** **#105** (login and set-password screens), **#86** (flip the gate, delete
+`_default_profile_id`, enforce login) and **#87** (export/import role behaviour). #84 and #85 already
+carry their own `approved` label and are unaffected.
+
+**Why.** The destructive trigger "changes auth, session, secret, or token handling" fires on every
+step of an auth feature by definition, so this one workstream generated an approval request per step
+against a design the owner had already read in full. The owner's words: "i have not got much context
+per number to review or know... let's trust the process on these approvals." An approval that cannot
+be evaluated any better the fifth time than the first is delay, not safety.
+
+**Limits, which are the point of writing it down.** This covers only what the spec describes. If any
+of those three grows scope beyond its design doc, it leaves this approval behind and needs a fresh
+human one. And it never covers GUARDRAILS' "always needs a fresh human approval" list — in
+particular **making the deployment publicly reachable (#27) is explicitly outside it**, which is why
+that item was added to the list in the same change.
+
+No agent may add an `approved` label under this, or any other, arrangement. The label stays
+human-only; this record simply means those three Issues do not need one.
+
+## 2026-09-05 — Tick summaries are written for the product owner
+
+Owner: "as product owner i need to know what to see and try out to give you feedback next time. not
+too brief but also not too verbose." PLAYBOOK step 9 now leads with what is live in product terms
+and what to try concretely, flags anything half-built so it is not mistaken for a bug, names the
+specific judgement calls where owner feedback would change the next tick, and keeps commits, test
+counts and CI to a closing line as evidence rather than content.
+
 ## 2026-09-05 — Prove the accounts UX before closing the gate; public access drops to P3
 
 Two owner calls after #84 deployed, both pointing the same way: exercise the accounts system as a
