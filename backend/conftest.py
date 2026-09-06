@@ -46,6 +46,25 @@ def anon_client(mainmod):
 
 
 @pytest.fixture
+def reauthenticate(mainmod):
+    """Put a fresh session for the seeded owner back on a client.
+
+    A successful /api/import replaces the profiles table, and auth_sessions
+    cascades from it — so a whole-database restore ends every session including
+    the importing one. Tests that keep using the client afterwards need this;
+    see test_auth.py::test_a_restore_ends_every_session_including_the_importers.
+    """
+    def _reauthenticate(client):
+        with mainmod.db() as conn:
+            pid = conn.execute(
+                "SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
+            client.cookies.set("wt_session", mainmod.issue_session(conn, pid))
+            conn.commit()
+        return client
+    return _reauthenticate
+
+
+@pytest.fixture
 def write_backup_status(mainmod):
     """Drop a backup-status.json where /api/admin/backup-status reads it.
 

@@ -106,14 +106,14 @@ def _seed(client):
                       "set_number": 1, "reps": 8, "weight_kg": 80})
     return sid
 
-def test_import_round_trip(client):
+def test_import_round_trip(client, reauthenticate):
     _seed(client)
     envelope = client.get("/api/export").json()
     # wipe by importing an empty-but-valid envelope? No — verify replace restores same data:
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
     assert r.status_code == 200
     assert r.json()["restored"]["sessions"] == 1 and r.json()["restored"]["sets"] == 1
-    again = client.get("/api/export").json()
+    again = reauthenticate(client).get("/api/export").json()
     assert again["tables"]["sessions"] == envelope["tables"]["sessions"]
     assert again["tables"]["sets"] == envelope["tables"]["sets"]
 

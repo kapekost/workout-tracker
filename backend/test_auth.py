@@ -522,6 +522,16 @@ def test_every_data_endpoint_401s_without_a_session(anon_client, method, path, b
     assert r.json() == {"detail": "not authenticated"}
 
 
+def test_the_gate_answers_before_validation_does(anon_client):
+    """A rubbish body or an unparseable path parameter must still be a 401, not
+    a 422. Otherwise the shape of every request the app accepts is readable
+    without a session, and "is this id valid" becomes answerable by anyone."""
+    assert anon_client.post("/api/sessions", json={"workout_day": "yoga"}).status_code == 401
+    assert anon_client.post("/api/events", json={"not": "a list"}).status_code == 401
+    assert anon_client.post("/api/events").status_code == 401
+    assert anon_client.get("/api/sessions/not-an-int").status_code == 401
+
+
 @pytest.mark.parametrize("method,path", sorted(OPEN), ids=[f"{m} {p}" for m, p in sorted(OPEN)])
 def test_the_open_paths_stay_open(anon_client, method, path):
     # Not asserting one status — login with no body is a 422, logout a 204 —
@@ -640,6 +650,32 @@ def test_no_state_leaves_a_logged_in_owner_with_an_empty_app(mainmod, client, fa
         other = mainmod.issue_session(conn, pid)
         conn.commit()
     owner_sees_everything(_as_session(TestClient(mainmod.app), other))
+
+
+def test_a_restore_ends_every_session_including_the_importers(mainmod, client, fast_bcrypt):
+    """Surfaced by closing the gate, and worth writing down rather than
+    discovering during a restore: /api/import replaces the profiles table, and
+    auth_sessions cascades from profiles, so a whole-database restore logs
+    everyone out — the person who ran it included. The next request is a 401,
+    not a 500, and logging back in with the *restored* credentials works.
+
+    The tail of that: if the restored envelope predates passwords, nobody can
+    log in over HTTP at all and recovery is bootstrap_owner on the host.
+    """
+    with mainmod.db() as conn:
+        conn.execute("UPDATE profiles SET password_hash = ? WHERE username = 'kapekost'",
+                     (mainmod.hash_password("correct horse battery"),))
+        conn.commit()
+    envelope = client.get("/api/export").json()
+    assert client.post("/api/import", json={"mode": "replace", "confirm": True,
+                                            "envelope": envelope}).status_code == 200
+    assert client.get("/api/sessions").status_code == 401
+    with mainmod.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
+    assert client.post("/api/auth/login",
+                       json={"username": "kapekost", "password": "correct horse battery"}
+                       ).status_code == 200
+    assert client.get("/api/sessions").status_code == 200
 
 
 # --- per-profile data isolation (#110) ---

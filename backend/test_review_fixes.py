@@ -92,13 +92,14 @@ def test_export_and_health_send_no_store(client):
 
 # --- CODE-15: pre-import snapshots are pruned, newest 3 kept ---
 
-def test_import_prunes_old_snapshots(client, mainmod):
+def test_import_prunes_old_snapshots(client, mainmod, reauthenticate):
     _completed_session(client, "bench", 60)
     envelope = client.get("/api/export").json()
     for _ in range(5):
         r = client.post("/api/import",
                         json={"mode": "replace", "confirm": True, "envelope": envelope})
         assert r.status_code == 200
+        reauthenticate(client)  # the restore just replaced profiles, and sessions cascade
     snaps = glob.glob(os.path.join(os.path.dirname(mainmod.DB_PATH), "pre-import-*.db"))
     assert len(snaps) == 3
 
