@@ -29,17 +29,30 @@
   Also this tick: **#33 merged into #32** per direct owner decision (both were converging on one
   "AI-in-the-loop" spec) — see `DECISIONS.md`; the off-plan/muscle-area logging idea split out to
   its own intake Issue, **#139**.
+- **2026-09-06, same live session, worked ahead of the queue by direct owner call: #142 shipped**
+  (plan PR #143, fix PR #144, closed). Right after the #87 tick closed, the owner reported their
+  phone PWA served real workout data despite never having logged in from it. Root cause: the
+  `api-reads` service-worker cache had a fixed name across every deploy, so a device that cached
+  data before #86 (which added the login requirement) could keep serving it, pre-auth, forever.
+  Filed as #142 (P0), planned, then implemented: `apiReadsCacheName(commit)` scopes the cache to the
+  build so a new deploy can never serve an older build's entries, plus (added after code review
+  caught the plan's initial "no purge possible" reasoning was factually wrong —
+  `workbox-build`'s `importScripts` option proves it isn't) `public/api-cache-cleanup.js` actively
+  purges old-commit caches on `activate`. Full narrative in `HISTORY.md`. **Does not retroactively
+  fix the owner's already-affected phone** — that still needs a manual site-data clear (not yet done
+  as of this write-back) or #125 landing.
 - **Next action:** **#124** (logout locks the device) → UI waves **#129/#130/#131**, in the owner's
-  2026-09-06 order. Unsequenced and pickable on their own merits: **#126** (P0 — a bare
-  `docker compose up` downgrades production to `:latest`), #125, #127, #138, **#135** (now ready),
-  **#141** (P3, new). Queued behind accounts by owner call: **#132** (history scrub, `approved`
+  2026-09-06 order — resumed now that #142 (worked out of turn, by direct owner call, not a
+  reshuffle of this order) has shipped. Unsequenced and pickable on their own merits: **#126** (P0 —
+  a bare `docker compose up` downgrades production to `:latest`), #125, #127, #138, **#135** (now
+  ready), **#141** (P3). Queued behind accounts by owner call: **#132** (history scrub, `approved`
   label on, mirror backup mandatory), **#137** (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#142** — claimed 2026-09-06T22:30:54Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
