@@ -41,12 +41,20 @@
   purges old-commit caches on `activate`. Full narrative in `HISTORY.md`. **Does not retroactively
   fix the owner's already-affected phone** — that still needs a manual site-data clear (not yet done
   as of this write-back) or #125 landing.
+- **2026-09-06/07, same live session: #145 filed.** After #142 shipped, the owner explained the
+  actual trigger for the original phone symptom: Tailscale was off, so the phone genuinely couldn't
+  reach the Pi — and the app gave no sign of it (no error, no offline indicator, no pull-to-refresh),
+  because `NetworkFirst`'s cache fallback is silent to the page's own code. Checked #125/#129/#142
+  first for overlap (build staleness, write-path timeout, deploy-scoped cache — none cover "a read
+  silently served from cache because the network is down right now") before filing. `type:feature`,
+  `priority:P2`, `effort:S`, `ready` — flags a real trap for whoever picks it up: `/api/health` would
+  itself be served from the same cached route unless excluded, defeating its use as a liveness probe.
 - **Next action:** **#124** (logout locks the device) → UI waves **#129/#130/#131**, in the owner's
   2026-09-06 order — resumed now that #142 (worked out of turn, by direct owner call, not a
   reshuffle of this order) has shipped. Unsequenced and pickable on their own merits: **#126** (P0 —
-  a bare `docker compose up` downgrades production to `:latest`), #125, #127, #138, **#135** (now
-  ready), **#141** (P3). Queued behind accounts by owner call: **#132** (history scrub, `approved`
-  label on, mirror backup mandatory), **#137** (model tiering).
+  a bare `docker compose up` downgrades production to `:latest`), #125, #127, #138, **#145** (new),
+  **#135** (now ready), **#141** (P3). Queued behind accounts by owner call: **#132** (history scrub,
+  `approved` label on, mirror backup mandatory), **#137** (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
