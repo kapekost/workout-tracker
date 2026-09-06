@@ -219,6 +219,27 @@
   order.
 
 ## Tick log
+- **2026-09-06 (UI review delivered; work boarded and sequenced, not started):** The whole-app UI/UX
+  review the owner asked for landed and is committed at
+  `docs/superpowers/audits/2026-09-06-ui-review.md` (PR #128), plus an artifact for reading on a
+  phone. Verdict: adequate-to-good, but the screen that matters most is the least designed — the
+  primary button walks down the card as you log, auto-advance hides the exercise it advanced to
+  behind the fixed header, set delete is the app's only unconfirmed destructive action, and a flaky
+  connection wedges the button for up to 75s because `req()` has no timeout. It also measured what
+  nobody had: the recovery disclaimer, which the recovery spec insists must always be visible, is
+  the least readable text in the app at 2.61:1.
+
+  **Boarded as #129 (Wave 1, the gym path), #130 (Wave 2, the screens around it), #131 (Wave 3,
+  consistency debt)**, all `blocked` — behind accounts, by owner call. I had started setting up to
+  execute Wave 1 off the back of "plan looks great"; the owner corrected that in the same breath:
+  they wanted the work *filed and prioritised*, after login and user setup. Approving a plan is not
+  authorising its execution, and that is now a `DECISIONS.md` entry rather than a lesson to relearn.
+
+  The review's reject list is worth keeping visible, since it is the answer to the owner's standing
+  "efficient, not overengineered" constraint: no component library, no CSS framework, no state
+  manager, no offline sync layer, no set typing / RPE / plate calculator / supersets. It also names
+  the non-UI risk nobody had written down — the fixed 4-day plan with no add-exercise is what breaks
+  when users 2-4 arrive with different programs.
 - **2026-09-06 later (Tailscale URL made canonical; I downgraded production and caught it):**
 
   **Owner settled the URL:** `APP_BASE_URL` is now `https://rpi-homeassistant.tailce23b4.ts.net`.

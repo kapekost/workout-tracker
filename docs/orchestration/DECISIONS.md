@@ -3,6 +3,32 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-06 — Finish login and users before any UI work; the queue is now explicit
+
+Owner: *"i was hoping you add things to the project and prioritise after we are done with the login
+and users setup."* Said after approving the UI review's plan — approval of the plan is **not**
+authorisation to start it.
+
+**The order, and it is not to be reshuffled by a tick:**
+
+1. **Accounts** — #86 (flip the gate) → #87 (export/import roles) → #124 (logout locks and wipes
+   the device). #86 is itself waiting on the owner completing one invite → set password → log in →
+   log out round trip by hand, which is the whole reason #105 was split out.
+2. **UI Wave 1** (#129) — the in-gym logging path. Six small changes, about half a day.
+3. **UI Wave 2** (#130) — the screens around the logger.
+4. **UI Wave 3** (#131) — consistency debt; the review itself says do these "when you're already in
+   the file".
+
+#129/#130/#131 carry the `blocked` label for a **priority** reason, not a technical one — nothing in
+them depends on auth code. Recorded here because the label alone doesn't say that, and a future tick
+finding three `blocked` UI issues with no code dependency would otherwise be right to unblock them.
+
+Unsequenced and pickable on their own merits, because they protect the work above rather than
+compete with it: **#126** (a bare `docker compose up` silently downgrades production to an 11-day-old
+image — P0), **#127** (`bootstrap_owner.py` isn't in the image, so the only documented way to create
+the first account fails), and **#125** (make a deploy actually reach every device, which is what
+made a shipped fix invisible on the owner's phone).
+
 ## 2026-09-06 — Any UI change gets a UI/UX review, and gets looked at in a browser
 
 Owner, after opening #105's login screen for the first time: "it's nothing to standards expected
