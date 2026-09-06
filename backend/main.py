@@ -1144,9 +1144,13 @@ def export_data(response: Response, profile: dict = Depends(current_profile)):
     # A member's own tap gets a second, additive path: every table filtered to
     # rows they own. `profiles` is scoped to their own single row (WHERE id =
     # :pid) rather than dropped, so the envelope still has the same shape the
-    # shared import validation expects. `sets` carries no profile_id of its
-    # own, so it is scoped through a join on sessions — the same pattern
-    # add_set/delete_set already use for that table.
+    # shared import validation expects. `sets` is scoped through a join on its
+    # owning session rather than filtering its own `profile_id` column
+    # directly: `sessions` is the authoritative owner (sets cascade-delete
+    # from it), and add_set already refuses to attach a set to a session the
+    # caller doesn't own, so the two predicates pick out identical rows for
+    # everything the API can produce — this just matches the join
+    # add_set/delete_set already use for this table.
     response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]

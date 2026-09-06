@@ -204,9 +204,9 @@ def test_member_export_contains_only_their_own_rows(client, mainmod):
     assert tables["sessions"][0]["workout_day"] == "lower_a"
     assert tables["sessions"][0]["profile_id"] == member_id
 
-    # sets has no profile_id of its own -- this is the join-through-sessions
-    # scoping (decision #2): only the member's own set comes back, not the
-    # admin's bench press set.
+    # sets is scoped via a join through its owning session rather than a
+    # filter on sets.profile_id directly (decision #2) -- only the member's
+    # own set comes back, not the admin's bench press set.
     assert len(tables["sets"]) == 1
     assert tables["sets"][0]["exercise_id"] == "squat"
 
