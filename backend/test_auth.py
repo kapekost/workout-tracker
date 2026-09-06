@@ -338,7 +338,7 @@ def member(fast_bcrypt):
 
 def test_login_succeeds_and_sets_a_session_cookie(anon_client, member):
     r = anon_client.post("/api/auth/login",
-                    json={"username": "tester", "password": "correct horse battery"})
+                         json={"username": "tester", "password": "correct horse battery"})
     assert r.status_code == 200, r.text
     assert r.json() == {"id": member["id"], "username": "tester", "role": "member",
                         "icon": "\U0001F3CB", "email": None}
@@ -348,13 +348,13 @@ def test_login_succeeds_and_sets_a_session_cookie(anon_client, member):
 
 def test_login_response_never_contains_the_password_hash(anon_client, member):
     r = anon_client.post("/api/auth/login",
-                    json={"username": "tester", "password": "correct horse battery"})
+                         json={"username": "tester", "password": "correct horse battery"})
     assert "password_hash" not in r.json()
 
 
 def test_the_cookie_login_returns_is_usable_on_auth_me(anon_client, member):
     login = anon_client.post("/api/auth/login",
-                        json={"username": "tester", "password": "correct horse battery"})
+                             json={"username": "tester", "password": "correct horse battery"})
     assert login.status_code == 200
     me = anon_client.get("/api/auth/me")  # TestClient keeps the cookie jar
     assert me.status_code == 200 and me.json()["username"] == "tester"
@@ -368,9 +368,9 @@ def test_login_with_the_wrong_password_401s_and_sets_no_cookie(anon_client, memb
 
 def test_login_with_an_unknown_username_401s_with_the_same_message(anon_client, member):
     unknown = anon_client.post("/api/auth/login",
-                          json={"username": "nobody", "password": "correct horse battery"})
+                               json={"username": "nobody", "password": "correct horse battery"})
     wrong = anon_client.post("/api/auth/login",
-                        json={"username": "tester", "password": "wrong horse battery"})
+                             json={"username": "tester", "password": "wrong horse battery"})
     assert unknown.status_code == wrong.status_code == 401
     assert unknown.json()["detail"] == wrong.json()["detail"]
 

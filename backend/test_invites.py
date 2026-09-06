@@ -94,9 +94,9 @@ def test_a_token_is_single_use(fast, anon_client):
         raw = fast.mint_token(conn, pid, "invite")
         conn.commit()
     assert anon_client.post("/api/auth/set-password",
-                       json={"token": raw, "password": "correct horse battery"}).status_code == 200
+                            json={"token": raw, "password": "correct horse battery"}).status_code == 200
     second = anon_client.post("/api/auth/set-password",
-                         json={"token": raw, "password": "another good password"})
+                              json={"token": raw, "password": "another good password"})
     assert second.status_code == 400
 
 
@@ -168,7 +168,7 @@ def test_forgot_password_on_a_never_invited_account_still_works(fast, anon_clien
     assert len(sent) == 1
     raw = _token_from(sent[0]["body"])
     assert anon_client.post("/api/auth/set-password",
-                       json={"token": raw, "password": "correct horse battery"}).status_code == 200
+                            json={"token": raw, "password": "correct horse battery"}).status_code == 200
 
 
 def _token_from(body):
@@ -210,7 +210,7 @@ def test_creating_a_profile_requires_an_admin_session(fast, anon_client, sent):
         conn.commit()
     anon_client.cookies.set("wt_session", sid)
     assert anon_client.post("/api/profiles",
-                       json={"username": "newbie", "email": "n@example.com"}).status_code == 403
+                            json={"username": "newbie", "email": "n@example.com"}).status_code == 403
 
 
 def test_admin_creating_a_profile_mints_an_invite_and_emails_it(fast, anon_client, sent):
@@ -360,8 +360,8 @@ def test_bootstrap_goes_through_the_normal_invite_path_not_a_backdoor(fast, sent
     assert r.status_code == 200
     assert r.json()["role"] == "admin"
     assert anon_client.post("/api/auth/login",
-                       json={"username": "kapekost", "password": "correct horse battery"}
-                       ).status_code == 200
+                            json={"username": "kapekost", "password": "correct horse battery"}
+                            ).status_code == 200
 
 
 def test_bootstrap_on_an_account_that_already_has_a_password_sends_a_reset(fast, sent):
