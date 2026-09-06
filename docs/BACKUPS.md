@@ -40,7 +40,8 @@ older than the moment you pressed import.
 
 `GET /api/export` returns a JSON envelope: every table, plus `schema_version` and
 `exported_at`. `POST /api/import` consumes it, requiring `mode="replace"` and
-`confirm=true` so it cannot fire by accident.
+`confirm=true` so it cannot fire by accident. Both are **admin-only since #86**, so a
+bare `curl` from the host gets a 401 — log in first and send the `wt_session` cookie.
 
 **Take one before any schema-changing deploy.** The runbook says so and the deploy
 script does not do it for you.
@@ -166,6 +167,8 @@ neither.
 Two paths, both documented with real commands in `AGENTS.local.md`:
 
 1. **`POST /api/import`** with a previously exported envelope. Auto-snapshots first.
+   Needs an admin session, and ends every session including yours — see
+   "Break-glass" under Status in `AGENTS.md`.
 2. **File-level swap** of `workouts.db` with a `VACUUM INTO` snapshot, container stopped.
 
 **Re-drill a restore after any schema change.** The import path is the most

@@ -79,8 +79,12 @@ def test_patch_missing_session_returns_404(client):
 
 # --- PI-9: HEAD /api/health works (uptime monitors) ---
 
-def test_head_health_returns_200(client):
-    assert client.head("/api/health").status_code == 200
+def test_head_health_returns_200(anon_client):
+    # anon_client, not client: an uptime monitor has no session and neither does
+    # scripts/deploy.sh, so a HEAD that only works logged in is no smoke check at
+    # all. #86 moved this to the authenticated client along with everything else
+    # in this file, which left nothing asserting the thing it exists to assert.
+    assert anon_client.head("/api/health").status_code == 200
 
 
 # --- PI-7: export and health are never cacheable ---

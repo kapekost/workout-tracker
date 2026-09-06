@@ -126,7 +126,9 @@ to one deployment. What's true for any deployment of this project:
   HEAD)`) before every `docker compose up -d`, on both the build and run steps — a
   rollback is just re-running with an older `APP_COMMIT` whose image is still loaded
   locally, no re-tagging trick needed.
-- Before any schema-changing deploy, snapshot via `GET /api/export`.
+- Before any schema-changing deploy, snapshot via `GET /api/export` — admin-only
+  since #86, so a bare `curl` from the host 401s; log in and send the
+  `wt_session` cookie.
 - After every deploy, verify `/api/health` reports the commit you just
   built. Since #86 that endpoint is `{status, version}` and nothing else —
   it is the one `/api/` path reachable without a session, which is why the
@@ -159,7 +161,8 @@ than hardcoding them. Refuses to run against a dirty working tree, and
 verifies `/api/health`'s `version` matches what it just built, and prints the
 host's `data/backup-status.json` for information. Snapshot via `GET /api/export` first if
 the deploy includes a schema change — the script doesn't do that step for
-you.
+you, and can't: that endpoint needs an admin session now, which the script has
+no way to obtain.
 
 ## Gotchas learned the hard way
 
@@ -270,6 +273,33 @@ That describes the **deployed image**. #86's backend half is on `main`:
 `/api/health` is `{status, version}` and the backup posture is
 `/api/admin/backup-status`. The next deploy closes the gate for real, so the
 owner must have set a password through the invite flow before it goes out.
+
+**Break-glass, for an owner locked out of their own app.** With the gate closed
+there is no anonymous way in, so the recovery path is on the host rather than
+over HTTP: `scripts/bootstrap_owner.py`, which until now was written down only
+in a test docstring. It mints a fresh invite/reset token for a profile and
+emails it through Resend — the same path an ordinary invite takes, no backdoor
+and no password argument:
+
+```
+docker exec -e RESEND_API_KEY=... -e MAIL_FROM=... -e APP_BASE_URL=... \
+    workout-tracker-workout-tracker-1 \
+    python /app/scripts/bootstrap_owner.py you@example.com [username]
+```
+
+It refuses to run without those three set, and refuses an `APP_BASE_URL` on
+localhost, because the link it sends would then point at the container. If the
+send fails the token is still minted and the address still recorded — re-run to
+send again rather than being left half-done.
+
+**A restore logs everybody out, including whoever ran it.** `POST /api/import`
+replaces `profiles`, and `auth_sessions` has `ON DELETE CASCADE` on it, so every
+session dies with the table. The next request is a 401, not a 500; log back in
+with the credentials *as they were in the envelope you restored*, not the ones
+you had a minute ago. And the tail worth knowing before you need it: an envelope
+that predates passwords (pre-v6, or any profile whose `password_hash` is NULL)
+leaves nobody able to log in over HTTP at all — the command above is then the
+only way back in.
 
 This deploy also brought the previously-undeployed backlog live in one jump
 from `9e4bf65`: the two-leg backup reporting (#93), the manual-backup change
