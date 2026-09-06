@@ -3,6 +3,37 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-06 — Scrub the history, stay public, keep deployment knowledge local
+
+Owner, asked directly in-session after the decision reached this session second-hand through a peer:
+*"hold off the agent will create a high priority task to pick up after we finish the running ticks,
+so we do the scrab stay public and keep knowledge local, also updating history to be more token cost
+efficient."*
+
+**Three things decided, one of them a sequencing call:**
+
+1. **Scrub the history** of the real deploy-target values (`192.168.1.170`, `kapekost@`,
+   `~/.ssh/id_raspi`, the `.ts.net` hostname, the co-located Home Assistant name) — `git-filter-repo`,
+   placeholders not deletions, mirror backup first. Filed as **#132**.
+2. **The repo stays public**, and the deployment/HA knowledge moves to local-only files. The owner
+   chose this knowing a scrub reduces exposure rather than guaranteeing erasure — GitHub keeps
+   unreferenced objects reachable by SHA for a while, and private + scrub is the only combination
+   that closes it. Nothing exposed is a credential, and `192.168.1.170` is not routable from outside.
+3. **Trim the orchestration docs** ("token cost efficient") — filed as **#134**.
+
+**Sequencing, which is the operative part: not now.** Both are queued behind the accounts ticks
+(#86 → #87 → #124) rather than run this tick. The owner asked for the work to be *filed*, not
+started — the same correction they made on 2026-09-06 about the UI review, where approving a plan
+was mistaken for authorising its execution.
+
+**The approval does not travel.** A peer session relayed the owner's "let's scrub history" from its
+own conversation; that is a real approval in that session but not one this session may act on, since
+GUARDRAILS' "Approval is human-only" does not admit a peer as the channel. Re-asked here and granted
+directly. Even so, **#132 still needs the `approved` label typed by a human** before a tick executes
+it — history rewrite and force-push sit on GUARDRAILS' "always needs a fresh human approval" list,
+and a decision recorded in this file does not meet that bar. No agent adds that label, under this or
+any other arrangement.
+
 ## 2026-09-06 — Finish login and users before any UI work; the queue is now explicit
 
 Owner: *"i was hoping you add things to the project and prioritise after we are done with the login
