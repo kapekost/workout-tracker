@@ -19,7 +19,11 @@
   guarding routes one by one. A meta-test enumerates the app's own routes, so a route added later
   without a gate fails the suite instead of shipping open. 225 backend + 303 frontend green.
   Executed under the standing approval; no `approved` label added or needed.
-  **Merged, not deployed.** The deploy is the half that can lock the owner out — ask first.
+  **Deployed and verified** (`2bd2885` live on the Pi, 2026-09-06). Anonymous reads, writes and
+  `/api/admin/backup-status` all 401; `/login`, `/history` and `/set-password` still resolve; no
+  API schema served; schema 6, 2 sessions / 33 sets intact. The owner confirmed the round trip by
+  hand on production — set password, log in, log out — with the gate closed. Pre-deploy snapshot
+  on the Pi at `~/pre86-20260906-154912.db` (integrity ok).
 - **Next action:** **#87** (export/import role behaviour) → **#124** (logout locks the device) →
   UI waves **#129/#130/#131**, in the owner's 2026-09-06 order. Unsequenced and pickable on their
   own merits: **#126** (P0 — a bare `docker compose up` downgrades production to `:latest`),
