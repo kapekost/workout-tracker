@@ -22,6 +22,17 @@ export function SessionProvider({ children }) {
     // asks the question. Everything waits on `ready` rather than on the shape
     // of the answer.
     auth.me().then(setProfile).catch(() => setProfile(null)).finally(() => setReady(true))
+    // ...but only a request that *settles* sets `ready`, and a server that
+    // accepts the connection and then never answers settles nothing. App renders
+    // nothing at all until `ready`, so that is a blank page with no text and no
+    // way to retry -- exactly the window scripts/deploy.sh spends up to ~30s
+    // retrying through after a container restart. 5s: far longer than the tens
+    // of milliseconds a same-origin /auth/me takes, so a healthy load never
+    // races it and nobody is blinked at the login screen; short enough that a
+    // stalled one degrades to a screen you can act on. A late answer still
+    // arrives and swaps the app in.
+    const t = setTimeout(() => setReady(true), 5000)
+    return () => clearTimeout(t)
   }, [])
 
   // api.js has no router, so a 401 from a data endpoint -- a session that
