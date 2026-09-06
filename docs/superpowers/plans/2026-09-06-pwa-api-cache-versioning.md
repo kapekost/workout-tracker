@@ -20,11 +20,21 @@ No new dependencies, no service-worker strategy change — this stays on vite-pl
 **Spec:** Issue #142 (github.com/kapekost/workout-tracker/issues/142) — no separate design doc; the
 issue body carries the full scope, rationale, and acceptance criteria this plan implements.
 
+> **Post-review correction (added after Task 2 shipped):** this plan originally claimed
+> `generateSW` "has no hook point for custom activate-event code" and used that to justify not
+> purging old caches. That claim was **wrong** — code review traced `workbox-build`'s
+> `GenerateSWOptions.importScripts` option, which splices a plain script into the generated worker
+> without switching strategies. **Task 3 below implements the purge this plan originally talked
+> itself out of.** Left the wrong reasoning in place below (not rewritten) so the record shows what
+> was actually decided and why it changed — see Task 3 for the correction and the real fix.
+
 ## Global Constraints
 
 - No new dependencies — owner's standing "efficient, not overengineered" constraint.
 - Keep vite-plugin-pwa's `generateSW` strategy. Do not switch to `injectManifest` to add
   activate-time cache purging — see Task 2 for why that's a bigger change than this bug warrants.
+  **(Superseded by Task 3 — this reasoning was based on a factual error; `importScripts` gets the
+  same result without switching strategies.)**
 - `frontend/dist/` is a gitignored build artifact (`.gitignore:6`) — never commit anything under it.
 - This fix cannot retroactively help a device already stuck on an old, pre-fix service worker (its
   old SW is still what's running, still pointed at the old unversioned cache). That device needs
@@ -232,12 +242,151 @@ Post a comment on issue #142 (via `gh issue comment 142 --body-file -` or equiva
 
 ---
 
+## Task 3 (added post-review): Purge old-build caches on activate
+
+Code review on the Task 1/2 implementation found the reasoning above wrong: `workbox-build`'s
+`GenerateSWOptions.importScripts` (`Array<string>`, passed straight through by vite-plugin-pwa's
+`workbox: Partial<GenerateSWOptions>` option) splices a plain script into the generated service
+worker via `importScripts()` — no `injectManifest` migration needed. This closes the "orphaned
+old-commit cache sits until quota eviction" caveat Task 2's Global Constraints had accepted as the
+cost of staying on `generateSW`.
+
+**Files:**
+- Create: `frontend/public/api-cache-cleanup.js` (copied verbatim into `dist/` by Vite's public-dir
+  handling, then spliced into the generated `sw.js` via `importScripts()` — a classic-script load,
+  not an ES module, so it can't `import` `apiCacheName.js`'s `'api-reads-'` prefix directly)
+- Test: `frontend/apiCacheCleanup.test.js` (evaluates the real script source against faked
+  `self`/`caches` globals with `new Function(...)`, since the script isn't an importable module)
+- Modify: `frontend/vite.config.js` (add `importScripts: ['api-cache-cleanup.js']` to the `workbox`
+  config)
+
+- [ ] **Step 1: Write the failing test**
+
+```js
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+
+const scriptPath = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  'public',
+  'api-cache-cleanup.js',
+)
+const scriptSource = readFileSync(scriptPath, 'utf-8')
+
+function runActivateHandler(existingCacheKeys) {
+  const listeners = []
+  const fakeSelf = {
+    addEventListener: (type, handler) => {
+      if (type === 'activate') listeners.push(handler)
+    },
+  }
+  const deleted = []
+  const fakeCaches = {
+    keys: () => Promise.resolve(existingCacheKeys),
+    delete: (key) => {
+      deleted.push(key)
+      return Promise.resolve(true)
+    },
+  }
+  const evaluate = new Function('self', 'caches', scriptSource)
+  evaluate(fakeSelf, fakeCaches)
+
+  const waited = []
+  const fakeEvent = { waitUntil: (promise) => waited.push(promise) }
+  listeners[0](fakeEvent)
+  return Promise.all(waited).then(() => deleted)
+}
+
+describe('api-cache-cleanup activate handler', () => {
+  it('deletes every api-reads-* cache', async () => {
+    const deleted = await runActivateHandler(['api-reads-abc1234', 'demo-frames', 'api-reads-def5678'])
+    expect(deleted.sort()).toEqual(['api-reads-abc1234', 'api-reads-def5678'])
+  })
+
+  it('leaves non-api-reads caches alone', async () => {
+    const deleted = await runActivateHandler(['demo-frames', 'workbox-precache-v2'])
+    expect(deleted).toEqual([])
+  })
+
+  it('does nothing when no caches exist yet', async () => {
+    const deleted = await runActivateHandler([])
+    expect(deleted).toEqual([])
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd frontend && npx vitest run apiCacheCleanup.test.js`
+Expected: FAIL — `ENOENT` reading `public/api-cache-cleanup.js`, since it doesn't exist yet.
+
+- [ ] **Step 3: Write minimal implementation**
+
+```js
+// Sweeps every api-reads-* cache on activate, before this build's own
+// api-reads-<commit> cache exists — workbox opens it lazily on the first
+// matching fetch, so at activate time it can only ever be deleting caches
+// left behind by older builds (see apiCacheName.js and #142).
+//
+// Spliced into the generated service worker via vite.config.js's
+// workbox.importScripts: vite-plugin-pwa's generateSW mode has no other hook
+// for custom activate-event code, and importScripts() loads this as a
+// classic script (not an ES module), so it can't `import` apiCacheName.js's
+// prefix directly — 'api-reads-' below is kept in sync with it by hand.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key.startsWith('api-reads-')).map((key) => caches.delete(key))),
+    ),
+  )
+})
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd frontend && npx vitest run apiCacheCleanup.test.js`
+Expected: PASS — all 3 assertions green.
+
+- [ ] **Step 5: Wire it into vite.config.js**
+
+Add to the `workbox` object, before `navigateFallback`:
+
+```js
+        importScripts: ['api-cache-cleanup.js'],
+```
+
+- [ ] **Step 6: Manual verification — confirm it's actually spliced into the built worker**
+
+```bash
+rm -rf dist
+APP_COMMIT=testcommit3 npm run build
+grep -n "api-cache-cleanup" dist/sw.js
+ls dist/api-cache-cleanup.js
+diff public/api-cache-cleanup.js dist/api-cache-cleanup.js
+rm -rf dist
+```
+
+Expected: `dist/sw.js` contains a call to `importScripts("api-cache-cleanup.js")` ahead of
+`precacheAndRoute`; `dist/api-cache-cleanup.js` exists and is byte-identical to the source (`diff`
+prints nothing).
+
+- [ ] **Step 7: Run the full frontend suite, then commit**
+
+```bash
+cd frontend && npm test
+git add frontend/public/api-cache-cleanup.js frontend/apiCacheCleanup.test.js frontend/vite.config.js
+git commit -m "fix: purge old-build api-reads caches on activate (#142)"
+```
+
+---
+
 ## Self-Review Notes (for whoever executes this plan)
 
 - **Spec coverage:** #142's two acceptance bullets are Task 2 Step 2 (a cached response can't
-  outlive its build — proven by the two-build grep comparison) and this plan's explicit choice not
-  to build activate-time purging, justified in Task 2 Step 5's issue comment rather than silently
-  dropped.
+  outlive its build — proven by the two-build grep comparison) and Task 3 (an old-versioned
+  `api-reads` cache is actually purged on `activate`, not just left to expire on its own).
 - **Retroactive limit:** called out in Global Constraints and restated in Task 2 Step 5 so it isn't
   lost — this plan fixes the class of bug, not the specific already-affected phone.
 - **No placeholders:** every step above has literal file contents or literal shell commands; nothing
