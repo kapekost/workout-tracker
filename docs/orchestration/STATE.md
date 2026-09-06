@@ -12,128 +12,32 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#105 (login and set-password screens) shipped and deployed** (`7d06bae`,
-  PR #117, 2026-09-05). Accounts is **3 of 5 done**. There is now a real login flow a human can use:
-  `/login` (username + password, with a forgot-password path) and `/set-password?token=…`, the path
-  the invite and reset emails already point at. `lib/session.jsx` holds the `/auth/me` result, the
-  TopBar shows "Log in" or profile + "Log out", and `api.js` gained `auth.*` helpers plus two fixes
-  the auth endpoints forced (errors now carry `status` and a string `detail`, since the auth
-  endpoints answer with deliberately generic messages the screens must show verbatim; and a 204 no
-  longer trips `res.json()`, which `/auth/logout` returns). **Nothing is enforced** — no route
-  guard, no forced redirect, no central 401 handler. `App.test.jsx` asserts that open behaviour, so
-  #86 must flip a test rather than quietly change it. 258 frontend tests green, up from 216; no
-  backend change, and the client payloads were checked against `LoginIn`/`SetPasswordIn`/
-  `ForgotPasswordIn` rather than assumed, since the frontend tests mock the API and cannot catch a
-  contract mismatch. Deployed and health-verified (`version=7d06bae`, `last_backup_status=ok`).
-
-  **Executed under the standing approval, no label added.** The runner did not add `approved` and
-  none was needed — `DECISIONS.md`'s "Standing approval: the accounts workstream (#105, #86, #87)"
-  covers it. Getting to that took most of the tick; see the tick log.
-
-  **The implementing subagent was killed mid-task by a session rate limit (429)** after five clean
-  TDD commits, with the route wiring uncommitted in its worktree. Recovered exactly as the
-  2026-09-05 `[template]` improvement prescribes: inspect the dead agent's worktree before
-  re-dispatching. Its work was complete and green; the controller committed the last step, reviewed
-  the diff, and shipped it. Second time this failure mode has hit (also #110).
-
-- **Previously:** **#110 (per-profile data isolation) shipped and deployed** (`240acc4`, PR #112,
-  2026-09-05). Reads had never been scoped since #66, so any second profile would have seen the
-  first's entire history; now every read and every mutation routes through one
-  `acting_profile_id(conn)` seam (returns the seed profile today; #86 swaps its body for the session
-  lookup and deletes `_default_profile_id`). 11 reads scoped, mutations 404 cross-profile by
-  ownership, `/api/export` and `/api/import` left for #87. A table-driven leak test beside #84's
-  open-gate test proves it and fails any future unscoped route; backend **183 green**, #84's
-  open-gate test still green (the app ships still open). Deployed to the Pi and health-verified
-  (`version=240acc4`, backups ok). One behaviour change: `DELETE /api/personal-bests/{id}` of a
-  non-owned/missing row now 404s (was idempotent `{"deleted": true}`). **NOTE:** two-user isolation
-  cannot be clicked through until #105/#86 add login (`acting_profile_id` returns the seed for every
-  request today) — it is proven by the leak test on the deployed commit, not yet by a live
-  multi-login. Executed inline by the controller after a subagent implementer was cut off mid-task by
-  the account usage limit (its complete leak test was salvaged and committed); review was inline for
-  the same reason.
-
-  Accounts, **steps 1 and 2 of 5 shipped and deployed** (`c9442d8`). #84 (schema v6 + auth core) merged as
-  `3ed18a4` (PR #103) — 152 backend tests (101 existing + 51 new) and 216 frontend tests green.
-  Six TDD commits: schema v6 → bcrypt cost-12 helpers → session store and `wt_session` cookie →
-  `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` → `POST /api/auth/logout`, plus a
-  self-review fix (`verify_password` could raise `UnicodeEncodeError` on a non-ASCII stored hash,
-  contradicting its own "never raises" contract). Both approval constraints shipped **as tests**: a
-  parametrized test holds nine data endpoints open without a cookie, and the two auth tables are
-  asserted out of `TABLES`/`TABLE_INTRODUCED_AT` with the envelope unchanged at schema 6.
-  `_default_profile_id` is untouched. Remaining chain: **#85** (Resend invite/reset, rate limiting,
-  owner bootstrap) → **#86** (flip the gate, delete `_default_profile_id`, frontend login) →
-  **#87** (export/import role behaviour), each `blocked` and each needing its own approval. Design
-  of record: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`. Intake unchanged:
-  #27/#30/#32/#33 have specs but no `ready` children; #70 unshaped.
-
-  **Deployed the same session** (`3ed18a4`, 2026-09-05), jumping the Pi from `9e4bf65` and so also
-  taking #93/#95/#96/#97/#98/#99/#100 live. Verified on the box: schema version 6, row counts
-  unchanged against the pre-deploy snapshot (1/2/33/0/814/0), auth tables absent from the export
-  envelope, `/api/auth/me` 401, login refused for the seeded NULL-hash profile, and the data
-  endpoints still 200 — the gate is open, as #84 requires. Restore drill re-run per the
-  post-schema-change rule and passing (`integrity_check` ok, `user_version` 5, counts matched).
-  The arm64 image build that could not run before the merge ran here as `deploy.sh`'s first step,
-  so the no-build-tools premise is confirmed end to end rather than only by wheel resolution.
-  Recorded in `docs/CHANGELOG.md` and `AGENTS.md` Status (PR #104) — both were stale, Status by a
-  week, still naming `17bd4fc` as running with #79-#82 unreleased.
-
-  **The orchestration process changed this session** (PR #102, owner-reviewed). The plan gate now
-  keys on **decomposition, not effort size** — an Issue whose spec already yields an ordered,
-  testable sequence gets executed, whatever its effort label. Plans carry task ordering, the
-  decisions the spec left open, test *names* and the easy-to-skip verifications — not test and
-  implementation bodies; #84's plan was re-cut 1091 → 266 lines as the reference shape. Plans are
-  now linked from their Issue (`**Plan:**` line in the body), because none were and the gate was
-  reading a directory listing. `blocked-by` is documented as the `blocked` label the repo actually
-  uses, since the native dependency field PLAYBOOK named does not exist on this API. And a soft
-  effort split is on record: ~60% implementation, ~30% planning, ~10% review, review being regular
-  rather than terminal. The rule change paid for itself immediately — #84 was planned and stopped
-  under the old gate, then executed end-to-end under the new one in the same session.
-
-  **The second Claude session in this repo is still worth watching.** It authored #93/#94/#95 on
-  2026-09-04 without pushing an In-flight claim. The claim mechanism only works if every driver
-  uses it.
-- **Next action:** **#86 (flip the gate)** — covered by the same standing approval, so it needs no
-  new label. Its remaining scope is small: swap `acting_profile_id(conn)`'s body for a real session
-  lookup, delete `_default_profile_id`, trim `/api/health`, gate `/api/events`, and add the frontend
-  route guard + central 401 handler that #105 deliberately left out. Then **#87** (export/import
-  role behaviour). **Do not start #86 until the owner has exercised #105 by hand** — that ordering
-  is the entire reason the screens were split out (`DECISIONS.md`, "Prove the accounts UX before
-  closing the gate"). #86 is the deploy that could lock the owner out of their own history, and the
-  only thing that de-risks it is a human having logged in successfully first.
-
-  **Mail is unblocked and proven end to end.** The owner minted a Resend key, it is on the Pi's
-  `.env` (mode 600), and the bootstrap invite was received. `MAIL_FROM` is
-  `noreply@contact.kapekost.co.uk`. Waiting on the owner: approve **#105** when they want login
-  built, and a quick in-app check that their own history is all still there after #110 (the one live
-  regression risk — scoping should return the owner all their own rows, since the seed profile is
-  today's acting profile).
+- **Current focus:** **#86 shipped — the gate is closed** (`2bd2885`, PR #136, 2026-09-06).
+  Accounts is **4 of 5 done**. No session, no app: all 21 data endpoints require one,
+  `_default_profile_id` is deleted, `/api/health` is trimmed to `{status, version}` with the backup
+  posture behind admin auth, `/api/events` is gated, and the frontend swaps route tables rather than
+  guarding routes one by one. A meta-test enumerates the app's own routes, so a route added later
+  without a gate fails the suite instead of shipping open. 225 backend + 303 frontend green.
+  Executed under the standing approval; no `approved` label added or needed.
+  **Merged, not deployed.** The deploy is the half that can lock the owner out — ask first.
+- **Next action:** **#87** (export/import role behaviour) → **#124** (logout locks the device) →
+  UI waves **#129/#130/#131**, in the owner's 2026-09-06 order. Unsequenced and pickable on their
+  own merits: **#126** (P0 — a bare `docker compose up` downgrades production to `:latest`),
+  #125, #127, #138. Queued behind accounts by owner call: **#132** (history scrub, `approved`
+  label on, mirror backup mandatory), **#134** (docs trim — *another session is mid-flight on
+  this*), **#137** (model tiering), **#135** (security review, blocked on #87).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#86** — claimed 2026-09-06T05:56:47Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
   2026-09-06** ("yes i see it"). This was the one regression from #110 that no test could settle:
   the leak test proves a second profile cannot see the first's rows, but only a human could confirm
   the seed profile still returns *all* of its own. Closed.
-- **Try the login flow again — two bugs found and fixed since the first attempt.** Now at
-  `73ebdce`. The owner's report (2026-09-06, *"i cant logout or sth, so how can i login or see my
-  profile stuff?"*) had two causes, both filed as #118 and both shipped in PR #119: the top bar
-  named you when you had **no** session (it fell back to `/profile/me`, so a username and a "Log in"
-  link showed together — "signed in, with no way to sign out"), and `index.html` was served with no
-  `Cache-Control` at all, so a phone could hold the pre-#105 build indefinitely while the server ran
-  the new one. Headers verified live: `index.html` → `no-cache`, `assets/*` → `immutable`.
-  **Still open:** whether the seeded profile has a password set at all. A direct read of the
-  production DB was refused by the sandbox and was not worked around; asked the owner instead.
-  If no invite was ever completed, there is nothing to log in with and a fresh invite must be minted.
-- **The original try-it path — #86 is still waiting on it.** Deployed at `7d06bae`. The path:
-  open the invite email from the #85 bootstrap, follow the link, set a password, land on Home
-  logged in, check the top bar shows your profile, log out, then log back in at `/login`.  If
-  anything is wrong, the app still works exactly as before — nothing is gated yet, which is the
-  point of shipping this step separately.
 - **#30/#32 need a 5-minute spec skim, not a decision.**
   `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114)
   gates itself on an owner skim before either Issue may be split into `ready` children. Every

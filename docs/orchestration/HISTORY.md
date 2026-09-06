@@ -9,6 +9,34 @@
 
 ---
 
+## Tick — 2026-09-06 (#86 shipped; both review gates earned their keep)
+
+Executed under the standing approval, no label added. Split into two file-disjoint subagents so a
+rate-limit kill could not take both — it took one anyway, after four clean commits, and the work was
+recovered by inspecting the dead worktree exactly as the 2026-09-05 improvement prescribes. Third
+time that failure mode has hit.
+
+**Both gates found defects a green suite, a code review and a browser check had all missed.** The
+UI/UX review measured the error box at 1.12:1 against the card — the fill was invisible and a 3px
+bar was the only signal. The code review found the blocker: `ActiveSessionProvider` mounts outside
+the gate and fetches once, so after logging in the app believed no workout was in progress and
+offered to start a second, orphaning the first. The test that should have caught it asserted one
+endpoint was not called while `/sessions` was. Seven fixes applied, including two the review turned
+up on the way: `/api/export` returned every profile's bcrypt hash to any member, and
+`/openapi.json` published the whole schema anonymously — falsifying a comment this same PR added.
+
+Filed and boarded this tick: **#132** (scrub history), **#134** (trim the orchestration docs),
+**#135** (security review of accounts), **#137** (model tiering per dispatch), **#138** (document
+running the app locally). Two owner decisions recorded in `DECISIONS.md` — the history scrub was
+**refused when it arrived second-hand** through a peer session and re-asked directly before the
+`approved` label went on; the dispatch-default pin was accepted from the relay, being reversible.
+That distinction is deliberate and is written into the decision entry.
+
+**Collision worth remembering:** a second session claimed #134 and rewrote `STATE.md` (1067 → 337
+lines) mid-tick, after telling this one that `docs/orchestration/*` was ours and it would not write
+again. The write-back below failed silently on the missing `## Tick log` heading and had to be
+redone by hand. The claim mechanism only works if every driver reads it *and* honours it.
+
 ## Needs-owner items, fully resolved (moved from STATE.md verbatim, 2026-09-06)
 
 ### Resolved 2026-09-04 — the home branch never merges
