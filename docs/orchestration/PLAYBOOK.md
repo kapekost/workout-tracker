@@ -189,6 +189,13 @@ only because the owner happened to ask about it, not by anything in this file. H
    when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
    decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
    this same write-back — a shipped or stopped tick must never leave a stale claim behind.
+   **Enforce `STATE.md`'s line budget as part of this same write-back.** Before adding this tick's
+   entry, check the file's length against the budget stated at its own top: if adding the entry
+   would push it over, move the oldest kept Tick log entries — and any now-fully-resolved Needs
+   owner items — to `HISTORY.md` first, verbatim, appended in chronological order, nothing edited
+   or dropped. This file reached 1067 lines on 2026-09-06 (~200 lines/day of tick-log growth)
+   before a first split fixed it — do this every tick it would otherwise apply, not only once the
+   file is already unreadable. `DECISIONS.md` is never rolled or summarized by this step.
 8. **Feedback review:** if this tick appended any `IMPROVEMENTS.md` entries, run
    `scripts/improvements_since_cursor.sh`, classify each (`[local]` → PR in this repo; `[template]` →
    PR against the template repo per GUARDRAILS "Cross-repo writes"; `[unsure]` → `STATE.md` → Needs
