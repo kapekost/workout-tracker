@@ -532,3 +532,22 @@ def test_admin_import_rejects_merge_mode(client):
     r = client.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
     assert r.status_code == 400
     assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_import_replace_rejects_an_envelope_with_no_admin_profile(client, mainmod, seed_profile_id):
+    # A member's own export has a "profiles" key with exactly one row, and it
+    # is never role="admin". If an admin restored that file with
+    # mode="replace" -- a plausible real mistake ("a member emailed me their
+    # export") -- _import_replace would wipe the live profiles table down to
+    # zero admins: require_admin then 403s everyone, and POST /api/profiles is
+    # itself admin-gated, so there would be no in-app way back in. Must be
+    # refused outright, not partially applied.
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
+    # Rejection, not a partial replace -- the live admin profile is untouched.
+    with mainmod.db() as conn:
+        row = conn.execute("SELECT role FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()
+    assert row is not None and row["role"] == "admin"

@@ -126,9 +126,10 @@ to one deployment. What's true for any deployment of this project:
   HEAD)`) before every `docker compose up -d`, on both the build and run steps — a
   rollback is just re-running with an older `APP_COMMIT` whose image is still loaded
   locally, no re-tagging trick needed.
-- Before any schema-changing deploy, snapshot via `GET /api/export` — admin-only
-  since #86, so a bare `curl` from the host 401s; log in and send the
-  `wt_session` cookie.
+- Before any schema-changing deploy, snapshot via an **admin's** `GET /api/export` —
+  that's the whole-database export a deploy snapshot needs (since #87 a member
+  session gets only their own rows back). A bare `curl` from the host still 401s;
+  log in as the admin and send the `wt_session` cookie.
 - After every deploy, verify `/api/health` reports the commit you just
   built. Since #86 that endpoint is `{status, version}` and nothing else —
   it is the one `/api/` path reachable without a session, which is why the

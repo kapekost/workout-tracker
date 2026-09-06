@@ -21,8 +21,10 @@ corrupting the file.
 
 ### 2. Pre-import auto-snapshot (on demand, automatic)
 
-`POST /api/import` is destructive by design: it wipes and replaces every table. Before
-it touches anything it runs `VACUUM INTO` to `data/pre-import-<timestamp>.db`.
+An admin's `POST /api/import` with `mode="replace"` is destructive by design: it wipes
+and replaces every table. Before it touches anything it runs `VACUUM INTO` to
+`data/pre-import-<timestamp>.db`. (A member's `mode="merge"` is additive and never
+wipes anything, so it gets no such snapshot — see level 3 below.)
 
 Two deliberate details worth not "simplifying" later:
 
@@ -39,9 +41,12 @@ older than the moment you pressed import.
 ### 3. Manual export (on demand)
 
 `GET /api/export` returns a JSON envelope: every table, plus `schema_version` and
-`exported_at`. `POST /api/import` consumes it, requiring `mode="replace"` and
-`confirm=true` so it cannot fire by accident. Both are **admin-only since #86**, so a
-bare `curl` from the host gets a 401 — log in first and send the `wt_session` cookie.
+`exported_at`. `POST /api/import` consumes it, requiring `confirm=true` so it cannot
+fire by accident. Since #87 both endpoints are reachable by any authenticated profile,
+but role decides their shape: an **admin** gets/consumes the *whole database*, and
+`import` requires `mode="replace"`. A **member** gets/consumes only *their own rows*,
+and `import` requires `mode="merge"` — additive, never a wipe. Either way a bare `curl`
+from the host gets a 401 — log in first and send the `wt_session` cookie.
 
 **Take one before any schema-changing deploy.** The runbook says so and the deploy
 script does not do it for you.
@@ -170,6 +175,14 @@ Two paths, both documented with real commands in `AGENTS.local.md`:
    Needs an admin session, and ends every session including yours — see
    "Break-glass" under Status in `AGENTS.md`.
 2. **File-level swap** of `workouts.db` with a `VACUUM INTO` snapshot, container stopped.
+
+A member's `mode="merge"` import (#87) is not a restore path and isn't a third option
+here: it only adds rows to the importer's own profile, never wipes anything, gets no
+pre-import snapshot, and doesn't end anyone's session. It also can no longer stand in
+for path 1 by mistake — a member's own export contains no admin profile row, and the
+app refuses to replace the database with an envelope that has none, so handing an
+admin a member's exported file and restoring it no longer wipes every admin out of
+existence.
 
 **Re-drill a restore after any schema change.** The import path is the most
 safety-critical code in the app and the one least exercised in normal use.

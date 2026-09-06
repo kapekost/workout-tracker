@@ -1178,6 +1178,17 @@ def _import_replace(conn, env, admin, cur_version, env_version) -> dict:
     sit next to it without growing one function to cover two very different
     write strategies (decision #12). Every wipe/insert/snapshot choice below
     predates this extraction."""
+    # A member's own export has a "profiles" key with exactly their own
+    # (non-admin) row. Replacing with it wipes the live profiles table down
+    # to zero admins -- require_admin then 403s everyone, and there is no
+    # in-app way to create a new profile without one. Refuse before touching
+    # anything. Pre-v4 envelopes have no "profiles" key at all, which is a
+    # different, already-handled case (see the `continue` below) -- this only
+    # fires when the key is present but no row in it is an admin.
+    if "profiles" in env["tables"] and not any(
+        r.get("role") == "admin" for r in env["tables"]["profiles"]
+    ):
+        raise HTTPException(400, "envelope contains no admin profile; refusing to replace the database")
     # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
     # txn; microseconds so back-to-back imports can't collide on the name)
     snap_dir = os.path.dirname(DB_PATH)
