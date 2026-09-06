@@ -9,6 +9,22 @@ const linkButtonStyle = {
   fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0,
 }
 
+// The API's messages are lowercase and unpunctuated, which reads as a log line
+// on the app's front door. Casing carries no information about which accounts
+// exist, so this is presentation only -- the string itself stays verbatim.
+const sentenceCase = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s)
+
+// Where the guard sent you, named in the reader's words. `from` is a route, and
+// a path is not something to show someone mid-workout.
+const DESTINATIONS = {
+  '/history': 'your history',
+  '/progress': 'your progress',
+  '/personal-bests': 'your personal bests',
+}
+const destinationOf = (path) =>
+  DESTINATIONS[path] || (path.startsWith('/workout') || path.startsWith('/exercise')
+    ? 'your workout' : null)
+
 // Shown whether or not the address exists, and whether or not the request even
 // reached the server -- the endpoint is deliberately uninformative about which
 // addresses have accounts, and an error message here would undo that.
@@ -46,7 +62,7 @@ export default function Login() {
       // password" covers an unknown user, a wrong password and a never-invited
       // account alike). Show them as written; rewording here would either leak
       // more than the endpoint chose to, or say less than it meant to.
-      setError(err.detail || 'Could not reach the server — check your connection and try again.')
+      setError(sentenceCase(err.detail) || 'Could not reach the server — check your connection and try again.')
       setBusy(false)
     }
   }
@@ -73,6 +89,16 @@ export default function Login() {
         Your workouts, history and personal bests are all in here. Log in to
         pick up where you left off.
       </p>
+      {/* Being bounced here by the guard and logging out yourself render the
+          same screen otherwise. Destination only, deliberately: `from` is set
+          in both cases and telling a bounce from an expired session apart
+          needs state this screen does not carry, so any "your session expired"
+          wording would be a guess. Where you were headed is true either way. */}
+      {destinationOf(from) && (
+        <p style={{ color: colors.muted, fontSize: type.size.lg, marginTop: `-${space.lg}px`, marginBottom: space.xxl }}>
+          Then we'll take you back to {destinationOf(from)}.
+        </p>
+      )}
 
       <form onSubmit={submit} className="card" style={{ padding: space.xl, marginBottom: space.xxl }}>
         <label className="field-label" htmlFor="login-username">Username</label>

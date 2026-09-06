@@ -52,6 +52,10 @@ describe('Login', () => {
     expect(signIn).toHaveBeenCalledWith(profile)
   })
 
+  // Capitalised, not reworded. The endpoint is deliberately generic -- the same
+  // message covers an unknown user, a wrong password and a never-invited
+  // account -- and that genericness is the security property. Case is not part
+  // of it, so the screen sentence-cases for presentation and nothing else.
   it('shows the API\'s generic message when the password is wrong', async () => {
     auth.login.mockRejectedValue(apiError(401, 'invalid username or password'))
     renderLogin()
@@ -59,11 +63,11 @@ describe('Login', () => {
     fillCredentials('kapekost', 'wrong')
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('invalid username or password')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password')
     expect(screen.queryByText('Home screen')).not.toBeInTheDocument()
   })
 
-  it('shows the rate-limit message verbatim too', async () => {
+  it('shows the rate-limit message with its wording untouched too', async () => {
     auth.login.mockRejectedValue(apiError(429, 'too many attempts; try again in a few minutes'))
     renderLogin()
 
@@ -71,7 +75,7 @@ describe('Login', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(await screen.findByRole('alert'))
-      .toHaveTextContent('too many attempts; try again in a few minutes')
+      .toHaveTextContent('Too many attempts; try again in a few minutes')
   })
 
   it('falls back to its own wording when the failure carries no message', async () => {

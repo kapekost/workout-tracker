@@ -225,7 +225,7 @@ describe('logging in', () => {
 
     fillIn('kapekost', 'wrong')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('invalid username or password')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password')
     expect(window.location.pathname).toBe('/login')
     expect(screen.getByLabelText('Username')).toBeInTheDocument()
   })
