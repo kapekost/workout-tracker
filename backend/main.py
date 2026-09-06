@@ -586,9 +586,11 @@ def current_profile(request: Request) -> dict:
     """Request-scoped identity, from the session cookie. 401 if there isn't one.
 
     Every endpoint that touches somebody's data depends on this, directly or
-    through acting_profile_id below, and that dependency *is* the gate — the
-    401 comes from the type system of the route signature rather than from a
-    check each handler has to remember to write.
+    through acting_profile_id below, and that dependency *is* the gate: the 401
+    is a property of the route's signature rather than a check each handler has
+    to remember to write. It also lands before body and path-parameter
+    validation, so an anonymous caller cannot read back the shape of what the
+    app accepts.
     """
     with db() as conn:
         row = session_profile(conn, request.cookies.get(SESSION_COOKIE))
@@ -668,13 +670,16 @@ def health(response: Response):
     return {"status": "ok", "version": APP_VERSION}
 
 @app.get("/api/admin/backup-status")
-def backup_status(admin: dict = Depends(require_admin)):
+def backup_status(response: Response, admin: dict = Depends(require_admin)):
     """The backup chain's posture — the four keys /api/health used to carry.
 
     Admin rather than any session: it is infrastructure, not somebody's data,
     and knowing that the last off-site copy failed nine days ago is useful to
     exactly one person. docs/BACKUPS.md explains what the statuses mean.
     """
+    # no-store for the same reason /api/export has it: a cached answer here is
+    # a reassuring one about a backup that may have failed since.
+    response.headers["Cache-Control"] = "no-store"
     last_at, last_status, remote_at, remote_status = _last_backup()
     return {"last_backup_at": last_at, "last_backup_status": last_status,
             "last_backup_remote_at": remote_at,

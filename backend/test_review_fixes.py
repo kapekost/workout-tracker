@@ -88,6 +88,9 @@ def test_head_health_returns_200(client):
 def test_export_and_health_send_no_store(client):
     assert client.get("/api/export").headers.get("cache-control") == "no-store"
     assert client.get("/api/health").headers.get("cache-control") == "no-store"
+    # Same reasoning for where the backup posture went (#86): a cached answer
+    # here is a reassuring one about a backup that may have failed since.
+    assert client.get("/api/admin/backup-status").headers.get("cache-control") == "no-store"
 
 
 # --- CODE-15: pre-import snapshots are pruned, newest 3 kept ---
