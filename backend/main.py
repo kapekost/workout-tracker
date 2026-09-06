@@ -1134,12 +1134,17 @@ def analytics_summary(days: int = 30, pid: int = Depends(acting_profile_id)):
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 @app.get("/api/export")
-def export_data(response: Response, profile: dict = Depends(current_profile)):
-    # Session-gated (#86), but still whole-database: this is the envelope the
-    # restore drill depends on, and #38 hardened that path deliberately. The
-    # design doc's next step is branching on role so a member's export carries
-    # only their own rows — additive, and not part of closing the gate. Until
-    # then any account with a session can read every profile's data out of here.
+def export_data(response: Response, admin: dict = Depends(require_admin)):
+    # Admin, not merely a session: this is the whole database, and the whole
+    # database includes `profiles` — every account's bcrypt hash and email
+    # address. Handing that to anyone who has been invited to log their own sets
+    # would be a worse leak than the backup posture this same PR moved behind
+    # require_admin, and it is the behaviour the accounts design specifies
+    # (docs/superpowers/specs/2026-09-04-accounts-auth-design.md).
+    #
+    # The design doc's next step is a member branch carrying only their own
+    # rows (#87) — additive to this, not blocked by it. Until then, exporting
+    # is an owner operation and Home's "Export my data" is admin-only.
     response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -1148,9 +1153,11 @@ def export_data(response: Response, profile: dict = Depends(current_profile)):
             "schema_version": version, "tables": tables}
 
 @app.post("/api/import")
-def import_data(payload: ImportIn, profile_id: int = Depends(acting_profile_id)):
-    # Session-gated (#86), and still a whole-database replace — see export above
-    # for the member/admin branching the design doc still owes this pair.
+def import_data(payload: ImportIn, admin: dict = Depends(require_admin)):
+    # Admin for the mirror-image reason to export's: this is a whole-database
+    # *replace*. A member with a session could otherwise wipe every profile's
+    # history from a phone — and take everyone's login with it, since
+    # auth_sessions cascades from profiles.
     if payload.mode != "replace" or not payload.confirm:
         raise HTTPException(400, "import requires mode='replace' and confirm=true")
     env = payload.envelope
@@ -1204,7 +1211,7 @@ def import_data(payload: ImportIn, profile_id: int = Depends(acting_profile_id))
                         # above: an envelope old enough to reach here has no profiles
                         # table, so the branch that skips it left the live one (and
                         # therefore this id) standing.
-                        row["profile_id"] = profile_id
+                        row["profile_id"] = admin["id"]
                     cols = list(row.keys())
                     placeholders = ",".join("?" * len(cols))
                     conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",

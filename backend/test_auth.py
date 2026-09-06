@@ -452,10 +452,17 @@ OPEN = {
 _SET = {"exercise_id": "bench_press", "exercise_name": "Bench Press",
         "set_number": 1, "reps": 5, "weight_kg": 60}
 GATED = [
-    ("GET",    "/api/profile/me", None),
-    ("GET",    "/api/auth/me", None),
+    # Admin-only, on top of needing a session at all — the 403 half is asserted
+    # by test_the_backup_posture_is_admin_only and
+    # test_the_whole_database_envelope_is_admin_only below.
     ("POST",   "/api/profiles", {"username": "newbie", "email": "n@example.com"}),
     ("GET",    "/api/admin/backup-status", None),
+    ("GET",    "/api/export", None),
+    ("POST",   "/api/import", {"mode": "replace", "confirm": True,
+                               "envelope": {"schema_version": 6, "tables": {}}}),
+    # Any session will do for the rest: they act on the caller's own rows.
+    ("GET",    "/api/profile/me", None),
+    ("GET",    "/api/auth/me", None),
     ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
     ("GET",    "/api/sessions", None),
     ("GET",    "/api/sessions/{sid}", None),
@@ -476,9 +483,6 @@ GATED = [
     ("GET",    "/api/exercises/recency", None),
     ("POST",   "/api/events", [{"name": "screen_view", "screen": "Home"}]),
     ("GET",    "/api/analytics/summary", None),
-    ("GET",    "/api/export", None),
-    ("POST",   "/api/import", {"mode": "replace", "confirm": True,
-                               "envelope": {"schema_version": 6, "tables": {}}}),
 ]
 
 
@@ -597,6 +601,34 @@ def test_the_backup_posture_is_admin_only(mainmod, anon_client, client, write_ba
     assert set(r.json()) == {"last_backup_at", "last_backup_status",
                              "last_backup_remote_at", "last_backup_remote_status"}
     assert r.json()["last_backup_status"] == "ok"
+
+
+def test_the_whole_database_envelope_is_admin_only(mainmod, anon_client, client):
+    """A session is not enough for /api/export or /api/import.
+
+    The envelope is every table including `profiles`, which is every account's
+    bcrypt hash and email address — so any member who could reach it could read
+    the owner's credential material back out of a backup. And /api/import is a
+    whole-database replace: nothing about being invited to log your own sets
+    should let you wipe everyone's. Both belong with the backup posture, on the
+    admin side, until #87 gives a member their own scoped export.
+    """
+    with mainmod.db() as conn:
+        pid = conn.execute(
+            "INSERT INTO profiles (username, role) VALUES ('plain','member')").lastrowid
+        member = _as_session(TestClient(mainmod.app), mainmod.issue_session(conn, pid))
+        conn.commit()
+
+    assert anon_client.get("/api/export").status_code == 401
+    assert member.get("/api/export").status_code == 403
+    r = client.get("/api/export")                        # the seeded owner is admin
+    assert r.status_code == 200
+    assert "password_hash" in r.json()["tables"]["profiles"][0]
+
+    body = {"mode": "replace", "confirm": True, "envelope": r.json()}
+    assert anon_client.post("/api/import", json=body).status_code == 401
+    assert member.post("/api/import", json=body).status_code == 403
+    assert client.post("/api/import", json=body).status_code == 200
 
 
 # --- the owner is never locked out of, or shown an empty, app (#86) ---
