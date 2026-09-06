@@ -108,6 +108,10 @@
 (no branches in flight)
 
 ## Needs owner
+- ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
+  2026-09-06** ("yes i see it"). This was the one regression from #110 that no test could settle:
+  the leak test proves a second profile cannot see the first's rows, but only a human could confirm
+  the seed profile still returns *all* of its own. Closed.
 - **Try the login flow again — two bugs found and fixed since the first attempt.** Now at
   `73ebdce`. The owner's report (2026-09-06, *"i cant logout or sth, so how can i login or see my
   profile stuff?"*) had two causes, both filed as #118 and both shipped in PR #119: the top bar
@@ -120,8 +124,7 @@
   If no invite was ever completed, there is nothing to log in with and a fresh invite must be minted.
 - **The original try-it path — #86 is still waiting on it.** Deployed at `7d06bae`. The path:
   open the invite email from the #85 bootstrap, follow the link, set a password, land on Home
-  logged in, check the top bar shows your profile, log out, then log back in at `/login`. Also
-  worth confirming while you are in there: your own history is all still present after #110. If
+  logged in, check the top bar shows your profile, log out, then log back in at `/login`.  If
   anything is wrong, the app still works exactly as before — nothing is gated yet, which is the
   point of shipping this step separately.
 - **#30/#32 need a 5-minute spec skim, not a decision.**
