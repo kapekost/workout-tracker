@@ -3,7 +3,27 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
-## 2026-09-06 — #33 (nutrition) merges into #32 (adaptive coaching); one AI-in-the-loop spec
+## 2026-09-06 — #142 filed and worked ahead of #124, by direct owner call
+
+Right after the #87 tick closed, the owner reported their phone PWA "never updates the version and
+i can still access the data and i have never logged in from the phone pwa." Traced to
+`frontend/vite.config.js`'s `api-reads` cache: a fixed cache name across deploys means a device that
+cached real API responses before a security-relevant deploy (e.g. #86) and hasn't since had a
+successful network round-trip can keep serving that stale, pre-auth data indefinitely. Neither #124
+(wipes on logout only) nor #125 (deploy reach + visible version) currently commits to "a cache from
+before a security deploy must not survive it."
+
+**Asked directly, live session, not guessed:** fold into #124, file separately, or let a tick decide.
+Owner chose **new issue** — filed as **#142** (`type:bug`, `priority:P0`, `effort:M`, `ready`).
+
+**Then asked separately whether to work it ahead of the standing queue order** (#124 is next per the
+2026-09-06 "the queue is now explicit" decision, and priority reshuffling is the owner's call, not a
+tick's own initiative). Owner chose **#142 first** — it's a live, real (if their own) data-exposure
+condition on an actual device right now, not a queued risk like the rest of the backlog. This does
+not reopen or relitigate the rest of the queue order; #124 remains next after #142.
+
+**Not yet done as of filing:** the owner has not cleared the affected phone's site storage, so the
+exposure is still live pending the fix (or a manual clear, which stays their call to do on-device).
 
 Owner comments on both issues that morning (unanswered at tick start, per GUARDRAILS) had converged
 on the same shape without saying so: #32 wanted an AI export format personalised to recent workouts
