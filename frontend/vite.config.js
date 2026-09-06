@@ -37,6 +37,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Purges old-build api-reads-* caches on activate — see #142 and
+        // public/api-cache-cleanup.js for why this needs importScripts
+        // rather than a runtimeCaching option.
+        importScripts: ['api-cache-cleanup.js'],
         // SPA: serve the app shell for client-side routes when offline / on refresh
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
