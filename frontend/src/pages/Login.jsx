@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { auth } from '../api'
 import { useSession } from '../lib/session'
 import { colors, type, space } from '../lib/theme'
@@ -16,6 +16,11 @@ const RESET_SENT = 'If that address has an account, a reset link is on its way. 
 
 export default function Login() {
   const nav = useNavigate()
+  // Where the guard interrupted you, if it did. Set by App's RedirectToLogin;
+  // absent when you walked in here yourself, and Home is the honest answer
+  // then. `replace` so the back button leaves the app rather than returning
+  // to a door you are already through.
+  const from = useLocation().state?.from || '/'
   const { signIn } = useSession()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -35,7 +40,7 @@ export default function Login() {
     try {
       const profile = await auth.login(username, password)
       signIn(profile)
-      nav('/')
+      nav(from, { replace: true })
     } catch (err) {
       // The API's messages are generic on purpose ("invalid username or
       // password" covers an unknown user, a wrong password and a never-invited
@@ -60,9 +65,13 @@ export default function Login() {
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: space.xs }}>
         Log in
       </h1>
+      {/* Said in the reader's terms, not the app's -- and it has to be true.
+          Before #86 logging in was optional and this line said so; it is not
+          optional now, so promising that workouts are "saved either way" would
+          be the first thing the app got wrong on the first screen it shows. */}
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: space.xxl }}>
-        Your workouts are saved either way — logging in keeps them under your
-        own profile.
+        Your workouts, history and personal bests are all in here. Log in to
+        pick up where you left off.
       </p>
 
       <form onSubmit={submit} className="card" style={{ padding: space.xl, marginBottom: space.xxl }}>
