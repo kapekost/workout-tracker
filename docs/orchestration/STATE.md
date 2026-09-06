@@ -105,7 +105,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#86** — claimed 2026-09-06T01:20:00Z, live session. Flip the gate; executing under the recorded standing approval, blocker cleared by the owner's own round trip.
 
 ## Needs owner
 - ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
