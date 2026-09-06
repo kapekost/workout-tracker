@@ -12,94 +12,56 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#86 shipped — the gate is closed** (`2bd2885`, PR #136, 2026-09-06).
-  Accounts is **4 of 5 done**. No session, no app: all 21 data endpoints require one,
-  `_default_profile_id` is deleted, `/api/health` is trimmed to `{status, version}` with the backup
-  posture behind admin auth, `/api/events` is gated, and the frontend swaps route tables rather than
-  guarding routes one by one. A meta-test enumerates the app's own routes, so a route added later
-  without a gate fails the suite instead of shipping open. 225 backend + 303 frontend green.
-  Executed under the standing approval; no `approved` label added or needed.
-  **Deployed and verified** (`2bd2885` live on the Pi, 2026-09-06). Anonymous reads, writes and
-  `/api/admin/backup-status` all 401; `/login`, `/history` and `/set-password` still resolve; no
-  API schema served; schema 6, 2 sessions / 33 sets intact. The owner confirmed the round trip by
-  hand on production — set password, log in, log out — with the gate closed. Pre-deploy snapshot
-  on the Pi at `~/pre86-20260906-154912.db` (integrity ok).
-- **Next action:** **#87** (export/import role behaviour) → **#124** (logout locks the device) →
-  UI waves **#129/#130/#131**, in the owner's 2026-09-06 order. Unsequenced and pickable on their
-  own merits: **#126** (P0 — a bare `docker compose up` downgrades production to `:latest`),
-  #125, #127, #138. Queued behind accounts by owner call: **#132** (history scrub, `approved`
-  label on, mirror backup mandatory), **#134** (docs trim — *another session is mid-flight on
-  this*), **#137** (model tiering), **#135** (security review, blocked on #87).
+- **Current focus:** **Accounts workstream complete, 5/5** (#84, #85, #86, #105, #87 — 2026-09-06).
+  #87 shipped as PR #140 (`fdad339`): `/api/export`/`/api/import` are role-aware rather than
+  admin-only — admin behaviour unchanged, a member gets an own-rows export and an additive
+  `mode="merge"` import (id-remapped, cross-account writes structurally impossible, verified live by
+  8 adversarial probes in review). The final whole-branch review caught a real hazard before merge:
+  a member's export fed to an admin's `mode="replace"` used to zero out every admin —
+  `_import_replace` now refuses a replace with no admin row in the envelope, and
+  `docs/BACKUPS.md`/`AGENTS.md` are corrected to match (they still said "admin-only since #86").
+  238 backend tests green throughout; backend-only, no frontend change (the existing "Export my
+  data" button just stops 403ing for a member — live-browser-verification judged not applicable
+  given zero frontend lines changed). Four self-scoped/P3 hardening gaps found and deliberately
+  parked rather than expanding scope — filed as **#141**. **#135** (security review) relabelled
+  `ready` now that its gate landed. Full narrative in `HISTORY.md`. Merged-not-deployed: the Pi
+  still runs `2bd2885`.
+  Also this tick: **#33 merged into #32** per direct owner decision (both were converging on one
+  "AI-in-the-loop" spec) — see `DECISIONS.md`; the off-plan/muscle-area logging idea split out to
+  its own intake Issue, **#139**.
+- **Next action:** **#124** (logout locks the device) → UI waves **#129/#130/#131**, in the owner's
+  2026-09-06 order. Unsequenced and pickable on their own merits: **#126** (P0 — a bare
+  `docker compose up` downgrades production to `:latest`), #125, #127, #138, **#135** (now ready),
+  **#141** (P3, new). Queued behind accounts by owner call: **#132** (history scrub, `approved`
+  label on, mirror backup mandatory), **#137** (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#87** — claimed 2026-09-06T16:20:17Z, live session.
+(no branches in flight)
 
 ## Needs owner
-- ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
-  2026-09-06** ("yes i see it"). This was the one regression from #110 that no test could settle:
-  the leak test proves a second profile cannot see the first's rows, but only a human could confirm
-  the seed profile still returns *all* of its own. Closed.
-- **#30/#32 need a 5-minute spec skim, not a decision.**
-  `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114)
-  gates itself on an owner skim before either Issue may be split into `ready` children. Every
-  fork-in-the-road question in it was already answered by owner Q&A on 2026-08-30 — the skim is
-  confirming the spec-writer's mechanism design, not re-deciding anything. Until it happens, #30 and
-  #32 stay `intake` and cannot become executable work.
-- **A third `[template]` improvement is queued (2026-09-05), same destination as the two below.**
-  PLAYBOOK step 1 named the three orchestration docs to read but not the branch to read them from,
-  so a tick reads `main` — whose copies lag, because the home branch never merges there. Fixed
-  locally in PR #116; `agent-scaffold` has the same gap. Filing it needs the named credential or a
-  direct owner ask, same bar as the other two.
-- ~~**The accounts chain needs approval per step**~~ — **wrong, and corrected 2026-09-05.** This
-  bullet said #105/#86/#87 each still needed their own `/orchestrate approve`. `DECISIONS.md`'s
-  "Standing approval: the accounts workstream (#105, #86, #87)" says the opposite in as many words,
-  and the owner re-confirmed that reading live. The per-step phrasing predates that record and was
-  carried forward by successive cursors; it is what two ticks then acted on, one of them reporting
-  the chain blocked on an approval that had already been granted. **#105, #86 and #87 need no
-  `approved` label**, only the standing approval already on file — and it stops covering any of them
-  the moment its scope grows past the spec. #84 and #85 carry their own labels and shipped.
-  Unchanged and untouched by any of this: no agent may ever add the `approved` label itself.
-- **Two `[template]` improvements are queued and cannot be filed unattended (2026-09-05).**
-  Both want the same destination: `agent-scaffold` PR #2, which is already open. (1) PLAYBOOK says
-  nothing about recovering from a subagent that dies mid-task — it should require the controller to
-  inspect the dead agent's worktree for uncommitted work before re-dispatching, and to read a live
-  claim from a dead agent of its own session as still held rather than as a competing driver's.
-  (2) The `/orchestrate approve` variant never says which branch its record goes on, and the
-  2026-09-04 "home branch never merges" decision made that ambiguity load-bearing: the #84 approval
-  was committed to `STATE.md` on `main`, whose copy predated the #88/#93 entries, leaving two
-  divergent state files that this tick had to reconcile by hand before it could claim anything.
-  Filing either means a PR against `agent-scaffold`, which GUARDRAILS "Cross-repo writes" allows
-  only through a named credential or a direct owner ask — the same bar that gated the two entries
-  already in PR #2. Say the word and both go on that PR.
-- **`agent-scaffold` PR #2 is open and needs a review** — the two `[template]` entries, filed
-  2026-09-04 once the owner asked for them directly. That direct ask is what unblocked them:
-  GUARDRAILS "Cross-repo writes" bars a tick from using this repo's ambient `gh` auth to write to
-  another repo on its own initiative, and a human asking for the PR is exactly the authorisation
-  that rule is protecting. No CI is configured on that repo; all four `tests/*.sh` were run locally
-  and pass. Superseded context, kept because it explains the rule: GUARDRAILS "Cross-repo writes" allows a template-repo PR only through a named,
-  explicit credential set up for that purpose, "never implied by this repo's own `gh` auth" — and
-  the only auth on this Mac is the owner's personal `gh` token. So the 2026-09-02 entry (intake
-  splits can create children with no state label; `gh issue create` bypasses the ISSUE_TEMPLATE
-  default, which is how #68 sat invisible to both tracks for 3 days) and the 2026-09-04 entry
-  (GitHub's auto-delete-on-merge eats the orchestration home branch, taking the claim mechanism
-  with it) are both still unfiled against `agent-scaffold`. The owner either sets up that
-  credential or applies them by hand — `~/dev/agent-scaffold` is checked out locally. Not something
-  a tick may work around by using the ambient token.
-- **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
-  silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
-  invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
-  template repo — looks like Claude Code harness/skill-runtime behavior. Flagging per PLAYBOOK
-  step 8 rather than guessing at a fix.
-- **`[unsure]` IMPROVEMENTS.md entry (2026-08-31):** the Agent tool, dispatched without
-  `isolation:'worktree'` for #66's execution, shared the parent session's own working
-  directory/git checkout by default — its `git checkout -b ...` silently switched the
-  orchestrator's own checked-out branch mid-session. Caught via a stale-file system-reminder, not
-  a loud failure. Not fixable via a PR in this repo — Agent-tool/harness default behavior. Real
-  fix candidate for `PLAYBOOK.md`'s Execute step: default to `isolation:'worktree'` for any
-  subagent dispatch that does its own git branch/commit work.
+- **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
+  2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
+  into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
+  2026-08-30. **2026-09-06:** #33 (nutrition) merged into #32 by direct owner decision, so the spec
+  now needs the nutrition/in-app-AI-query scope folded in *before* the skim means anything. Until
+  then #30/#32 stay `intake`.
+- **Three `[template]` improvements are queued against `agent-scaffold` PR #2** (open, unreviewed,
+  no CI on that repo — all four `tests/*.sh` run locally and pass): (1) dead-subagent recovery —
+  PLAYBOOK should require inspecting a dead agent's worktree for uncommitted work before
+  re-dispatching; (2) `/orchestrate approve`'s home-branch ambiguity (the #84 approval once landed
+  on a stale `main` copy of `STATE.md`); (3) PLAYBOOK step 1 not naming which branch to read docs
+  from (fixed locally here in PR #116; `agent-scaffold` has the same gap). Filing any of them needs
+  a named credential or a direct owner ask per GUARDRAILS "Cross-repo writes" — `~/dev/agent-scaffold`
+  is checked out locally if the owner would rather apply them by hand.
+- **Two `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
+  (2026-08-30) the `code-review` skill's forked execution silently reviewed the wrong attached repo
+  with no explicit target given; (2026-08-31) the Agent tool without `isolation:'worktree'` shared
+  the parent session's own checkout, and its `git checkout -b` silently switched the orchestrator's
+  own branch mid-session — real fix candidate for PLAYBOOK's Execute step: default to
+  `isolation:'worktree'` for any subagent dispatch doing its own git branch/commit work.
 
 - **2026-09-06 (#86 unblocked but not started — account session limit):** The owner completed the
   round trip #86 was gated on ("worked") and separately confirmed their history survived #110's
