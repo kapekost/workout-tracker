@@ -106,6 +106,7 @@
 
 ## In-flight
 - **#86** — claimed 2026-09-06T05:56:47Z, live session.
+- **#134** (docs trim, this repo's slice) — claimed 2026-09-06T13:00:00Z, separate live session.
 
 ## Needs owner
 - ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
