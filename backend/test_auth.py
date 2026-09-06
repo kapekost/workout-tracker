@@ -453,18 +453,23 @@ _SET = {"exercise_id": "bench_press", "exercise_name": "Bench Press",
         "set_number": 1, "reps": 5, "weight_kg": 60}
 GATED = [
     # Admin-only, on top of needing a session at all — the 403 half is asserted
-    # by test_the_backup_posture_is_admin_only and
-    # test_the_whole_database_import_is_admin_only below.
+    # by test_the_backup_posture_is_admin_only below.
     ("POST",   "/api/profiles", {"username": "newbie", "email": "n@example.com"}),
     ("GET",    "/api/admin/backup-status", None),
-    ("POST",   "/api/import", {"mode": "replace", "confirm": True,
-                               "envelope": {"schema_version": 6, "tables": {}}}),
     # Any session will do for the rest: they act on the caller's own rows.
     # /api/export included since #87 — any role reaches it, admin gets the
     # whole database and a member gets their own rows scoped (see
     # test_profiles.py's test_member_export_contains_only_their_own_rows and
     # test_admin_export_unchanged).
     ("GET",    "/api/export", None),
+    # /api/import too, since #87's Task 2 — any session reaches it, but the
+    # *mode* it may use is role-locked rather than the endpoint being gated:
+    # admin must send mode="replace" (test_replace_mode_stays_admin_only),
+    # member must send mode="merge" (test_profiles.py's
+    # test_member_import_rejects_replace_mode / test_admin_import_rejects_merge_mode).
+    # A wrong mode is a 400 same as any other malformed request, not a 403.
+    ("POST",   "/api/import", {"mode": "replace", "confirm": True,
+                               "envelope": {"schema_version": 6, "tables": {}}}),
     ("GET",    "/api/profile/me", None),
     ("GET",    "/api/auth/me", None),
     ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
@@ -607,11 +612,15 @@ def test_the_backup_posture_is_admin_only(mainmod, anon_client, client, write_ba
     assert r.json()["last_backup_status"] == "ok"
 
 
-def test_the_whole_database_import_is_admin_only(mainmod, anon_client, client):
-    """A session is not enough for /api/import: it is a whole-database
-    replace, so nothing about being invited to log your own sets should let a
-    member wipe everyone's. This stays admin-only until #87's Task 2 gives a
-    member their own additive merge path.
+def test_replace_mode_stays_admin_only(mainmod, anon_client, client):
+    """/api/import is reachable by any session since #87's Task 2, but
+    mode="replace" — a whole-database wipe-and-restore — is not: nothing about
+    being invited to log your own sets should let a member wipe everyone's.
+    A member gets their own additive mode="merge" path instead (see
+    test_profiles.py's test_member_import_rejects_replace_mode and friends),
+    so a member sending mode="replace" now gets the same 400 "wrong mode"
+    shape as any other malformed request — not a 403, since the endpoint
+    itself is no longer gated by role, only the mode is.
 
     /api/export used to be admin-only for the same "profiles carries every
     account's bcrypt hash and email" reason, but #87's Task 1 gave any
@@ -634,7 +643,7 @@ def test_the_whole_database_import_is_admin_only(mainmod, anon_client, client):
 
     body = {"mode": "replace", "confirm": True, "envelope": r.json()}
     assert anon_client.post("/api/import", json=body).status_code == 401
-    assert member.post("/api/import", json=body).status_code == 403
+    assert member.post("/api/import", json=body).status_code == 400
     assert client.post("/api/import", json=body).status_code == 200
 
 

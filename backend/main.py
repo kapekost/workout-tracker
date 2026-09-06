@@ -1171,14 +1171,193 @@ def export_data(response: Response, profile: dict = Depends(current_profile)):
     return {"exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "schema_version": version, "tables": tables}
 
+def _import_replace(conn, env, admin, cur_version, env_version) -> dict:
+    """Whole-database replace — the app's only import behaviour until #87's
+    Task 2, and unchanged in substance here: it was pulled out of the route
+    handler verbatim so a member's additive merge (_import_merge, below) can
+    sit next to it without growing one function to cover two very different
+    write strategies (decision #12). Every wipe/insert/snapshot choice below
+    predates this extraction."""
+    # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
+    # txn; microseconds so back-to-back imports can't collide on the name)
+    snap_dir = os.path.dirname(DB_PATH)
+    snap = os.path.join(snap_dir,
+                        f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S-%f}.db")
+    conn.execute(f"VACUUM INTO '{snap}'")
+    # Prune here, not after the import: failed imports also leave a
+    # snapshot behind and must not accumulate them unbounded.
+    for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+    try:
+        conn.execute("BEGIN")
+        for t in TABLES:
+            if t == "profiles" and "profiles" not in env["tables"]:
+                # Pre-v4 envelope has no opinion about profiles at all — leave the
+                # live table untouched rather than wiping the seed admin with no
+                # profiles data in the envelope to restore it from. Every write
+                # endpoint depends on at least one profile existing.
+                continue
+            valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
+            conn.execute(f"DELETE FROM {t}")
+            for r in env["tables"].get(t, []):
+                if not set(r.keys()) <= valid:
+                    raise ValueError(f"unknown column in {t} row")
+                row = dict(r)
+                if "profile_id" in valid and "profile_id" not in row:
+                    # Row predates profiles entirely (pre-v4 envelope) — attribute
+                    # it to whoever is restoring, the same backfill the original
+                    # migration did for pre-existing data. Safe against the wipe
+                    # above: an envelope old enough to reach here has no profiles
+                    # table, so the branch that skips it left the live one (and
+                    # therefore this id) standing.
+                    row["profile_id"] = admin["id"]
+                cols = list(row.keys())
+                placeholders = ",".join("?" * len(cols))
+                conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
+                             [row[c] for c in cols])
+        # The DB's physical schema is already at cur_version (migrations
+        # ran at startup); restoring older data must not record a lower
+        # version, or a later restart could re-run a non-idempotent
+        # migration against an already-migrated DB.
+        conn.execute(f"PRAGMA user_version = {max(env_version, cur_version)}")
+        conn.commit()
+        restored = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in TABLES}
+    except Exception:
+        conn.rollback()
+        raise HTTPException(400, "import failed; rolled back, live DB unchanged")
+    return restored
+
+def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
+    """A member's additive import (#87 Task 2): inserts the envelope's rows
+    into the caller's own profile, deletes nothing, and never touches
+    `profiles` even though one row of it is present in the envelope (there
+    only so the shared validation in import_data needs no member-specific
+    exception — see /api/export's comment). No pre-import snapshot: a
+    replace can lose everything, so it gets one; a merge only ever adds rows
+    scoped to the caller, so there is nothing for a snapshot to protect
+    against (decision #6).
+
+    sessions/events: `id` and `profile_id` are dropped from the incoming row
+    and reassigned — `id` by SQLite's own autoincrement, `profile_id` forced
+    to the caller — because the envelope's ids will collide with the
+    caller's own live rows, or name someone else's (decisions #7/#8). `sets`
+    follows the same rule but additionally remaps `session_id` through the
+    id map built from *this envelope's own* `sessions` rows; a `sets` row
+    whose `session_id` isn't in that map — because the envelope never
+    defined that session, or named one belonging to someone else — has no
+    legitimate home in this import and is silently dropped, which is what
+    makes "cannot write to another profile" true even for a forged
+    `session_id` rather than just a forged `profile_id` column.
+
+    personal_bests/exercise_notes use INSERT OR IGNORE against their real
+    profile-scoped UNIQUE constraints, so re-importing an identical row a
+    second time adds nothing — merge's one naturally-idempotent corner.
+    sessions/sets/events have no such constraint and are not deduplicated;
+    that's a documented POC limitation (decision #9), not an oversight.
+    """
+    tables = env["tables"]
+    merged = {t: 0 for t in TABLES if t != "profiles"}
+
+    def valid_cols(table):
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+    try:
+        conn.execute("BEGIN")
+
+        valid_sessions = valid_cols("sessions")
+        session_id_map = {}
+        for row in tables.get("sessions", []):
+            if not set(row.keys()) <= valid_sessions:
+                raise ValueError("unknown column in sessions row")
+            old_id = row.get("id")
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            cur = conn.execute(f"INSERT INTO sessions ({','.join(cols)}) VALUES ({placeholders})",
+                               [new_row[c] for c in cols])
+            if old_id is not None:
+                session_id_map[old_id] = cur.lastrowid
+            merged["sessions"] += 1
+
+        valid_sets = valid_cols("sets")
+        for row in tables.get("sets", []):
+            if not set(row.keys()) <= valid_sets:
+                raise ValueError("unknown column in sets row")
+            new_session_id = session_id_map.get(row.get("session_id"))
+            if new_session_id is None:
+                continue  # orphaned: no session in this envelope to attach to
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            new_row["session_id"] = new_session_id
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            conn.execute(f"INSERT INTO sets ({','.join(cols)}) VALUES ({placeholders})",
+                         [new_row[c] for c in cols])
+            merged["sets"] += 1
+
+        valid_events = valid_cols("events")
+        for row in tables.get("events", []):
+            if not set(row.keys()) <= valid_events:
+                raise ValueError("unknown column in events row")
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            conn.execute(f"INSERT INTO events ({','.join(cols)}) VALUES ({placeholders})",
+                         [new_row[c] for c in cols])
+            merged["events"] += 1
+
+        valid_pbs = valid_cols("personal_bests")
+        for row in tables.get("personal_bests", []):
+            if not set(row.keys()) <= valid_pbs:
+                raise ValueError("unknown column in personal_bests row")
+            new_row = {k: v for k, v in row.items() if k != "id"}
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            cur = conn.execute(
+                f"INSERT OR IGNORE INTO personal_bests ({','.join(cols)}) VALUES ({placeholders})",
+                [new_row[c] for c in cols])
+            merged["personal_bests"] += cur.rowcount
+
+        valid_notes = valid_cols("exercise_notes")
+        for row in tables.get("exercise_notes", []):
+            if not set(row.keys()) <= valid_notes:
+                raise ValueError("unknown column in exercise_notes row")
+            new_row = dict(row)
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            cur = conn.execute(
+                f"INSERT OR IGNORE INTO exercise_notes ({','.join(cols)}) VALUES ({placeholders})",
+                [new_row[c] for c in cols])
+            merged["exercise_notes"] += cur.rowcount
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise HTTPException(400, "import failed; rolled back, live DB unchanged")
+    return merged
+
 @app.post("/api/import")
-def import_data(payload: ImportIn, admin: dict = Depends(require_admin)):
-    # Admin for the mirror-image reason to export's: this is a whole-database
-    # *replace*. A member with a session could otherwise wipe every profile's
-    # history from a phone — and take everyone's login with it, since
-    # auth_sessions cascades from profiles.
-    if payload.mode != "replace" or not payload.confirm:
-        raise HTTPException(400, "import requires mode='replace' and confirm=true")
+def import_data(payload: ImportIn, profile: dict = Depends(current_profile)):
+    # Any authenticated profile can reach this (#87 Task 2) — role decides
+    # *which write strategy* runs, mirroring /api/export's role-decides-scope
+    # split. An admin's mode="replace" is exactly today's whole-database
+    # wipe-and-restore (_import_replace). A member's mode="merge" is a new,
+    # additive path (_import_merge): it inserts the envelope's rows into
+    # their own profile, never deletes anything, and never touches the
+    # `profiles` table even though one row of it is present in the envelope
+    # (present only so the shared validation below needs no member-specific
+    # exception — see /api/export's own comment for why that row is there).
+    #
+    # A member sending mode="replace" (or an admin sending mode="merge") 400s
+    # exactly like every other malformed-request shape below — it is a wrong
+    # request, not a permissions probe, so it is not a 403.
     env = payload.envelope
     if not isinstance(env, dict) or "tables" not in env or "schema_version" not in env:
         raise HTTPException(400, "malformed envelope")
@@ -1195,57 +1374,12 @@ def import_data(payload: ImportIn, admin: dict = Depends(require_admin)):
         cur_version = conn.execute("PRAGMA user_version").fetchone()[0]
         if env_version > cur_version:
             raise HTTPException(400, "envelope schema_version newer than app")
-        # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
-        # txn; microseconds so back-to-back imports can't collide on the name)
-        snap_dir = os.path.dirname(DB_PATH)
-        snap = os.path.join(snap_dir,
-                            f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S-%f}.db")
-        conn.execute(f"VACUUM INTO '{snap}'")
-        # Prune here, not after the import: failed imports also leave a
-        # snapshot behind and must not accumulate them unbounded.
-        for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
-            try:
-                os.remove(old)
-            except OSError:
-                pass
-        try:
-            conn.execute("BEGIN")
-            for t in TABLES:
-                if t == "profiles" and "profiles" not in env["tables"]:
-                    # Pre-v4 envelope has no opinion about profiles at all — leave the
-                    # live table untouched rather than wiping the seed admin with no
-                    # profiles data in the envelope to restore it from. Every write
-                    # endpoint depends on at least one profile existing.
-                    continue
-                valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
-                conn.execute(f"DELETE FROM {t}")
-                for r in env["tables"].get(t, []):
-                    if not set(r.keys()) <= valid:
-                        raise ValueError(f"unknown column in {t} row")
-                    row = dict(r)
-                    if "profile_id" in valid and "profile_id" not in row:
-                        # Row predates profiles entirely (pre-v4 envelope) — attribute
-                        # it to whoever is restoring, the same backfill the original
-                        # migration did for pre-existing data. Safe against the wipe
-                        # above: an envelope old enough to reach here has no profiles
-                        # table, so the branch that skips it left the live one (and
-                        # therefore this id) standing.
-                        row["profile_id"] = admin["id"]
-                    cols = list(row.keys())
-                    placeholders = ",".join("?" * len(cols))
-                    conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
-                                 [row[c] for c in cols])
-            # The DB's physical schema is already at cur_version (migrations
-            # ran at startup); restoring older data must not record a lower
-            # version, or a later restart could re-run a non-idempotent
-            # migration against an already-migrated DB.
-            conn.execute(f"PRAGMA user_version = {max(env_version, cur_version)}")
-            conn.commit()
-            restored = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in TABLES}
-        except Exception:
-            conn.rollback()
-            raise HTTPException(400, "import failed; rolled back, live DB unchanged")
-    return {"restored": restored}
+        required_mode = "replace" if profile["role"] == "admin" else "merge"
+        if payload.mode != required_mode or not payload.confirm:
+            raise HTTPException(400, f"import requires mode={required_mode!r} and confirm=true")
+        if profile["role"] == "admin":
+            return {"restored": _import_replace(conn, env, profile, cur_version, env_version)}
+        return {"merged": _import_merge(conn, env, profile["id"], cur_version, env_version)}
 
 def cache_control_for(path: str) -> str:
     """What to send for one built asset.

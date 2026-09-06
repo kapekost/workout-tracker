@@ -1,15 +1,19 @@
 from fastapi.testclient import TestClient
 
 
-def _member_client(mainmod):
+def _member_client(mainmod, username="plain"):
     """A second, member-role profile with its own real session cookie — not a
     raw row we then never authenticate as, per
     test_second_profile_can_log_the_same_pb_as_the_first's pattern for
     creating the profile, and conftest.py's `client` fixture / issue_session
-    for putting a real session on a client of its own."""
+    for putting a real session on a client of its own.
+
+    `username` is overridable so a single test can create more than one
+    member (e.g. an importer and a victim) without colliding on the UNIQUE
+    username constraint."""
     with mainmod.db() as conn:
         member_id = conn.execute(
-            "INSERT INTO profiles (username, role) VALUES ('plain', 'member')").lastrowid
+            "INSERT INTO profiles (username, role) VALUES (?, 'member')", (username,)).lastrowid
         member = TestClient(mainmod.app)
         member.cookies.set("wt_session", mainmod.issue_session(conn, member_id))
         conn.commit()
@@ -346,3 +350,185 @@ def test_profile_me_returns_acting_profile_with_icon(client):
     assert body["username"] == "kapekost"
     assert body["role"] == "admin"
     assert body["icon"] == "💪"
+
+# --- #87 Task 2: member import — additive merge ---
+# A member's /api/import is a second, additive mode ("merge") next to the
+# admin's unchanged whole-database "replace" -- see the design doc's
+# decisions #3-#12 (docs/superpowers/plans/2026-09-06-accounts-export-import-roles.md)
+# for the full reasoning behind id remapping, the profiles/idempotency
+# carve-outs, and the {"merged": {...}} response shape asserted below.
+
+def test_member_import_merges_into_their_own_profile(mainmod):
+    # Deliberately no personal_bests/exercise_notes here -- those two tables
+    # have a real uniqueness constraint that would make even this *first*
+    # merge collide with the live row the export was taken from (see
+    # test_member_import_is_idempotent_for_personal_bests_and_notes, which
+    # covers that separately). sessions/sets/events have no such constraint,
+    # so this test isolates the plain "merge doubles it" property.
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    member.post("/api/events", json=[{"name": "member_event"}])
+
+    envelope = member.get("/api/export").json()
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    assert r.json() == {"merged": {
+        "sessions": 1, "sets": 1, "events": 1, "personal_bests": 0, "exercise_notes": 0}}
+
+    doubled = member.get("/api/export").json()["tables"]
+    # This is the property, not a bug: merge is additive, so importing a
+    # profile's own export back into itself lays a second copy on top of the
+    # first rather than being a no-op.
+    assert len(doubled["sessions"]) == 2
+    assert len(doubled["sets"]) == 2
+    assert len(doubled["events"]) == 2
+
+def test_member_import_cannot_write_to_another_profile(mainmod):
+    victim, victim_id = _member_client(mainmod, "victim")
+    victim_sid = victim.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    victim.post(f"/api/sessions/{victim_sid}/sets", json={
+        "exercise_id": "deadlift", "exercise_name": "Deadlift",
+        "set_number": 1, "reps": 5, "weight_kg": 140})
+    victim.post("/api/personal-bests", json={
+        "exercise_id": "deadlift", "exercise_name": "Deadlift",
+        "weight_kg": 140, "reps": 5, "achieved_year": 2025})
+    victim_before = victim.get("/api/export").json()["tables"]
+
+    attacker, attacker_id = _member_client(mainmod, "attacker")
+    attacker_sid = attacker.post("/api/sessions", json={"workout_day": "lower_a"}).json()["id"]
+    attacker.post(f"/api/sessions/{attacker_sid}/sets", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "set_number": 1, "reps": 5, "weight_kg": 100})
+    attacker.post("/api/personal-bests", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "weight_kg": 100, "reps": 5, "achieved_year": 2025})
+
+    envelope = attacker.get("/api/export").json()
+    # Forge every profile_id-carrying row to point at the victim's real id.
+    envelope["tables"]["sessions"][0]["profile_id"] = victim_id
+    envelope["tables"]["sets"][0]["profile_id"] = victim_id
+    envelope["tables"]["personal_bests"][0]["profile_id"] = victim_id
+
+    r = attacker.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+
+    after = attacker.get("/api/export").json()["tables"]
+    # Merge always forces profile_id to the caller -- the forged value is
+    # never honoured, so the merged rows land on the attacker's own profile.
+    assert {s["profile_id"] for s in after["sessions"]} == {attacker_id}
+    assert {s["profile_id"] for s in after["sets"]} == {attacker_id}
+    assert {p["profile_id"] for p in after["personal_bests"]} == {attacker_id}
+
+    # The victim's own data is completely unaffected.
+    assert victim.get("/api/export").json()["tables"] == victim_before
+
+def test_member_import_drops_orphaned_sets(mainmod):
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    envelope = member.get("/api/export").json()
+
+    # A set naming a session id the envelope itself never defines. The id
+    # remap only ever maps ids from this same envelope's own "sessions" list
+    # (decision #7), so this has no legitimate home once ids are rewritten --
+    # not "envelope didn't include the session it's really in" so much as
+    # "there is nothing in this import for it to attach to".
+    orphan = dict(envelope["tables"]["sets"][0])
+    orphan["id"] = 999999
+    orphan["session_id"] = 424242
+    envelope["tables"]["sets"].append(orphan)
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    assert r.json()["merged"]["sets"] == 1  # the orphan was silently skipped, not inserted, not an error
+
+    after = member.get("/api/export").json()["tables"]["sets"]
+    assert len(after) == 2  # the original set + the one legitimate merged copy -- not 3
+
+def test_member_import_is_idempotent_for_personal_bests_and_notes(mainmod):
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    member.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    member.put("/api/exercises/bench_press/note", json={"note": "go slow"})
+    envelope = member.get("/api/export").json()
+    body = {"mode": "merge", "confirm": True, "envelope": envelope}
+
+    member.post("/api/import", json=body)
+    after_first = member.get("/api/export").json()["tables"]
+    member.post("/api/import", json=body)
+    after_second = member.get("/api/export").json()["tables"]
+
+    # personal_bests/exercise_notes carry a real UNIQUE/PRIMARY KEY constraint
+    # scoped to profile_id (decision #9), and merge inserts into them with
+    # INSERT OR IGNORE -- so re-importing byte-identical rows is a no-op for
+    # these two tables specifically, from the very first import onward (the
+    # export was taken *after* these rows already existed live, so even
+    # import #1 collides with the original row). This is a documented POC
+    # limitation, not a real id-based idempotency scheme: it only holds
+    # because the (profile_id, exercise_id, ...) tuple is byte-identical
+    # every time, not because merge is tracking what it has already imported.
+    assert len(after_first["personal_bests"]) == len(after_second["personal_bests"]) == 1
+    assert len(after_first["exercise_notes"]) == len(after_second["exercise_notes"]) == 1
+
+    # sessions/sets have no such constraint -- they are NOT deduplicated and
+    # keep growing with every import, unlike personal_bests/exercise_notes.
+    assert len(after_second["sessions"]) > len(after_first["sessions"])
+    assert len(after_second["sets"]) > len(after_first["sets"])
+
+def test_member_import_ignores_profiles_table(mainmod):
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["profiles"][0]["role"] = "admin"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+
+    with mainmod.db() as conn:
+        role = conn.execute("SELECT role FROM profiles WHERE id = ?", (member_id,)).fetchone()[0]
+    assert role == "member"  # the mutated envelope role was never applied
+
+def test_member_import_rejects_replace_mode(mainmod):
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = member.get("/api/export").json()
+
+    r = member.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(member.get("/api/export").json()["tables"]["sessions"]) == 1  # DB untouched
+
+def test_member_import_requires_confirm(mainmod):
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = member.get("/api/export").json()
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": False, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(member.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_member_import_rejects_unknown_columns(mainmod):
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["sessions"][0]["bogus_col"] = 1
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(member.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_admin_import_rejects_merge_mode(client):
+    client.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = client.get("/api/export").json()
+
+    r = client.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
