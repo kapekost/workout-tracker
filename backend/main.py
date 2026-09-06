@@ -37,7 +37,14 @@ APP_VERSION = os.environ.get("APP_COMMIT", "dev")
 # No CORS middleware on purpose: prod serves the frontend same-origin and dev
 # uses the Vite proxy, so any cross-origin browser request is a foreign page
 # trying to read /api/export or fire /api/import — let the preflight fail.
-app = FastAPI()
+# No /docs, /redoc or /openapi.json either. FastAPI serves all three by
+# default and none of them is gated, so anonymous callers could read back the
+# full shape of every request the app accepts — 26 paths, LoginIn and
+# SetPasswordIn included — which is exactly what current_profile's 401 landing
+# before validation is supposed to prevent. Nobody browses them here: this is
+# one app with one frontend in the same repo, so the schema is not
+# documentation anybody needs, only reconnaissance nobody should get.
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 @contextmanager
 def db():
@@ -54,25 +61,6 @@ def db():
 
 def _column_exists(conn, table, col):
     return col in [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
-
-def _default_profile_id(conn):
-    # Temporary: attributes every new row to the seeded admin profile until #67
-    # introduces real request-scoped login/session identity. Every call site
-    # below is removed/replaced in #67, not extended further.
-    return conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
-
-def acting_profile_id(conn):
-    """The profile whose data a request may read and mutate — the single seam
-    every data endpoint scopes through, for reads and writes alike.
-
-    Today it returns the default profile: #84's gate is still open, so there is
-    no request-scoped identity yet, and routing every endpoint through one place
-    keeps behaviour identical for now. #110 uses it to stop data leaking between
-    profiles (reads were never scoped); #86 then replaces this body with the
-    session lookup and deletes _default_profile_id — one function to change, not
-    every call site.
-    """
-    return _default_profile_id(conn)
 
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -369,11 +357,10 @@ def _last_backup():
         local, remote = _leg(data, ("ok", "failed")), (None, None)
     return local[0], local[1] or "none", remote[0], remote[1]
 
-# --- Auth (#84) ---
-# Deliberately unwired from the data endpoints: #86 flips the gate and deletes
-# _default_profile_id. Keeping it in one block means #85 can lift the whole
-# section into its own module if it outgrows main.py — note that doing so also
-# needs a Dockerfile change, since it COPYs backend/main.py by name.
+# --- Auth (#84, wired to the data endpoints in #86) ---
+# Keeping it in one block means it can be lifted into its own module if it
+# outgrows main.py — note that doing so also needs a Dockerfile change, since
+# it COPYs backend/main.py by name.
 
 # Cost 12 = 627 ms on the deploy target (Pi 3 B+, aarch64), measured, not
 # assumed. bcrypt rather than a memory-hard KDF because each concurrent
@@ -603,12 +590,16 @@ def _token_email_quietly(to: str, raw: str, kind: str) -> None:
         pass
 
 def current_profile(request: Request) -> dict:
-    """Request-scoped identity, from the session cookie.
+    """Request-scoped identity, from the session cookie. 401 if there isn't one.
 
-    Defined here but deliberately NOT applied to the data endpoints: #86 flips
-    the gate across all of them and deletes _default_profile_id. Wiring it in
-    early would close the app before the invite flow (#85) and the owner
-    bootstrap exist, locking the owner out of their own history.
+    Every endpoint that touches somebody's data depends on this, directly or
+    through acting_profile_id below, and that dependency *is* the gate: the 401
+    is a property of the route's signature rather than a check each handler has
+    to remember to write. It also lands before body and path-parameter
+    validation, so an anonymous caller cannot probe the app's shape by sending
+    rubbish and reading the 422 back — which is only worth something because
+    /openapi.json is off too (see the FastAPI() call above); it was serving the
+    whole schema while this docstring claimed otherwise.
     """
     with db() as conn:
         row = session_profile(conn, request.cookies.get(SESSION_COOKIE))
@@ -651,21 +642,55 @@ def require_admin(profile: dict = Depends(current_profile)) -> dict:
         raise HTTPException(403, "admin only")
     return profile
 
+def acting_profile_id(profile: dict = Depends(current_profile)) -> int:
+    """The id of the profile whose data a request may read and mutate — the
+    single seam every data endpoint scopes through, for reads and writes alike.
+
+    It was a plain function taking a connection until #86, because there was no
+    request-scoped identity to ask: it returned the seeded admin, and #110 used
+    it to stop reads leaking between profiles. Now it is a dependency, which is
+    what closes the gate — a profile id cannot be obtained without a live
+    session, so there is no way to write a route that scopes its queries and
+    forgets to authenticate. It stays its own name rather than each handler
+    reading profile["id"] because "whose data is this request acting on" is a
+    question this app may one day answer differently (an admin operating on
+    another account, say), and this is the one place that would change.
+    """
+    return profile["id"]
+
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):
+    # The only /api/ path an anonymous caller can read, and deliberately so:
+    # scripts/deploy.sh curls it from the host to prove the deploy landed, with
+    # no session and no way to obtain one. So it says the minimum that check
+    # needs — the backup posture it used to carry is /api/admin/backup-status
+    # now (#86), because a public endpoint should not publish how long it has
+    # been since the database was last copied off the box.
     response.headers["Cache-Control"] = "no-store"
     # Touch the database on purpose. Until #88 this endpoint read the backup
     # status out of the events table, so an unopenable DB failed the request as
     # a side effect — and scripts/deploy.sh has always leaned on that, reading
-    # anything other than a 200 as "the deploy is not up". Now that the status
-    # comes from a file, nothing else here opens the DB, and without this
-    # /api/health would cheerfully report ok for an app whose database is gone.
+    # anything other than a 200 as "the deploy is not up". Nothing else here
+    # opens the DB, and without this /api/health would cheerfully report ok for
+    # an app whose database is gone.
     with db() as conn:
         conn.execute("SELECT 1")
+    return {"status": "ok", "version": APP_VERSION}
+
+@app.get("/api/admin/backup-status")
+def backup_status(response: Response, admin: dict = Depends(require_admin)):
+    """The backup chain's posture — the four keys /api/health used to carry.
+
+    Admin rather than any session: it is infrastructure, not somebody's data,
+    and knowing that the last off-site copy failed nine days ago is useful to
+    exactly one person. docs/BACKUPS.md explains what the statuses mean.
+    """
+    # no-store for the same reason /api/export has it: a cached answer here is
+    # a reassuring one about a backup that may have failed since.
+    response.headers["Cache-Control"] = "no-store"
     last_at, last_status, remote_at, remote_status = _last_backup()
-    return {"status": "ok", "version": APP_VERSION,
-            "last_backup_at": last_at, "last_backup_status": last_status,
+    return {"last_backup_at": last_at, "last_backup_status": last_status,
             "last_backup_remote_at": remote_at,
             "last_backup_remote_status": remote_status}
 
@@ -782,19 +807,16 @@ def auth_me(profile: dict = Depends(current_profile)):
     return profile
 
 @app.get("/api/profile/me")
-def get_current_profile():
-    # Temporary, like _default_profile_id: "the acting profile" is the seed
-    # admin until #67 introduces real login. Replaced there, not extended.
-    with db() as conn:
-        profile_id = acting_profile_id(conn)
-        row = conn.execute(
-            "SELECT id, username, role, icon FROM profiles WHERE id = ?", (profile_id,)).fetchone()
-        return dict(row)
+def get_current_profile(profile: dict = Depends(current_profile)):
+    # Same answer as /api/auth/me minus the email, and it predates it — the
+    # frontend has called this one since before there was a login. Kept so the
+    # two are not renamed in the same step the gate closes; converging on one
+    # of them is a frontend change first.
+    return {k: profile[k] for k in ("id", "username", "role", "icon")}
 
 @app.post("/api/sessions")
-def create_session(s: SessionIn):
+def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
                            (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()
@@ -802,30 +824,30 @@ def create_session(s: SessionIn):
         return dict(row)
 
 @app.get("/api/sessions")
-def list_sessions():
+def list_sessions(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM sessions WHERE profile_id = ? ORDER BY created_at DESC LIMIT 60",
-            (acting_profile_id(conn),)).fetchall()
+            (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}")
-def get_session(sid: int):
+def get_session(sid: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         s = conn.execute("SELECT * FROM sessions WHERE id = ? AND profile_id = ?",
-                         (sid, acting_profile_id(conn))).fetchone()
+                         (sid, profile_id)).fetchone()
         if not s:
             raise HTTPException(404)
         sets = conn.execute("SELECT * FROM sets WHERE session_id = ? ORDER BY logged_at", (sid,)).fetchall()
         return {**dict(s), "sets": [dict(x) for x in sets]}
 
 @app.patch("/api/sessions/{sid}")
-def patch_session(sid: int, p: SessionPatch):
+def patch_session(sid: int, p: SessionPatch, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 (not 403) when the session belongs to another profile — its
         # existence is not the caller's business (#110).
         if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
-                            (sid, acting_profile_id(conn))).fetchone():
+                            (sid, profile_id)).fetchone():
             raise HTTPException(404)
         if p.completed is not None:
             if p.completed:
@@ -842,11 +864,11 @@ def patch_session(sid: int, p: SessionPatch):
         return dict(row)
 
 @app.delete("/api/sessions/{sid}")
-def delete_session(sid: int):
+def delete_session(sid: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 when the session belongs to another profile (#110).
         if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
-                            (sid, acting_profile_id(conn))).fetchone():
+                            (sid, profile_id)).fetchone():
             raise HTTPException(404)
         conn.execute("DELETE FROM sets WHERE session_id = ?", (sid,))
         conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
@@ -854,9 +876,8 @@ def delete_session(sid: int):
         return {"deleted": True}
 
 @app.post("/api/sessions/{sid}/sets")
-def add_set(sid: int, s: SetIn):
+def add_set(sid: int, s: SetIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         # 404 when the session is another profile's — adding a set to a session
         # you do not own is a cross-profile write, same rule as PATCH/DELETE (#110).
         if not conn.execute("SELECT id FROM sessions WHERE id = ? AND profile_id = ?",
@@ -871,13 +892,13 @@ def add_set(sid: int, s: SetIn):
         return dict(row)
 
 @app.delete("/api/sessions/{sid}/sets/{set_id}")
-def delete_set(sid: int, set_id: int):
+def delete_set(sid: int, set_id: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 unless the set's session belongs to the acting profile (#110).
         owned = conn.execute(
             "SELECT 1 FROM sets st JOIN sessions s ON s.id = st.session_id "
             "WHERE st.id = ? AND st.session_id = ? AND s.profile_id = ?",
-            (set_id, sid, acting_profile_id(conn))).fetchone()
+            (set_id, sid, profile_id)).fetchone()
         if not owned:
             raise HTTPException(404)
         conn.execute("DELETE FROM sets WHERE id = ? AND session_id = ?", (set_id, sid))
@@ -885,9 +906,8 @@ def delete_set(sid: int, set_id: int):
         return {"deleted": True}
 
 @app.post("/api/personal-bests")
-def create_personal_best(pb: PersonalBestIn):
+def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         try:
             cur = conn.execute(
                 "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, profile_id) "
@@ -900,26 +920,26 @@ def create_personal_best(pb: PersonalBestIn):
         return dict(row)
 
 @app.get("/api/personal-bests")
-def list_personal_bests():
+def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM personal_bests WHERE profile_id = ? "
-            "ORDER BY exercise_name, weight_kg DESC", (acting_profile_id(conn),)).fetchall()
+            "ORDER BY exercise_name, weight_kg DESC", (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.delete("/api/personal-bests/{pb_id}")
-def delete_personal_best(pb_id: int):
+def delete_personal_best(pb_id: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 when the personal best belongs to another profile (#110).
         if not conn.execute("SELECT 1 FROM personal_bests WHERE id = ? AND profile_id = ?",
-                            (pb_id, acting_profile_id(conn))).fetchone():
+                            (pb_id, profile_id)).fetchone():
             raise HTTPException(404)
         conn.execute("DELETE FROM personal_bests WHERE id = ?", (pb_id,))
         conn.commit()
         return {"deleted": True}
 
 @app.get("/api/progress/{exercise_id}")
-def get_progress(exercise_id: str):
+def get_progress(exercise_id: str, profile_id: int = Depends(acting_profile_id)):
     # Completed sessions only (in-progress/abandoned sets would skew the chart
     # and the PR baseline), keeping the most recent 60, re-sorted for the chart.
     with db() as conn:
@@ -932,11 +952,11 @@ def get_progress(exercise_id: str):
                 GROUP BY s.id, s.date
                 ORDER BY s.date DESC, s.id DESC LIMIT 60
             ) ORDER BY date ASC, sid ASC
-        """, (exercise_id, acting_profile_id(conn))).fetchall()
+        """, (exercise_id, profile_id)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/progress")
-def all_progress():
+def all_progress(profile_id: int = Depends(acting_profile_id)):
     # Completed sessions only, mirroring get_progress — otherwise the Progress
     # page lists picker chips whose charts are permanently empty. max_weight
     # lets the workout page build its PR baseline from this one call instead
@@ -947,21 +967,20 @@ def all_progress():
             FROM sets st JOIN sessions s ON st.session_id = s.id
             WHERE s.completed = 1 AND s.profile_id = ?
             GROUP BY st.exercise_id, st.exercise_name ORDER BY st.exercise_name
-        """, (acting_profile_id(conn),)).fetchall()
+        """, (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/notes")
-def get_notes():
+def get_notes(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute("SELECT exercise_id, note FROM exercise_notes WHERE profile_id = ?",
-                           (acting_profile_id(conn),)).fetchall()
+                           (profile_id,)).fetchall()
         return {r["exercise_id"]: r["note"] for r in rows}
 
 @app.put("/api/exercises/{exercise_id}/note")
-def put_note(exercise_id: str, n: NoteIn):
+def put_note(exercise_id: str, n: NoteIn, profile_id: int = Depends(acting_profile_id)):
     note = n.note.strip()
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         if note:
             conn.execute(
                 "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) VALUES (?,?,?,datetime('now')) "
@@ -977,7 +996,8 @@ def epley(weight, reps):
     return round(weight * (1 + reps / 30) * 2) / 2
 
 @app.get("/api/exercises/{exercise_id}/last")
-def last_performance(exercise_id: str, exclude_session: int | None = None):
+def last_performance(exercise_id: str, exclude_session: int | None = None,
+                     profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         row = conn.execute(
             "SELECT s.id, s.date FROM sessions s "
@@ -985,7 +1005,7 @@ def last_performance(exercise_id: str, exclude_session: int | None = None):
             "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? AND s.profile_id = ? "
             "ORDER BY s.created_at DESC LIMIT 1",
             (exercise_id, exclude_session if exclude_session is not None else -1,
-             acting_profile_id(conn))).fetchone()
+             profile_id)).fetchone()
         if not row:
             return None
         sets = conn.execute(
@@ -994,7 +1014,7 @@ def last_performance(exercise_id: str, exclude_session: int | None = None):
         return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
 
 @app.get("/api/exercises/recency")
-def exercises_recency():
+def exercises_recency(profile_id: int = Depends(acting_profile_id)):
     # Powers the Home muscle-group picker: for each exercise, when it was last
     # trained, how much of it, and when it was trained before that.
     #
@@ -1034,13 +1054,12 @@ def exercises_recency():
                    ON prev.exercise_id = cur.exercise_id AND prev.rn = 2
             WHERE cur.rn = 1
             ORDER BY cur.exercise_id
-        """, (acting_profile_id(conn),)).fetchall()
+        """, (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}/prs")
-def session_prs(sid: int):
+def session_prs(sid: int, pid: int = Depends(acting_profile_id)):
     with db() as conn:
-        pid = acting_profile_id(conn)
         # 404 when the session belongs to another profile — its PRs are computed
         # only against that profile's own history, never across profiles (#110).
         if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
@@ -1087,23 +1106,25 @@ def session_prs(sid: int):
     return prs
 
 @app.post("/api/events", status_code=204)
-def ingest_events(events: list[EventIn]):
+def ingest_events(events: list[EventIn], profile_id: int = Depends(acting_profile_id)):
+    # Session-gated since #86. It was the app's one unauthenticated write, which
+    # was only ever tenable because the backup heartbeat POSTed here — and #88
+    # moved that to a status file, leaving nothing that needs to write without
+    # a session.
     if len(events) > 100:
         raise HTTPException(422, "too many events in one batch (max 100)")
     if not events:
         return
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         conn.executemany(
             "INSERT INTO events (name, screen, props, profile_id) VALUES (?,?,?,?)",
             [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None, profile_id) for e in events])
         conn.commit()
 
 @app.get("/api/analytics/summary")
-def analytics_summary(days: int = 30):
+def analytics_summary(days: int = 30, pid: int = Depends(acting_profile_id)):
     window = f"-{int(days)} days"
     with db() as conn:
-        pid = acting_profile_id(conn)
         by_name = conn.execute(
             "SELECT name, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND profile_id = ? "
             "GROUP BY name ORDER BY c DESC", (window, pid)).fetchall()
@@ -1113,7 +1134,17 @@ def analytics_summary(days: int = 30):
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 @app.get("/api/export")
-def export_data(response: Response):
+def export_data(response: Response, admin: dict = Depends(require_admin)):
+    # Admin, not merely a session: this is the whole database, and the whole
+    # database includes `profiles` — every account's bcrypt hash and email
+    # address. Handing that to anyone who has been invited to log their own sets
+    # would be a worse leak than the backup posture this same PR moved behind
+    # require_admin, and it is the behaviour the accounts design specifies
+    # (docs/superpowers/specs/2026-09-04-accounts-auth-design.md).
+    #
+    # The design doc's next step is a member branch carrying only their own
+    # rows (#87) — additive to this, not blocked by it. Until then, exporting
+    # is an owner operation and Home's "Export my data" is admin-only.
     response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -1122,7 +1153,11 @@ def export_data(response: Response):
             "schema_version": version, "tables": tables}
 
 @app.post("/api/import")
-def import_data(payload: ImportIn):
+def import_data(payload: ImportIn, admin: dict = Depends(require_admin)):
+    # Admin for the mirror-image reason to export's: this is a whole-database
+    # *replace*. A member with a session could otherwise wipe every profile's
+    # history from a phone — and take everyone's login with it, since
+    # auth_sessions cascades from profiles.
     if payload.mode != "replace" or not payload.confirm:
         raise HTTPException(400, "import requires mode='replace' and confirm=true")
     env = payload.envelope
@@ -1171,9 +1206,12 @@ def import_data(payload: ImportIn):
                     row = dict(r)
                     if "profile_id" in valid and "profile_id" not in row:
                         # Row predates profiles entirely (pre-v4 envelope) — attribute
-                        # it to the live default profile, same backfill the original
-                        # migration did for pre-existing data.
-                        row["profile_id"] = _default_profile_id(conn)
+                        # it to whoever is restoring, the same backfill the original
+                        # migration did for pre-existing data. Safe against the wipe
+                        # above: an envelope old enough to reach here has no profiles
+                        # table, so the branch that skips it left the live one (and
+                        # therefore this id) standing.
+                        row["profile_id"] = admin["id"]
                     cols = list(row.keys())
                     placeholders = ",".join("?" * len(cols))
                     conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",

@@ -202,14 +202,14 @@ def test_old_envelope_with_legacy_notes_and_pbs_backfills_profile_id(client):
     assert exp["tables"]["exercise_notes"][0]["profile_id"] is not None
     assert exp["tables"]["personal_bests"][0]["profile_id"] is not None
 
-def test_profiles_round_trip_through_export_import(client):
+def test_profiles_round_trip_through_export_import(client, reauthenticate):
     client.post("/api/personal-bests", json={
         "exercise_id": "bench_press", "exercise_name": "Bench Press",
         "weight_kg": 100, "reps": 3, "achieved_year": 2023})
     envelope = client.get("/api/export").json()
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
     assert r.status_code == 200
-    again = client.get("/api/export").json()
+    again = reauthenticate(client).get("/api/export").json()
     assert again["tables"]["profiles"] == envelope["tables"]["profiles"]
     assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]
 

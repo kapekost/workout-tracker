@@ -112,10 +112,10 @@ def test_old_v2_envelope_without_personal_bests_still_imports(client):
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": old_envelope})
     assert r.status_code == 200
 
-def test_personal_bests_round_trips_through_export_import(client):
+def test_personal_bests_round_trips_through_export_import(client, reauthenticate):
     client.post("/api/personal-bests", json=_pb())
     envelope = client.get("/api/export").json()
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
     assert r.status_code == 200
-    again = client.get("/api/export").json()
+    again = reauthenticate(client).get("/api/export").json()
     assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]

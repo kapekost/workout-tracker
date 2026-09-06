@@ -1,5 +1,20 @@
 const base = '/api'
 
+let unauthorizedHandler = null
+
+// This module has no router and no business having one, so navigation is
+// handed in instead of reached for. A single registered callback beats the two
+// alternatives: `window.location = '/login'` would throw away the SPA and
+// every bit of in-flight page state to say something the app already knows,
+// and a window event would drag a DOM into api.test.js for no gain. The cost
+// is that exactly one listener can be registered -- SessionProvider is it.
+export function onUnauthorized(handler) {
+  unauthorizedHandler = handler
+  return () => {
+    if (unauthorizedHandler === handler) unauthorizedHandler = null
+  }
+}
+
 // FastAPI puts its message in `detail`, but 422s put a list of validation
 // objects there instead. Only a plain string is a message worth showing.
 async function errorDetail(res) {
@@ -20,6 +35,13 @@ async function req(method, path, body) {
     body: body ? JSON.stringify(body) : undefined
   })
   if (!res.ok) {
+    // Everything under /auth/ answers 401 as a statement of fact rather than
+    // as a failure: /auth/me is how the app asks whether anyone is logged in,
+    // and the rest are the screens a logged-out person is meant to be standing
+    // on -- a wrong password has to print its message, not bounce the screen
+    // out from under whoever is typing it. A 401 from anywhere else means the
+    // session ended mid-use.
+    if (res.status === 401 && !path.startsWith('/auth/')) unauthorizedHandler?.()
     // The message keeps the status in it because callers already match on that
     // (PersonalBests reads 409 out of it). `status`/`detail` are the additions:
     // the auth endpoints answer with deliberately generic messages that the

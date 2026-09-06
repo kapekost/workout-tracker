@@ -29,6 +29,11 @@ const sessions = [
 
 const sessionDetail = { ...sessions[0], sets: [] }
 
+// Since #86 the app renders nothing at all until /auth/me answers, and only
+// the auth screens if it answers 401 — so without this fixture every page
+// below would measure the login screen instead of itself.
+const profile = { id: 1, username: 'kapekost', role: 'admin', icon: '💪' }
+
 // Non-empty so Progress's exercise-selector chips (R8: sub-44px tap targets
 // on this exact element in the original audit) actually render.
 const progressExercises = [
@@ -39,6 +44,7 @@ const progressExercises = [
 async function mockApi(page) {
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, '')
+    if (path === '/auth/me') return route.fulfill({ json: profile })
     if (path === '/sessions') return route.fulfill({ json: sessions })
     if (path === `/sessions/${ACTIVE_SESSION_ID}`) return route.fulfill({ json: sessionDetail })
     if (path === `/sessions/${ACTIVE_SESSION_ID}/prs`) return route.fulfill({ json: [] })

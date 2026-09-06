@@ -1,6 +1,8 @@
 """Accounts step 1 (#84): schema v6, password hashing, sessions, auth endpoints."""
+import re
 import sqlite3
 import pytest
+from fastapi.testclient import TestClient
 
 
 def _downgrade_to_v5(mainmod):
@@ -292,29 +294,29 @@ def test_cookie_is_secure_when_app_cookie_secure_is_set(mainmod, monkeypatch):
 
 # --- current_profile / GET /api/auth/me ---
 
-def test_auth_me_401s_without_a_cookie(client):
-    assert client.get("/api/auth/me").status_code == 401
+def test_auth_me_401s_without_a_cookie(anon_client):
+    assert anon_client.get("/api/auth/me").status_code == 401
 
 
-def test_auth_me_401s_on_an_unknown_cookie(client):
-    assert _as_session(client, "not-a-real-session").get("/api/auth/me").status_code == 401
+def test_auth_me_401s_on_an_unknown_cookie(anon_client):
+    assert _as_session(anon_client, "not-a-real-session").get("/api/auth/me").status_code == 401
 
 
-def test_auth_me_401s_on_an_expired_session(mainmod, client):
+def test_auth_me_401s_on_an_expired_session(mainmod, anon_client):
     pid = _seed_id(mainmod)
     with mainmod.db() as conn:
         conn.execute("INSERT INTO auth_sessions (id, profile_id, expires_at) "
                      "VALUES ('stale', ?, datetime('now', '-1 second'))", (pid,))
         conn.commit()
-    assert _as_session(client, "stale").get("/api/auth/me").status_code == 401
+    assert _as_session(anon_client, "stale").get("/api/auth/me").status_code == 401
 
 
-def test_auth_me_returns_the_profile_for_a_live_session(mainmod, client):
+def test_auth_me_returns_the_profile_for_a_live_session(mainmod, anon_client):
     pid = _seed_id(mainmod)
     with mainmod.db() as conn:
         sid = mainmod.issue_session(conn, pid)
         conn.commit()
-    r = _as_session(client, sid).get("/api/auth/me")
+    r = _as_session(anon_client, sid).get("/api/auth/me")
     assert r.status_code == 200
     assert r.json() == {"id": pid, "username": "kapekost", "role": "admin",
                         "icon": "\U0001F4AA", "email": None}
@@ -334,9 +336,9 @@ def member(fast_bcrypt):
     return {"id": pid, "username": "tester", "password": "correct horse battery"}
 
 
-def test_login_succeeds_and_sets_a_session_cookie(client, member):
-    r = client.post("/api/auth/login",
-                    json={"username": "tester", "password": "correct horse battery"})
+def test_login_succeeds_and_sets_a_session_cookie(anon_client, member):
+    r = anon_client.post("/api/auth/login",
+                         json={"username": "tester", "password": "correct horse battery"})
     assert r.status_code == 200, r.text
     assert r.json() == {"id": member["id"], "username": "tester", "role": "member",
                         "icon": "\U0001F3CB", "email": None}
@@ -344,81 +346,81 @@ def test_login_succeeds_and_sets_a_session_cookie(client, member):
     assert "httponly" in r.headers["set-cookie"].lower()
 
 
-def test_login_response_never_contains_the_password_hash(client, member):
-    r = client.post("/api/auth/login",
-                    json={"username": "tester", "password": "correct horse battery"})
+def test_login_response_never_contains_the_password_hash(anon_client, member):
+    r = anon_client.post("/api/auth/login",
+                         json={"username": "tester", "password": "correct horse battery"})
     assert "password_hash" not in r.json()
 
 
-def test_the_cookie_login_returns_is_usable_on_auth_me(client, member):
-    login = client.post("/api/auth/login",
-                        json={"username": "tester", "password": "correct horse battery"})
+def test_the_cookie_login_returns_is_usable_on_auth_me(anon_client, member):
+    login = anon_client.post("/api/auth/login",
+                             json={"username": "tester", "password": "correct horse battery"})
     assert login.status_code == 200
-    me = client.get("/api/auth/me")  # TestClient keeps the cookie jar
+    me = anon_client.get("/api/auth/me")  # TestClient keeps the cookie jar
     assert me.status_code == 200 and me.json()["username"] == "tester"
 
 
-def test_login_with_the_wrong_password_401s_and_sets_no_cookie(client, member):
-    r = client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+def test_login_with_the_wrong_password_401s_and_sets_no_cookie(anon_client, member):
+    r = anon_client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
     assert r.status_code == 401
     assert "set-cookie" not in r.headers
 
 
-def test_login_with_an_unknown_username_401s_with_the_same_message(client, member):
-    unknown = client.post("/api/auth/login",
-                          json={"username": "nobody", "password": "correct horse battery"})
-    wrong = client.post("/api/auth/login",
-                        json={"username": "tester", "password": "wrong horse battery"})
+def test_login_with_an_unknown_username_401s_with_the_same_message(anon_client, member):
+    unknown = anon_client.post("/api/auth/login",
+                               json={"username": "nobody", "password": "correct horse battery"})
+    wrong = anon_client.post("/api/auth/login",
+                             json={"username": "tester", "password": "wrong horse battery"})
     assert unknown.status_code == wrong.status_code == 401
     assert unknown.json()["detail"] == wrong.json()["detail"]
 
 
-def test_login_is_refused_for_a_profile_that_has_never_set_a_password(client):
+def test_login_is_refused_for_a_profile_that_has_never_set_a_password(anon_client):
     # The seeded kapekost profile has password_hash NULL — it must go through
     # #85's invite, not authenticate on an empty or guessed password.
     for attempt in ("", "anything at all", "correct horse battery"):
-        r = client.post("/api/auth/login", json={"username": "kapekost", "password": attempt})
+        r = anon_client.post("/api/auth/login", json={"username": "kapekost", "password": attempt})
         assert r.status_code in (401, 422), attempt
 
 
-def test_login_creates_exactly_one_session_row(mainmod, client, member):
-    client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+def test_login_creates_exactly_one_session_row(mainmod, anon_client, member):
+    anon_client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
     with mainmod.db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM auth_sessions WHERE profile_id = ?",
                             (member["id"],)).fetchone()[0] == 1
 
 
-def test_a_failed_login_creates_no_session_row(mainmod, client, member):
-    client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
+def test_a_failed_login_creates_no_session_row(mainmod, anon_client, member):
+    anon_client.post("/api/auth/login", json={"username": "tester", "password": "wrong horse battery"})
     with mainmod.db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
 
 
 # --- logout ---
 
-def test_logout_deletes_the_session_row_and_expires_the_cookie(mainmod, client, member):
-    client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
-    r = client.post("/api/auth/logout")
+def test_logout_deletes_the_session_row_and_expires_the_cookie(mainmod, anon_client, member):
+    anon_client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+    r = anon_client.post("/api/auth/logout")
     assert r.status_code == 204
     header = r.headers.get("set-cookie", "")
     assert "wt_session=" in header
     assert "max-age=0" in header.lower() or "expires=" in header.lower()
     with mainmod.db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
-    assert client.get("/api/auth/me").status_code == 401
+    assert anon_client.get("/api/auth/me").status_code == 401
 
 
-def test_logout_is_idempotent_and_reveals_nothing(client):
-    assert client.post("/api/auth/logout").status_code == 204
-    assert _as_session(client, "nope").post("/api/auth/logout").status_code == 204
+def test_logout_is_idempotent_and_reveals_nothing(anon_client):
+    assert anon_client.post("/api/auth/logout").status_code == 204
+    assert _as_session(anon_client, "nope").post("/api/auth/logout").status_code == 204
 
 
-def test_logout_leaves_other_sessions_alone(mainmod, client, member):
+def test_logout_leaves_other_sessions_alone(mainmod, anon_client, member):
     with mainmod.db() as conn:
         other = mainmod.issue_session(conn, member["id"])
         conn.commit()
-    client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
-    client.post("/api/auth/logout")
+    anon_client.post("/api/auth/login", json={"username": "tester", "password": "correct horse battery"})
+    anon_client.post("/api/auth/logout")
     with mainmod.db() as conn:
         # Logout ends this device's session, not every session for the account —
         # that is revoke_sessions, and #85's password reset is what calls it.
@@ -426,47 +428,342 @@ def test_logout_leaves_other_sessions_alone(mainmod, client, member):
                             (other,)).fetchone()[0] == 1
 
 
-# --- the gate is deliberately still open (#86 closes it) ---
+# --- the gate is closed (#86) ---
+# This was test_data_endpoints_are_still_open_in_this_step through #84 and
+# #110, asserting 200 for every one of these. #86 is the flip it was written
+# for; the table shape is the point, so it stayed.
 
-@pytest.mark.parametrize("path", [
-    "/api/sessions",
-    "/api/notes",
-    "/api/personal-bests",
-    "/api/progress",
-    "/api/exercises/recency",
-    "/api/analytics/summary",
-    "/api/export",
-    "/api/profile/me",
-    "/api/health",
-])
-def test_data_endpoints_are_still_open_in_this_step(client, path):
-    """#84 must be deployable while the app is still open — the invite flow
-    (#85) and the owner bootstrap have to work before the gate closes, or the
-    owner is locked out of their own history. #86 flips this to expect 401
-    (except /api/health, which stays open for the deploy smoke check)."""
-    assert client.get(path).status_code == 200
+# The only paths that may answer without a session, and why. Everything else
+# the app routes under /api/ must 401 — including a route added tomorrow, which
+# is why the completeness check below reads app.routes rather than trusting a
+# hand-maintained list to have kept up.
+OPEN = {
+    ("GET", "/api/health"): "scripts/deploy.sh's smoke check; there is no session at deploy time",
+    ("HEAD", "/api/health"): "same check, and what an uptime monitor uses",
+    ("POST", "/api/auth/login"): "how a session is obtained in the first place",
+    ("POST", "/api/auth/logout"): "204 either way; must not become a way to probe session ids",
+    ("POST", "/api/auth/set-password"): "the invite/reset link is the credential, not a cookie",
+    ("POST", "/api/auth/forgot-password"): "reached by someone who cannot log in, by definition",
+}
+
+# Every gated route, with a body where the method needs one. The bodies are
+# valid on purpose: a 401 that only happened because the payload was rubbish
+# would prove nothing about the gate.
+_SET = {"exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60}
+GATED = [
+    # Admin-only, on top of needing a session at all — the 403 half is asserted
+    # by test_the_backup_posture_is_admin_only and
+    # test_the_whole_database_envelope_is_admin_only below.
+    ("POST",   "/api/profiles", {"username": "newbie", "email": "n@example.com"}),
+    ("GET",    "/api/admin/backup-status", None),
+    ("GET",    "/api/export", None),
+    ("POST",   "/api/import", {"mode": "replace", "confirm": True,
+                               "envelope": {"schema_version": 6, "tables": {}}}),
+    # Any session will do for the rest: they act on the caller's own rows.
+    ("GET",    "/api/profile/me", None),
+    ("GET",    "/api/auth/me", None),
+    ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
+    ("GET",    "/api/sessions", None),
+    ("GET",    "/api/sessions/{sid}", None),
+    ("PATCH",  "/api/sessions/{sid}", {"completed": True}),
+    ("DELETE", "/api/sessions/{sid}", None),
+    ("POST",   "/api/sessions/{sid}/sets", _SET),
+    ("DELETE", "/api/sessions/{sid}/sets/{set_id}", None),
+    ("GET",    "/api/sessions/{sid}/prs", None),
+    ("POST",   "/api/personal-bests", {"exercise_id": "bench_press", "exercise_name": "Bench Press",
+                                       "weight_kg": 100, "reps": 3, "achieved_year": 2024}),
+    ("GET",    "/api/personal-bests", None),
+    ("DELETE", "/api/personal-bests/{pb_id}", None),
+    ("GET",    "/api/progress/{exercise_id}", None),
+    ("GET",    "/api/progress", None),
+    ("GET",    "/api/notes", None),
+    ("PUT",    "/api/exercises/{exercise_id}/note", {"note": "elbows in"}),
+    ("GET",    "/api/exercises/{exercise_id}/last", None),
+    ("GET",    "/api/exercises/recency", None),
+    ("POST",   "/api/events", [{"name": "screen_view", "screen": "Home"}]),
+    ("GET",    "/api/analytics/summary", None),
+]
+
+
+def _api_routes(mainmod):
+    """(method, path) for everything the app serves under /api/.
+
+    Anything it cannot see into is an error rather than a shrug. A `Mount` has
+    no `.methods`, so the old `getattr(route, "methods", set())` yielded nothing
+    for one — `app.mount("/api/sub", subapp)` would have served every route
+    inside it anonymously while this suite stayed green. Same for HEAD, which
+    used to be subtracted unconditionally: a HEAD-only route answered without a
+    session and the table never noticed. Only OPTIONS is dropped, and it is
+    dropped because nothing declares one (there is no CORS middleware).
+    """
+    for route in mainmod.app.routes:
+        path = getattr(route, "path", "")
+        if not path.startswith("/api/"):
+            continue
+        methods = getattr(route, "methods", None)
+        assert methods, f"{path} is a mount; the gate table cannot see inside it"
+        for method in methods - {"OPTIONS"}:
+            yield method, path
+
+
+def _fill(path):
+    return re.sub(r"\{[^}]+\}", "1", path)
+
+
+def test_the_gate_table_lists_every_route_the_app_actually_has(mainmod):
+    """The table above is only a guarantee if it is complete.
+
+    A route added later without a gate has to fail this suite rather than ship
+    open, and a list maintained by hand cannot promise that. So the routes come
+    from the app itself: anything under /api/ is expected to be gated unless it
+    is in OPEN, which is a deliberate, commented decision each time.
+    """
+    declared = {(m, p) for m, p, _ in GATED}
+    assert not (declared & set(OPEN)), "a route cannot be both gated and open"
+    routes = set(_api_routes(mainmod))
+    missing = routes - declared - set(OPEN)
+    assert not missing, (
+        f"these routes are neither gated below nor deliberately open: {sorted(missing)}")
+    gone = (declared | set(OPEN)) - routes
+    assert not gone, f"these no longer exist and should leave the table: {sorted(gone)}"
+
+
+@pytest.mark.parametrize("method,path,body", GATED, ids=[f"{m} {p}" for m, p, _ in GATED])
+def test_every_data_endpoint_401s_without_a_session(anon_client, method, path, body):
+    """The gate, from the outside: no cookie, no data — reads and writes alike,
+    and before the endpoint does any of the work it would otherwise do."""
+    r = anon_client.request(method, _fill(path), json=body)
+    assert r.status_code == 401, f"{method} {path} answered {r.status_code}: {r.text[:200]}"
+    assert r.json() == {"detail": "not authenticated"}
+
+
+def test_the_gate_answers_before_validation_does(anon_client):
+    """A rubbish body or an unparseable path parameter must still be a 401, not
+    a 422. Otherwise the shape of every request the app accepts is readable
+    without a session, and "is this id valid" becomes answerable by anyone."""
+    assert anon_client.post("/api/sessions", json={"workout_day": "yoga"}).status_code == 401
+    assert anon_client.post("/api/events", json={"not": "a list"}).status_code == 401
+    assert anon_client.post("/api/events").status_code == 401
+    assert anon_client.get("/api/sessions/not-an-int").status_code == 401
+
+
+@pytest.mark.parametrize("method,path", sorted(OPEN), ids=[f"{m} {p}" for m, p in sorted(OPEN)])
+def test_the_open_paths_stay_open(anon_client, method, path):
+    # Not asserting one status — login with no body is a 422, logout a 204 —
+    # only that none of them is the gate answering.
+    assert anon_client.request(method, path).status_code != 401
+
+
+def test_the_api_publishes_no_schema_of_itself(anon_client):
+    """The interactive docs and the OpenAPI document are off, not gated.
+
+    current_profile's 401 landing before validation means the shape of a
+    request cannot be read back through the endpoints — which was worth nothing
+    while FastAPI's defaults handed the same shapes, `LoginIn` and
+    `SetPasswordIn` included, to anyone who asked for /openapi.json.
+
+    404 here because the tests run with no `static` directory; in the image the
+    SPA mount answers an unknown non-/api/ path with the app shell instead.
+    Either way, nothing serves a schema.
+    """
+    for path in ("/openapi.json", "/docs", "/redoc"):
+        assert anon_client.get(path).status_code == 404, f"{path} is still served"
+
+
+def test_health_keeps_answering_the_deploy_smoke_check(anon_client):
+    """scripts/deploy.sh curls this from the host, with no session and no way to
+    get one, and reads `version` to prove the deploy landed. It is also the only
+    /api/ path an anonymous caller can read, so it now says nothing else: the
+    backup posture moved to /api/admin/backup-status (#86)."""
+    r = anon_client.get("/api/health")
+    assert r.status_code == 200
+    assert set(r.json()) == {"status", "version"}
+    assert r.json()["status"] == "ok"
+
+
+def test_the_backup_posture_is_admin_only(mainmod, anon_client, client, write_backup_status):
+    """Where the four last_backup_* keys went. A publicly reachable endpoint
+    should not publish how long it has been since the database was last copied
+    off the box, or whether that copy failed — and after #27 puts this behind a
+    tunnel, /api/health is public in earnest."""
+    write_backup_status({"local": {"status": "ok", "at": "2026-09-05T00:12:03Z"}})
+    assert anon_client.get("/api/admin/backup-status").status_code == 401
+    with mainmod.db() as conn:
+        pid = conn.execute("INSERT INTO profiles (username, role) VALUES ('plain','member')").lastrowid
+        member_session = mainmod.issue_session(conn, pid)
+        conn.commit()
+    assert _as_session(anon_client, member_session).get(
+        "/api/admin/backup-status").status_code == 403
+    # `client` is the seeded owner, whose role is admin.
+    r = client.get("/api/admin/backup-status")
+    assert r.status_code == 200
+    assert set(r.json()) == {"last_backup_at", "last_backup_status",
+                             "last_backup_remote_at", "last_backup_remote_status"}
+    assert r.json()["last_backup_status"] == "ok"
+
+
+def test_the_whole_database_envelope_is_admin_only(mainmod, anon_client, client):
+    """A session is not enough for /api/export or /api/import.
+
+    The envelope is every table including `profiles`, which is every account's
+    bcrypt hash and email address — so any member who could reach it could read
+    the owner's credential material back out of a backup. And /api/import is a
+    whole-database replace: nothing about being invited to log your own sets
+    should let you wipe everyone's. Both belong with the backup posture, on the
+    admin side, until #87 gives a member their own scoped export.
+    """
+    with mainmod.db() as conn:
+        pid = conn.execute(
+            "INSERT INTO profiles (username, role) VALUES ('plain','member')").lastrowid
+        member = _as_session(TestClient(mainmod.app), mainmod.issue_session(conn, pid))
+        conn.commit()
+
+    assert anon_client.get("/api/export").status_code == 401
+    assert member.get("/api/export").status_code == 403
+    r = client.get("/api/export")                        # the seeded owner is admin
+    assert r.status_code == 200
+    assert "password_hash" in r.json()["tables"]["profiles"][0]
+
+    body = {"mode": "replace", "confirm": True, "envelope": r.json()}
+    assert anon_client.post("/api/import", json=body).status_code == 401
+    assert member.post("/api/import", json=body).status_code == 403
+    assert client.post("/api/import", json=body).status_code == 200
+
+
+# --- the owner is never locked out of, or shown an empty, app (#86) ---
+# The risk this step carries: a gate plus read-scoping is two separate ways to
+# hand the owner a working login and none of their own history. Both tests
+# assert seeded counts rather than "not empty", so a scoping bug that returns
+# some of the rows fails here too.
+
+def _seed_owner_history(mainmod, profile_id):
+    """Rows attributed to `profile_id` the way the v4 migration left the owner's
+    pre-accounts data: written straight to the tables with profile_id
+    backfilled, never through the API. Returns the counts to assert against."""
+    with mainmod.db() as conn:
+        for day in ("upper_a", "lower_a", "upper_b"):
+            sid = conn.execute(
+                "INSERT INTO sessions (date, workout_day, completed, profile_id) "
+                "VALUES ('2026-01-01', ?, 1, ?)", (day, profile_id)).lastrowid
+            for n in (1, 2):
+                conn.execute(
+                    "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, "
+                    "reps, weight_kg, profile_id) VALUES (?,?,?,?,?,?,?)",
+                    (sid, f"ex_{day}", day, n, 5, 60 + n, profile_id))
+        for ex in ("ex_upper_a", "ex_lower_a"):
+            conn.execute("INSERT INTO exercise_notes (profile_id, exercise_id, note) "
+                         "VALUES (?,?,'keep the elbows in')", (profile_id, ex))
+        conn.execute("INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, "
+                     "reps, achieved_year, profile_id) VALUES ('ex_upper_a','upper_a',120,3,2024,?)",
+                     (profile_id,))
+        conn.execute("INSERT INTO events (name, screen, profile_id) VALUES ('screen_view','Home',?)",
+                     (profile_id,))
+        conn.commit()
+    return {"sessions": 3, "sets": 6, "notes": 2, "personal_bests": 1, "exercises": 3}
+
+
+def test_the_logged_in_owner_sees_all_of_their_own_rows(mainmod, client):
+    counts = _seed_owner_history(mainmod, _seed_id(mainmod))
+    sessions = client.get("/api/sessions").json()
+    assert len(sessions) == counts["sessions"]
+    assert sum(len(client.get(f"/api/sessions/{s['id']}").json()["sets"])
+               for s in sessions) == counts["sets"]
+    assert len(client.get("/api/notes").json()) == counts["notes"]
+    assert len(client.get("/api/personal-bests").json()) == counts["personal_bests"]
+    assert len(client.get("/api/progress").json()) == counts["exercises"]
+    assert len(client.get("/api/exercises/recency").json()) == counts["exercises"]
+    assert len(client.get("/api/progress/ex_upper_a").json()) == 1
+    assert client.get("/api/exercises/ex_upper_a/last").json() is not None
+    assert client.get("/api/analytics/summary").json()["by_name"] == [{"name": "screen_view", "c": 1}]
+    assert len(client.get("/api/export").json()["tables"]["sessions"]) == counts["sessions"]
+
+
+def test_no_state_leaves_a_logged_in_owner_with_an_empty_app(mainmod, client, fast_bcrypt):
+    """Every way the owner's identity gets re-established must land on the same
+    profile, and therefore the same rows. A gate that authenticates but resolves
+    to some *other* profile id looks exactly like a working login onto an empty
+    account — the failure worth being paranoid about, because the owner's
+    reaction to it is to assume the data is gone."""
+    pid = _seed_id(mainmod)
+    counts = _seed_owner_history(mainmod, pid)
+    with mainmod.db() as conn:
+        conn.execute("UPDATE profiles SET password_hash = ? WHERE id = ?",
+                     (mainmod.hash_password("correct horse battery"), pid))
+        conn.commit()
+
+    def owner_sees_everything(c):
+        assert len(c.get("/api/sessions").json()) == counts["sessions"]
+        assert len(c.get("/api/personal-bests").json()) == counts["personal_bests"]
+        assert len(c.get("/api/notes").json()) == counts["notes"]
+        assert len(c.get("/api/progress").json()) == counts["exercises"]
+        assert c.get("/api/profile/me").json()["id"] == pid
+
+    owner_sees_everything(client)                        # the session the fixture issued
+    client.post("/api/auth/logout")
+    assert client.get("/api/sessions").status_code == 401
+    r = client.post("/api/auth/login",
+                    json={"username": "kapekost", "password": "correct horse battery"})
+    assert r.status_code == 200, r.text
+    owner_sees_everything(client)                        # a real, freshly-issued session
+    with mainmod.db() as conn:                           # and a second device, in parallel
+        other = mainmod.issue_session(conn, pid)
+        conn.commit()
+    owner_sees_everything(_as_session(TestClient(mainmod.app), other))
+
+
+def test_a_restore_ends_every_session_including_the_importers(mainmod, client, fast_bcrypt):
+    """Surfaced by closing the gate, and worth writing down rather than
+    discovering during a restore: /api/import replaces the profiles table, and
+    auth_sessions cascades from profiles, so a whole-database restore logs
+    everyone out — the person who ran it included. The next request is a 401,
+    not a 500, and logging back in with the *restored* credentials works.
+
+    The tail of that: if the restored envelope predates passwords, nobody can
+    log in over HTTP at all and recovery is bootstrap_owner on the host.
+    """
+    with mainmod.db() as conn:
+        conn.execute("UPDATE profiles SET password_hash = ? WHERE username = 'kapekost'",
+                     (mainmod.hash_password("correct horse battery"),))
+        conn.commit()
+    envelope = client.get("/api/export").json()
+    assert client.post("/api/import", json={"mode": "replace", "confirm": True,
+                                            "envelope": envelope}).status_code == 200
+    assert client.get("/api/sessions").status_code == 401
+    with mainmod.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0] == 0
+    assert client.post("/api/auth/login",
+                       json={"username": "kapekost", "password": "correct horse battery"}
+                       ).status_code == 200
+    assert client.get("/api/sessions").status_code == 200
 
 
 # --- per-profile data isolation (#110) ---
 # Writes have been attributed to a profile since #66, but reads were never
-# scoped — today any profile can see and modify any other profile's rows.
-# There is no login yet (#86 closes the gate), so these tests drive "who is
-# acting" the same way #86 eventually will: through acting_profile_id, a
-# single seam every data endpoint calls through instead of each hardcoding
-# _default_profile_id. Monkeypatching that one function is what lets a test
-# without real sessions still exercise write-attribution as two distinct
-# profiles, not just read-side isolation.
+# scoped, so until #110 any profile could see and modify any other profile's
+# rows. These tests drive "who is acting" as two distinct profiles, which is
+# what exercises write-attribution and not merely read-side isolation.
 
 @pytest.fixture
-def acting_as(mainmod, monkeypatch):
+def acting_as(mainmod, client):
     """Drive the acting profile for data endpoints (R2). Returns a setter:
-    acting_as(profile_id) makes every subsequent request act as that profile —
-    the same seam #86 replaces with a real session lookup, so this fixture (and
-    every test using it) needs no changes when that happens."""
-    state = {"id": None}
-    monkeypatch.setattr(mainmod, "acting_profile_id", lambda conn: state["id"])
+    acting_as(profile_id) makes every subsequent request act as that profile.
+
+    Until #86 this monkeypatched acting_profile_id, because there was no login
+    to act through — and its docstring claimed it would need no changes when the
+    gate closed. That was wrong in the useful direction: with the gate closed
+    there is a real mechanism, so the fixture now issues a real session per
+    profile and swaps the cookie. Nothing is patched out, which means the
+    isolation test below runs against the same code path a browser does — the
+    gate included — instead of around it.
+    """
+    sessions = {}
     def _set(profile_id):
-        state["id"] = profile_id
+        if profile_id not in sessions:
+            with mainmod.db() as conn:
+                sessions[profile_id] = mainmod.issue_session(conn, profile_id)
+                conn.commit()
+        client.cookies.set("wt_session", sessions[profile_id])
     return _set
 
 

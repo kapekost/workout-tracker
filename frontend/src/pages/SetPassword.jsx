@@ -72,7 +72,10 @@ export default function SetPassword() {
           <label className="field-label" htmlFor="new-password">New password</label>
           {/* The rule the API enforces, stated next to the field it applies
               to instead of buried in the intro paragraph. */}
-          <p id="password-rule" style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 6 }}>
+          {/* muted, not muted2: this is the one rule the user has to comply
+              with, and muted2 measures 3.86:1 on --card -- the dimmest text on
+              the first screen a new account ever sees. */}
+          <p id="password-rule" style={{ color: colors.muted, fontSize: type.size.lg, marginBottom: 6 }}>
             At least 12 characters.
           </p>
           <div className="field-row" style={{ marginBottom: space.lg }}>

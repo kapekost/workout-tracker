@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { SessionProvider, useSession } from './session'
 
+// onUnauthorized is the real seam api.js hands out, not a spy: these tests
+// care that the provider survives registering, not what it registered.
 vi.mock('../api', () => ({
   auth: { me: vi.fn(), logout: vi.fn(), login: vi.fn() },
+  onUnauthorized: () => () => {},
 }))
 import { auth } from '../api'
 
@@ -63,6 +66,39 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
     fireEvent.click(screen.getByText('sign out'))
     await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('none'))
+  })
+})
+
+// A *failed* /auth/me settles and the door appears. A request that never
+// settles at all does not -- and the app renders nothing until `ready`, so the
+// whole screen stays blank with nothing to read and nothing to tap. That is the
+// ~30s after a container restart, which scripts/deploy.sh already retries
+// through.
+describe('when /auth/me never answers at all', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('gives up waiting and shows the door rather than a blank page', async () => {
+    auth.me.mockReturnValue(new Promise(() => {}))  // accepted, never answered
+    render(<SessionProvider><Probe /></SessionProvider>)
+    expect(screen.getByTestId('ready')).toHaveTextContent('false')
+
+    await act(async () => { vi.advanceTimersByTime(5000) })
+
+    expect(screen.getByTestId('ready')).toHaveTextContent('true')
+    expect(screen.getByTestId('who')).toHaveTextContent('none')
+  })
+
+  it('leaves a lookup that answers in time alone, so the door never blinks', async () => {
+    let answer
+    auth.me.mockReturnValue(new Promise(resolve => { answer = resolve }))
+    render(<SessionProvider><Probe /></SessionProvider>)
+
+    await act(async () => { vi.advanceTimersByTime(4000) })
+    expect(screen.getByTestId('ready')).toHaveTextContent('false')
+
+    await act(async () => { answer({ id: 1, username: 'kapekost' }) })
+    expect(screen.getByTestId('who')).toHaveTextContent('kapekost')
   })
 })
 
