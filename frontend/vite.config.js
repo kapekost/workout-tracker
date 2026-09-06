@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execSync } from 'node:child_process'
 import { configDefaults } from 'vitest/config'
+import { apiReadsCacheName } from './apiCacheName.js'
 
 // Docker builds have no .git (see .dockerignore) — the commit comes in as the
 // APP_COMMIT build arg there; local dev/test falls back to git, then "dev".
@@ -36,6 +37,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Purges old-build api-reads-* caches on activate — see #142 and
+        // public/api-cache-cleanup.js for why this needs importScripts
+        // rather than a runtimeCaching option.
+        importScripts: ['api-cache-cleanup.js'],
         // SPA: serve the app shell for client-side routes when offline / on refresh
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
@@ -68,7 +73,9 @@ export default defineConfig({
               request.method === 'GET',
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'api-reads',
+              // Commit-scoped so a new deploy can never serve a response an
+              // older build cached — see #142 and frontend/apiCacheName.js.
+              cacheName: apiReadsCacheName(appCommit),
               networkTimeoutSeconds: 4,
               expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
