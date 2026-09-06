@@ -35,7 +35,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#87** — claimed 2026-09-06T16:20:17Z, live session.
 
 ## Needs owner
 - ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
