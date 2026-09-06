@@ -40,7 +40,8 @@ older than the moment you pressed import.
 
 `GET /api/export` returns a JSON envelope: every table, plus `schema_version` and
 `exported_at`. `POST /api/import` consumes it, requiring `mode="replace"` and
-`confirm=true` so it cannot fire by accident.
+`confirm=true` so it cannot fire by accident. Both are **admin-only since #86**, so a
+bare `curl` from the host gets a 401 — log in first and send the `wt_session` cookie.
 
 **Take one before any schema-changing deploy.** The runbook says so and the deploy
 script does not do it for you.
@@ -113,10 +114,10 @@ anything.
 
 ## Monitoring
 
-`backup.sh` writes `data/backup-status.json` next to the database; `/api/health` reads
-it. Deliberately a file rather than an API call: the status no longer lives *inside* the
-database being backed up (a restore used to drag stale heartbeats back in), and there's
-no unauthenticated write endpoint to defend.
+`backup.sh` writes `data/backup-status.json` next to the database; `GET
+/api/admin/backup-status` reads it. Deliberately a file rather than an API call: the
+status no longer lives *inside* the database being backed up (a restore used to drag
+stale heartbeats back in), and there's no unauthenticated write endpoint to defend.
 
 Each leg gets its own entry, because each fails on its own:
 
@@ -127,10 +128,10 @@ Each leg gets its own entry, because each fails on its own:
 }
 ```
 
-`/api/health` surfaces both — `last_backup_status`/`last_backup_at` for the local leg,
-`last_backup_remote_status`/`last_backup_remote_at` for the off-site one. The local leg
-keeps the unprefixed names on purpose: it is the one that matters most, and
-`scripts/deploy.sh` already reads it. Statuses are `ok`, `failed` or `stale` locally,
+`/api/admin/backup-status` surfaces both — `last_backup_status`/`last_backup_at` for the
+local leg, `last_backup_remote_status`/`last_backup_remote_at` for the off-site one. The
+local leg keeps the unprefixed names on purpose: it is the one that matters most.
+Statuses are `ok`, `failed` or `stale` locally,
 plus `skipped` off-site for "the local leg failed, so we never tried". `skipped` and
 `failed` never age into `stale` — only an `ok` does, since relabelling the other two
 would lose the detail that separates "ran and broke" from "never ran".
@@ -140,16 +141,22 @@ yet, or the file predates this split (a pre-2026-09-05 file has a single top-lev
 status, which is read as the local leg). Unknown is not the same as failed.
 
 A successful backup older than 8 days reports `stale`. With backups manual, read that as
-"it has been over a week since you took one", not as a broken schedule — `scripts/deploy.sh`
-prints it as a warning and does **not** fail the deploy over it. `failed` is the one worth
-chasing: it means the chain ran and broke.
+"it has been over a week since you took one", not as a broken schedule. `failed` is the
+one worth chasing: it means the chain ran and broke. Neither fails a deploy.
+
+The endpoint is admin-only since #86, when `/api/health` was trimmed to `{status,
+version}`: `/api/health` is reachable without a session (it is the deploy smoke check)
+and how long the database has gone without leaving the box is nobody else's business.
+`scripts/deploy.sh` has no session and cannot get one, so it prints
+`data/backup-status.json` off the host verbatim instead — deliberately raw, so the
+8-day rule stays in one place rather than gaining a second copy that drifts.
 
 The threshold must move if a schedule ever comes back. Left at the old nightly 26h against
 a weekly cron it would have read `stale` every single day, and **a signal that is always
 red is one people stop reading** — which is exactly how three consecutive nights of failed
 off-site backups went unnoticed in September 2026.
 
-`/api/health` is a **pull** signal. It only works when someone looks. That was the argument
+The backup status is a **pull** signal. It only works when someone looks. That was the argument
 for an external receiver, and `HEARTBEAT_URL` in `backup.sh` is still the hook for one —
 but a dead-man's-switch alarms on a ping that missed its *schedule*, and a manual backup has
 none, so it would fire forever. #89 was closed for that reason; reinstate both together or
@@ -160,6 +167,8 @@ neither.
 Two paths, both documented with real commands in `AGENTS.local.md`:
 
 1. **`POST /api/import`** with a previously exported envelope. Auto-snapshots first.
+   Needs an admin session, and ends every session including yours — see
+   "Break-glass" under Status in `AGENTS.md`.
 2. **File-level swap** of `workouts.db` with a `VACUUM INTO` snapshot, container stopped.
 
 **Re-drill a restore after any schema change.** The import path is the most

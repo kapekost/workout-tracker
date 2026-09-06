@@ -73,9 +73,8 @@ def test_analytics_summary_empty(client):
     summ = client.get("/api/analytics/summary").json()
     assert summ["by_name"] == [] and summ["by_screen"] == []
 
-def test_health_reports_no_backup_then_ok(client, write_backup_status):
-    h = client.get("/api/health").json()
-    assert h["status"] == "ok"
+def test_backup_status_reports_no_backup_then_ok(client, write_backup_status):
+    h = client.get("/api/admin/backup-status").json()
     assert h["last_backup_at"] is None and h["last_backup_status"] == "none"
     # With no status file at all there is nothing to say about the off-site
     # leg either, and "nothing to say" is null rather than a made-up status.
@@ -85,7 +84,7 @@ def test_health_reports_no_backup_then_ok(client, write_backup_status):
     write_backup_status({"local": {"status": "ok", "at": at, "bytes": 1024},
                          "remote": {"status": "ok", "at": at,
                                     "remote": "gdrive:workout-tracker-backups"}})
-    h = client.get("/api/health").json()
+    h = client.get("/api/admin/backup-status").json()
     assert h["last_backup_status"] == "ok" and h["last_backup_at"] == at
     assert h["last_backup_remote_status"] == "ok" and h["last_backup_remote_at"] == at
 
@@ -107,14 +106,14 @@ def _seed(client):
                       "set_number": 1, "reps": 8, "weight_kg": 80})
     return sid
 
-def test_import_round_trip(client):
+def test_import_round_trip(client, reauthenticate):
     _seed(client)
     envelope = client.get("/api/export").json()
     # wipe by importing an empty-but-valid envelope? No — verify replace restores same data:
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
     assert r.status_code == 200
     assert r.json()["restored"]["sessions"] == 1 and r.json()["restored"]["sets"] == 1
-    again = client.get("/api/export").json()
+    again = reauthenticate(client).get("/api/export").json()
     assert again["tables"]["sessions"] == envelope["tables"]["sessions"]
     assert again["tables"]["sets"] == envelope["tables"]["sets"]
 

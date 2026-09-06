@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { auth } from '../api'
 import { useSession } from '../lib/session'
 import { colors, type, space } from '../lib/theme'
@@ -9,6 +9,22 @@ const linkButtonStyle = {
   fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0,
 }
 
+// The API's messages are lowercase and unpunctuated, which reads as a log line
+// on the app's front door. Casing carries no information about which accounts
+// exist, so this is presentation only -- the string itself stays verbatim.
+const sentenceCase = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s)
+
+// Where the guard sent you, named in the reader's words. `from` is a route, and
+// a path is not something to show someone mid-workout.
+const DESTINATIONS = {
+  '/history': 'your history',
+  '/progress': 'your progress',
+  '/personal-bests': 'your personal bests',
+}
+const destinationOf = (path) =>
+  DESTINATIONS[path] || (path.startsWith('/workout') || path.startsWith('/exercise')
+    ? 'your workout' : null)
+
 // Shown whether or not the address exists, and whether or not the request even
 // reached the server -- the endpoint is deliberately uninformative about which
 // addresses have accounts, and an error message here would undo that.
@@ -16,6 +32,11 @@ const RESET_SENT = 'If that address has an account, a reset link is on its way. 
 
 export default function Login() {
   const nav = useNavigate()
+  // Where the guard interrupted you, if it did. Set by App's RedirectToLogin;
+  // absent when you walked in here yourself, and Home is the honest answer
+  // then. `replace` so the back button leaves the app rather than returning
+  // to a door you are already through.
+  const from = useLocation().state?.from || '/'
   const { signIn } = useSession()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -35,13 +56,13 @@ export default function Login() {
     try {
       const profile = await auth.login(username, password)
       signIn(profile)
-      nav('/')
+      nav(from, { replace: true })
     } catch (err) {
       // The API's messages are generic on purpose ("invalid username or
       // password" covers an unknown user, a wrong password and a never-invited
       // account alike). Show them as written; rewording here would either leak
       // more than the endpoint chose to, or say less than it meant to.
-      setError(err.detail || 'Could not reach the server — check your connection and try again.')
+      setError(sentenceCase(err.detail) || 'Could not reach the server — check your connection and try again.')
       setBusy(false)
     }
   }
@@ -60,10 +81,24 @@ export default function Login() {
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: space.xs }}>
         Log in
       </h1>
+      {/* Said in the reader's terms, not the app's -- and it has to be true.
+          Before #86 logging in was optional and this line said so; it is not
+          optional now, so promising that workouts are "saved either way" would
+          be the first thing the app got wrong on the first screen it shows. */}
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: space.xxl }}>
-        Your workouts are saved either way — logging in keeps them under your
-        own profile.
+        Your workouts, history and personal bests are all in here. Log in to
+        pick up where you left off.
       </p>
+      {/* Being bounced here by the guard and logging out yourself render the
+          same screen otherwise. Destination only, deliberately: `from` is set
+          in both cases and telling a bounce from an expired session apart
+          needs state this screen does not carry, so any "your session expired"
+          wording would be a guess. Where you were headed is true either way. */}
+      {destinationOf(from) && (
+        <p style={{ color: colors.muted, fontSize: type.size.lg, marginTop: `-${space.lg}px`, marginBottom: space.xxl }}>
+          Then we'll take you back to {destinationOf(from)}.
+        </p>
+      )}
 
       <form onSubmit={submit} className="card" style={{ padding: space.xl, marginBottom: space.xxl }}>
         <label className="field-label" htmlFor="login-username">Username</label>

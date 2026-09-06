@@ -37,8 +37,8 @@ intro.
   per-exercise notes
 - ▶️ Resume an in-progress workout from any page; screen stays awake mid-workout
 - 📊 Usage analytics (`/api/events` → `/api/analytics/summary`)
-- 💾 "Export my data" on Home; guarded `POST /api/import` restore; nightly
-  rclone backup to Google Drive with health heartbeat (`/api/health`)
+- 💾 "Export my data" on Home; guarded `POST /api/import` restore; rclone
+  backup to Google Drive, reported at `/api/admin/backup-status`
 
 ## Development (Mac)
 
@@ -81,9 +81,9 @@ too — see `AGENTS.local.md` for the actual address.
 ## Data & backups
 
 SQLite in a bind-mounted volume on the deploy target (survives container
-updates). Backups are automated: nightly `scripts/backup.sh` snapshots the
-DB and uploads to Google Drive; `GET /api/health` shows the last backup
-status. Restore options are described in `AGENTS.md`'s Runbook section; the
+updates). Backups are manual: `scripts/backup.sh` snapshots the DB and
+uploads to Google Drive; `GET /api/admin/backup-status` (admin only) shows
+the result. Restore options are described in `AGENTS.md`'s Runbook section; the
 drill log and this deployment's exact paths are in `AGENTS.local.md`.
 
 ## Agent orchestration

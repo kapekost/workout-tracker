@@ -52,6 +52,10 @@ describe('Login', () => {
     expect(signIn).toHaveBeenCalledWith(profile)
   })
 
+  // Capitalised, not reworded. The endpoint is deliberately generic -- the same
+  // message covers an unknown user, a wrong password and a never-invited
+  // account -- and that genericness is the security property. Case is not part
+  // of it, so the screen sentence-cases for presentation and nothing else.
   it('shows the API\'s generic message when the password is wrong', async () => {
     auth.login.mockRejectedValue(apiError(401, 'invalid username or password'))
     renderLogin()
@@ -59,11 +63,11 @@ describe('Login', () => {
     fillCredentials('kapekost', 'wrong')
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('invalid username or password')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password')
     expect(screen.queryByText('Home screen')).not.toBeInTheDocument()
   })
 
-  it('shows the rate-limit message verbatim too', async () => {
+  it('shows the rate-limit message with its wording untouched too', async () => {
     auth.login.mockRejectedValue(apiError(429, 'too many attempts; try again in a few minutes'))
     renderLogin()
 
@@ -71,7 +75,7 @@ describe('Login', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(await screen.findByRole('alert'))
-      .toHaveTextContent('too many attempts; try again in a few minutes')
+      .toHaveTextContent('Too many attempts; try again in a few minutes')
   })
 
   it('falls back to its own wording when the failure carries no message', async () => {
@@ -182,13 +186,16 @@ describe('Login — the form itself', () => {
     expect(await screen.findByRole('alert')).toHaveAttribute('aria-live', 'assertive')
   })
 
-  // The old intro explained the app's internals ("Your workouts stay on this
-  // device's tracker either way -- logging in just ties them to your own
-  // profile"). It still has to say logging in is optional, because until #86
-  // it genuinely is, but it now says it in the reader's terms.
-  it('says why you would log in without describing the implementation', () => {
+  // The intro has been wrong twice. First it explained the app's internals
+  // ("Your workouts stay on this device's tracker either way -- logging in
+  // just ties them to your own profile"); then, once #105 rewrote it in the
+  // reader's terms, it promised workouts were "saved either way", which #86
+  // falsified the day it closed the gate. It now says what is behind the
+  // door, which is the only reason anyone standing here needs.
+  it('says what is behind the door, without describing the implementation', () => {
     renderLogin()
     expect(screen.queryByText(/this device's tracker/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/saved either way/i)).toBeInTheDocument()
+    expect(screen.queryByText(/either way/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/pick up where you left off/i)).toBeInTheDocument()
   })
 })

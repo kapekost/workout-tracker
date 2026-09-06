@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { auth } from '../api'
+import { auth, onUnauthorized } from '../api'
 
-// The default value is a real "no session" state rather than null or a throw:
-// nothing is gated yet (#86 does that), so a component rendered outside the
-// provider -- in a test, or anywhere else -- must still render logged-out
-// rather than blow up.
+// The default value is a real "no session" state rather than null or a throw.
+// The gate (#86) lives in App's route tables, not in this hook, so a component
+// rendered outside the provider -- in a test, or anywhere else -- must still
+// render logged-out rather than blow up. `ready: true` here because there is
+// no lookup in flight to wait for.
 export const SessionContext = createContext({
   profile: null,
   ready: true,
@@ -17,10 +18,28 @@ export function SessionProvider({ children }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // A 401 here is the ordinary state of the app today, not a failure: no one
-    // has a session until they log in, and nothing requires one.
+    // A 401 here is the logged-out answer, not a failure -- it is how the app
+    // asks the question. Everything waits on `ready` rather than on the shape
+    // of the answer.
     auth.me().then(setProfile).catch(() => setProfile(null)).finally(() => setReady(true))
+    // ...but only a request that *settles* sets `ready`, and a server that
+    // accepts the connection and then never answers settles nothing. App renders
+    // nothing at all until `ready`, so that is a blank page with no text and no
+    // way to retry -- exactly the window scripts/deploy.sh spends up to ~30s
+    // retrying through after a container restart. 5s: far longer than the tens
+    // of milliseconds a same-origin /auth/me takes, so a healthy load never
+    // races it and nobody is blinked at the login screen; short enough that a
+    // stalled one degrades to a screen you can act on. A late answer still
+    // arrives and swaps the app in.
+    const t = setTimeout(() => setReady(true), 5000)
+    return () => clearTimeout(t)
   }, [])
+
+  // api.js has no router, so a 401 from a data endpoint -- a session that
+  // expired between page loads -- arrives here instead. Dropping the profile
+  // is the whole response: App's guard reads it and renders the login screen,
+  // which keeps the redirect in exactly one place.
+  useEffect(() => onUnauthorized(() => setProfile(null)), [])
 
   const signIn = useCallback((p) => setProfile(p), [])
 

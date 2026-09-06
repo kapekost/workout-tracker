@@ -23,11 +23,9 @@ function isAuthScreen(pathname) {
 }
 
 // Muted, not mint. The bar's session control and the mint page label sat
-// adjacent in the same accent colour, which read as one blob -- and a mint
-// "Log in" in the corner of a Home screen already showing your workouts read
-// as a demand rather than an option. Until #86 closes the gate, logging in IS
-// optional; the only accent on these screens belongs to the page's own primary
-// action, which is never in this bar.
+// adjacent in the same accent colour, which read as one blob. The accent on
+// any screen belongs to that screen's own primary action, and that is never
+// in this bar.
 const actionStyle = {
   fontSize: '0.8rem', fontWeight: type.weight.semibold, color: colors.muted,
   background: 'none', border: 'none', padding: 0, cursor: 'pointer',
@@ -39,10 +37,11 @@ export default function TopBar() {
   const authScreen = isAuthScreen(pathname)
   const label = pageLabel(pathname)
   // Only a real session names anyone here. This used to fall back to
-  // /profile/me -- the acting profile every anonymous write is attributed to
-  // until #86 -- which was accurate but unreadable: the bar showed a username
-  // and a "Log in" link at the same time, so the app looked logged in with no
-  // way to log out. Reported by the owner within a day of #105 shipping.
+  // /profile/me -- the acting profile anonymous writes were attributed to
+  // before #86 closed the gate -- which was accurate but unreadable: the bar
+  // showed a username and a "Log in" link at the same time, so the app looked
+  // logged in with no way to log out. Reported by the owner within a day of
+  // #105 shipping.
   const { profile, signOut } = useSession()
 
   return (
@@ -63,10 +62,15 @@ export default function TopBar() {
           {authScreen ? (
             // With NavBar gone from these screens, this is the only way back
             // into the app for someone who tapped "Log in" and changed their
-            // mind -- an installed PWA offers no browser back button.
-            <Link to="/" className="tap-target" style={actionStyle}>
-              Back to workouts
-            </Link>
+            // mind -- an installed PWA offers no browser back button. Offered
+            // only to a session that has an app to go back to: since #86 there
+            // is nothing behind the door without one, and the guard would
+            // bounce the tap straight back here.
+            profile && (
+              <Link to="/" className="tap-target" style={actionStyle}>
+                Back to workouts
+              </Link>
+            )
           ) : (
             <>
               {profile && (

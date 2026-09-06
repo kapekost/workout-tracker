@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { api, auth } from './api'
+import { api, auth, onUnauthorized } from './api'
 
 function jsonResponse(status, body) {
   return {
@@ -18,8 +18,22 @@ function noContentResponse() {
   }
 }
 
+let stopListening = null
+
 beforeEach(() => { globalThis.fetch = vi.fn() })
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  // onUnauthorized writes to module state that outlives a test file's mocks,
+  // so an un-unregistered handler would fire inside the next test.
+  stopListening?.()
+  stopListening = null
+  vi.restoreAllMocks()
+})
+
+function listenForExpiry() {
+  const handler = vi.fn()
+  stopListening = onUnauthorized(handler)
+  return handler
+}
 
 describe('api request errors', () => {
   it('keeps the status in the message so existing callers can still match on it', async () => {
@@ -94,5 +108,68 @@ describe('auth helpers', () => {
     await auth.forgotPassword('someone@example.com')
     expect(fetch.mock.calls[0][0]).toBe('/api/auth/forgot-password')
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ email: 'someone@example.com' })
+  })
+})
+
+// The bridge from a plain module to the router. api.js has no navigation of
+// its own, so a 401 that means "your session ended" is announced and someone
+// else decides where that lands (SessionProvider clears the profile; App's
+// guard renders the login screen).
+describe('the expired-session signal', () => {
+  it('announces a 401 from a data endpoint', async () => {
+    const expired = listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+
+    await api.get('/sessions').catch(() => {})
+
+    expect(expired).toHaveBeenCalledTimes(1)
+  })
+
+  it('still throws, so the calling page is not left awaiting a promise that never settles', async () => {
+    listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+    await expect(api.post('/sessions', {})).rejects.toThrow('API POST /sessions → 401')
+  })
+
+  // The loop this guards against: the login screen posts a wrong password,
+  // the 401 it gets back bounces the screen to the login screen, and the
+  // message the user needed to read never renders.
+  it.each([
+    '/auth/me',
+    '/auth/login',
+    '/auth/set-password',
+    '/auth/forgot-password',
+    '/auth/logout',
+  ])('stays quiet about a 401 from %s', async (path) => {
+    const expired = listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'invalid username or password' }))
+
+    await api.post(path, {}).catch(() => {})
+
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('says nothing about statuses that are not 401', async () => {
+    const expired = listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(403, { detail: 'admins only' }))
+
+    await api.delete('/users/2').catch(() => {})
+
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('stops announcing once the handler unregisters', async () => {
+    const expired = vi.fn()
+    onUnauthorized(expired)()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+
+    await api.get('/sessions').catch(() => {})
+
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when nothing is listening', async () => {
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+    await expect(api.get('/sessions')).rejects.toThrow('→ 401')
   })
 })

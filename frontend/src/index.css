@@ -113,8 +113,14 @@ button, a, .tap-target { touch-action: manipulation; }
   color: var(--mint); font-family: inherit; font-size: 0.8rem; font-weight: 600;
 }
 .field-toggle:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; }
+/* The full border, not just the left bar: --danger-bg is 1.12:1 against
+   --card, so the fill alone is invisible and a 3px strip was the only thing
+   saying "error" -- too little at arm's length in gym lighting. --danger is
+   4.96:1 on --card, so the outline is what actually carries the signal. The
+   token itself is left alone; History.jsx uses --danger-bg as a border. */
 .form-error {
   color: #fff; background: var(--danger-bg);
+  border: 1px solid var(--danger);
   border-left: 3px solid var(--danger); border-radius: 8px;
   padding: 10px 12px; font-size: 0.875rem;
 }

@@ -17,8 +17,8 @@ export default function NavBar() {
   // nav on a screen with exactly one action pulled the eye to the bottom of an
   // otherwise empty page and made the door look like a broken app page.
   // TopBar.jsx drops its label and action on the same two paths -- keep the
-  // two lists in step. This is presentation only: nothing here (or anywhere)
-  // guards a route or forces a redirect; that is #86.
+  // two lists in step. This is presentation only: the gate that decides who
+  // reaches which screen is App.jsx's route tables, not this.
   if (pathname.startsWith('/login') || pathname.startsWith('/set-password')) return null
 
   return (
