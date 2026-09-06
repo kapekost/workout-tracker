@@ -37,7 +37,14 @@ APP_VERSION = os.environ.get("APP_COMMIT", "dev")
 # No CORS middleware on purpose: prod serves the frontend same-origin and dev
 # uses the Vite proxy, so any cross-origin browser request is a foreign page
 # trying to read /api/export or fire /api/import — let the preflight fail.
-app = FastAPI()
+# No /docs, /redoc or /openapi.json either. FastAPI serves all three by
+# default and none of them is gated, so anonymous callers could read back the
+# full shape of every request the app accepts — 26 paths, LoginIn and
+# SetPasswordIn included — which is exactly what current_profile's 401 landing
+# before validation is supposed to prevent. Nobody browses them here: this is
+# one app with one frontend in the same repo, so the schema is not
+# documentation anybody needs, only reconnaissance nobody should get.
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 @contextmanager
 def db():
@@ -589,8 +596,10 @@ def current_profile(request: Request) -> dict:
     through acting_profile_id below, and that dependency *is* the gate: the 401
     is a property of the route's signature rather than a check each handler has
     to remember to write. It also lands before body and path-parameter
-    validation, so an anonymous caller cannot read back the shape of what the
-    app accepts.
+    validation, so an anonymous caller cannot probe the app's shape by sending
+    rubbish and reading the 422 back — which is only worth something because
+    /openapi.json is off too (see the FastAPI() call above); it was serving the
+    whole schema while this docstring claimed otherwise.
     """
     with db() as conn:
         row = session_profile(conn, request.cookies.get(SESSION_COOKIE))

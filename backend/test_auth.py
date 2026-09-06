@@ -551,6 +551,22 @@ def test_the_open_paths_stay_open(anon_client, method, path):
     assert anon_client.request(method, path).status_code != 401
 
 
+def test_the_api_publishes_no_schema_of_itself(anon_client):
+    """The interactive docs and the OpenAPI document are off, not gated.
+
+    current_profile's 401 landing before validation means the shape of a
+    request cannot be read back through the endpoints — which was worth nothing
+    while FastAPI's defaults handed the same shapes, `LoginIn` and
+    `SetPasswordIn` included, to anyone who asked for /openapi.json.
+
+    404 here because the tests run with no `static` directory; in the image the
+    SPA mount answers an unknown non-/api/ path with the app shell instead.
+    Either way, nothing serves a schema.
+    """
+    for path in ("/openapi.json", "/docs", "/redoc"):
+        assert anon_client.get(path).status_code == 404, f"{path} is still served"
+
+
 def test_health_keeps_answering_the_deploy_smoke_check(anon_client):
     """scripts/deploy.sh curls this from the host, with no session and no way to
     get one, and reads `version` to prove the deploy landed. It is also the only
