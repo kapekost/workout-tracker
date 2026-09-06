@@ -76,12 +76,15 @@ describe('the app with no session', () => {
     expect(screen.queryByRole('heading', { name: 'History' })).not.toBeInTheDocument()
   })
 
+  // Not "no app request" but *no request at all*: the earlier version of this
+  // named one path, and the provider that fetched /sessions from outside the
+  // gate sailed straight through it for a whole PR.
   it('never mounts an app page, so nothing fires a request that only 401s back', async () => {
     unauthenticated()
     render(<App />)
 
     await screen.findByLabelText('Username')
-    expect(api.get).not.toHaveBeenCalledWith('/exercises/recency')
+    expect(api.get).not.toHaveBeenCalled()
   })
 
   it('replaces the bounced path rather than stacking it, so back leaves the app', async () => {
@@ -209,6 +212,39 @@ describe('logging in', () => {
 
     await screen.findByRole('heading', { name: 'History' })
     expect(window.location.pathname).toBe('/history')
+  })
+
+  // The worst thing the app can do to a workout in progress. The active-session
+  // lookup used to run once on mount, outside the gate: logged out it 401'd,
+  // and since logging in is a nav() rather than a reload nothing ever asked
+  // again. Home then offered "Start" for the *next* day, and taking it opened a
+  // second session and orphaned the one the owner was mid-way through.
+  it('picks up the workout already in progress rather than offering to start a second', async () => {
+    unauthenticated()
+    // The server, not a fixture: no cookie, no data. A /sessions that answers
+    // anyway would let the broken version pass, since the bug is that the one
+    // fetch it ever made happened while the answer was still 401.
+    let loggedIn = false
+    auth.login.mockImplementation(async () => { loggedIn = true; return PROFILE })
+    api.get.mockImplementation(async (path) => {
+      if (!loggedIn) {
+        const err = new Error(`API GET ${path} → 401`)
+        err.status = 401
+        throw err
+      }
+      if (path === '/sessions') return [{ id: 12, workout_day: 'upper_a', completed: 0 }]
+      if (path === '/exercises/recency') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    render(<App />)
+    await screen.findByLabelText('Username')
+
+    fillIn('kapekost', 'correct horse battery')
+
+    expect(await screen.findByText('In progress')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Resume Upper A' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Start/ })).not.toBeInTheDocument()
+    expect(screen.getByText('💪 Upper A in progress')).toBeInTheDocument()
   })
 
   // The redirect loop this whole design exists to avoid: a wrong password is
