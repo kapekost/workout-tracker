@@ -154,7 +154,7 @@ def test_backup_status_keeps_failed_status_no_matter_how_old(client, write_backu
 # The old all-or-nothing chain reported `failed` for a Drive outage even though
 # the local snapshot was sitting safely on the host's disk — four such nights
 # in a row, 2026-09-01..04. `last_backup_status` stays the LOCAL leg: it is the
-# one standing between us and data loss, and scripts/deploy.sh reads that key.
+# one standing between us and data loss.
 
 def test_backup_status_reports_both_legs_when_both_succeeded(client, write_backup_status):
     at = _ago(minutes=5)

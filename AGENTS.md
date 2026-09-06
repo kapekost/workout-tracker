@@ -128,12 +128,17 @@ to one deployment. What's true for any deployment of this project:
   locally, no re-tagging trick needed.
 - Before any schema-changing deploy, snapshot via `GET /api/export`.
 - After every deploy, verify `/api/health` reports the commit you just
-  built. `last_backup_status` is informational: backups are manual, so
-  `stale` only means the last one is over a week old, and `scripts/deploy.sh`
-  warns rather than failing on it. `failed` is the one to chase — it means
-  the chain ran and broke. It reports the **local** leg; the off-site copy is
+  built. Since #86 that endpoint is `{status, version}` and nothing else —
+  it is the one `/api/` path reachable without a session, which is why the
+  deploy script can use it, and why the backup posture is no longer on it.
+- The backup posture is `GET /api/admin/backup-status`, admin-only, and it is
+  informational: backups are manual, so `stale` only means the last one is
+  over a week old. `failed` is the one to chase — it means the chain ran and
+  broke. It reports the **local** leg; the off-site copy is
   `last_backup_remote_status` and fails on its own (#93), so `ok` there with
   `failed` off-site means the snapshot is safe on the host but never left it.
+  `scripts/deploy.sh` cannot log in, so it prints `data/backup-status.json`
+  off the host raw instead.
 - Re-drill a restore after any schema change.
 
 **How the whole backup and recovery story fits together — every level, what
@@ -151,8 +156,8 @@ actually updates the running app.
 command, reading the real host/path from `AGENTS.local.md` (see
 `AGENTS.local.md.example`'s "Scripted deploy configuration" section) rather
 than hardcoding them. Refuses to run against a dirty working tree, and
-verifies `/api/health`'s `version` matches what it just built plus that
-`last_backup_status` isn't `stale`. Snapshot via `GET /api/export` first if
+verifies `/api/health`'s `version` matches what it just built, and prints the
+host's `data/backup-status.json` for information. Snapshot via `GET /api/export` first if
 the deploy includes a schema change — the script doesn't do that step for
 you.
 
@@ -259,6 +264,12 @@ history. Verified live after this deploy: `/api/auth/me` 401 without a
 cookie, login refused for the seeded profile (its `password_hash` is NULL
 until it is invited), and `/api/sessions`, `/api/notes`, `/api/personal-bests`
 and `/api/profile/me` all still 200 unauthenticated.
+
+That describes the **deployed image**. #86's backend half is on `main`:
+`_default_profile_id` is gone, every data endpoint 401s without a session,
+`/api/health` is `{status, version}` and the backup posture is
+`/api/admin/backup-status`. The next deploy closes the gate for real, so the
+owner must have set a password through the invite flow before it goes out.
 
 This deploy also brought the previously-undeployed backlog live in one jump
 from `9e4bf65`: the two-leg backup reporting (#93), the manual-backup change

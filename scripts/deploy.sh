@@ -116,22 +116,27 @@ if actual != expected:
         f"deployment verification failed: /api/health version={actual!r}, expected={expected!r}"
     )
 
-# Warn, don't abort. Backups are manual as of 2026-09-04, so there is no
-# schedule for "stale" to be late against — it just means the last backup was
-# more than a week ago, which is worth saying out loud but is no reason to
-# refuse a deploy. A hard failure here would force a backup before every deploy
-# once a week had passed.
-if payload.get("last_backup_status") == "stale":
-    print("warning: last_backup_status is stale — the last backup is over a week old.")
-    print("         run scripts/backup.sh on the host if you want a fresh one.")
-
-# The off-site leg is reported separately (#93) and is never fatal here — the
-# local snapshot is the one that matters for a deploy. Printed so a chronically
-# broken Drive leg is at least visible at deploy time rather than only in
-# /api/health, which nobody reads unless they already suspect something.
-remote = payload.get("last_backup_remote_status")
-print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}"
-      + (f", off-site={remote}" if remote else ""))
+print(f"verified: version={actual}")
 PY
+
+# The backup posture used to arrive in that same payload. #86 trimmed
+# /api/health to {status, version} and moved the four last_backup_* keys to
+# GET /api/admin/backup-status, which needs an admin session — and this script
+# has none by design, since it runs where no browser has ever logged in.
+#
+# So read the file the app reads, straight off the host, and print it as it
+# stands. Never fatal: a chronically broken off-site leg was always a warning
+# here, never a reason to refuse a deploy, and forcing a backup before every
+# deploy once a week had passed would be worse than the problem. Printed raw
+# rather than interpreted, because "ok older than 8 days is stale" is a rule
+# that has already had to move once (#89) and a second copy of it living here
+# would be the copy nobody remembers to update.
+echo "==> last backup, as recorded on the host"
+# shellcheck disable=SC2086
+if ! ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
+     "cat '$DEPLOY_APP_DIR/data/backup-status.json'" 2>/dev/null | sed 's/^/    /'; then
+  echo "    (no status file yet — backups are manual; see docs/BACKUPS.md)"
+fi
+echo "    for the interpreted view: GET /api/admin/backup-status, as an admin"
 
 echo "==> deploy verified: $short_sha"
