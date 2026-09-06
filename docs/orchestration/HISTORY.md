@@ -9,6 +9,237 @@
 
 ---
 
+## Tick — 2026-09-06 (#87 ships; accounts workstream complete, 5/5)
+
+Read the four orchestration docs from the live home branch per PLAYBOOK step 1. Reconciled reality
+first: no open PRs, no live In-flight claim, `#87` next per `STATE.md`'s cursor and the owner's
+2026-09-06 "finish accounts first" order — matched the handoff note written for this tick.
+
+**Hard stop handled before picking any work:** two owner comments from that morning sat unanswered
+on intake Issues #32 (adaptive coaching) and #33 (nutrition) — GUARDRAILS treats an unanswered owner
+comment as a hard stop. #33's comment described something bigger than its original ask (in-app AI
+querying, daily trend suggestions, folding the AI handoff prompts into the app itself), overlapping
+enough with #32's direction that this was a real fork, not something to guess at. Asked the owner
+directly (a live session, not an unattended tick): merge, keep-separate-but-linked, or split the
+in-app-AI-query idea into its own platform issue. Owner chose **merge** — #33 closed pointing at
+#32, whose scope now covers training adaptation and nutrition guidance under one "AI-in-the-loop"
+spec. The unrelated "custom checklist for off-plan/ad-hoc gym sessions, logged by muscle area" idea
+from #32's own comment was split into its own intake Issue, **#139**, since it needs no AI I/O
+machinery. Recorded in `DECISIONS.md`.
+
+**#87 (export/import role behaviour) — executed under the standing approval, no `approved` label.**
+The issue specified *what* (admin unchanged; member gets own-rows export and an additive import)
+but not the merge mechanics, so a short plan
+(`docs/superpowers/plans/2026-09-06-accounts-export-import-roles.md`) worked out the missing
+decisions: id remapping for `sessions`→`sets` closed over the envelope's own content (an orphaned
+`sets` row is silently dropped — this is what makes a cross-account write structurally impossible),
+`INSERT OR IGNORE` for `personal_bests`/`exercise_notes` against their real uniqueness constraints,
+and why the `profiles` table is read for validation shape but never written by a member's merge.
+
+Two tasks, each TDD'd and reviewed independently: Task 1 (member export scoping, `sets` scoped via
+a join through `sessions` since it has no direct ownership check elsewhere) and Task 2 (member
+import merge). Task 2's review went further than a normal task review — given the code's own
+description of `/api/import` as "the most safety-critical code in the app", the reviewer ran 8 live
+adversarial probes against a running `TestClient` app rather than only reading the diff: forged
+`profile_id` on all five merge tables simultaneously, a `sets` row naming a victim's real live
+session id, self-promotion via a mutated `profiles` envelope, a member merging a *stolen whole-
+database admin backup*. All 40 checks held — no cross-profile write is possible under any tested
+input. One comment-accuracy fix round on Task 1 (a shipped comment and the plan text both claimed
+`sets` has no `profile_id` column — false; the column exists, the join-based scoping is still
+correct, only the stated reason was wrong).
+
+**The final whole-branch review earned its keep on its own — this is what a task-scoped view alone
+would have missed.** Both tasks' admin/member logic hung together and the export/merge round trip
+was lossless in both directions, but the review surfaced a real hazard neither task's tests covered
+because neither task was looking for it: a member's export is envelope-shape-identical to a full
+backup, so an admin who fed one into `mode="replace"` (a plausible real mistake — "a member emailed
+me their export, let me restore it") would wipe every admin profile from the database, verified live
+by the reviewer, with no in-app recovery (`require_admin` then 403s everyone, and the only way to
+create a profile is itself admin-gated). Also found: `docs/BACKUPS.md` and `AGENTS.md` still said
+both endpoints were "admin-only since #86" — the same doc-currency gap #86 itself had closed for its
+own change, reopened by this one. One fix wave closed both: `_import_replace` now refuses a replace
+whose envelope has a `profiles` table with no admin row, and the docs were corrected. A scoped
+re-review confirmed both fixes and surfaced one narrow new regression (a hand-crafted, admin-only,
+malformed `profiles` shape now 500s instead of 400ing) — ruled non-load-bearing (no data loss either
+way, requires deliberately malformed input) and parked rather than spending a second fix cycle, per
+the "no second fix wave" rule for a final-review breaker.
+
+**Four small hardening gaps, all self-scoped-only or plan-mandated, deliberately not fixed in #87**
+(merge bypasses the write endpoints' field validation; no envelope size cap, and the insert loop
+holds a write transaction for its duration — a lock-hold risk on the single-Pi deployment for a
+large envelope; a member merging a stolen admin backup absorbs everyone's rows into their own
+account, no cross-profile write but an asymmetry with export's role-scoping; the malformed-`profiles`
+500 above) — bundled into a filed follow-up, **#141**, P3, rather than expanding #87's scope past
+what "efficient, not overengineered" calls for.
+
+Shipped as PR #140 (`fdad339`), 238 backend tests green throughout (225 baseline + 3 export + 9
+import + 1 admin-lockout-guard test). Confirmed backend-only before starting: the frontend's
+"Export my data" button already calls `/api/export` unconditionally with no role gate in the UI, so
+this fixes a real 403-for-members bug with zero frontend edits; there is no import UI to touch.
+Live-browser-verification was judged not applicable given zero frontend lines changed and existing
+unit coverage of the download mechanics (`exportData.test.js`) — noted here rather than silently
+skipped, since the owner's standing rule is to drive the browser rather than assume.
+
+**Accounts workstream is now complete, 5/5** (#84 schema/auth core, #85 Resend invite/reset, #86
+gate flip, #105 login/set-password screens, #87 export/import roles). **#135** (security review of
+the accounts system) relabelled `blocked` → `ready` since its gate (#87) landed — commented with a
+pointer to both #87's own admin-lockout finding and #141's bundle, so the review can confirm the
+P3 rating rather than take it on faith. Merged-not-deployed: the Pi still runs `2bd2885`; deploying
+#87 is a separate step, not asked for this tick.
+
+## Needs-owner tick-log entries, moved from STATE.md's "Needs owner" section (misfiled there since
+before the HISTORY.md split — these are resolved narrative, not open questions; migrated verbatim
+2026-09-06 as this tick's own line-budget tightening, PLAYBOOK step 7)
+
+- **2026-09-06 (#86 unblocked but not started — account session limit):** The owner completed the
+  round trip #86 was gated on ("worked") and separately confirmed their history survived #110's
+  read-scoping ("yes i see it"). #86 relabelled `blocked` → `ready`, claimed, and dispatched under
+  the standing approval — then the executing subagent was killed by the account's session rate limit
+  (resets 03:30 Europe/London) **before doing any work**. No worktree, no branch, no commits, no PR;
+  nothing to salvage, unlike the #105 and #110 recoveries. Claim cleared.
+
+  **Deliberately not retried inline.** #86 is the change that can lock the owner out of their own
+  history, the account is at its limit so a controller-run attempt could be cut off mid-change, and
+  this tick is far past the GUARDRAILS token budget. Checkpointing is the correct move over pushing
+  through — the exact case the budget rule exists for.
+
+  **Resume note:** #86 is `ready`, unblocked, covered by the standing approval, and needs no new
+  owner input. Its scope is the *narrowed* one in the 2026-09-05 issue comment, not the stale issue
+  body: swap `acting_profile_id(conn)`'s body for a real session lookup, delete
+  `_default_profile_id`, gate `/api/events`, trim `/api/health`, add the frontend route guard and
+  401 handler #105 left out. #84's open-gate test and `App.test.jsx`'s no-session test must be
+  *flipped*, not deleted — they were written to be flipped here. Two properties need tests, not a
+  manual check: the seeded profile logged in sees all 2 sessions / 33 sets, and no state exists
+  where a logged-in owner gets an empty app. Do not deploy without asking — merging is safe, the
+  deploy is what closes the door.
+
+  Also this tick: owner's standing preference recorded — **drive the browser to verify a flow
+  rather than handing the owner the verification** ("you can test in browser next time").
+- **2026-09-06 (UI review delivered; work boarded and sequenced, not started):** The whole-app UI/UX
+  review the owner asked for landed and is committed at
+  `docs/superpowers/audits/2026-09-06-ui-review.md` (PR #128), plus an artifact for reading on a
+  phone. Verdict: adequate-to-good, but the screen that matters most is the least designed — the
+  primary button walks down the card as you log, auto-advance hides the exercise it advanced to
+  behind the fixed header, set delete is the app's only unconfirmed destructive action, and a flaky
+  connection wedges the button for up to 75s because `req()` has no timeout. It also measured what
+  nobody had: the recovery disclaimer, which the recovery spec insists must always be visible, is
+  the least readable text in the app at 2.61:1.
+
+  **Boarded as #129 (Wave 1, the gym path), #130 (Wave 2, the screens around it), #131 (Wave 3,
+  consistency debt)**, all `blocked` — behind accounts, by owner call. I had started setting up to
+  execute Wave 1 off the back of "plan looks great"; the owner corrected that in the same breath:
+  they wanted the work *filed and prioritised*, after login and user setup. Approving a plan is not
+  authorising its execution, and that is now a `DECISIONS.md` entry rather than a lesson to relearn.
+
+  The review's reject list is worth keeping visible, since it is the answer to the owner's standing
+  "efficient, not overengineered" constraint: no component library, no CSS framework, no state
+  manager, no offline sync layer, no set typing / RPE / plate calculator / supersets. It also names
+  the non-UI risk nobody had written down — the fixed 4-day plan with no add-exercise is what breaks
+  when users 2-4 arrive with different programs.
+- **2026-09-06 later (Tailscale URL made canonical; I downgraded production and caught it):**
+
+  **Owner settled the URL:** `APP_BASE_URL` is now `https://rpi-homeassistant.tailce23b4.ts.net`.
+  The reason mattered more than first stated — the LAN IP and the tailnet hostname are two origins,
+  so they hold **two cookie jars, two service-worker caches and two installed PWAs**. That, not a
+  bug, is why the owner saw "Log in" while believing they were logged in (session on one origin,
+  browsing the other) and why a deploy appeared on their laptop but not their phone. Fresh invite
+  minted and sent from the new base URL.
+
+  **Incident, self-inflicted:** restarting the container to pick up the new `.env` with a bare
+  `docker compose up -d --force-recreate` — no `APP_COMMIT` — resolved
+  `image: ...:${APP_COMMIT:-latest}` to `:latest`, **an 11-day-old pre-auth build (`5247896`)**.
+  The app came up healthy and wrong: no auth, no mail, no SPA fallback, `/api/health` reporting the
+  old commit. Nothing warned. Caught only because an unrelated command failed with `module 'main'
+  has no attribute 'RESEND_API_KEY'`, which made no sense against the deployed commit. Repaired with
+  an explicit `APP_COMMIT=3e5389e`; data verified intact afterwards (schema v6, 1 profile / 2
+  sessions / 33 sets, matching the pre-deploy snapshot — only analytics `events` grew). Filed as
+  **#126** with the real fix: make the tag required (`${APP_COMMIT:?...}`) so it fails loudly, and
+  delete the `:latest` tag that exists only as a trap. The compose file already *documented* this
+  hazard, which is exactly why documenting a footgun is not the same as removing one.
+
+  **Four issues filed and boarded**, two asked for by the owner and two found doing the work:
+  **#124** logout must lock the app and leave nothing on the device (blocked on #86; the PWA
+  precache and `restTimerStorage`'s session-keyed entries are the real leak surface), **#125** make
+  a deploy reach every device and show the running version (builds on the existing `autoUpdate` +
+  visibility-check machinery rather than replacing it, and keeps the mid-workout suppression),
+  **#126** above, and **#127** `bootstrap_owner.py` is not in the image so its own documented
+  invocation fails — the one path a new deployment cannot skip.
+
+  **#86 stays `blocked`**, now on the owner's hand-test rather than on #105. Commented there.
+
+  A whole-app UI/UX research review is running; the owner asked for a review, not a rewrite, so it
+  produces a report to choose from rather than a PR.
+- **2026-09-06 (the owner used it, and it was broken three ways):** #105 was reported to the owner as
+  ready to try after tests, a code review and a health-checked deploy. None of that had *looked at
+  it*. The owner opened it and hit three defects in a row.
+
+  **#120 was the real one: every client-side route 404'd.** `/login`, `/history`,
+  `/set-password?token=…` — all `{"detail":"Not Found"}`. `StaticFiles` serves files and knows
+  nothing about routes the bundle resolves at runtime, so the app only ever worked because every
+  route was reached by clicking. That made **#85's invite email unopenable since the day it
+  shipped** — there had never been a way to set a password, which is why login could not be used at
+  all. Fixed in PR #121 with `assets/` and `api/` deliberately still 404ing, and the regression
+  tests whose absence let it ship. Found by loading the URL, not by reading anything.
+
+  **#118 was two more:** the top bar named you when you had **no** session (it fell back to
+  `/profile/me`, so a username and a "Log in" link showed together — "signed in, no way to sign
+  out"), and `index.html` was served with no `Cache-Control` at all, so a phone could hold the
+  previous build indefinitely while the server ran the new one. Both in PR #119.
+
+  **Then the UI itself.** The owner: "it's nothing to standards expected login… messy very messy."
+  On `/login` the words "Log in" appeared three times — the TopBar action, the TopBar page-label
+  eyebrow beside it, and the `<h1>` — and the app's bottom nav sat on both auth screens. A UI/UX
+  review (PR #123) made both auth routes chrome-free with one "Back to workouts" link, gave the
+  fields a border, a 2px focus ring, 48px height and a show/hide toggle, moved the 12-character rule
+  beside its field, centred the layout, and rewrote the developer-framed copy. It also found two
+  things nobody had flagged: the error state was signalled by fill colour alone (now `aria-live`
+  plus a danger border) and `.btn-primary` had no disabled state despite five call sites disabling
+  it. 275 unit tests (was 259) and 16 Playwright (was 14). Deployed as `3e5389e` and **screenshotted
+  before being reported** — the new gate, applied to itself.
+
+  **Process consequence, owner's call, now in `DECISIONS.md` and PLAYBOOK step 5 (PR #122):** any
+  UI-touching change needs a UI/UX review of the *rendered* screen and someone to actually open it
+  in a browser, and both carry an explicit "efficient, not overengineered" constraint. The
+  justification is this tick: three defects through a green 259-test suite and a code review, all
+  three obvious in the first screenshot.
+
+  Owner also settled `APP_BASE_URL`: the LAN IP stays for now since it works over the VPN, to be
+  revisited later — not a bug, a deferral.
+
+  Four `IMPROVEMENTS.md` entries logged (cursor to 16): `gh pr merge` from a worktree printing a
+  scary-but-harmless git error, `AGENTS.md`'s stale test counts, no lint step in CI, and an
+  inconsistent sandbox heredoc refusal.
+- **2026-09-06 (owner tried #105; two real bugs, both fixed and deployed):** The first human use of
+  the accounts UX did exactly what splitting #105 out of #86 was meant to make it do — it found
+  problems while the app was still open, so the fix was an ordinary deploy rather than a recovery.
+
+  **Bug 1, the reported one:** `TopBar` fell back to `/api/profile/me` when there was no session, so
+  a logged-out visitor saw a username *and* a "Log in" link simultaneously. Accurate (anonymous
+  writes really are attributed to the seeded profile until #86) and unreadable: it looks like you
+  are signed in with no way to sign out. #105's own scope had said the bar reflects *session* state;
+  the fallback quietly contradicted it. Identity there now requires a session, with a test asserting
+  the logged-out bar names nobody and never calls `/profile/me`.
+
+  **Bug 2, found while diagnosing the first:** the frontend is served by Starlette `StaticFiles`,
+  which sets `ETag`/`Last-Modified` but never `Cache-Control` — confirmed against the live server,
+  where `index.html` returned no `Cache-Control` at all. Since Vite fingerprints everything under
+  `assets/`, a stale `index.html` pins the whole app to the previous build with no error and no
+  clue. That silently undermined **every** deploy this project has ever done, not just this one.
+  Fixed: unfingerprinted files revalidate, fingerprinted assets are immutable. Verified on the live
+  server after deploying.
+
+  Diagnosis went to the deployed artifact rather than the source: grepping the served bundle proved
+  the new code *was* shipped, which ruled out a bad deploy and pointed at the two causes above.
+  A direct read of the production DB (to check whether a password is set) was refused by the
+  sandbox; that was reported to the owner rather than worked around. Filed as #118, shipped as
+  PR #119 (`73ebdce`), backend 186 tests, frontend 259.
+
+### Also resolved — #110's read-scoping
+- ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
+  2026-09-06** ("yes i see it"). This was the one regression from #110 that no test could settle:
+  the leak test proves a second profile cannot see the first's rows, but only a human could confirm
+  the seed profile still returns *all* of its own. Closed.
+
 ## Tick — 2026-09-06 (#86 shipped; both review gates earned their keep)
 
 Executed under the standing approval, no label added. Split into two file-disjoint subagents so a
