@@ -60,7 +60,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#126** — claimed 2026-09-06T23:32:52Z, live session.
 
 ## Needs owner
 - **#124 needs an `approved` label before this tick can execute it.** It changes logout/session
