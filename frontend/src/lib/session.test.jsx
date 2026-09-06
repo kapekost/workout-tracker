@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { SessionProvider, useSession } from './session'
 
+// onUnauthorized is the real seam api.js hands out, not a spy: these tests
+// care that the provider survives registering, not what it registered.
 vi.mock('../api', () => ({
   auth: { me: vi.fn(), logout: vi.fn(), login: vi.fn() },
+  onUnauthorized: () => () => {},
 }))
 import { auth } from '../api'
 

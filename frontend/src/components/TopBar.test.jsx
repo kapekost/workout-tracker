@@ -7,6 +7,7 @@ import { SessionProvider } from '../lib/session'
 vi.mock('../api', () => ({
   api: { get: vi.fn() },
   auth: { me: vi.fn(), logout: vi.fn() },
+  onUnauthorized: () => () => {},
 }))
 import { api, auth } from '../api'
 
@@ -148,12 +149,24 @@ describe('TopBar on the auth screens', () => {
     expect(screen.queryByText('Log in')).not.toBeInTheDocument()
   })
 
-  it('offers a way back into the app instead, since NavBar is gone there', async () => {
-    signedOut()
+  // For someone who tapped "Log in" from inside the app and changed their
+  // mind. Since #86 closed the gate there is nothing behind the door without a
+  // session, so the way back is offered only to one that has somewhere to go --
+  // otherwise the tap would land on the guard and bounce straight back here.
+  it('offers a session a way back into the app, since NavBar is gone there', async () => {
+    signedInAs({ id: 2, username: 'invited', role: 'member', icon: '🔥' })
     renderTopBarAt('/login')
 
     expect(await screen.findByRole('link', { name: 'Back to workouts' }))
       .toHaveAttribute('href', '/')
+  })
+
+  it('offers no way back when there is no session behind the door', async () => {
+    signedOut()
+    renderTopBarAt('/login')
+
+    await screen.findByText('🏋 Gym Tracker')
+    expect(screen.queryByRole('link', { name: 'Back to workouts' })).not.toBeInTheDocument()
   })
 
   it('leaves identity out of the bar on an auth screen', async () => {
@@ -174,8 +187,9 @@ describe('TopBar on the auth screens', () => {
     expect(screen.queryByRole('link', { name: 'Back to workouts' })).not.toBeInTheDocument()
   })
 
-  // #86 has not closed the gate: Home shows your workouts with no session, so
-  // a mint "Log in" in the corner read as a demand the app was waiting on.
+  // The bar's control and the mint page label sat adjacent in the same accent
+  // colour and read as one blob. Accent belongs to the screen's own primary
+  // action, which is never in this bar.
   it('keeps the session control quiet rather than accented', async () => {
     signedOut()
     renderTopBarAt('/')

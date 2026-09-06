@@ -182,13 +182,16 @@ describe('Login — the form itself', () => {
     expect(await screen.findByRole('alert')).toHaveAttribute('aria-live', 'assertive')
   })
 
-  // The old intro explained the app's internals ("Your workouts stay on this
-  // device's tracker either way -- logging in just ties them to your own
-  // profile"). It still has to say logging in is optional, because until #86
-  // it genuinely is, but it now says it in the reader's terms.
-  it('says why you would log in without describing the implementation', () => {
+  // The intro has been wrong twice. First it explained the app's internals
+  // ("Your workouts stay on this device's tracker either way -- logging in
+  // just ties them to your own profile"); then, once #105 rewrote it in the
+  // reader's terms, it promised workouts were "saved either way", which #86
+  // falsified the day it closed the gate. It now says what is behind the
+  // door, which is the only reason anyone standing here needs.
+  it('says what is behind the door, without describing the implementation', () => {
     renderLogin()
     expect(screen.queryByText(/this device's tracker/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/saved either way/i)).toBeInTheDocument()
+    expect(screen.queryByText(/either way/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/pick up where you left off/i)).toBeInTheDocument()
   })
 })
