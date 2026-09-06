@@ -3,6 +3,26 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-06 — #33 (nutrition) merges into #32 (adaptive coaching); one AI-in-the-loop spec
+
+Owner comments on both issues that morning (unanswered at tick start, per GUARDRAILS) had converged
+on the same shape without saying so: #32 wanted an AI export format personalised to recent workouts
+plus a custom off-plan/muscle-area checklist; #33 wanted daily trend-based nutrition suggestions,
+intake reminders, and folding the AI handoff prompts into the app so it queries AI directly. Both
+are now "the app talks to an AI, applies structured output, user confirms" — training adaptation and
+nutrition guidance under one mechanism rather than two.
+
+**Asked directly rather than guessed** (this was a live session, not an unattended tick): merge vs.
+keep-separate-but-linked vs. split the in-app-AI-query idea into its own platform issue. Owner chose
+**merge**. #33 closed, pointing at #32; #32's shared spec
+(`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`) now needs to grow to cover
+nutrition guidance and the in-app query surface before the owner's pending skim, which is why #32
+stays `intake` rather than becoming skimmable this tick.
+
+**Split out, not merged in:** the off-plan/ad-hoc "custom checklist by muscle area" idea became its
+own intake issue, **#139** — it's a data-logging gap, not an AI I/O one, and doesn't share #32's
+mechanism.
+
 ## 2026-09-06 — The orchestrator's dispatch default is pinned, not inherited
 
 **Owner's decision**, taken in the parallel session working the orchestration cleanup and relayed here. It answers the one question #137 deliberately left open rather than deciding for them.
