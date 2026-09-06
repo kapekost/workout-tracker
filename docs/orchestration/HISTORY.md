@@ -9,6 +9,78 @@
 
 ---
 
+## Tick — 2026-09-06 (#142: a live, unfiled data-exposure finding, filed and shipped same session)
+
+Continuation of the same live session that had just shipped #87 and been flagged, in-chat, a stale-
+PWA-cache finding with nowhere written down yet (per the handoff written for that moment). Read the
+four orchestration docs from the live home branch per PLAYBOOK step 1, reconciled reality (no open
+PRs, no live In-flight claim, no unanswered owner comments on any in-progress/intake issue), then
+resolved the unfiled finding before picking anything off the standing queue, per the handoff's own
+instruction and GUARDRAILS' "unanswered owner input is a hard stop" spirit.
+
+**The finding, filed as #142 (P0):** `frontend/vite.config.js` cached `/api/*` GET requests under a
+fixed `NetworkFirst` cache name (`api-reads`), 30-day expiration, unchanged across deploys. A device
+that cached real data before #86 (which added the login requirement) and hadn't since had a
+successful network round-trip could keep serving that stale, pre-auth response indefinitely — which
+is what the owner's phone was doing. Neither #124 (wipes on logout only) nor #125 (deploy-reach +
+visible version) committed to "a cache from before a security deploy must not survive it."
+
+**Two things asked directly, not guessed, per GUARDRAILS "never guess" on scope/priority:** (1) fold
+into #124 or file separately — owner chose **new issue**, filed as #142; (2) work #142 ahead of the
+standing queue order (#124 was next per 2026-09-06's "the queue is now explicit" decision) or hold
+it for its turn — owner chose **#142 first**, since it's a live, real exposure rather than a queued
+risk. Both recorded in `DECISIONS.md`; the standing order for everything after #142 is unchanged, not
+reopened.
+
+**Plan gate:** #142 as filed wasn't decomposed (a "suggested fix shape," not an ordered, tested
+sequence), so per PLAYBOOK step 3 it was planned before execution — `docs/superpowers/plans/
+2026-09-06-pwa-api-cache-versioning.md`, merged via its own docs-only PR #143 first (this repo's
+usual plan-then-execute pattern), linked from the issue body per PLAYBOOK's "Linking a plan to its
+Issue."
+
+**Execution, inline in this session** (owner's choice over subagent/worktree isolation, given the
+change's small size — 2 files initially): Task 1 extracted a pure, unit-tested
+`apiReadsCacheName(commit)` helper; Task 2 wired it into the `api-reads` runtime-caching entry via
+the build's existing `appCommit` value, verified against a real `vite build` twice (two different
+`APP_COMMIT` values produced two distinct cache names in the actual `dist/sw.js`, since CI never
+runs a production build itself). Full suite green throughout (one pre-existing, unrelated
+`App.test.jsx` flake confirmed by isolated re-run before proceeding — passes alone, only flakes under
+the full ~300-test suite's resource contention in this sandboxed environment).
+
+**Code review caught a real error in the plan's own reasoning, not in the code.** The plan justified
+skipping activate-time cache purging by claiming vite-plugin-pwa's `generateSW` strategy "has no hook
+point for custom activate-event code," which would be true only if custom SW code required switching
+to `injectManifest`. The reviewer traced `workbox-build`'s `GenerateSWOptions.importScripts` option
+(confirmed directly against `node_modules/workbox-build/build/types.d.ts:223-230` and
+vite-plugin-pwa's own types) — it splices a plain script into the generated worker with zero strategy
+change and zero new dependencies. Rather than just fixing the false claim in place, the actual purge
+was implemented as a same-tick fast-follow (**Task 3**, added to the merged plan alongside a
+correction note left in place rather than silently rewritten, matching this repo's own precedent for
+correcting a documented wrong claim — see #87's `_import_replace` fix): `public/api-cache-cleanup.js`
+sweeps every `api-reads-*` cache on `activate` (safe because the new build's own cache hasn't been
+created yet at that point — workbox opens it lazily on first fetch), unit-tested by evaluating the
+real shipped script against faked `self`/`caches` globals, and manually confirmed spliced into a real
+build ahead of `precacheAndRoute`. This closes the "orphaned cache waits for quota eviction" caveat
+the plan had originally accepted as the cost of staying off `injectManifest` — a caveat that, given
+the correct `importScripts` option, didn't actually need accepting.
+
+**Shipped:** PR #144, squash-merged clean (`f12ccc9`), 310/310 frontend tests passing, #142 auto-
+closed. **This fix's limit, on record twice (plan + two issue comments) so it isn't mistaken for
+"the phone is fixed now":** it cannot reach a device already stuck on an old, pre-fix service worker
+— that worker is still what's running there. The owner's own affected phone had **not** had its site
+storage cleared as of this write-back; unsticking it needs either that manual clear or #125's
+forced-update work landing and actually reaching it.
+
+**Housekeeping, not part of #142's own scope but blocking its plan-doc merge:** a stale, superseded
+local draft of #87's own plan file (pre-dating a since-merged correction commit) sat untracked in the
+main checkout and collided with `git pull --ff-only` after PR #143 merged. Confirmed via diff that
+main's tracked copy already carried the fix the local draft lacked, then removed the local draft —
+not a loss, a cleanup of dead local state.
+
+Standing queue order resumed after this tick: **#124** is next.
+
+---
+
 ## Tick — 2026-09-06 (#87 ships; accounts workstream complete, 5/5)
 
 Read the four orchestration docs from the live home branch per PLAYBOOK step 1. Reconciled reality
