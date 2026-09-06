@@ -219,6 +219,39 @@
   order.
 
 ## Tick log
+- **2026-09-06 later (Tailscale URL made canonical; I downgraded production and caught it):**
+
+  **Owner settled the URL:** `APP_BASE_URL` is now `https://rpi-homeassistant.tailce23b4.ts.net`.
+  The reason mattered more than first stated — the LAN IP and the tailnet hostname are two origins,
+  so they hold **two cookie jars, two service-worker caches and two installed PWAs**. That, not a
+  bug, is why the owner saw "Log in" while believing they were logged in (session on one origin,
+  browsing the other) and why a deploy appeared on their laptop but not their phone. Fresh invite
+  minted and sent from the new base URL.
+
+  **Incident, self-inflicted:** restarting the container to pick up the new `.env` with a bare
+  `docker compose up -d --force-recreate` — no `APP_COMMIT` — resolved
+  `image: ...:${APP_COMMIT:-latest}` to `:latest`, **an 11-day-old pre-auth build (`5247896`)**.
+  The app came up healthy and wrong: no auth, no mail, no SPA fallback, `/api/health` reporting the
+  old commit. Nothing warned. Caught only because an unrelated command failed with `module 'main'
+  has no attribute 'RESEND_API_KEY'`, which made no sense against the deployed commit. Repaired with
+  an explicit `APP_COMMIT=3e5389e`; data verified intact afterwards (schema v6, 1 profile / 2
+  sessions / 33 sets, matching the pre-deploy snapshot — only analytics `events` grew). Filed as
+  **#126** with the real fix: make the tag required (`${APP_COMMIT:?...}`) so it fails loudly, and
+  delete the `:latest` tag that exists only as a trap. The compose file already *documented* this
+  hazard, which is exactly why documenting a footgun is not the same as removing one.
+
+  **Four issues filed and boarded**, two asked for by the owner and two found doing the work:
+  **#124** logout must lock the app and leave nothing on the device (blocked on #86; the PWA
+  precache and `restTimerStorage`'s session-keyed entries are the real leak surface), **#125** make
+  a deploy reach every device and show the running version (builds on the existing `autoUpdate` +
+  visibility-check machinery rather than replacing it, and keeps the mid-workout suppression),
+  **#126** above, and **#127** `bootstrap_owner.py` is not in the image so its own documented
+  invocation fails — the one path a new deployment cannot skip.
+
+  **#86 stays `blocked`**, now on the owner's hand-test rather than on #105. Commented there.
+
+  A whole-app UI/UX research review is running; the owner asked for a review, not a rewrite, so it
+  produces a report to choose from rather than a PR.
 - **2026-09-06 (the owner used it, and it was broken three ways):** #105 was reported to the owner as
   ready to try after tests, a code review and a health-checked deploy. None of that had *looked at
   it*. The owner opened it and hit three defects in a row.
