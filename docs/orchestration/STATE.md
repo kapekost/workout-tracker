@@ -105,7 +105,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#86** — claimed 2026-09-06T01:20:00Z, live session. Flip the gate; executing under the recorded standing approval, blocker cleared by the owner's own round trip.
+(no branches in flight)
 
 ## Needs owner
 - ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
@@ -222,6 +222,30 @@
   order.
 
 ## Tick log
+- **2026-09-06 (#86 unblocked but not started — account session limit):** The owner completed the
+  round trip #86 was gated on ("worked") and separately confirmed their history survived #110's
+  read-scoping ("yes i see it"). #86 relabelled `blocked` → `ready`, claimed, and dispatched under
+  the standing approval — then the executing subagent was killed by the account's session rate limit
+  (resets 03:30 Europe/London) **before doing any work**. No worktree, no branch, no commits, no PR;
+  nothing to salvage, unlike the #105 and #110 recoveries. Claim cleared.
+
+  **Deliberately not retried inline.** #86 is the change that can lock the owner out of their own
+  history, the account is at its limit so a controller-run attempt could be cut off mid-change, and
+  this tick is far past the GUARDRAILS token budget. Checkpointing is the correct move over pushing
+  through — the exact case the budget rule exists for.
+
+  **Resume note:** #86 is `ready`, unblocked, covered by the standing approval, and needs no new
+  owner input. Its scope is the *narrowed* one in the 2026-09-05 issue comment, not the stale issue
+  body: swap `acting_profile_id(conn)`'s body for a real session lookup, delete
+  `_default_profile_id`, gate `/api/events`, trim `/api/health`, add the frontend route guard and
+  401 handler #105 left out. #84's open-gate test and `App.test.jsx`'s no-session test must be
+  *flipped*, not deleted — they were written to be flipped here. Two properties need tests, not a
+  manual check: the seeded profile logged in sees all 2 sessions / 33 sets, and no state exists
+  where a logged-in owner gets an empty app. Do not deploy without asking — merging is safe, the
+  deploy is what closes the door.
+
+  Also this tick: owner's standing preference recorded — **drive the browser to verify a flow
+  rather than handing the owner the verification** ("you can test in browser next time").
 - **2026-09-06 (UI review delivered; work boarded and sequenced, not started):** The whole-app UI/UX
   review the owner asked for landed and is committed at
   `docs/superpowers/audits/2026-09-06-ui-review.md` (PR #128), plus an artifact for reading on a
