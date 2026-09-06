@@ -454,13 +454,17 @@ _SET = {"exercise_id": "bench_press", "exercise_name": "Bench Press",
 GATED = [
     # Admin-only, on top of needing a session at all — the 403 half is asserted
     # by test_the_backup_posture_is_admin_only and
-    # test_the_whole_database_envelope_is_admin_only below.
+    # test_the_whole_database_import_is_admin_only below.
     ("POST",   "/api/profiles", {"username": "newbie", "email": "n@example.com"}),
     ("GET",    "/api/admin/backup-status", None),
-    ("GET",    "/api/export", None),
     ("POST",   "/api/import", {"mode": "replace", "confirm": True,
                                "envelope": {"schema_version": 6, "tables": {}}}),
     # Any session will do for the rest: they act on the caller's own rows.
+    # /api/export included since #87 — any role reaches it, admin gets the
+    # whole database and a member gets their own rows scoped (see
+    # test_profiles.py's test_member_export_contains_only_their_own_rows and
+    # test_admin_export_unchanged).
+    ("GET",    "/api/export", None),
     ("GET",    "/api/profile/me", None),
     ("GET",    "/api/auth/me", None),
     ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
@@ -603,15 +607,20 @@ def test_the_backup_posture_is_admin_only(mainmod, anon_client, client, write_ba
     assert r.json()["last_backup_status"] == "ok"
 
 
-def test_the_whole_database_envelope_is_admin_only(mainmod, anon_client, client):
-    """A session is not enough for /api/export or /api/import.
+def test_the_whole_database_import_is_admin_only(mainmod, anon_client, client):
+    """A session is not enough for /api/import: it is a whole-database
+    replace, so nothing about being invited to log your own sets should let a
+    member wipe everyone's. This stays admin-only until #87's Task 2 gives a
+    member their own additive merge path.
 
-    The envelope is every table including `profiles`, which is every account's
-    bcrypt hash and email address — so any member who could reach it could read
-    the owner's credential material back out of a backup. And /api/import is a
-    whole-database replace: nothing about being invited to log your own sets
-    should let you wipe everyone's. Both belong with the backup posture, on the
-    admin side, until #87 gives a member their own scoped export.
+    /api/export used to be admin-only for the same "profiles carries every
+    account's bcrypt hash and email" reason, but #87's Task 1 gave any
+    profile a scoped export instead of a 403 — see
+    test_the_backup_posture_is_admin_only for /api/admin/backup-status (still
+    admin-only), and test_profiles.py's
+    test_member_export_contains_only_their_own_rows /
+    test_admin_export_unchanged for what replaced the export half of this
+    test.
     """
     with mainmod.db() as conn:
         pid = conn.execute(
@@ -619,8 +628,6 @@ def test_the_whole_database_envelope_is_admin_only(mainmod, anon_client, client)
         member = _as_session(TestClient(mainmod.app), mainmod.issue_session(conn, pid))
         conn.commit()
 
-    assert anon_client.get("/api/export").status_code == 401
-    assert member.get("/api/export").status_code == 403
     r = client.get("/api/export")                        # the seeded owner is admin
     assert r.status_code == 200
     assert "password_hash" in r.json()["tables"]["profiles"][0]

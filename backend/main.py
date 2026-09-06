@@ -1134,21 +1134,36 @@ def analytics_summary(days: int = 30, pid: int = Depends(acting_profile_id)):
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 @app.get("/api/export")
-def export_data(response: Response, admin: dict = Depends(require_admin)):
-    # Admin, not merely a session: this is the whole database, and the whole
-    # database includes `profiles` — every account's bcrypt hash and email
-    # address. Handing that to anyone who has been invited to log their own sets
-    # would be a worse leak than the backup posture this same PR moved behind
-    # require_admin, and it is the behaviour the accounts design specifies
-    # (docs/superpowers/specs/2026-09-04-accounts-auth-design.md).
+def export_data(response: Response, profile: dict = Depends(current_profile)):
+    # Any authenticated profile can reach this (#87) — role decides *scope*,
+    # not whether the gate opens at all. An admin still gets exactly today's
+    # whole-database dump, `profiles` included (every account's bcrypt hash
+    # and email address), which is why that branch stays admin-only rather
+    # than opening further: docs/superpowers/specs/2026-09-04-accounts-auth-design.md.
     #
-    # The design doc's next step is a member branch carrying only their own
-    # rows (#87) — additive to this, not blocked by it. Until then, exporting
-    # is an owner operation and Home's "Export my data" is admin-only.
+    # A member's own tap gets a second, additive path: every table filtered to
+    # rows they own. `profiles` is scoped to their own single row (WHERE id =
+    # :pid) rather than dropped, so the envelope still has the same shape the
+    # shared import validation expects. `sets` carries no profile_id of its
+    # own, so it is scoped through a join on sessions — the same pattern
+    # add_set/delete_set already use for that table.
     response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-        tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
+        if profile["role"] == "admin":
+            tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
+        else:
+            pid = profile["id"]
+            scoped = {
+                "profiles": ("SELECT * FROM profiles WHERE id = ?", (pid,)),
+                "sessions": ("SELECT * FROM sessions WHERE profile_id = ?", (pid,)),
+                "sets": ("SELECT sets.* FROM sets JOIN sessions ON sets.session_id = sessions.id "
+                         "WHERE sessions.profile_id = ?", (pid,)),
+                "exercise_notes": ("SELECT * FROM exercise_notes WHERE profile_id = ?", (pid,)),
+                "events": ("SELECT * FROM events WHERE profile_id = ?", (pid,)),
+                "personal_bests": ("SELECT * FROM personal_bests WHERE profile_id = ?", (pid,)),
+            }
+            tables = {t: [dict(r) for r in conn.execute(*scoped[t]).fetchall()] for t in TABLES}
     return {"exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "schema_version": version, "tables": tables}
 

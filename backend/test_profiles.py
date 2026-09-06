@@ -1,3 +1,21 @@
+from fastapi.testclient import TestClient
+
+
+def _member_client(mainmod):
+    """A second, member-role profile with its own real session cookie — not a
+    raw row we then never authenticate as, per
+    test_second_profile_can_log_the_same_pb_as_the_first's pattern for
+    creating the profile, and conftest.py's `client` fixture / issue_session
+    for putting a real session on a client of its own."""
+    with mainmod.db() as conn:
+        member_id = conn.execute(
+            "INSERT INTO profiles (username, role) VALUES ('plain', 'member')").lastrowid
+        member = TestClient(mainmod.app)
+        member.cookies.set("wt_session", mainmod.issue_session(conn, member_id))
+        conn.commit()
+    return member, member_id
+
+
 def test_migration_creates_profiles_table_with_seeded_admin(mainmod):
     with mainmod.db() as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
@@ -151,6 +169,88 @@ def test_export_includes_profiles(client):
     exp = client.get("/api/export").json()
     assert len(exp["tables"]["profiles"]) == 1
     assert exp["tables"]["profiles"][0]["username"] == "kapekost"
+
+def test_member_export_contains_only_their_own_rows(client, mainmod):
+    # The seeded admin logs their own data through `client` first.
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    client.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    client.post("/api/events", json=[{"name": "admin_event"}])
+    client.put("/api/exercises/bench_press/note", json={"note": "admin note"})
+
+    member, member_id = _member_client(mainmod)
+    member_sid = member.post("/api/sessions", json={"workout_day": "lower_a"}).json()["id"]
+    member.post(f"/api/sessions/{member_sid}/sets", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "set_number": 1, "reps": 5, "weight_kg": 80})
+    member.post("/api/personal-bests", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "weight_kg": 80, "reps": 5, "achieved_year": 2026})
+    member.post("/api/events", json=[{"name": "member_event"}])
+    member.put("/api/exercises/squat/note", json={"note": "member note"})
+
+    tables = member.get("/api/export").json()["tables"]
+
+    # profiles is scoped to exactly one row -- their own -- not dropped, so
+    # the envelope shape (and the import validation that expects a `profiles`
+    # key) stays identical to the admin export's shape.
+    assert [r["id"] for r in tables["profiles"]] == [member_id]
+
+    assert len(tables["sessions"]) == 1
+    assert tables["sessions"][0]["workout_day"] == "lower_a"
+    assert tables["sessions"][0]["profile_id"] == member_id
+
+    # sets has no profile_id of its own -- this is the join-through-sessions
+    # scoping (decision #2): only the member's own set comes back, not the
+    # admin's bench press set.
+    assert len(tables["sets"]) == 1
+    assert tables["sets"][0]["exercise_id"] == "squat"
+
+    assert len(tables["personal_bests"]) == 1
+    assert tables["personal_bests"][0]["exercise_id"] == "squat"
+    assert tables["personal_bests"][0]["profile_id"] == member_id
+
+    assert len(tables["events"]) == 1
+    assert tables["events"][0]["name"] == "member_event"
+    assert tables["events"][0]["profile_id"] == member_id
+
+    assert len(tables["exercise_notes"]) == 1
+    assert tables["exercise_notes"][0]["exercise_id"] == "squat"
+    assert tables["exercise_notes"][0]["profile_id"] == member_id
+
+def test_member_export_still_401s_with_no_session(anon_client):
+    # Moving /api/export from require_admin to current_profile must not loosen
+    # the gate itself -- an anonymous caller still gets nothing.
+    r = anon_client.get("/api/export")
+    assert r.status_code == 401
+    assert r.json() == {"detail": "not authenticated"}
+
+def test_admin_export_unchanged(client, mainmod, seed_profile_id):
+    # Existing behaviour, named explicitly as a property of this change rather
+    # than incidentally covered by test_export_envelope_shape: an admin's
+    # export is still the whole database, every profile's rows included.
+    client.post("/api/sessions", json={"workout_day": "upper_a"})
+    client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    client.post("/api/events", json=[{"name": "admin_event"}])
+
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "lower_a"})
+    member.post("/api/personal-bests", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "weight_kg": 80, "reps": 5, "achieved_year": 2026})
+    member.post("/api/events", json=[{"name": "member_event"}])
+
+    tables = client.get("/api/export").json()["tables"]
+    assert {r["id"] for r in tables["profiles"]} == {seed_profile_id, member_id}
+    assert {r["profile_id"] for r in tables["sessions"]} == {seed_profile_id, member_id}
+    assert {r["profile_id"] for r in tables["personal_bests"]} == {seed_profile_id, member_id}
+    assert {r["profile_id"] for r in tables["events"]} == {seed_profile_id, member_id}
 
 def test_old_v3_envelope_without_profiles_still_imports(client):
     # Simulates a backup taken before this feature existed (schema_version 3, no "profiles" key).
