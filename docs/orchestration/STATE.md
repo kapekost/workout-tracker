@@ -60,9 +60,16 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#124** — claimed 2026-09-06T23:31:11Z, live session.
+(no branches in flight)
 
 ## Needs owner
+- **#124 needs an `approved` label before this tick can execute it.** It changes logout/session
+  handling (wipes session-scoped `localStorage` and service-worker cache state on logout) —
+  GUARDRAILS' destructive-operations trigger. It isn't named in the 2026-09-05 standing approval
+  (that covers only #105/#86/#87 against the accounts-auth-design spec) and carries no `approved`
+  label of its own. GUARDRAILS "Approval is human-only" means this tick cannot add the label itself
+  even when told to proceed live — the owner needs to run `/orchestrate approve 124` themselves, or
+  add the label directly (`gh issue edit 124 --add-label approved`).
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
