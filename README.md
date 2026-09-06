@@ -60,17 +60,17 @@ cd frontend && npm test
 
 ## Deploy
 
-Shape of it (build elsewhere, stream to the deploy target, run, verify —
-full runbook in [AGENTS.md](AGENTS.md); the real host and commands for this
-deployment are in the gitignored `AGENTS.local.md`):
+Shape of it: build elsewhere (arm64), stream the image to the deploy target
+— no registry — restart there, verify `/api/health` reports the commit that
+was just built. `scripts/deploy.sh` does all four steps, tagging the image
+by commit SHA rather than `:latest` (see #126: a bare `docker compose up`
+with no `APP_COMMIT` silently rolls back to a stale image). Full runbook in
+[AGENTS.md](AGENTS.md); the real host and per-deployment settings this
+script needs go in the gitignored `AGENTS.local.md` (see
+`AGENTS.local.md.example`):
 
 ```bash
-# build (arm64) and stream to the deploy target — no registry
-docker buildx build --pull --platform linux/arm64 -t kapekost/workout-tracker:latest --load .
-docker save kapekost/workout-tracker:latest | gzip | ssh <host> 'gunzip | docker load'
-
-# deploy target: run the loaded image (never builds, never pulls)
-cd ~/workout-tracker && git pull && docker compose up -d
+scripts/deploy.sh
 ```
 
 ## Access away from home

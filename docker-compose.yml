@@ -12,7 +12,7 @@ services:
     # pre-auth image. Now it fails loudly instead. scripts/deploy.sh always sets this explicitly,
     # so nothing legitimate depends on a fallback — never restart this service with a bare
     # `docker compose up`.
-    image: kapekost/workout-tracker:${APP_COMMIT:?APP_COMMIT must name the built image tag}
+    image: kapekost/workout-tracker:${APP_COMMIT:?must name the built image tag}
     pull_policy: never
     ports:
       # host:container — 8080 avoids colliding with anything else on :80 on this host
