@@ -1,14 +1,14 @@
 # Orchestration State
 
 > Single-owner cursor for `/orchestrate`. Only the orchestration home branch may edit the sections
-> below; a feature branch must never touch this file. **Hard budget: ~250 lines outside the Tick
-> log, plus the last day's ticks.** Every tick reads this file first, so its cost is per-tick and
-> compounding — that is what keeping it bounded is for.
+> below; a feature branch must never touch this file. **Hard budget: ~250 lines.** Every tick reads
+> this file first, so its cost is per-tick and compounding — that is what keeping it bounded is for.
 >
-> **Everything historical lives in `HISTORY.md`** — resolved Needs-owner items and the tick log
-> beyond the most recent day, all verbatim. Enforced every tick per PLAYBOOK step 7, not as a
-> one-time split: this file reached 1067 lines on 2026-09-06 (~200 lines/day of tick-log growth)
-> before this split, so the roll has to happen continuously or it just regrows.
+> **This file keeps no Tick log.** Each tick's write-back goes straight to `HISTORY.md` — prepended
+> at the top, verbatim, per PLAYBOOK step 7 — and Cursor's "Current focus" carries the live summary
+> instead. Resolved Needs-owner items move to `HISTORY.md` the same way. This file reached 1067
+> lines on 2026-09-06 (~200 lines/day of tick-log growth) before the split; keeping no tick log here
+> at all, rather than "the last N," is what stops it recurring.
 
 ## Cursor
 - **Project:** Workout Tracker

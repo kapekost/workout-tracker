@@ -185,17 +185,20 @@ only because the owner happened to ask about it, not by anything in this file. H
    If the base branch moved since the PR opened and it now conflicts, resolve by hand — read both
    sides' intent, never blindly take one side or force through — then re-run local verification before
    pushing the merge commit.
-7. **Write state back:** comment progress on the Issue; update `STATE.md`'s cursor/next-action only
-   when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
-   decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
-   this same write-back — a shipped or stopped tick must never leave a stale claim behind.
-   **Enforce `STATE.md`'s line budget as part of this same write-back.** Before adding this tick's
-   entry, check the file's length against the budget stated at its own top: if adding the entry
-   would push it over, move the oldest kept Tick log entries — and any now-fully-resolved Needs
-   owner items — to `HISTORY.md` first, verbatim, appended in chronological order, nothing edited
-   or dropped. This file reached 1067 lines on 2026-09-06 (~200 lines/day of tick-log growth)
-   before a first split fixed it — do this every tick it would otherwise apply, not only once the
-   file is already unreadable. `DECISIONS.md` is never rolled or summarized by this step.
+7. **Write state back:** comment progress on the Issue; update `STATE.md`'s Cursor (Current
+   focus/Next action) only when on the orchestration home branch, never on a feature branch;
+   append to `DECISIONS.md` if a decision was made. **Clear this tick's In-flight claim** (per
+   "Claiming work" above) as part of this same write-back — a shipped or stopped tick must never
+   leave a stale claim behind.
+   **`STATE.md` keeps no Tick log.** Write this tick's narrative entry straight to `HISTORY.md`,
+   **prepended at the top** (newest first), verbatim — do not add it to `STATE.md` and roll it
+   later. If a Needs-owner item this tick resolved, move it to `HISTORY.md` the same way rather
+   than leaving a struck-through remnant in `STATE.md`. This file reached 1067 lines on 2026-09-06
+   (~200 lines/day of tick-log growth) before a first split fixed it — a "keep the last N" rule
+   regrows the same way, so keep none. `DECISIONS.md` is never rolled or summarized by this step.
+   **Before committing, re-check `STATE.md`'s line budget stated at its own top** — Cursor and
+   Needs-owner are the only sections that can grow it, so if either has, tighten it in the same
+   commit rather than letting it ride.
 8. **Feedback review:** if this tick appended any `IMPROVEMENTS.md` entries, run
    `scripts/improvements_since_cursor.sh`, classify each (`[local]` → PR in this repo; `[template]` →
    PR against the template repo per GUARDRAILS "Cross-repo writes"; `[unsure]` → `STATE.md` → Needs
