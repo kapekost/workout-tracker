@@ -3,6 +3,20 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-06 — The orchestrator's dispatch default is pinned, not inherited
+
+**Owner's decision**, taken in the parallel session working the orchestration cleanup and relayed here. It answers the one question #137 deliberately left open rather than deciding for them.
+
+**The decision:** `PLAYBOOK.md` names the model the orchestrator dispatches with explicitly. It does **not** inherit whatever the controller happens to be running.
+
+**Why, in the owner's terms:** they had just switched their own interactive default to Sonnet 5, and did not want a personal editor preference to silently change what model runs unattended auth work on a schedule. Two dials, deliberately — one for the human's session, one for what executes without them watching.
+
+The precedent it follows is this repo's own scar tissue. Twice now an implicit default has quietly changed what runs: `docker compose up` with no `APP_COMMIT` resolved `:latest` to an 11-day-old pre-auth image and downgraded production (#126), and `PLAYBOOK` step 1 read orchestration docs without naming a branch, so two ticks read `main`'s stale copies and reported work blocked that had been approved hours earlier. Both were "it inherits something sensible" until they weren't.
+
+**Also confirmed in the same message, no changes requested:** the destructive-beats-effort-size precedence rule, executing #137 in the same propagation pass as #134, and keeping the note that `model` is ignored for `subagent_type: "fork"`.
+
+**Provenance, recorded because it matters for what this does and does not authorise.** This is a reversible documentation preference, so a relayed decision is an adequate record for it — unlike #132's history rewrite, where a peer-relayed approval was explicitly *not* accepted and the owner was asked again directly before the `approved` label went on. Same day, same peer, deliberately different bars. Nothing here changes who may add an `approved` label.
+
 ## 2026-09-06 — Scrub the history, stay public, keep deployment knowledge local
 
 Owner, asked directly in-session after the decision reached this session second-hand through a peer:
