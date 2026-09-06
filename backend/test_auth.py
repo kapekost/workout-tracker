@@ -439,6 +439,7 @@ def test_logout_leaves_other_sessions_alone(mainmod, anon_client, member):
 # hand-maintained list to have kept up.
 OPEN = {
     ("GET", "/api/health"): "scripts/deploy.sh's smoke check; there is no session at deploy time",
+    ("HEAD", "/api/health"): "same check, and what an uptime monitor uses",
     ("POST", "/api/auth/login"): "how a session is obtained in the first place",
     ("POST", "/api/auth/logout"): "204 either way; must not become a way to probe session ids",
     ("POST", "/api/auth/set-password"): "the invite/reset link is the credential, not a cookie",
@@ -482,12 +483,23 @@ GATED = [
 
 
 def _api_routes(mainmod):
-    """(method, path) for everything the app serves under /api/."""
+    """(method, path) for everything the app serves under /api/.
+
+    Anything it cannot see into is an error rather than a shrug. A `Mount` has
+    no `.methods`, so the old `getattr(route, "methods", set())` yielded nothing
+    for one — `app.mount("/api/sub", subapp)` would have served every route
+    inside it anonymously while this suite stayed green. Same for HEAD, which
+    used to be subtracted unconditionally: a HEAD-only route answered without a
+    session and the table never noticed. Only OPTIONS is dropped, and it is
+    dropped because nothing declares one (there is no CORS middleware).
+    """
     for route in mainmod.app.routes:
         path = getattr(route, "path", "")
         if not path.startswith("/api/"):
             continue
-        for method in getattr(route, "methods", set()) - {"HEAD", "OPTIONS"}:
+        methods = getattr(route, "methods", None)
+        assert methods, f"{path} is a mount; the gate table cannot see inside it"
+        for method in methods - {"OPTIONS"}:
             yield method, path
 
 
