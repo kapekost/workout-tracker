@@ -52,6 +52,12 @@ input, textarea {
   -webkit-touch-callout: default;
 }
 button, a, .tap-target { touch-action: manipulation; }
+/* Every interactive element gets a press state. `.btn-primary`, `.btn-secondary`
+   and `.btn-icon` already tune their own :active (below) — those win on
+   specificity — so this only fills in the controls that had nothing at all:
+   DisclosureRow's header, the nav tabs, chips, and every bare .tap-target
+   button (back links, export, PBs, delete, note). */
+button:active { opacity: 0.7; }
 .page-shell {
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -79,7 +85,12 @@ button, a, .tap-target { touch-action: manipulation; }
 }
 .btn-icon:active { background: #2a2a42; }
 .btn-primary:disabled { opacity: 0.55; cursor: default; }
-.btn-primary:focus-visible, .btn-secondary:focus-visible, .btn-icon:focus-visible {
+/* Focus rings used to be enumerated per component (5 selectors) and missed
+   everything else: NavBar tabs, Chip, MuscleChip, every bare .tap-target
+   button. Every button and link in the app gets one ring instead of a list
+   that has to be remembered and kept in sync. More specific rules below
+   (.field, .field-toggle) still win where they intentionally differ. */
+button:focus-visible, a:focus-visible {
   outline: 2px solid var(--mint); outline-offset: 2px;
 }
 

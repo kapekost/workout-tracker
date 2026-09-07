@@ -105,7 +105,11 @@ test.describe('320x568 floor', () => {
   for (const entry of PAGES) {
     test(`${entry.name}: tap targets are >=44px tall`, async ({ page }) => {
       await gotoReady(page, entry)
-      const targets = page.locator('.tap-target, .btn-icon, .field-toggle, nav button, input[type="number"]')
+      // .chip-toggle (Progress's exercise-filter chips) carries no
+      // .tap-target overlay any more (2026-09-06 UI review, item 7) — it
+      // owns a real 44px box on the element itself, so it needs including
+      // here for the boundingBox() branch below to actually measure it.
+      const targets = page.locator('.tap-target, .chip-toggle, .btn-icon, .field-toggle, nav button, input[type="number"]')
       const count = await targets.count()
       // A selector that silently matched nothing would make this loop a
       // no-op. Every page here renders at least one match — NavBar's 3 items
@@ -169,9 +173,11 @@ test.describe('320x568 floor', () => {
 // above only ever checks pages at their initial, collapsed render. Expanding
 // a card renders new content (NumControl steppers on Workout, nothing
 // interactive on History) that the collapsed-state checks above never see.
-// Chip itself needs no separate coverage here — Progress.jsx's filter chip
-// already renders as a `.tap-target` button, so it's already swept into the
-// existing "tap targets are >=44px tall" loop on that page.
+// Chip itself needs no separate coverage here — Workout's muscle-tag chips
+// (the only Chip usage this describe block's pages render) are the plain,
+// non-interactive <span> form. Progress.jsx's filter chip is a different
+// story (it's a real button with its own 44px box, not `.tap-target`) and
+// gets its own dedicated coverage below.
 // ---------------------------------------------------------------------------
 
 test.describe('320x568 floor — DisclosureRow expanded', () => {
@@ -238,5 +244,107 @@ test.describe('TimerBar breakpoint tiers', () => {
     await page.setViewportSize({ width: 320, height: 800 }) // <=340
     await expect(pill).toHaveCSS('min-width', '34px')
     await expect(icon).toHaveCSS('width', '34px')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 2026-09-06 UI review, item 7: Progress's exercise chips used to rely on
+// `.tap-target`'s invisible ::after overlay for their hit area — centred on
+// the element and expanded to max(100%, 44px) regardless of how close the
+// next chip sat. On a wrapped row with an 8px gap and ~27px-tall chips, nei-
+// ghbouring OVERLAYS overlapped by ~14px even though the visible chips never
+// touched — a mis-tap near a chip edge charted the wrong exercise. Fixed by
+// giving the chip a real 44px box instead (Chip.jsx) and dropping the class.
+// This reconstructs the *same effective hit-rect math the old bug lived in*
+// (derived from each element's real box, not the pseudo-element's computed
+// style — jsdom can't see ::after box geometry, but a plain arithmetic
+// reconstruction from the CSS rule works in either runner and is what
+// actually proves the fix: a `.tap-target` regression here would very
+// visibly reintroduce overlapping derived rects for these tightly-packed,
+// short chips).
+// ---------------------------------------------------------------------------
+
+function effectiveHitRect(box, isTapTarget) {
+  if (!isTapTarget) return { left: box.x, right: box.x + box.width, top: box.y, bottom: box.y + box.height }
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
+  const w = Math.max(box.width, 44)
+  const h = Math.max(box.height, 44)
+  return { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 }
+}
+
+function rectsOverlap(a, b) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
+
+test.describe('Progress chips — real 44px boxes, no overlap (item 7)', () => {
+  test.use({ viewport: { width: 320, height: 568 } })
+
+  test('no two chips share an overlapping hit area', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Progress'))
+    const chips = page.locator('.chip-toggle')
+    const count = await chips.count()
+    expect(count).toBe(progressExercises.length)
+
+    const rects = []
+    for (let i = 0; i < count; i++) {
+      const el = chips.nth(i)
+      const box = await el.boundingBox()
+      const isTapTarget = await el.evaluate((node) => node.classList.contains('tap-target'))
+      expect(isTapTarget).toBe(false) // the whole point of the fix
+      expect(box.height).toBeGreaterThanOrEqual(44)
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      rects.push(effectiveHitRect(box, isTapTarget))
+    }
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        expect(rectsOverlap(rects[i], rects[j])).toBe(false)
+      }
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 2026-09-06 UI review, item 8: DisclosureRow becomes a real <button> with
+// aria-expanded, plus a global button:active press state and a global
+// :focus-visible ring — this is the part jsdom fundamentally cannot check
+// (no real focus/paint pipeline), so only a real browser proves it.
+// ---------------------------------------------------------------------------
+
+test.describe('Global interactive-element feedback (item 8)', () => {
+  test('DisclosureRow header is a real, keyboard-operable button with aria-expanded', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
+    const header = page.getByRole('button', { name: /Bench Press/ })
+    // Workout opens with the first incomplete exercise already expanded
+    // (Workout.jsx's own auto-open behavior), so this card starts open.
+    await expect(header).toHaveAttribute('aria-expanded', 'true')
+    await page.getByLabel('increase weight').waitFor()
+    await header.focus()
+    await expect(header).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(header).toHaveAttribute('aria-expanded', 'false')
+    // The body only renders while open — proves Enter actually toggled
+    // state via real button/keyboard semantics, not just the attribute.
+    await expect(page.getByLabel('increase weight')).toHaveCount(0)
+  })
+
+  test('a focused button shows the global :focus-visible ring', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
+    const header = page.getByRole('button', { name: /Bench Press/ })
+    await header.focus()
+    const outline = await header.evaluate((el) => getComputedStyle(el).outlineStyle)
+    expect(outline).not.toBe('none')
+  })
+
+  test('a plain button with no component-specific :active rule still dims on press (global button:active)', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Progress'))
+    const chip = page.locator('.chip-toggle').first()
+    const box = await chip.boundingBox()
+    const before = await chip.evaluate((el) => getComputedStyle(el).opacity)
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    const during = await chip.evaluate((el) => getComputedStyle(el).opacity)
+    await page.mouse.up()
+    expect(Number(during)).toBeLessThan(Number(before))
   })
 })
