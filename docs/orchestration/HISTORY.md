@@ -9,6 +9,77 @@
 
 ---
 
+## Tick — 2026-09-07 (#130 shipped: UI Wave 2, same session as #129; a rejected subagent dispatch turned out to have run anyway, producing a real duplicate)
+
+Continuation of the same session that had just shipped #129. Owner explicitly chose to continue
+into UI Wave 2 immediately rather than stop the tick ("Go ahead and start #130 now"), then again
+after a tool-permission interruption ("Re-dispatch #130 as before").
+
+**Picked #130 the same way #129 was picked**: `STATE.md`'s own Next-action pointer named it, its
+Issue body was already decomposed (six named items, each with files/sizes, two called out in
+detail, explicit gates and acceptance criteria — same shape as #129, same "already decomposed"
+plan-gate call), it wasn't destructive, and its `blocked` label was priority-only per
+`DECISIONS.md` and stale now that #129 had shipped. Relabeled `blocked`→`ready`, commented why,
+claimed it on the home branch before any execution.
+
+**The dispatch itself surfaced a real harness incident.** The first `Agent` call to implement #130
+was interrupted mid-turn with "The user doesn't want to proceed with this tool use... STOP." Per
+that instruction, stopped and asked the user how to proceed via `AskUserQuestion` rather than
+assuming intent, given a fresh `/orchestrate` invocation had also just arrived in the same moment.
+The user chose "re-dispatch as before." **The second dispatch discovered a second worktree already
+existed**, checked out on a branch named exactly the example name given in the first prompt
+(`claude/130-ui-wave-2`), holding 6 clean, never-pushed commits implementing the identical six
+items — the first dispatch had, in fact, run to completion despite being reported as rejected.
+Compared both implementations' diff stats (19-20 files, ~750-800 lines each, near-identical hex
+values and copy strings) before deciding: genuinely equivalent, no unique work in the orphaned one,
+discarded via `git worktree remove --force` + `git branch -D` (never pushed to origin, so no remote
+cleanup needed, no data lost anywhere). Logged as an `[unsure]` `IMPROVEMENTS.md` entry — not
+fixable via a PR in this repo, since it's Agent-tool/harness rejection-vs-execution semantics, not
+a doc or config gap. Improvements cursor advanced 22 → 23.
+
+**Execution** proceeded on the surviving branch (pushed as `claude/130-ui-wave-2-alt` to avoid the
+name collision with the orphaned local branch). All six items landed: `Progress.jsx` auto-selects
+the first exercise, `Chip.jsx` gets a real 44px box, `DisclosureRow.jsx` becomes a real
+`<button aria-expanded>` with new global `button:active`/`:focus-visible` CSS rules, "Finish
+Workout" moved into `Workout.jsx`'s previously-empty header slot, `MuscleGroupPicker.jsx`/`Home.jsx`
+gained a first-run empty-state guard reusing the existing `freshness === null`/`sessions.length`
+checks rather than inventing new ones, `theme.js`'s `muted2` token and the recovery-disclosure
+color were both adjusted for contrast. 346/346 unit, 20/20 e2e, clean build, per the implementer's
+own report.
+
+**Independent code review** (fresh subagent, explicit git range, actually re-ran the suite itself
+rather than trusting the reported counts, per this session's own harness gotcha) found no
+Critical issues and one **Important** one: `Home.jsx`'s "Last session" card was still a bare
+`<div onClick>` — the exact defect class item 8 exists to fix, and the audit doc had named this
+call site explicitly, but it fell outside item 8's stated file scope (`DisclosureRow.jsx`/
+`index.css` only) and got missed. Independently re-derived the WCAG contrast math from the actual
+hex values in the diff and confirmed it matched to the hundredth. Fixed the Important finding
+directly (cheap, in scope of the acceptance criteria as literally written): converted the card to
+a real button reusing `DisclosureRow`'s chrome-reset pattern, added a regression test asserting
+`tagName === 'BUTTON'`. Re-verified 347/347 unit + 20/20 e2e + clean build before pushing.
+
+**UI/UX review of the rendered screens caught a second, more interesting bug — in the fix for the
+first bug.** Stood up the actual app (seeded a local dev password via `main.hash_password()`,
+logged in through the real UI, logged a real session) and captured real screenshots. The reviewer
+found that the "Last session" card had lost all visible card styling: the fixup's chrome-reset
+(`background: 'none', border: 'none'`) landed on the *same* element as `className="card"`, which
+cancelled out `.card`'s own background/border — confirmed by the reviewer pixel-sampling the
+screenshot and finding the row's background read as flat page-background color with no border
+tone anywhere. `DisclosureRow.jsx` avoids this by nesting the reset button *inside* a separately-
+styled `.card` div; the Home fixup had collapsed those two layers into one element. Fixed by
+mirroring `DisclosureRow`'s two-layer structure, re-verified live in a browser (card box restored,
+mint focus-visible ring now shows on tab) and via the full local suite again before pushing.
+
+**PR #151 opened, CI watched to genuine completion** (confirmed the checked commit matched the
+actual last push before merging) — all 3 checks green on `e9a8075`, squash-merged as `98c89a0`,
+branch and worktree cleaned up.
+
+**No further `IMPROVEMENTS.md` entries this tick** beyond the one already logged above — the two
+review-caught defects (missed file scope, a CSS-cancellation bug in the fix for it) are ordinary
+implementation and review process working as intended, not new orchestration-loop friction.
+
+---
+
 ## Tick — 2026-09-07 (#129 shipped: UI Wave 1, both review gates green, first `/orchestrate` run against the new UI/UX-review requirement)
 
 Unattended `/orchestrate` tick, no argument. Read the four orchestration docs from
