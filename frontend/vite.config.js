@@ -87,7 +87,14 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
+      // Trailing slash matters: '/api' (no slash) is a plain string-prefix
+      // match, so it also intercepts unrelated same-prefix module URLs like
+      // '/apiCacheName.js' (see #124, which added a top-level import of it
+      // from src/lib/session.jsx) and proxies them at the backend, which
+      // doesn't even run in dev/e2e -- breaking every page's initial render,
+      // not just the api-cache-name module. `api.js`'s `base + path` always
+      // yields '/api/...', so this stays exact for every real call.
+      '/api/': 'http://localhost:8000',
     },
   },
   test: {
