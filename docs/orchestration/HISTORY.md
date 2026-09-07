@@ -9,6 +9,78 @@
 
 ---
 
+## Tick — 2026-09-07 (#124 shipped: owner-approved directly, PR #147; a real CI regression caught and fixed same tick, not a flake)
+
+Continuation of the same handoff session. The owner ran `/orchestrate approve 124` directly at the
+keyboard — the first live use of that command variant for an issue *not* covered by a standing
+approval (the 2026-09-05 grant only names #105/#86/#87 against the accounts-auth-design spec).
+Added the `approved` label, commented on the Issue with the reasoning (destructive-trigger check,
+blocking dependency #86 already closed), stopped, per PLAYBOOK's `approve` variant. A second,
+separate `/orchestrate` (no arg) tick then picked #124 up as next in queue order.
+
+**Reconcile (step 2):** clean git status, no open PRs, no live In-flight claim, `#124` confirmed
+`ready`+`approved` with no `blocked` label. Checked the five open `intake` Issues (#139, #70, #32,
+#30, #27) for unanswered owner comments since the last tick — none were new, all already reflected
+in `STATE.md`'s Needs-owner. Claimed #124 on the home branch before any execution, per "Claiming
+work."
+
+**Decomposition:** #124's Issue body already names the exact files (`session.jsx`'s `signOut`,
+`useRestPreference.js`, `restTimerStorage.js`, `vite.config.js`'s `workbox.runtimeCaching`), a
+scoped Lock/Wipe/Decide breakdown, and three named acceptance scenarios (online, offline/airplane
+mode, offline-logout-still-wipes). The one open item ("decide and write down" whether to wipe
+`restPrefSec`) is implementation discretion, not an owner question — the issue says so explicitly.
+Passed the plan gate on "a scoped Issue body" without a separate plan doc, same class of call as
+the accounts-workstream issues.
+
+**Execution**, one worktree-isolated subagent, TDD: `restTimerStorage.js` gained
+`clearAllRestTimers()` (no prior "clear all by session id unknown" path existed); the current-commit
+`api-reads-<commit>` cache (the one holding real cached API response bodies, confirmed by reading
+`vite.config.js`'s `NetworkFirst` config, not assumed) gets `caches.delete()`'d directly from the
+page — no need to message the service worker, Cache Storage is available on `window` same-origin;
+`restPrefSec` kept deliberately, documented at the decision site as a device setting, not account
+data. Both wipe steps sit outside the `try { await auth.logout() } catch {}` block so they run even
+when the network call fails — the "offline logout is still a logout" criterion depends on that
+structurally, not just by test intent. The pre-existing `/login` lock (Shell's route-table swap on
+`profile` becoming null, from #86) was verified with a test, not rebuilt. PR #147 opened.
+
+**Independent code review (fresh subagent, no shared context with the executor):** verdict "ready
+to merge," having checked the unconditional-wipe structure line by line (not just test intent), the
+exact cache name computed, the storage sweep's two-pass no-mutate-while-iterating shape, the
+documented `restPrefSec` reasoning, and realistic test mocks (`vi.stubGlobal('caches', ...)`,
+`auth.logout` rejecting). One non-blocking observation: an offline logout can't invalidate the
+server-side session cookie, so a device that reconnects before anyone logs back in could still pass
+`/auth/me` on the stale-but-valid cookie — orthogonal to #124's device-data scope, filed separately
+as **#148** (`intake` — the right fix isn't obvious yet: shorter TTL, a background revoke-retry, or
+accept it as documented risk).
+
+**CI failed on the first push — genuinely red, not a rollup-staleness artifact:** all 16
+`responsive.spec.js` e2e tests failed identically, including `Login`, which #124 never touches — a
+strong tell of a global render failure rather than a targeted regression or flake. The clean code
+review, which only reads the diff, had no way to catch it: **root cause was a dev-server-only bug**.
+`session.jsx`'s new `import ... from '../../apiCacheName.js'` serves at `/apiCacheName.js` under
+Vite's dev server; `vite.config.js`'s dev proxy key was the bare string `'/api'`, a plain
+prefix-match that also caught `/apiCacheName.js` and forwarded it to `localhost:8000`, which isn't
+running in the e2e/dev-server-only setup (confirmed by reproducing the exact failure locally:
+`[vite] http proxy error: /apiCacheName.js ... ECONNREFUSED`). Fixed by scoping the proxy key to
+`'/api/'` (trailing slash) — `api.js`'s `base + path` always yields `/api/...`, so every real call
+still matches. Verified locally before pushing: e2e 16/16, unit 318/318. Pushed, re-watched CI on
+the confirmed new commit (`gh pr view --json headRefOid` matched), genuinely green, merged
+(`b24337b`), #124 closed via `Closes #124`.
+
+**Process consequence, logged to `IMPROVEMENTS.md`, `PLAYBOOK.md` step 6 updated same tick (home
+branch; mirrored to a `main` PR since `PLAYBOOK.md`/`GUARDRAILS.md`/`DECISIONS.md` are the stable
+docs main keeps its own synced copy of, unlike `STATE.md`/`HISTORY.md` which live only on the home
+branch):** a clean code-review verdict does not clear a red CI run — review reads the diff and never
+executes it, so it cannot catch a failure that only exists in CI's actual runtime environment.
+Reproduce the failing check locally before assuming a red run is a flake.
+
+**Also this tick:** found ~140 lines of pre-split tick-log narrative sitting under `STATE.md`'s
+`## Needs owner` heading, left behind when the file was last split down from 1067 lines — confirmed
+byte-for-byte already present in this file (`HISTORY.md`) before deleting, so nothing was lost;
+`STATE.md` is back to 63 lines.
+
+---
+
 ## Tick — 2026-09-06/07 (#124 blocked on approval; #126 shipped instead; #145 filed)
 
 Continuation of the same live session, immediately after #142 shipped. Owner said "ok go on" — read

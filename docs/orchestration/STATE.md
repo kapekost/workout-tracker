@@ -12,38 +12,35 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **Accounts workstream complete, 5/5** (#84, #85, #86, #105, #87 — 2026-09-06,
-  PR #140). Same live session, three more landed out of standing queue order by direct owner call:
-  **#142** shipped (the `api-reads` PWA cache is now commit-scoped and purged on `activate`, closing
-  a real pre-auth data-exposure gap — cannot retroactively fix a device already stuck on an old
-  service worker, though), **#126** shipped (`docker compose` now refuses to run with no
-  `APP_COMMIT` instead of silently falling back to a stale `:latest`), and **#145** filed (no
-  indication when the app is serving cached data because the network is unreachable — `P2`,
-  `effort:S`, `ready`). **#141** (P3 hardening bundle) and **#135** (security review, now `ready`)
-  also came out of the #87 tick. Full narrative for all of it in `HISTORY.md`. Merged-not-deployed:
-  the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, and #126.
-- **Next action:** **#124** (logout locks the device) — still blocked on an `approved` label; it
-  changes logout/session handling (GUARDRAILS destructive trigger) and isn't named in the 2026-09-05
-  standing approval. See Needs-owner. → UI waves **#129/#130/#131** after that, in the owner's
-  2026-09-06 order — resumed once #124 lands, since #142 and #126 were both worked out of turn by
-  direct owner call, not a reshuffle. Unsequenced and pickable on their own merits: #125, #127, #138,
-  **#145** (new), **#135** (now ready), **#141** (P3). Queued behind accounts by owner call: **#132**
-  (history scrub, `approved` label on, mirror backup mandatory), **#137** (model tiering).
+- **Current focus:** **#124 shipped** (logout now wipes device-held data — the per-session
+  `restTimerStorage` sweep, the current-commit `api-reads` cache, both unconditional even when the
+  logout request itself fails offline; `restPrefSec` deliberately kept, documented as a device
+  setting not account data). Owner approved it directly via `/orchestrate approve 124` (not a
+  standing approval — an individual grant for this issue). PR #147, merged as `b24337b`; #148 filed
+  from a non-blocking code-review observation (offline logout can't invalidate the server session,
+  `intake`, needs a fix approach decided). **CI regression, found and fixed same tick, not a flake:**
+  the first push failed all 16 e2e tests identically (a new `apiCacheName.js` import served at
+  `/apiCacheName.js` in dev, which the bare `/api` proxy-key prefix-matched and forwarded to a
+  backend that doesn't run in that job) — an independent code review had already returned "ready to
+  merge" and missed it, since review never executes the code. Root-caused by reproducing the
+  failing test locally; fixed by scoping the proxy key to `/api/`. `IMPROVEMENTS.md` entry logged;
+  `PLAYBOOK.md` step 6 updated on the home branch with the lesson (mirrored to `main` — see below).
+  Accounts workstream (5/5), #142, #126 all still shipped as of the prior tick — see `HISTORY.md`.
+  Merged-not-deployed: the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, #126, #124.
+- **Next action:** UI waves **#129/#130/#131**, in the owner's 2026-09-06 order — next now that
+  #124 has landed (#142 and #126 were both worked out of turn by direct owner call, not a reshuffle,
+  so the original order resumes here). Unsequenced and pickable on their own merits: #125, #127,
+  #138, #145, #135 (`ready`), #141 (P3), **#148** (new, `intake`). Queued behind accounts by owner
+  call: **#132** (history scrub, `approved` label on, mirror backup mandatory), **#137** (model
+  tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#124** — claimed 2026-09-07T15:08:49Z, live session.
+(no branches in flight)
 
 ## Needs owner
-- **#124 needs an `approved` label before this tick can execute it.** It changes logout/session
-  handling (wipes session-scoped `localStorage` and service-worker cache state on logout) —
-  GUARDRAILS' destructive-operations trigger. It isn't named in the 2026-09-05 standing approval
-  (that covers only #105/#86/#87 against the accounts-auth-design spec) and carries no `approved`
-  label of its own. GUARDRAILS "Approval is human-only" means this tick cannot add the label itself
-  even when told to proceed live — the owner needs to run `/orchestrate approve 124` themselves, or
-  add the label directly (`gh issue edit 124 --add-label approved`).
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
@@ -64,146 +61,3 @@
   the parent session's own checkout, and its `git checkout -b` silently switched the orchestrator's
   own branch mid-session — real fix candidate for PLAYBOOK's Execute step: default to
   `isolation:'worktree'` for any subagent dispatch doing its own git branch/commit work.
-
-- **2026-09-06 (#86 unblocked but not started — account session limit):** The owner completed the
-  round trip #86 was gated on ("worked") and separately confirmed their history survived #110's
-  read-scoping ("yes i see it"). #86 relabelled `blocked` → `ready`, claimed, and dispatched under
-  the standing approval — then the executing subagent was killed by the account's session rate limit
-  (resets 03:30 Europe/London) **before doing any work**. No worktree, no branch, no commits, no PR;
-  nothing to salvage, unlike the #105 and #110 recoveries. Claim cleared.
-
-  **Deliberately not retried inline.** #86 is the change that can lock the owner out of their own
-  history, the account is at its limit so a controller-run attempt could be cut off mid-change, and
-  this tick is far past the GUARDRAILS token budget. Checkpointing is the correct move over pushing
-  through — the exact case the budget rule exists for.
-
-  **Resume note:** #86 is `ready`, unblocked, covered by the standing approval, and needs no new
-  owner input. Its scope is the *narrowed* one in the 2026-09-05 issue comment, not the stale issue
-  body: swap `acting_profile_id(conn)`'s body for a real session lookup, delete
-  `_default_profile_id`, gate `/api/events`, trim `/api/health`, add the frontend route guard and
-  401 handler #105 left out. #84's open-gate test and `App.test.jsx`'s no-session test must be
-  *flipped*, not deleted — they were written to be flipped here. Two properties need tests, not a
-  manual check: the seeded profile logged in sees all 2 sessions / 33 sets, and no state exists
-  where a logged-in owner gets an empty app. Do not deploy without asking — merging is safe, the
-  deploy is what closes the door.
-
-  Also this tick: owner's standing preference recorded — **drive the browser to verify a flow
-  rather than handing the owner the verification** ("you can test in browser next time").
-- **2026-09-06 (UI review delivered; work boarded and sequenced, not started):** The whole-app UI/UX
-  review the owner asked for landed and is committed at
-  `docs/superpowers/audits/2026-09-06-ui-review.md` (PR #128), plus an artifact for reading on a
-  phone. Verdict: adequate-to-good, but the screen that matters most is the least designed — the
-  primary button walks down the card as you log, auto-advance hides the exercise it advanced to
-  behind the fixed header, set delete is the app's only unconfirmed destructive action, and a flaky
-  connection wedges the button for up to 75s because `req()` has no timeout. It also measured what
-  nobody had: the recovery disclaimer, which the recovery spec insists must always be visible, is
-  the least readable text in the app at 2.61:1.
-
-  **Boarded as #129 (Wave 1, the gym path), #130 (Wave 2, the screens around it), #131 (Wave 3,
-  consistency debt)**, all `blocked` — behind accounts, by owner call. I had started setting up to
-  execute Wave 1 off the back of "plan looks great"; the owner corrected that in the same breath:
-  they wanted the work *filed and prioritised*, after login and user setup. Approving a plan is not
-  authorising its execution, and that is now a `DECISIONS.md` entry rather than a lesson to relearn.
-
-  The review's reject list is worth keeping visible, since it is the answer to the owner's standing
-  "efficient, not overengineered" constraint: no component library, no CSS framework, no state
-  manager, no offline sync layer, no set typing / RPE / plate calculator / supersets. It also names
-  the non-UI risk nobody had written down — the fixed 4-day plan with no add-exercise is what breaks
-  when users 2-4 arrive with different programs.
-- **2026-09-06 later (Tailscale URL made canonical; I downgraded production and caught it):**
-
-  **Owner settled the URL:** `APP_BASE_URL` is now `https://rpi-homeassistant.tailce23b4.ts.net`.
-  The reason mattered more than first stated — the LAN IP and the tailnet hostname are two origins,
-  so they hold **two cookie jars, two service-worker caches and two installed PWAs**. That, not a
-  bug, is why the owner saw "Log in" while believing they were logged in (session on one origin,
-  browsing the other) and why a deploy appeared on their laptop but not their phone. Fresh invite
-  minted and sent from the new base URL.
-
-  **Incident, self-inflicted:** restarting the container to pick up the new `.env` with a bare
-  `docker compose up -d --force-recreate` — no `APP_COMMIT` — resolved
-  `image: ...:${APP_COMMIT:-latest}` to `:latest`, **an 11-day-old pre-auth build (`5247896`)**.
-  The app came up healthy and wrong: no auth, no mail, no SPA fallback, `/api/health` reporting the
-  old commit. Nothing warned. Caught only because an unrelated command failed with `module 'main'
-  has no attribute 'RESEND_API_KEY'`, which made no sense against the deployed commit. Repaired with
-  an explicit `APP_COMMIT=3e5389e`; data verified intact afterwards (schema v6, 1 profile / 2
-  sessions / 33 sets, matching the pre-deploy snapshot — only analytics `events` grew). Filed as
-  **#126** with the real fix: make the tag required (`${APP_COMMIT:?...}`) so it fails loudly, and
-  delete the `:latest` tag that exists only as a trap. The compose file already *documented* this
-  hazard, which is exactly why documenting a footgun is not the same as removing one.
-
-  **Four issues filed and boarded**, two asked for by the owner and two found doing the work:
-  **#124** logout must lock the app and leave nothing on the device (blocked on #86; the PWA
-  precache and `restTimerStorage`'s session-keyed entries are the real leak surface), **#125** make
-  a deploy reach every device and show the running version (builds on the existing `autoUpdate` +
-  visibility-check machinery rather than replacing it, and keeps the mid-workout suppression),
-  **#126** above, and **#127** `bootstrap_owner.py` is not in the image so its own documented
-  invocation fails — the one path a new deployment cannot skip.
-
-  **#86 stays `blocked`**, now on the owner's hand-test rather than on #105. Commented there.
-
-  A whole-app UI/UX research review is running; the owner asked for a review, not a rewrite, so it
-  produces a report to choose from rather than a PR.
-- **2026-09-06 (the owner used it, and it was broken three ways):** #105 was reported to the owner as
-  ready to try after tests, a code review and a health-checked deploy. None of that had *looked at
-  it*. The owner opened it and hit three defects in a row.
-
-  **#120 was the real one: every client-side route 404'd.** `/login`, `/history`,
-  `/set-password?token=…` — all `{"detail":"Not Found"}`. `StaticFiles` serves files and knows
-  nothing about routes the bundle resolves at runtime, so the app only ever worked because every
-  route was reached by clicking. That made **#85's invite email unopenable since the day it
-  shipped** — there had never been a way to set a password, which is why login could not be used at
-  all. Fixed in PR #121 with `assets/` and `api/` deliberately still 404ing, and the regression
-  tests whose absence let it ship. Found by loading the URL, not by reading anything.
-
-  **#118 was two more:** the top bar named you when you had **no** session (it fell back to
-  `/profile/me`, so a username and a "Log in" link showed together — "signed in, no way to sign
-  out"), and `index.html` was served with no `Cache-Control` at all, so a phone could hold the
-  previous build indefinitely while the server ran the new one. Both in PR #119.
-
-  **Then the UI itself.** The owner: "it's nothing to standards expected login… messy very messy."
-  On `/login` the words "Log in" appeared three times — the TopBar action, the TopBar page-label
-  eyebrow beside it, and the `<h1>` — and the app's bottom nav sat on both auth screens. A UI/UX
-  review (PR #123) made both auth routes chrome-free with one "Back to workouts" link, gave the
-  fields a border, a 2px focus ring, 48px height and a show/hide toggle, moved the 12-character rule
-  beside its field, centred the layout, and rewrote the developer-framed copy. It also found two
-  things nobody had flagged: the error state was signalled by fill colour alone (now `aria-live`
-  plus a danger border) and `.btn-primary` had no disabled state despite five call sites disabling
-  it. 275 unit tests (was 259) and 16 Playwright (was 14). Deployed as `3e5389e` and **screenshotted
-  before being reported** — the new gate, applied to itself.
-
-  **Process consequence, owner's call, now in `DECISIONS.md` and PLAYBOOK step 5 (PR #122):** any
-  UI-touching change needs a UI/UX review of the *rendered* screen and someone to actually open it
-  in a browser, and both carry an explicit "efficient, not overengineered" constraint. The
-  justification is this tick: three defects through a green 259-test suite and a code review, all
-  three obvious in the first screenshot.
-
-  Owner also settled `APP_BASE_URL`: the LAN IP stays for now since it works over the VPN, to be
-  revisited later — not a bug, a deferral.
-
-  Four `IMPROVEMENTS.md` entries logged (cursor to 16): `gh pr merge` from a worktree printing a
-  scary-but-harmless git error, `AGENTS.md`'s stale test counts, no lint step in CI, and an
-  inconsistent sandbox heredoc refusal.
-- **2026-09-06 (owner tried #105; two real bugs, both fixed and deployed):** The first human use of
-  the accounts UX did exactly what splitting #105 out of #86 was meant to make it do — it found
-  problems while the app was still open, so the fix was an ordinary deploy rather than a recovery.
-
-  **Bug 1, the reported one:** `TopBar` fell back to `/api/profile/me` when there was no session, so
-  a logged-out visitor saw a username *and* a "Log in" link simultaneously. Accurate (anonymous
-  writes really are attributed to the seeded profile until #86) and unreadable: it looks like you
-  are signed in with no way to sign out. #105's own scope had said the bar reflects *session* state;
-  the fallback quietly contradicted it. Identity there now requires a session, with a test asserting
-  the logged-out bar names nobody and never calls `/profile/me`.
-
-  **Bug 2, found while diagnosing the first:** the frontend is served by Starlette `StaticFiles`,
-  which sets `ETag`/`Last-Modified` but never `Cache-Control` — confirmed against the live server,
-  where `index.html` returned no `Cache-Control` at all. Since Vite fingerprints everything under
-  `assets/`, a stale `index.html` pins the whole app to the previous build with no error and no
-  clue. That silently undermined **every** deploy this project has ever done, not just this one.
-  Fixed: unfingerprinted files revalidate, fingerprinted assets are immutable. Verified on the live
-  server after deploying.
-
-  Diagnosis went to the deployed artifact rather than the source: grepping the served bundle proved
-  the new code *was* shipped, which ruled out a bad deploy and pointed at the two causes above.
-  A direct read of the production DB (to check whether a password is set) was refused by the
-  sandbox; that was reported to the owner rather than worked around. Filed as #118, shipped as
-  PR #119 (`73ebdce`), backend 186 tests, frontend 259.

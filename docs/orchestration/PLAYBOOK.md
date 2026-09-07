@@ -178,8 +178,16 @@ only because the owner happened to ask about it, not by anything in this file. H
    headRefOid,statusCheckRollup` shows the commit you just pushed before trusting a green result; if
    it's stale, wait and re-check rather than merging on faith. Once genuinely green: merge immediately
    (`gh pr merge <PR> --squash --delete-branch`), no further live approval needed. If checks exit
-   non-zero, treat red CI as a hard stop — do not merge, fix and push again. Do not use `gh pr merge
-   --auto` — it only waits for checks configured as *required* via branch protection, which may not
+   non-zero, treat red CI as a hard stop — do not merge, fix and push again. **A clean code-review
+   verdict from step 5 does not clear a red run here** — review reads the diff, it never executes it,
+   so it cannot catch a failure that only exists at runtime in CI's actual environment. Real case,
+   #124/PR #147 (2026-09-07): an independent review returned "ready to merge" on a diff that, once
+   CI actually ran it, failed all 16 e2e tests identically (including pages the change never
+   touched) — a Vite dev-server proxy config match too broadly and silently forwarded a new
+   same-prefix module URL to a backend that isn't running in that job. Reproduce the failing check
+   locally before assuming a red run is a flake or re-running it as-is; see `IMPROVEMENTS.md`
+   2026-09-07 for the full diagnosis. Do not use `gh pr merge --auto` — it only waits for checks
+   configured as *required* via branch protection, which may not
    exist (or, on a private repo on the free plan, may not even be available); without that, `--auto`
    merges immediately, before CI has even started.
    If the base branch moved since the PR opened and it now conflicts, resolve by hand — read both
