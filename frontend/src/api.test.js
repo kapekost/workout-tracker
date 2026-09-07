@@ -63,6 +63,23 @@ describe('api request errors', () => {
   })
 })
 
+describe('request timeout', () => {
+  // Gym wifi that associates but doesn't route lets iOS sit on a socket for
+  // 30-75s with no timeout at all -- long enough to wedge the Log Set button
+  // on "Logging…" for the rest of the set. AbortSignal.timeout(8000) caps
+  // that at 8s so the existing catch block in the caller fires instead.
+  it('caps every request at 8s via an abort signal', async () => {
+    const fakeSignal = {}
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(fakeSignal)
+    fetch.mockResolvedValue(jsonResponse(200, {}))
+
+    await api.get('/sessions')
+
+    expect(timeoutSpy).toHaveBeenCalledWith(8000)
+    expect(fetch.mock.calls[0][1].signal).toBe(fakeSignal)
+  })
+})
+
 describe('api 204 handling', () => {
   it('resolves to null instead of choking on an empty body', async () => {
     fetch.mockResolvedValue(noContentResponse())

@@ -26,13 +26,22 @@ async function errorDetail(res) {
   }
 }
 
+// Gym wifi that associates but doesn't route is the single most common gym
+// network failure, and iOS will sit on a socket for 30-75s before a plain
+// fetch rejects. Without this, the caller's own catch block -- which already
+// re-enables its button and keeps whatever the user typed -- never gets the
+// chance to run. 8s is long enough for a slow-but-working request and short
+// enough that "tap again" still reads as an immediate retry, not a wait.
+const TIMEOUT_MS = 8000
+
 async function req(method, path, body) {
   // Cookies need no `credentials` option: the app and the API are same-origin,
   // so the browser sends `wt_session` by default.
   const res = await fetch(`${base}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(TIMEOUT_MS)
   })
   if (!res.ok) {
     // Everything under /auth/ answers 401 as a statement of fact rather than

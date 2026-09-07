@@ -165,7 +165,7 @@ describe('Workout page', () => {
     renderWorkout()
     await screen.findByText(ex1.name)
     await waitFor(() => expect(screen.getByDisplayValue('100')).toBeInTheDocument())
-    fireEvent.click(screen.getAllByRole('button', { name: 'increase' })[0])  // weight stepper is first
+    fireEvent.click(screen.getByRole('button', { name: /increase weight/i }))
     await waitFor(() => expect(screen.getByDisplayValue('102.5')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /log set/i }))
     await waitFor(() => expect(screen.getByText(/🏆 PR! 102.5kg/)).toBeInTheDocument())
@@ -177,7 +177,7 @@ describe('Workout page', () => {
     await screen.findByText(ex1.name)
     const weightInput = screen.getAllByRole('spinbutton')[0]
     const before = parseFloat(weightInput.value)
-    fireEvent.click(screen.getAllByRole('button', { name: 'increase' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /increase weight/i }))
     expect(parseFloat(weightInput.value)).toBe(before + 2.5)
   })
 
@@ -189,7 +189,7 @@ describe('Workout page', () => {
     await screen.findByText(ex1.name)
     const weightInput = screen.getAllByRole('spinbutton')[0]
     const before = parseFloat(weightInput.value)
-    const incBtn = screen.getAllByRole('button', { name: 'increase' })[0]
+    const incBtn = screen.getByRole('button', { name: /increase weight/i })
 
     vi.useFakeTimers()
     fireEvent.pointerDown(incBtn)
@@ -204,6 +204,25 @@ describe('Workout page', () => {
     // own first tick — not the arming timeout — is the first repeat).
     expect(parseFloat(weightInput.value)).toBe(before + 2.5 * 3)
     vi.useRealTimers()
+  })
+
+  it('a dead connection surfaces retry copy and keeps the typed weight/reps', async () => {
+    mockSession()
+    api.post.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const repsInput = screen.getAllByRole('spinbutton')[1]
+    fireEvent.change(weightInput, { target: { value: '77.5' } })
+    fireEvent.change(repsInput, { target: { value: '6' } })
+    const btn = screen.getByRole('button', { name: /log set/i })
+    await act(async () => { fireEvent.click(btn) })
+    // The message must say to retry, not just that it failed.
+    expect(await screen.findByText(/tap log set again/i)).toBeInTheDocument()
+    expect(weightInput).toHaveValue(77.5)
+    expect(repsInput).toHaveValue(6)
+    // The button must come back so retrying is actually possible.
+    expect(screen.getByRole('button', { name: /log set/i })).not.toBeDisabled()
   })
 
   it('a bodyweight exercise shows the Added Weight label and hint', async () => {
@@ -235,6 +254,97 @@ describe('Workout page', () => {
     const label = await screen.findByText('Weight (kg)')
     expect(label).toBeInTheDocument()
     expect(screen.queryByText('0 = bodyweight only')).not.toBeInTheDocument()
+  })
+
+  it('keeps the Log Set button above the logged-sets list, so it does not walk down the card', async () => {
+    // set #1 already logged; the button for set #2 must not have moved
+    // below it in the DOM, or its screen position drifts every set.
+    mockSession([{ id: 1, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    renderWorkout()
+    const btn = await screen.findByRole('button', { name: /log set/i })
+    const loggedSetRow = screen.getByText('Set 1')
+    expect(btn.compareDocumentPosition(loggedSetRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('gives every exercise card a scroll-margin-top matching the fixed header, so auto-advance never lands behind it', async () => {
+    mockSession()
+    renderWorkout()
+    const title = await screen.findByText(ex1.name)
+    const card = title.closest('.card')
+    expect(card.style.scrollMarginTop).toBe('calc(var(--header-height, 0px) + 8px)')
+  })
+
+  it('requires a second tap to delete a logged set, and does not delete on the first', async () => {
+    mockSession([{ id: 42, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const deleteBtn = screen.getByRole('button', { name: /delete set/i })
+
+    fireEvent.click(deleteBtn)
+    // First tap must not call the API or remove the row.
+    expect(api.delete).not.toHaveBeenCalled()
+    expect(screen.getByText('Set 1')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('button', { name: /confirm delete set/i })
+
+    api.delete.mockResolvedValue(null)
+    await act(async () => { fireEvent.click(confirmBtn) })
+    expect(api.delete).toHaveBeenCalledWith('/sessions/1/sets/42')
+    await waitFor(() => expect(screen.queryByText('Set 1')).not.toBeInTheDocument())
+  })
+
+  it('re-arms to a plain delete button after the confirm window elapses', async () => {
+    mockSession([{ id: 42, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: /delete set/i }))
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(screen.getByRole('button', { name: /^delete set/i })).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('promotes the overload suggestion above the last-workout history and gives it more visual weight', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) {
+        // Hit the top of the rep range on both sets so overloadSuggestion returns a bump.
+        return { sets: [{ set_number: 1, weight_kg: 60, reps: ex1.repsHigh }, { set_number: 2, weight_kg: 60, reps: ex1.repsHigh }] }
+      }
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const suggestion = await screen.findByText(/Suggested/)
+    const history = screen.getByText('Last workout')
+    expect(suggestion.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(suggestion.style.fontSize).toBe(type.size.lg)
+    expect(parseFloat(suggestion.style.fontSize)).toBeGreaterThan(parseFloat(type.size.md))
+  })
+
+  it('gives the number steppers real, distinct aria-labels and a 44px-tall input', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    expect(screen.getByRole('button', { name: /decrease weight/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /increase weight/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /decrease reps/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /increase reps/i })).toBeInTheDocument()
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const repsInput = screen.getAllByRole('spinbutton')[1]
+    expect(weightInput).toHaveAccessibleName(/weight/i)
+    expect(repsInput).toHaveAccessibleName(/reps/i)
+    expect(parseInt(weightInput.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+    expect(parseInt(repsInput.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
   })
 
   it('the exercise title outweighs the cues link', async () => {
