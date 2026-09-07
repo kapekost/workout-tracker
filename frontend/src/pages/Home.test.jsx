@@ -53,6 +53,16 @@ describe('Home (full page)', () => {
     expect(screen.getByText('Export my data')).toBeInTheDocument()
   })
 
+  it('the "Last session" card is a real button, not an inert div (same defect class as DisclosureRow)', async () => {
+    mockHomeApi({
+      sessions: [{ id: 1, workout_day: 'upper_a', date: '2026-09-01', completed: 1 }],
+      recency: [],
+    })
+    renderHome()
+    const card = await screen.findByRole('button', { name: /Upper A/ })
+    expect(card.tagName).toBe('BUTTON')
+  })
+
   it('surfaces no developer-facing "backend" language anywhere on the page', async () => {
     mockHomeApi({
       sessions: [{ id: 1, workout_day: 'upper_a', date: '2026-09-01', completed: 1 }],

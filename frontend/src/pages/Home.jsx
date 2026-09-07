@@ -170,14 +170,20 @@ export default function Home() {
           <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             Last session
           </Eyebrow>
-          <div className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            onClick={() => nav('/history')}>
+          {/* A real <button>, not a <div onClick>, for the same reason
+              DisclosureRow's header row is one: a click handler on a <div>
+              has no role, no keyboard access and no :active feedback. */}
+          <button type="button" className="card" onClick={() => nav('/history')} style={{
+            width: '100%', background: 'none', border: 'none', margin: 0, font: 'inherit',
+            color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
             <div>
               <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
               <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
             </div>
             <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
-          </div>
+          </button>
         </div>
       )}
 
