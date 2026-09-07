@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { auth, onUnauthorized } from '../api'
+import { clearAllRestTimers } from './restTimerStorage'
+import { apiReadsCacheName } from '../../apiCacheName.js'
 
 // The default value is a real "no session" state rather than null or a throw.
 // The gate (#86) lives in App's route tables, not in this hook, so a component
@@ -50,6 +52,36 @@ export function SessionProvider({ children }) {
     // on the next load. Nothing a caller could usefully do with the error.
     try { await auth.logout() } catch { /* offline logout is still a logout */ }
     setProfile(null)
+
+    // #124: this is an installed, offline-capable PWA on a phone that goes to
+    // a gym -- "logged out" has to mean the next person holding it cannot
+    // read the previous person's training history, online or off. Everything
+    // below runs unconditionally, same as clearing `profile` above, because
+    // the offline-logout acceptance criterion depends on the network call
+    // above being allowed to fail without skipping any of it.
+
+    // Per-session rest-timer state is keyed by session id (restTimer:<id> in
+    // localStorage) and is the one thing here that actually leaks -- it names
+    // session ids belonging to the account that just left.
+    clearAllRestTimers()
+
+    // restPrefSec (useRestPreference.js) is left alone deliberately: it is a
+    // rest-length *duration*, not workout data or anything that identifies
+    // the account -- closer to a device setting like screen brightness than
+    // to account data. Issue #124 leaves the call open; this is the call,
+    // written down at the point it's made.
+
+    // The service worker's api-reads-<commit> cache (see apiCacheName.js and
+    // #142) holds real API response bodies -- the account's actual workout
+    // data -- cached for offline reads. It's scoped to the *current* build's
+    // commit, so only that one name needs deleting; api-cache-cleanup.js
+    // (#142) separately sweeps every *other*-commit api-reads-* cache at
+    // service-worker activate time, which is a different lifecycle event.
+    // Guarded the same way the storage helpers guard `localStorage`: `caches`
+    // doesn't exist in the vitest/jsdom test environment.
+    if (typeof caches !== 'undefined') {
+      try { await caches.delete(apiReadsCacheName(__APP_COMMIT__)) } catch { /* best effort */ }
+    }
   }, [])
 
   return (

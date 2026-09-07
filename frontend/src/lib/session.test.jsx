@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { SessionProvider, useSession } from './session'
+import { apiReadsCacheName } from '../../apiCacheName.js'
 
 // onUnauthorized is the real seam api.js hands out, not a spy: these tests
 // care that the provider survives registering, not what it registered.
@@ -9,6 +10,15 @@ vi.mock('../api', () => ({
   onUnauthorized: () => () => {},
 }))
 import { auth } from '../api'
+
+// signOut (#124) sweeps every session's rest timer, not one -- it has no
+// way to know which session ids exist, and restTimerStorage owns that
+// prefix sweep. Mocked here so these tests assert *that* signOut calls it,
+// not restTimerStorage's own internals (covered by restTimerStorage.test.js).
+vi.mock('./restTimerStorage', () => ({
+  clearAllRestTimers: vi.fn(),
+}))
+import { clearAllRestTimers } from './restTimerStorage'
 
 function Probe() {
   const { profile, ready, signIn, signOut } = useSession()
@@ -65,6 +75,85 @@ describe('SessionProvider', () => {
     render(<SessionProvider><Probe /></SessionProvider>)
     await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
     fireEvent.click(screen.getByText('sign out'))
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('none'))
+  })
+})
+
+// #124: logout must leave nothing behind on the device -- the phone this app
+// runs on goes to a gym, and "logged out" has to mean the next person holding
+// it cannot read the previous person's training history, online or off.
+describe('signOut wipes device-held data (#124)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.stubGlobal('caches', {
+      delete: vi.fn().mockResolvedValue(true),
+      keys: vi.fn().mockResolvedValue([]),
+    })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('sweeps every stored rest timer, not just the current session', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    auth.logout.mockResolvedValue(null)
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    fireEvent.click(screen.getByText('sign out'))
+
+    await waitFor(() => expect(clearAllRestTimers).toHaveBeenCalled())
+  })
+
+  it('purges the current build\'s cached API responses from Cache Storage', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    auth.logout.mockResolvedValue(null)
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    fireEvent.click(screen.getByText('sign out'))
+
+    await waitFor(() =>
+      expect(caches.delete).toHaveBeenCalledWith(apiReadsCacheName(__APP_COMMIT__)),
+    )
+  })
+
+  it('leaves the device-level rest-length preference alone -- it is not account data', async () => {
+    localStorage.setItem('restPrefSec', '120')
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    auth.logout.mockResolvedValue(null)
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    fireEvent.click(screen.getByText('sign out'))
+
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('none'))
+    expect(localStorage.getItem('restPrefSec')).toBe('120')
+  })
+
+  // The acceptance criterion this whole issue turns on: "a logout that only
+  // works with a network is not a logout." auth.logout() rejecting (offline,
+  // or the Pi unreachable) must not skip a single wipe step.
+  it('still wipes local data when logout is offline and the request rejects', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    auth.logout.mockRejectedValue(new Error('offline'))
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    fireEvent.click(screen.getByText('sign out'))
+
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('none'))
+    expect(clearAllRestTimers).toHaveBeenCalled()
+    expect(caches.delete).toHaveBeenCalledWith(apiReadsCacheName(__APP_COMMIT__))
+  })
+
+  it('does not throw when Cache Storage is unavailable (non-browser/test environments)', async () => {
+    vi.stubGlobal('caches', undefined)
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    auth.logout.mockResolvedValue(null)
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    fireEvent.click(screen.getByText('sign out'))
+
     await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('none'))
   })
 })
