@@ -23,9 +23,21 @@ describe('Chip', () => {
     const onClick = vi.fn()
     render(<Chip onClick={onClick} selected={false}>Bench Press</Chip>)
     const btn = screen.getByRole('button', { name: 'Bench Press' })
-    expect(btn.className).toContain('tap-target')
     fireEvent.click(btn)
     expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives the toggle chip a real 44px box on the element itself, not the .tap-target overlay', () => {
+    // .tap-target's ::after hit area is centred and sized independently of
+    // where the element actually sits, so on a wrapped row of chips with a
+    // gap smaller than the overlay's overflow, neighbouring hit areas
+    // overlapped (2026-09-06 UI review, item 7). The toggle chip must own
+    // its real box instead.
+    render(<Chip onClick={() => {}} selected={false}>Bench Press</Chip>)
+    const btn = screen.getByRole('button', { name: 'Bench Press' })
+    expect(btn.className).not.toContain('tap-target')
+    expect(parseInt(btn.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+    expect(parseInt(btn.style.minWidth, 10)).toBeGreaterThanOrEqual(44)
   })
 
   it('selected=true renders the color-tinted active treatment (defaults to mint)', () => {

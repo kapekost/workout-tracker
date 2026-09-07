@@ -36,7 +36,7 @@ export function lastTrainedByDay(sessions) {
 export function VersionStamp() {
   return (
     <p className="font-mono" style={{ marginTop: 8, textAlign: 'center',
-      color: '#4b5563', fontSize: type.size.xs }}>
+      color: colors.muted2, fontSize: type.size.xs }}>
       v {__APP_COMMIT__}
     </p>
   )
@@ -93,7 +93,7 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      showToast('Failed to start — is the backend up?', 'error')
+      showToast("Couldn't start the workout — try again", 'error')
       setStarting(false)
     }
   }
@@ -170,13 +170,25 @@ export default function Home() {
           <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             Last session
           </Eyebrow>
-          <div className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            onClick={() => nav('/history')}>
-            <div>
-              <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
-              <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
-            </div>
-            <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
+          {/* A real <button>, not a <div onClick>, for the same reason
+              DisclosureRow's header row is one: a click handler on a <div>
+              has no role, no keyboard access and no :active feedback. The
+              chrome-reset lives on the inner button, same as DisclosureRow's
+              two-layer split — putting it on the same element as `.card`
+              cancels out `.card`'s own background/border (caught in UI/UX
+              review: the card lost its visible box entirely on first try). */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <button type="button" onClick={() => nav('/history')} style={{
+              width: '100%', background: 'none', border: 'none', margin: 0, font: 'inherit',
+              color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
+                <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
+              </div>
+              <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
+            </button>
           </div>
         </div>
       )}
@@ -185,17 +197,22 @@ export default function Home() {
         <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
       )}
 
-      <button
-        className="tap-target"
-        onClick={async () => {
-          try { await downloadExport() }
-          catch { showToast('Export failed — is the backend up?', 'error') }
-        }}
-        style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
-                 fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
-      >
-        Export my data
-      </button>
+      {/* Nothing to export on a first-run install — reuses the same
+          sessions.length check the EmptyState above already relies on,
+          rather than a second empty-state condition. */}
+      {sessions.length > 0 && (
+        <button
+          className="tap-target"
+          onClick={async () => {
+            try { await downloadExport() }
+            catch { showToast("Couldn't export your data — try again", 'error') }
+          }}
+          style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
+                   fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          Export my data
+        </button>
+      )}
       <VersionStamp />
     </div>
   )

@@ -15,7 +15,14 @@ export const colors = {
   mint: '#6ee7b7',
   amber: '#fbbf24',
   muted: '#9ca3af',
-  muted2: '#6b7280',
+  // Was #6b7280 (4.08:1 on bg, 3.86:1 on card — just under WCAG AA's 4.5:1
+  // for normal text; this is the standard page-subtitle colour, used at
+  // 0.875rem/type.size.lg, i.e. "normal" text, not "large text", so the
+  // stricter threshold applies). Nudged one step lighter, computed via the
+  // WCAG relative-luminance formula (see frontend/src/lib/theme.test.js and
+  // the 2026-09-06 UI review, item 11): #7c8593 measures 5.29:1 on bg and
+  // 5.01:1 on card, clearing AA everywhere this token is used with margin.
+  muted2: '#7c8593',
   text: '#fff',
   danger: '#ef4444',
 

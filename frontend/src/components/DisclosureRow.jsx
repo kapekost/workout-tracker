@@ -22,22 +22,34 @@ import { colors, space } from '../lib/theme'
 // its own current value explicitly rather than one silently snapping to the
 // other. `ref` is forwarded because Workout.jsx anchors scrollIntoView() to
 // this element on auto-advance.
+//
+// The header row is a real <button> with aria-expanded, not a <div> with an
+// onClick — this was the most-used control in the app (the exercise-card
+// header on Workout, the session row on History) with no focus stop, no
+// role, no keyboard access and no :active feedback. Both call sites' header
+// content is plain flow markup (no nested buttons/links), so it's valid
+// button content; the inline resets below undo the browser's default button
+// chrome so it still reads as the same header row it always was.
 const DisclosureRow = forwardRef(function DisclosureRow(
   { header, isOpen, onToggle, children, style, bodyPadding = '14px 16px' },
   ref
 ) {
   return (
     <div ref={ref} className="card" style={{ overflow: 'hidden', ...style }}>
-      <div
+      <button
+        type="button"
         onClick={onToggle}
+        aria-expanded={isOpen}
         style={{
+          width: '100%', background: 'none', border: 'none', margin: 0,
+          font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer',
           padding: '14px 16px', display: 'flex', justifyContent: 'space-between',
           alignItems: 'center', gap: space.md,
         }}
       >
         {header}
         <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
-      </div>
+      </button>
       {isOpen && (
         <div style={{ borderTop: `1px solid ${colors.border}`, padding: bodyPadding }}>
           {children}

@@ -73,18 +73,18 @@ const HOLD_REPEAT_MS = 90
 // already sized to clear NavBar (a measured, constant 77px across every
 // viewport width) plus a small margin - the same clearance every other
 // page gets. On top of that this page also needs TimerBar's own rendered
-// height so the last card/Finish button never ends up hidden behind it:
-// TimerBar measures 65px tall up to its 440px breakpoint tier and ~69px
-// above that (the tiers only narrow widths, not heights - .rest-clock's
-// own font-size step is what changes the bar's height here). 70 covers
-// both with a few px to spare.
-// Verified in a real browser (2026-08-25, Upgrade 5 Task 3/I14): relying
-// on .page-shell's 96px alone left the Finish button ~25px behind
-// TimerBar's top edge at every width tested (320-600px) - genuinely
-// load-bearing, not redundant. This replaces the old bare "96" (a second,
-// coincidental copy of .page-shell's own number) with the value actually
-// required, leaving ~20-30px of clearance instead of ~70-90px of dead
-// space.
+// height so the last card never ends up hidden behind it: TimerBar measures
+// 65px tall up to its 440px breakpoint tier and ~69px above that (the tiers
+// only narrow widths, not heights - .rest-clock's own font-size step is
+// what changes the bar's height here). 70 covers both with a few px to
+// spare.
+// Verified in a real browser (2026-08-25, Upgrade 5 Task 3/I14, back when
+// Finish Workout was this page's last element rather than in the header):
+// relying on .page-shell's 96px alone left it ~25px behind TimerBar's top
+// edge at every width tested (320-600px) - genuinely load-bearing, not
+// redundant. This replaces the old bare "96" (a second, coincidental copy
+// of .page-shell's own number) with the value actually required, leaving
+// ~20-30px of clearance instead of ~70-90px of dead space.
 const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 70
 
 function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', label = 'value' }) {
@@ -234,9 +234,9 @@ export default function Workout() {
       prsAtStart.current = prMap
       setPrs(prMap)
       // An unrecognised workout_day must not throw here: the effect's .catch
-      // would swallow it and bounce to Home, making the "Unknown workout day."
-      // fallback below unreachable. No exercises means no first ID — the
-      // fallback then renders as intended.
+      // would swallow it and bounce to Home, making the "Couldn't find this
+      // workout." fallback below unreachable. No exercises means no first
+      // ID — the fallback then renders as intended.
       const exercises = PLAN[s.workout_day]?.exercises || []
       const firstId = nextIncompleteExerciseId(exercises, s.sets || [])
       if (firstId) {
@@ -284,12 +284,12 @@ export default function Workout() {
           </div>
         )}
       </div>
-      <button className="btn-primary" onClick={() => nav('/')}>Done → Home</button>
+      <button className="btn-primary" onClick={() => nav('/')}>Done</button>
     </div>
   )
 
   const plan = PLAN[session.workout_day]
-  if (!plan) return <div style={{ padding: 24, color: colors.danger }}>Unknown workout day.</div>
+  if (!plan) return <div style={{ padding: 24, color: colors.danger }}>Couldn't find this workout.</div>
   const color = DAY_COLORS[session.workout_day]
 
   const setsForExercise = (id) => sets.filter(s => s.exercise_id === id)
@@ -441,7 +441,12 @@ export default function Workout() {
         hasLoggedSets={sets.length > 0}
       />
 
-      {/* Header */}
+      {/* Header. The right-hand slot below used to sit empty (a
+          justify-content: space-between row with only one child) while
+          Finish Workout lived at the very bottom of the page, below every
+          exercise card — every real training app keeps Finish persistently
+          visible instead. Styled after Progress.jsx's "🏆 PBs" pill, the
+          app's existing convention for a compact header-slot action. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
@@ -450,6 +455,12 @@ export default function Workout() {
           <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
           <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
         </div>
+        <button className="tap-target" onClick={finishWorkout} disabled={finishing}
+          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color,
+            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer',
+            padding: '7px 14px', whiteSpace: 'nowrap', opacity: finishing ? 0.55 : 1, flexShrink: 0 }}>
+          {finishing ? 'Saving…' : '✓ Finish Workout'}
+        </button>
       </div>
 
       {/* Exercises */}
@@ -528,7 +539,7 @@ export default function Workout() {
 
             {/* Last workout + overload hint */}
             {!(ex.id in lastPerf) && (
-              <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 12 }}>…</p>
+              <Skeleton height={14} width="70%" style={{ marginBottom: 12 }} />
             )}
             {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
               <div style={{ marginBottom: 12 }}>
@@ -597,12 +608,6 @@ export default function Workout() {
           </DisclosureRow>
         )
       })}
-
-      {/* Finish */}
-      <button className="btn-primary" onClick={finishWorkout} disabled={finishing}
-        style={{ marginTop: 16, background: color }}>
-        {finishing ? 'Saving…' : '✓ Finish Workout'}
-      </button>
 
       {cuesEx && (
         <ExerciseCuesModal ex={cuesEx} color={color} onClose={() => setCuesEx(null)} />
