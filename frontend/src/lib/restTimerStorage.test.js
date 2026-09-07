@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { loadRestTimer, saveRestTimer, clearRestTimer } from './restTimerStorage'
+import { loadRestTimer, saveRestTimer, clearRestTimer, clearAllRestTimers } from './restTimerStorage'
 
 describe('restTimerStorage', () => {
   beforeEach(() => localStorage.clear())
@@ -40,5 +40,32 @@ describe('restTimerStorage', () => {
   it('ignores corrupt JSON instead of throwing', () => {
     localStorage.setItem('restTimer:1', 'not json')
     expect(loadRestTimer(1)).toBeNull()
+  })
+
+  describe('clearAllRestTimers', () => {
+    it('removes every stored session timer, not just one id', () => {
+      saveRestTimer(1, { restStartMs: 1000, pausedRem: null })
+      saveRestTimer(2, { restStartMs: null, pausedRem: 42 })
+      saveRestTimer(3, { restStartMs: 2000, pausedRem: null })
+
+      clearAllRestTimers()
+
+      expect(loadRestTimer(1)).toBeNull()
+      expect(loadRestTimer(2)).toBeNull()
+      expect(loadRestTimer(3)).toBeNull()
+    })
+
+    it('leaves unrelated localStorage keys alone', () => {
+      localStorage.setItem('restPrefSec', '120')
+      saveRestTimer(1, { restStartMs: 1000, pausedRem: null })
+
+      clearAllRestTimers()
+
+      expect(localStorage.getItem('restPrefSec')).toBe('120')
+    })
+
+    it('does nothing when no timers are stored', () => {
+      expect(() => clearAllRestTimers()).not.toThrow()
+    })
   })
 })
