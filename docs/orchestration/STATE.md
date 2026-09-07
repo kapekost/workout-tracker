@@ -12,38 +12,39 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#129 shipped** (UI Wave 1 — the in-gym logging path). Unblocked from
-  `blocked`→`ready` this tick since its blocker (the accounts workstream, done as of #124) had
-  resolved but the label hadn't caught up. Six items: fetch timeout + honest retry copy (typed
-  weight/reps survive a failure), logged sets moved below the logger so the Log Set button holds a
-  fixed position, `scrollMarginTop` on auto-advance so the next exercise isn't hidden behind the
-  header, tap-again-to-confirm on set delete (reused `History.jsx`/`PersonalBests.jsx`'s existing
-  pattern), the overload suggestion promoted above last-workout history, 44px steppers + real
-  aria-labels. PR #150, merged `b29fa35`. Independent code review found no Critical/Important
-  issues (3 trivial Minor nits — aria-label casing, an e2e coverage gap on the 44px input, a
-  tautological jsdom assertion — fixed in a follow-up commit, re-verified green). Independent
-  UI/UX review of the rendered screens (real backend + dev server, logged-in session, real sets
-  logged, screenshots) returned **ready to merge**, no blocking findings; two non-blocking
-  follow-ups noted for whoever next touches this component: the armed delete icon (`✓?`) renders
-  smaller than the resting `×`, and the suggestion line's wrap behavior at heavier weights (e.g.
-  "102.5kg") wasn't checked on a true narrow viewport. Hand-verified live: button position holds
-  across sets 1-3, suggestion renders promoted, delete requires two taps and auto-re-arms after the
-  window elapses, auto-advance isn't clipped. 326/326 unit, 16/16 e2e, clean build.
+- **Current focus:** **#130 shipped** (UI Wave 2 — the screens around the logger), same tick as
+  #129. Unblocked `blocked`→`ready` the same way #129 was. Six items: Progress auto-selects the
+  first exercise + real 44px chip targets, `DisclosureRow` → real `<button aria-expanded>` +
+  global `:active`/`:focus-visible` states, Finish Workout moved into the header slot, first-run
+  Home hides the empty recovery picker/export link, contrast fix (measured: `muted2` ~4.08:1 →
+  ~5.29:1, recovery-disclosure text 2.61:1 → clears AA), copy pass on 5 developer-facing strings.
+  PR #151, merged `98c89a0`. **Real finding, not a rejected duplicate:** the tool call that
+  dispatched #130's implementation was interrupted mid-turn and reported as user-rejected, but had
+  actually already run to completion in its own worktree — the re-dispatch (per the user's explicit
+  "re-dispatch as before") found a second, equivalent, never-pushed 6-commit implementation sitting
+  there. Inspected for anything unique, found none, discarded before it ever reached a push — no
+  collision, no lost work. Logged as an `[unsure]` IMPROVEMENTS.md entry (harness rejection/execution
+  semantics, not fixable here). Independent code review found one Important issue (Home's "Last
+  session" card missed the `DisclosureRow`-style button fix, outside item 8's stated file scope) —
+  fixed same tick. Independent UI/UX review of the rendered screens caught a real regression in
+  that very fixup (chrome-reset styles landed on the same element as `.card`, cancelling its own
+  background/border — the card lost its visible box entirely) — fixed in a second follow-up commit,
+  re-verified live in a browser (card box restored, focus ring visible on tab). Hand-verified all
+  six items live against a real backend. 347/347 unit, 20/20 e2e, clean build.
   Merged-not-deployed: the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, #126,
-  #124, and now #129 too.
-- **Next action:** UI Wave 2 **#130**, next in the owner's 2026-09-06 order — its blocker (UI Wave
-  1) is now shipped, but the `blocked` label itself hasn't been flipped yet (same situation #129
-  was in at the top of this tick); do that reconciliation at the start of the next tick before
-  picking it up. #131 (UI Wave 3) follows after. Unsequenced and pickable on their own merits:
-  #125, #127, #138, #145, #135 (`ready`), #141 (P3), #148 (`intake`). Queued behind accounts by
-  owner call: **#132** (history scrub, `approved` label on, mirror backup mandatory), **#137**
-  (model tiering).
+  #124, #129, and now #130 too.
+- **Next action:** UI Wave 3 **#131**, next in the owner's 2026-09-06 order — its blocker (UI Wave
+  2) is now shipped, but the `blocked` label itself hasn't been flipped yet (same reconciliation
+  #129 and #130 each needed at the top of their own tick); do that at the start of the next tick
+  before picking it up. Unsequenced and pickable on their own merits: #125, #127, #138, #145, #135
+  (`ready`), #141 (P3), #148 (`intake`). Queued behind accounts by owner call: **#132** (history
+  scrub, `approved` label on, mirror backup mandatory), **#137** (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#130** — claimed 2026-09-07T19:45:46Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
@@ -60,9 +61,11 @@
   from (fixed locally here in PR #116; `agent-scaffold` has the same gap). Filing any of them needs
   a named credential or a direct owner ask per GUARDRAILS "Cross-repo writes" — `~/dev/agent-scaffold`
   is checked out locally if the owner would rather apply them by hand.
-- **Two `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
+- **Three `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
   (2026-08-30) the `code-review` skill's forked execution silently reviewed the wrong attached repo
   with no explicit target given; (2026-08-31) the Agent tool without `isolation:'worktree'` shared
   the parent session's own checkout, and its `git checkout -b` silently switched the orchestrator's
-  own branch mid-session — real fix candidate for PLAYBOOK's Execute step: default to
-  `isolation:'worktree'` for any subagent dispatch doing its own git branch/commit work.
+  own branch mid-session; (2026-09-07) a rejected Agent tool call had actually already run to full
+  completion in its own worktree, undetected until a re-dispatch stumbled on the duplicate — real
+  fix candidate: a rejected dispatch should guarantee the subagent never started, or the harness
+  should surface that it started anyway, so "rejected" and "ran to completion" are never both true.
