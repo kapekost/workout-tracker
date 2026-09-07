@@ -172,18 +172,24 @@ export default function Home() {
           </Eyebrow>
           {/* A real <button>, not a <div onClick>, for the same reason
               DisclosureRow's header row is one: a click handler on a <div>
-              has no role, no keyboard access and no :active feedback. */}
-          <button type="button" className="card" onClick={() => nav('/history')} style={{
-            width: '100%', background: 'none', border: 'none', margin: 0, font: 'inherit',
-            color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div>
-              <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
-              <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
-            </div>
-            <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
-          </button>
+              has no role, no keyboard access and no :active feedback. The
+              chrome-reset lives on the inner button, same as DisclosureRow's
+              two-layer split — putting it on the same element as `.card`
+              cancels out `.card`'s own background/border (caught in UI/UX
+              review: the card lost its visible box entirely on first try). */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <button type="button" onClick={() => nav('/history')} style={{
+              width: '100%', background: 'none', border: 'none', margin: 0, font: 'inherit',
+              color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
+                <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
+              </div>
+              <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
+            </button>
+          </div>
         </div>
       )}
 
