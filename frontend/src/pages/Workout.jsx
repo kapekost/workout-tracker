@@ -123,7 +123,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button className="btn-icon" aria-label={`Decrease ${label}`}
+      <button className="btn-icon" aria-label={`decrease ${label}`}
         onPointerDown={() => startHold(-1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
         onClick={() => handleClick(-1)}>−</button>
       {/* The type-a-number escape hatch is the *fast path* (type "60" instead of
@@ -137,7 +137,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
         onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
         style={{ width: 72, minHeight: 44, boxSizing: 'border-box', textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
           color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
-      <button className="btn-icon" aria-label={`Increase ${label}`}
+      <button className="btn-icon" aria-label={`increase ${label}`}
         onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
         onClick={() => handleClick(1)}>+</button>
     </div>
