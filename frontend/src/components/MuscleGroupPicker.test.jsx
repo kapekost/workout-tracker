@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import MuscleGroupPicker, { RecoveryRing, ringColor, DISCLOSURE } from './MuscleGroupPicker'
+import { colors } from '../lib/theme'
+
+// jsdom's CSSOM serializes an inline hex color back out as rgb(...) — see
+// Workout.test.jsx's identical helper.
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
 
 const group = (over = {}) => ({
   id: 'quads', label: 'Quads', freshness: 0.63,
@@ -82,6 +90,15 @@ describe('MuscleGroupPicker', () => {
     render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(screen.getByText(DISCLOSURE)).toBeInTheDocument()
     expect(DISCLOSURE).toContain('Trust how you feel over this estimate.')
+  })
+
+  it('renders the disclosure at colors.muted2 (AA contrast), not the old sub-AA raw hex', () => {
+    // The one paragraph the recovery research doc insists must always be
+    // visible used to render at a raw #4b5563 (2.61:1 on --bg — see
+    // theme.test.js's contrast measurements). 2026-09-06 UI review item 11.
+    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    const disclosure = screen.getByText(DISCLOSURE)
+    expect(disclosure.style.color).toBe(hexToRgb(colors.muted2))
   })
 
   it('renders no percentage anywhere', () => {

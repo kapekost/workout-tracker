@@ -158,7 +158,13 @@ export default function MuscleGroupPicker({
         </div>
       )}
 
-      <p style={{ color: '#4b5563', fontSize: type.size.sm, marginTop: 12, lineHeight: 1.5 }}>
+      {/* This paragraph must always stay legible — see
+          docs/superpowers/research/2026-08-16-recovery-science.md. It used to
+          render at a raw #4b5563 (2.61:1 on --bg, well under WCAG AA's 4.5:1
+          for body text — measured via theme.test.js's contrastRatio helper).
+          colors.muted2 clears AA at 5.29:1 since the 2026-09-06 UI review's
+          item 11 nudged that token lighter. */}
+      <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 12, lineHeight: 1.5 }}>
         {DISCLOSURE}
       </p>
     </div>
