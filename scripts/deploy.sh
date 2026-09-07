@@ -68,10 +68,12 @@ docker save "$local_tag" \
 echo "==> restarting service"
 # The deploy target supplies its own docker-compose.yml, from its own clone of
 # this repo, so that clone has to be current before compose runs. The tag to
-# start is taken from APP_COMMIT (`image: ...:${APP_COMMIT:-latest}`), and a
-# clone predating that change still pins a hardcoded `:latest` — which ignores
-# APP_COMMIT entirely and re-creates the *old* image, leaving the verification
-# below to fail with a version mismatch that looks like a build problem.
+# start is taken from APP_COMMIT (`image: ...:${APP_COMMIT:?...}`, required
+# since #126), and a clone predating that fix still pins the old
+# `${APP_COMMIT:-latest}` fallback — which silently re-creates whatever
+# `:latest` happens to resolve to instead of failing loudly, leaving the
+# verification below to fail with a version mismatch that looks like a build
+# problem rather than a stale clone.
 # --ff-only so a diverged clone halts the deploy loudly rather than quietly
 # merging on the target.
 # shellcheck disable=SC2086

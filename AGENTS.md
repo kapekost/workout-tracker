@@ -125,7 +125,11 @@ to one deployment. What's true for any deployment of this project:
   reads the tag to run from `$APP_COMMIT`. Set it (`APP_COMMIT=$(git rev-parse --short
   HEAD)`) before every `docker compose up -d`, on both the build and run steps — a
   rollback is just re-running with an older `APP_COMMIT` whose image is still loaded
-  locally, no re-tagging trick needed.
+  locally, no re-tagging trick needed. **Never restart this service with a bare
+  `docker compose up`** — before #126, a missing `APP_COMMIT` silently fell back to
+  `:latest` and rolled a live deploy back to an 11-day-old, pre-auth image with no
+  warning; it now fails loudly instead, but the safe habit is to always set the
+  variable, not to rely on the failure catching a forgotten one.
 - Before any schema-changing deploy, snapshot via an **admin's** `GET /api/export` —
   that's the whole-database export a deploy snapshot needs (since #87 a member
   session gets only their own rows back). A bare `curl` from the host still 401s;

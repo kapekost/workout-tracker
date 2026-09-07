@@ -6,9 +6,13 @@ services:
     # NOTE: no `build:` key (a failed pull must not trigger an on-device build),
     # and pull_policy: never (the image is loaded locally, not fetched from a registry).
     # Tag is pinned to the commit that was built, not :latest, so a stale/rolled-back tag can
-    # never be ambiguous — pass APP_COMMIT=$(git rev-parse --short HEAD) when running this file
-    # (falls back to :latest only if unset, e.g. an old manual `docker compose up` with no env).
-    image: kapekost/workout-tracker:${APP_COMMIT:-latest}
+    # never be ambiguous — pass APP_COMMIT=$(git rev-parse --short HEAD) when running this file.
+    # Required, not defaulted (see #126): a bare `docker compose up` with no APP_COMMIT used to
+    # silently fall back to :latest, which quietly rolled a live deploy back to an 11-day-old,
+    # pre-auth image. Now it fails loudly instead. scripts/deploy.sh always sets this explicitly,
+    # so nothing legitimate depends on a fallback — never restart this service with a bare
+    # `docker compose up`.
+    image: kapekost/workout-tracker:${APP_COMMIT:?must name the built image tag}
     pull_policy: never
     ports:
       # host:container — 8080 avoids colliding with anything else on :80 on this host
