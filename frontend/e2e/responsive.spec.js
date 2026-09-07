@@ -105,7 +105,7 @@ test.describe('320x568 floor', () => {
   for (const entry of PAGES) {
     test(`${entry.name}: tap targets are >=44px tall`, async ({ page }) => {
       await gotoReady(page, entry)
-      const targets = page.locator('.tap-target, .btn-icon, .field-toggle, nav button')
+      const targets = page.locator('.tap-target, .btn-icon, .field-toggle, nav button, input[type="number"]')
       const count = await targets.count()
       // A selector that silently matched nothing would make this loop a
       // no-op. Every page here renders at least one match — NavBar's 3 items
