@@ -172,4 +172,22 @@ describe('MuscleGroupPicker', () => {
       <MuscleGroupPicker groups={[]} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(container.firstChild).toBeNull()
   })
+
+  it('renders nothing on a first-run install — every group present but untrained (all-empty rings)', () => {
+    // groupRecovery([]) always returns every MUSCLE_GROUPS entry, each with
+    // freshness: null (lib/recovery.js's own "not trained yet" signal) — so
+    // groups.length is never 0 on a fresh install. An all-null freshness
+    // list is the real "nothing to show" condition here.
+    const firstRunGroups = [untrained, group({ id: 'quads', label: 'Quads', freshness: null,
+      band: 'Not trained yet', hoursSince: null, daysSince: null,
+      daysSinceLabel: 'Not trained yet', fractionalSets: 0, lastDate: null })]
+    const { container } = render(
+      <MuscleGroupPicker groups={firstRunGroups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('still renders once at least one group has been trained', () => {
+    render(<MuscleGroupPicker groups={[group(), untrained]} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    expect(screen.getByText('Quads')).toBeInTheDocument()
+  })
 })

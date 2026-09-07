@@ -105,7 +105,12 @@ export default function MuscleGroupPicker({
   groups, lastTrainedByDay = {}, activeSession = null, starting = false, onStart,
 }) {
   const [expandedId, setExpandedId] = useState(null)
-  if (!groups?.length) return null
+  // A first-run install has groups.length > 0 (MUSCLE_GROUPS is fixed) but
+  // every group's freshness is null — groupRecovery's own "not trained yet"
+  // signal (see lib/recovery.js's bandFor/dayLabel, which already branch on
+  // this exact check). All-empty rings with nothing to show are meaningless,
+  // so bail the same way the plain "no groups at all" case already does.
+  if (!groups?.length || groups.every(g => g.freshness === null)) return null
 
   const expanded = groups.find(g => g.id === expandedId) || null
   const bestDayId = expanded ? bestDayForMuscle(expanded.id, lastTrainedByDay) : null

@@ -36,7 +36,7 @@ export function lastTrainedByDay(sessions) {
 export function VersionStamp() {
   return (
     <p className="font-mono" style={{ marginTop: 8, textAlign: 'center',
-      color: '#4b5563', fontSize: type.size.xs }}>
+      color: colors.muted2, fontSize: type.size.xs }}>
       v {__APP_COMMIT__}
     </p>
   )
@@ -93,7 +93,7 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      showToast('Failed to start — is the backend up?', 'error')
+      showToast("Couldn't start the workout — try again", 'error')
       setStarting(false)
     }
   }
@@ -185,17 +185,22 @@ export default function Home() {
         <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
       )}
 
-      <button
-        className="tap-target"
-        onClick={async () => {
-          try { await downloadExport() }
-          catch { showToast('Export failed — is the backend up?', 'error') }
-        }}
-        style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
-                 fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
-      >
-        Export my data
-      </button>
+      {/* Nothing to export on a first-run install — reuses the same
+          sessions.length check the EmptyState above already relies on,
+          rather than a second empty-state condition. */}
+      {sessions.length > 0 && (
+        <button
+          className="tap-target"
+          onClick={async () => {
+            try { await downloadExport() }
+            catch { showToast("Couldn't export your data — try again", 'error') }
+          }}
+          style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
+                   fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          Export my data
+        </button>
+      )}
       <VersionStamp />
     </div>
   )
