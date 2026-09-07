@@ -9,6 +9,53 @@
 
 ---
 
+## Tick — 2026-09-06/07 (#124 blocked on approval; #126 shipped instead; #145 filed)
+
+Continuation of the same live session, immediately after #142 shipped. Owner said "ok go on" — read
+as "continue working," not as approval of any specific destructive task, per GUARDRAILS "Approval is
+human-only" (a live-session go-ahead in unrelated flow is explicitly not the sanctioned channel).
+
+**Owner explained the actual trigger for the original phone symptom, mid-session:** Tailscale was off
+on the phone, so it genuinely couldn't reach the Pi — and the app gave no sign of it (no error, no
+offline indicator, no pull-to-refresh), because `NetworkFirst`'s cache fallback is silent to the
+page's own code. Checked #125 (build staleness), #129 item 1 (write-path timeout), and #142 itself
+(deploy-scoped cache) for overlap first — none cover "a read silently served from cache because the
+network is down right now." Filed as **#145** (`type:feature`, `priority:P2`, `effort:S`, `ready`),
+flagging a real trap for whoever picks it up: `/api/health` would itself be served from the same
+`api-reads` cached route unless excluded, defeating its use as a liveness probe.
+
+**#124 picked next per the standing queue order, claimed, then found blocked.** Its scope (wipe
+session-scoped `localStorage` and service-worker cache state on logout, lock the app to `/login`) is
+squarely GUARDRAILS' "changes auth, session... handling" destructive trigger. It is not named in the
+2026-09-05 standing approval (that covers only #105/#86/#87 against the accounts-auth-design spec)
+and carries no `approved` label. **Did not add the label despite a live "go on"** — per GUARDRAILS
+"Approval is human-only," that requires the owner to run `/orchestrate approve 124` themselves or add
+the label directly; recorded under Needs-owner, claim cleared, moved to the unsequenced pool instead
+of stalling the tick.
+
+**#126 picked instead — not destructive, fully scoped in its own Issue body, shipped same tick.**
+`docker-compose.yml`'s image tag changed from `${APP_COMMIT:-latest}` (the fallback that silently
+rolled a live deploy back to an 11-day-old, pre-auth image on 2026-09-06) to Compose's required-
+variable form, `${APP_COMMIT:?must name the built image tag}`. Confirmed `scripts/deploy.sh` always
+sets `APP_COMMIT` explicitly (unaffected) by reading it directly; this sandbox has no `docker` binary,
+so `docker compose config` could not be run here — flagged to the owner as a final sanity check worth
+running on a machine with Docker, and code review independently traced the interpolation semantics
+against the real `compose-go` source `docker compose` depends on rather than only the spec doc, which
+closed most of that gap. That review's one real finding: `README.md`'s own deploy snippet still
+tagged `:latest` and ran a bare `docker compose up -d` — the exact anti-pattern #126 exists to close,
+one file over from the new `AGENTS.md` warning against it. Fixed by pointing README at the
+already-correct `scripts/deploy.sh` instead of maintaining a second hand-rolled sequence that had
+just drifted out of sync once already. Shipped as PR #146 (`f276aa1`), CI green (one transient
+`gh pr checks --watch` network drop mid-run, unrelated — rechecked via plain `gh pr checks` and all
+three checks had already passed), #126 closed. Physical `:latest` tag deletion on the Pi deliberately
+left alone — the issue listed it as optional, and this sandbox has no access to that host.
+
+**Standing queue order:** #142 and #126 were both worked out of turn by direct, explicit owner
+choice — neither is a tick-initiated reshuffle. #124 is still next once its approval lands; UI Waves
+1-3 remain after that.
+
+---
+
 ## Tick — 2026-09-06 (#142: a live, unfiled data-exposure finding, filed and shipped same session)
 
 Continuation of the same live session that had just shipped #87 and been flagged, in-chat, a stale-

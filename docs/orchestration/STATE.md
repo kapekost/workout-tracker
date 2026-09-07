@@ -12,55 +12,29 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **Accounts workstream complete, 5/5** (#84, #85, #86, #105, #87 — 2026-09-06).
-  #87 shipped as PR #140 (`fdad339`): `/api/export`/`/api/import` are role-aware rather than
-  admin-only — admin behaviour unchanged, a member gets an own-rows export and an additive
-  `mode="merge"` import (id-remapped, cross-account writes structurally impossible, verified live by
-  8 adversarial probes in review). The final whole-branch review caught a real hazard before merge:
-  a member's export fed to an admin's `mode="replace"` used to zero out every admin —
-  `_import_replace` now refuses a replace with no admin row in the envelope, and
-  `docs/BACKUPS.md`/`AGENTS.md` are corrected to match (they still said "admin-only since #86").
-  238 backend tests green throughout; backend-only, no frontend change (the existing "Export my
-  data" button just stops 403ing for a member — live-browser-verification judged not applicable
-  given zero frontend lines changed). Four self-scoped/P3 hardening gaps found and deliberately
-  parked rather than expanding scope — filed as **#141**. **#135** (security review) relabelled
-  `ready` now that its gate landed. Full narrative in `HISTORY.md`. Merged-not-deployed: the Pi
-  still runs `2bd2885`.
-  Also this tick: **#33 merged into #32** per direct owner decision (both were converging on one
-  "AI-in-the-loop" spec) — see `DECISIONS.md`; the off-plan/muscle-area logging idea split out to
-  its own intake Issue, **#139**.
-- **2026-09-06, same live session, worked ahead of the queue by direct owner call: #142 shipped**
-  (plan PR #143, fix PR #144, closed). Right after the #87 tick closed, the owner reported their
-  phone PWA served real workout data despite never having logged in from it. Root cause: the
-  `api-reads` service-worker cache had a fixed name across every deploy, so a device that cached
-  data before #86 (which added the login requirement) could keep serving it, pre-auth, forever.
-  Filed as #142 (P0), planned, then implemented: `apiReadsCacheName(commit)` scopes the cache to the
-  build so a new deploy can never serve an older build's entries, plus (added after code review
-  caught the plan's initial "no purge possible" reasoning was factually wrong —
-  `workbox-build`'s `importScripts` option proves it isn't) `public/api-cache-cleanup.js` actively
-  purges old-commit caches on `activate`. Full narrative in `HISTORY.md`. **Does not retroactively
-  fix the owner's already-affected phone** — that still needs a manual site-data clear (not yet done
-  as of this write-back) or #125 landing.
-- **2026-09-06/07, same live session: #145 filed.** After #142 shipped, the owner explained the
-  actual trigger for the original phone symptom: Tailscale was off, so the phone genuinely couldn't
-  reach the Pi — and the app gave no sign of it (no error, no offline indicator, no pull-to-refresh),
-  because `NetworkFirst`'s cache fallback is silent to the page's own code. Checked #125/#129/#142
-  first for overlap (build staleness, write-path timeout, deploy-scoped cache — none cover "a read
-  silently served from cache because the network is down right now") before filing. `type:feature`,
-  `priority:P2`, `effort:S`, `ready` — flags a real trap for whoever picks it up: `/api/health` would
-  itself be served from the same cached route unless excluded, defeating its use as a liveness probe.
-- **Next action:** **#124** (logout locks the device) → UI waves **#129/#130/#131**, in the owner's
-  2026-09-06 order — resumed now that #142 (worked out of turn, by direct owner call, not a
-  reshuffle of this order) has shipped. Unsequenced and pickable on their own merits: **#126** (P0 —
-  a bare `docker compose up` downgrades production to `:latest`), #125, #127, #138, **#145** (new),
-  **#135** (now ready), **#141** (P3). Queued behind accounts by owner call: **#132** (history scrub,
-  `approved` label on, mirror backup mandatory), **#137** (model tiering).
+- **Current focus:** **Accounts workstream complete, 5/5** (#84, #85, #86, #105, #87 — 2026-09-06,
+  PR #140). Same live session, three more landed out of standing queue order by direct owner call:
+  **#142** shipped (the `api-reads` PWA cache is now commit-scoped and purged on `activate`, closing
+  a real pre-auth data-exposure gap — cannot retroactively fix a device already stuck on an old
+  service worker, though), **#126** shipped (`docker compose` now refuses to run with no
+  `APP_COMMIT` instead of silently falling back to a stale `:latest`), and **#145** filed (no
+  indication when the app is serving cached data because the network is unreachable — `P2`,
+  `effort:S`, `ready`). **#141** (P3 hardening bundle) and **#135** (security review, now `ready`)
+  also came out of the #87 tick. Full narrative for all of it in `HISTORY.md`. Merged-not-deployed:
+  the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, and #126.
+- **Next action:** **#124** (logout locks the device) — still blocked on an `approved` label; it
+  changes logout/session handling (GUARDRAILS destructive trigger) and isn't named in the 2026-09-05
+  standing approval. See Needs-owner. → UI waves **#129/#130/#131** after that, in the owner's
+  2026-09-06 order — resumed once #124 lands, since #142 and #126 were both worked out of turn by
+  direct owner call, not a reshuffle. Unsequenced and pickable on their own merits: #125, #127, #138,
+  **#145** (new), **#135** (now ready), **#141** (P3). Queued behind accounts by owner call: **#132**
+  (history scrub, `approved` label on, mirror backup mandatory), **#137** (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#126** — claimed 2026-09-06T23:32:52Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **#124 needs an `approved` label before this tick can execute it.** It changes logout/session
