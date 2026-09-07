@@ -31,7 +31,12 @@ function Stat({ label, value }) {
   )
 }
 
-function SetRow({ s, onDelete }) {
+// The only destructive action performed mid-workout, with sweaty hands, right
+// next to the numbers you just read — and the only one in the app with no
+// confirm. Reuses the tap-again-to-confirm pattern History.jsx and
+// PersonalBests.jsx already use (armed state + a 3s window), rather than
+// inventing a second pattern for the same idea.
+function SetRow({ s, armed, onRequestDelete }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -44,10 +49,13 @@ function SetRow({ s, onDelete }) {
         <span className="font-mono" style={{ fontSize: '1rem', fontWeight: type.weight.bold, color: colors.text }}>
           {s.weight_kg}kg × {s.reps}
         </span>
-        <button onClick={() => onDelete(s.id)} aria-label="delete set"
-          style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer',
-            fontSize: '1.1rem', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          ×
+        <button onClick={() => onRequestDelete(s.id)}
+          aria-label={armed ? `confirm delete set ${s.set_number}` : `delete set ${s.set_number}`}
+          style={{ background: 'none', border: 'none', cursor: 'pointer',
+            color: armed ? colors.danger : colors.muted,
+            fontSize: armed ? type.size.base : '1.1rem', fontWeight: armed ? type.weight.bold : type.weight.regular,
+            width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {armed ? '✓?' : '×'}
         </button>
       </div>
     </div>
@@ -79,7 +87,7 @@ const HOLD_REPEAT_MS = 90
 // space.
 const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 70
 
-function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
+function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', label = 'value' }) {
   const timers = useRef({ timeout: null, interval: null })
   const suppressClick = useRef(false)
 
@@ -115,15 +123,21 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button className="btn-icon" aria-label="decrease"
+      <button className="btn-icon" aria-label={`decrease ${label}`}
         onPointerDown={() => startHold(-1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
         onClick={() => handleClick(-1)}>−</button>
-      <input type="number" value={value} inputMode={mode}
+      {/* The type-a-number escape hatch is the *fast path* (type "60" instead of
+          16 stepper taps), so it being the smallest target on screen was backwards.
+          minHeight brings it to the same 44px floor every button on this page holds;
+          aria-label gives it an accessible name at all — previously it had none, and
+          a screen reader heard "decrease, increase, decrease, increase" with no way
+          to tell weight from reps. */}
+      <input type="number" value={value} inputMode={mode} aria-label={label}
         onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
         onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
-        style={{ width: 72, textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
-          color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '8px 0' }} />
-      <button className="btn-icon" aria-label="increase"
+        style={{ width: 72, minHeight: 44, boxSizing: 'border-box', textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
+          color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
+      <button className="btn-icon" aria-label={`increase ${label}`}
         onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
         onClick={() => handleClick(1)}>+</button>
     </div>
@@ -179,6 +193,10 @@ export default function Workout() {
   const [editingNote, setEditingNote] = useState(null)
   const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
+  // Same tap-again-to-confirm shape as History.jsx's confirmId and
+  // PersonalBests.jsx's confirmId: only one set can be armed at a time, and
+  // arming one disarms whatever was armed before it.
+  const [confirmSetId, setConfirmSetId] = useState(null)
 
   async function ensureLastPerf(exId) {
     if (exId in lastPerf) return lastPerf[exId]
@@ -326,7 +344,11 @@ export default function Workout() {
           })
         }
       }
-    } catch (e) { showToast('Failed to log set', 'error') }
+    } catch (e) {
+      // Weight/reps state is untouched on this path, so the retry this tells
+      // you to do is genuinely one tap -- the copy just has to say so.
+      showToast("Couldn't save that set — tap Log Set again", 'error')
+    }
     setLogging(false)
   }
 
@@ -336,6 +358,20 @@ export default function Workout() {
       track('set_delete')
       setSets(prev => prev.filter(s => s.id !== setId))
     } catch (e) { showToast('Failed to delete set', 'error') }
+  }
+
+  // First tap on × arms it and starts a 3s window (same window and shape as
+  // History.jsx's deleteSession / PersonalBests.jsx's remove); a second tap
+  // inside that window is the confirm and actually deletes. Anything else —
+  // arming a different set, or the window elapsing — disarms it.
+  function requestDeleteSet(setId) {
+    if (confirmSetId !== setId) {
+      setConfirmSetId(setId)
+      setTimeout(() => setConfirmSetId(c => (c === setId ? null : c)), 3000)
+      return
+    }
+    setConfirmSetId(null)
+    deleteSet(setId)
   }
 
   async function saveNote(exId, text) {
@@ -426,7 +462,11 @@ export default function Workout() {
 
         return (
           <DisclosureRow key={ex.id} ref={el => { cardRefs.current[ex.id] = el }}
-            style={{ marginBottom: space.md }} bodyPadding="16px"
+            // Auto-advance's scrollIntoView({ block: 'start' }) aligns this card to the
+            // top of the *viewport*, but the header is position: fixed and would cover
+            // it. --header-height is already published on .page-shell (App.jsx) and
+            // inherits down, so this needs no new plumbing.
+            style={{ marginBottom: space.md, scrollMarginTop: 'calc(var(--header-height, 0px) + 8px)' }} bodyPadding="16px"
             isOpen={isOpen}
             onToggle={async () => {
               const opening = !isOpen
@@ -492,38 +532,43 @@ export default function Workout() {
             )}
             {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
               <div style={{ marginBottom: 12 }}>
-                <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Last workout</Eyebrow>
-                {lastPerf[ex.id].sets.map(s => (
-                  <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
-                ))}
+                {/* The suggested load is the app's best differentiator — none of
+                    Strong/Hevy/Fitbod tell you what to lift next from your own log —
+                    so it renders above the raw history it supersedes, at a size that
+                    actually outranks it (was 0.75rem, smaller than the history below it). */}
                 {(() => {
                   const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
                   return sug ? (
-                    <p style={{ color: colors.mint, fontSize: type.size.base, marginTop: 6 }}>
+                    <p style={{ color: colors.mint, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 8 }}>
                       Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
                     </p>
                   ) : null
                 })()}
+                <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Last workout</Eyebrow>
+                {lastPerf[ex.id].sets.map(s => (
+                  <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
+                ))}
               </div>
             )}
 
-            {/* Logged sets */}
-            {exSets.map(s => (
-              <SetRow key={s.id} s={s} onDelete={deleteSet} />
-            ))}
-
-            {/* Logger controls */}
+            {/* Logger controls. Rendered before the logged-sets list (below) so the
+                stepper pair and Log Set button sit at a fixed offset from the card
+                header for the whole exercise -- previously each logged set inserted
+                a row above this block, walking the button ~35px further down the
+                card per set (~105px by set 3). The set-dots in the card header
+                already carry at-a-glance progress, so nothing is lost by the list
+                sitting below the thing you actually touch. */}
             <div style={{ marginTop: 14 }}>
               {/* flex-wrap: the two fixed-width steppers exceed card width below ~380px;
                   Reps drops under Weight instead of clipping off-screen. */}
               <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                 <div style={{ textAlign: 'center' }}>
                   <WeightFieldLabel bodyweight={ex.bodyweight} />
-                  <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
+                  <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" label={ex.bodyweight ? 'added weight' : 'weight'} />
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <Eyebrow style={{ marginBottom: 8 }}>Reps</Eyebrow>
-                  <NumControl value={reps} onChange={setReps} step={1} min={1} />
+                  <NumControl value={reps} onChange={setReps} step={1} min={1} label="reps" />
                 </div>
               </div>
               <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
@@ -531,6 +576,17 @@ export default function Workout() {
                 {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
               </button>
             </div>
+
+            {/* Logged sets — below the logger, so logging a set confirms
+                immediately underneath the button you just pressed instead of
+                pushing the button away from your thumb. */}
+            {exSets.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                {exSets.map(s => (
+                  <SetRow key={s.id} s={s} armed={confirmSetId === s.id} onRequestDelete={requestDeleteSet} />
+                ))}
+              </div>
+            )}
 
             {/* Muscles */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
