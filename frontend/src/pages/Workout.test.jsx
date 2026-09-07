@@ -63,6 +63,28 @@ describe('Workout page', () => {
     expect(finishButtons).toHaveLength(1)
   })
 
+  it('puts Finish Workout in the header, above the exercise cards, not at the bottom of the page', async () => {
+    mockSession()
+    renderWorkout()
+    const exerciseTitle = await screen.findByText(ex1.name)
+    const finishBtn = screen.getByRole('button', { name: /finish workout/i })
+    // The header slot was previously empty (a space-between row with only
+    // one child) while Finish sat below every exercise card. It must now
+    // precede the first exercise card in document order.
+    expect(finishBtn.compareDocumentPosition(exerciseTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('finishing from the header Finish control still calls the finish endpoint', async () => {
+    mockSession()
+    api.patch.mockResolvedValue({ id: 1, completed: 1, ended_at: '2026-07-09 11:00:00' })
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const finishBtn = screen.getByRole('button', { name: /finish workout/i })
+    await act(async () => { fireEvent.click(finishBtn) })
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/sessions/1', { completed: true }))
+    await screen.findByText(/workout complete/i)
+  })
+
   it('logs the next set with max(set_number)+1, not count+1', async () => {
     // set #1 of two was deleted earlier; only #2 remains
     mockSession([{ id: 5, exercise_id: ex1.id, exercise_name: ex1.name,
@@ -118,6 +140,9 @@ describe('Workout page', () => {
     await screen.findByText(/workout complete/i)
     expect(screen.getByText(new RegExp(`${ex1.name}.*baseline`, 'i'))).toBeInTheDocument()
     expect(screen.queryByText(/new pr/i)).not.toBeInTheDocument()
+    // Plain "Done", not the developer-shorthand "Done → Home".
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument()
   })
 
   it('prefills the very first exercise from a historical PB when there is no in-app history', async () => {
@@ -407,7 +432,7 @@ describe('unknown workout_day', () => {
       throw new Error(`unmocked GET ${path}`)
     })
     renderWorkout()
-    expect(await screen.findByText('Unknown workout day.')).toBeInTheDocument()
+    expect(await screen.findByText("Couldn't find this workout.")).toBeInTheDocument()
     expect(screen.queryByText('home')).not.toBeInTheDocument()
   })
 })
