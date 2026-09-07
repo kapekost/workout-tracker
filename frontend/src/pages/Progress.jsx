@@ -27,7 +27,16 @@ export default function Progress() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => { api.get('/progress').then(setExercises).catch(() => {}) }, [])
+  // Opens on a real chart instead of an empty screen: whichever exercise the
+  // /progress response lists first (the same order the chip row renders) is
+  // auto-selected once the list loads. `s ?? …` leaves a user's own tap
+  // alone if one has already landed by the time this resolves.
+  useEffect(() => {
+    api.get('/progress').then(d => {
+      setExercises(d)
+      setSelected(s => s ?? d[0]?.exercise_id)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!selected) return
@@ -57,7 +66,7 @@ export default function Progress() {
 
       {exercises.length === 0 ? <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." /> : (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
             {exercises.map(ex => (
               <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)} selected={selected === ex.exercise_id}>
                 {ex.exercise_name}

@@ -73,8 +73,9 @@ export default function SetPassword() {
           {/* The rule the API enforces, stated next to the field it applies
               to instead of buried in the intro paragraph. */}
           {/* muted, not muted2: this is the one rule the user has to comply
-              with, and muted2 measures 3.86:1 on --card -- the dimmest text on
-              the first screen a new account ever sees. */}
+              with, so it keeps the highest-contrast token on this screen
+              regardless of muted2's own baseline (nudged to 5.01:1 on --card
+              by the 2026-09-06 UI review's item 11 -- see theme.js). */}
           <p id="password-rule" style={{ color: colors.muted, fontSize: type.size.lg, marginBottom: 6 }}>
             At least 12 characters.
           </p>

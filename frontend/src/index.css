@@ -27,7 +27,11 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
   --mint: #6ee7b7;
   --amber: #fbbf24;
   --muted: #9ca3af;
-  --muted-2: #6b7280;
+  /* Was #6b7280 (4.08:1 on --bg, 3.86:1 on --card — just under WCAG AA's
+     4.5:1 for normal text, and this is the standard page-subtitle colour).
+     Nudged one step lighter: 5.29:1 on --bg, 5.01:1 on --card. See
+     theme.js's copy of this token for the full note. */
+  --muted-2: #7c8593;
   --danger: #ef4444;
   --danger-bg: #2a1a1a;
   --content-max-width: 28rem;
@@ -52,6 +56,12 @@ input, textarea {
   -webkit-touch-callout: default;
 }
 button, a, .tap-target { touch-action: manipulation; }
+/* Every interactive element gets a press state. `.btn-primary`, `.btn-secondary`
+   and `.btn-icon` already tune their own :active (below) — those win on
+   specificity — so this only fills in the controls that had nothing at all:
+   DisclosureRow's header, the nav tabs, chips, and every bare .tap-target
+   button (back links, export, PBs, delete, note). */
+button:active { opacity: 0.7; }
 .page-shell {
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -79,7 +89,12 @@ button, a, .tap-target { touch-action: manipulation; }
 }
 .btn-icon:active { background: #2a2a42; }
 .btn-primary:disabled { opacity: 0.55; cursor: default; }
-.btn-primary:focus-visible, .btn-secondary:focus-visible, .btn-icon:focus-visible {
+/* Focus rings used to be enumerated per component (5 selectors) and missed
+   everything else: NavBar tabs, Chip, MuscleChip, every bare .tap-target
+   button. Every button and link in the app gets one ring instead of a list
+   that has to be remembered and kept in sync. More specific rules below
+   (.field, .field-toggle) still win where they intentionally differ. */
+button:focus-visible, a:focus-visible {
   outline: 2px solid var(--mint); outline-offset: 2px;
 }
 
