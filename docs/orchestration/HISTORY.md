@@ -9,6 +9,77 @@
 
 ---
 
+## Tick — 2026-09-07 (#129 shipped: UI Wave 1, both review gates green, first `/orchestrate` run against the new UI/UX-review requirement)
+
+Unattended `/orchestrate` tick, no argument. Read the four orchestration docs from
+`origin/claude/workout-tracker-backlog-bu9qnw` per PLAYBOOK step 1 (not `main`, not the working
+tree). Reconciled reality: `git status` clean, no open PRs, no live In-flight claim, `ready`/
+`blocked`/`intake` label sets on GitHub matched `STATE.md` exactly. Checked the six open `intake`
+issues plus every `ready`/`blocked` issue touched by the prior tick's narrative for owner comments
+newer than the last tick's timestamp — none found, nothing unanswered.
+
+**Picked #129 (UI Wave 1).** `STATE.md`'s own Next-action pointer named it as next now that the
+accounts workstream (item 1 of the owner's 2026-09-06 explicit queue order) was fully shipped as of
+#124 — but the Issue still carried GitHub's `blocked` label, since `DECISIONS.md` records that
+label as priority-only, not technical, and nothing had gone back to flip it once its blocker
+cleared. Relabeled `blocked`→`ready`, commented why, then claimed it on the home branch (`#129 —
+claimed 2026-09-07T18:54:30Z, live session`) before any execution, per "Claiming work" — the push
+landed as a clean fast-forward, confirming no concurrent tick.
+
+**Passed the plan gate without a separate plan doc.** The Issue body already named exact files
+(`api.js`, `Workout.jsx`), a six-item table each with its own files/size/rationale, and four named
+acceptance criteria — the same class of "already decomposed" call as the #84 precedent PLAYBOOK
+cites.
+
+**Execution:** one worktree-isolated subagent, TDD, one commit (`e04404f`). All six items landed as
+scoped — file paths matched the issue's own guesses exactly, the confirm-delete pattern was a
+faithful reuse of `History.jsx`/`PersonalBests.jsx`'s existing `armed`/`confirmId` shape, not a new
+mechanism. 326/326 unit tests (318 baseline + 8 new), 16/16 e2e, clean prod build. No friction
+reported by the implementer — the audit doc and issue were unusually precise.
+
+**Independent code review** (fresh subagent, no shared context with the implementer, explicit
+git-range target per this session's own harness gotcha) actually re-ran the suite itself in a
+throwaway worktree rather than trusting the implementer's reported counts — reproduced 326/326 and
+16/16 exactly, plus wrote two disposable Playwright probes to directly measure real rendered
+behavior (input height, Log Set button Y-position across 3 sets) rather than relying on the diff
+alone. Verdict: no Critical/Important findings. Three Minor nits — aria-label casing
+inconsistent with the rest of the codebase's lowercase convention, an e2e tap-target sweep that
+excluded the very `input[type="number"]` this issue fixed (so the 44px floor had no real-browser
+regression guard), and a jsdom assertion that couldn't actually fail since jsdom performs no layout.
+Fixed all three directly (trivial, <5 min, no new abstractions) in a follow-up commit (`7f2e908`),
+re-ran unit (326/326)+e2e (16/16, confirming the new selector genuinely exercises the fixed input)+
+build locally before pushing.
+
+**UI/UX review gate — the first `/orchestrate` tick to exercise this requirement from
+`DECISIONS.md`'s 2026-09-06 entry.** Stood up the actual app (backend + frontend dev servers) in
+the implementer's worktree rather than reviewing statically: seeded a local dev password directly
+via `main.hash_password()` on the already-seeded `kapekost` admin profile (bypassing the real
+Resend-backed bootstrap flow, which needs a live API key and a non-localhost `APP_BASE_URL` —
+inappropriate for local verification), logged in through the real UI, started a real session, and
+hand-verified all six items live in a browser: the Log Set button held pixel-identical position
+across sets 1-3, the overload suggestion rendered promoted (color+weight) above last-workout
+history once a prior session existed to compare against, delete required two taps within the
+window and correctly auto-re-armed after it elapsed, and auto-advancing to the next exercise left
+its heading fully visible below the fixed header. Captured 3 real screenshots (not mockups) and
+handed them to a second fresh subagent for a UI/UX-specific review (hierarchy, spacing, affordance,
+copy, one-handed-phone reasoning, consistency with existing tokens) — verdict: ready to merge, no
+blocking findings, two non-blocking follow-ups (armed delete icon renders smaller than the resting
+one; suggestion-line wrap at heavier weights untested on a true narrow viewport) left for whoever
+next touches this component rather than spawning more work for a nice-to-have.
+
+**PR #150 opened, CI watched to genuine completion** (confirmed the checked commit via `gh pr view
+--json headRefOid` matched the actual last push before merging, per the #124-tick lesson that a
+clean review doesn't clear CI and a stale rollup can lie) — all 3 checks green on `7f2e908`,
+squash-merged as `b29fa35`, branch deleted. Local worktree cleanup needed an explicit
+`git worktree remove --force` before the branch itself could be deleted (a worktree still had it
+checked out) — not a bug, just a sequencing note for next time: remove the worktree before deleting
+its branch, not after.
+
+**No `IMPROVEMENTS.md` entry this tick** — no process/harness friction surfaced; the two UI/UX
+follow-ups are ordinary product backlog, not orchestration-loop friction.
+
+---
+
 ## Tick — 2026-09-07 (#124 shipped: owner-approved directly, PR #147; a real CI regression caught and fixed same tick, not a flake)
 
 Continuation of the same handoff session. The owner ran `/orchestrate approve 124` directly at the

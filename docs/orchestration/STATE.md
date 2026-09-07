@@ -12,33 +12,38 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#124 shipped** (logout now wipes device-held data — the per-session
-  `restTimerStorage` sweep, the current-commit `api-reads` cache, both unconditional even when the
-  logout request itself fails offline; `restPrefSec` deliberately kept, documented as a device
-  setting not account data). Owner approved it directly via `/orchestrate approve 124` (not a
-  standing approval — an individual grant for this issue). PR #147, merged as `b24337b`; #148 filed
-  from a non-blocking code-review observation (offline logout can't invalidate the server session,
-  `intake`, needs a fix approach decided). **CI regression, found and fixed same tick, not a flake:**
-  the first push failed all 16 e2e tests identically (a new `apiCacheName.js` import served at
-  `/apiCacheName.js` in dev, which the bare `/api` proxy-key prefix-matched and forwarded to a
-  backend that doesn't run in that job) — an independent code review had already returned "ready to
-  merge" and missed it, since review never executes the code. Root-caused by reproducing the
-  failing test locally; fixed by scoping the proxy key to `/api/`. `IMPROVEMENTS.md` entry logged;
-  `PLAYBOOK.md` step 6 updated on the home branch with the lesson (mirrored to `main` — see below).
-  Accounts workstream (5/5), #142, #126 all still shipped as of the prior tick — see `HISTORY.md`.
-  Merged-not-deployed: the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, #126, #124.
-- **Next action:** UI waves **#129/#130/#131**, in the owner's 2026-09-06 order — next now that
-  #124 has landed (#142 and #126 were both worked out of turn by direct owner call, not a reshuffle,
-  so the original order resumes here). Unsequenced and pickable on their own merits: #125, #127,
-  #138, #145, #135 (`ready`), #141 (P3), **#148** (new, `intake`). Queued behind accounts by owner
-  call: **#132** (history scrub, `approved` label on, mirror backup mandatory), **#137** (model
-  tiering).
+- **Current focus:** **#129 shipped** (UI Wave 1 — the in-gym logging path). Unblocked from
+  `blocked`→`ready` this tick since its blocker (the accounts workstream, done as of #124) had
+  resolved but the label hadn't caught up. Six items: fetch timeout + honest retry copy (typed
+  weight/reps survive a failure), logged sets moved below the logger so the Log Set button holds a
+  fixed position, `scrollMarginTop` on auto-advance so the next exercise isn't hidden behind the
+  header, tap-again-to-confirm on set delete (reused `History.jsx`/`PersonalBests.jsx`'s existing
+  pattern), the overload suggestion promoted above last-workout history, 44px steppers + real
+  aria-labels. PR #150, merged `b29fa35`. Independent code review found no Critical/Important
+  issues (3 trivial Minor nits — aria-label casing, an e2e coverage gap on the 44px input, a
+  tautological jsdom assertion — fixed in a follow-up commit, re-verified green). Independent
+  UI/UX review of the rendered screens (real backend + dev server, logged-in session, real sets
+  logged, screenshots) returned **ready to merge**, no blocking findings; two non-blocking
+  follow-ups noted for whoever next touches this component: the armed delete icon (`✓?`) renders
+  smaller than the resting `×`, and the suggestion line's wrap behavior at heavier weights (e.g.
+  "102.5kg") wasn't checked on a true narrow viewport. Hand-verified live: button position holds
+  across sets 1-3, suggestion renders promoted, delete requires two taps and auto-re-arms after the
+  window elapses, auto-advance isn't clipped. 326/326 unit, 16/16 e2e, clean build.
+  Merged-not-deployed: the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, #126,
+  #124, and now #129 too.
+- **Next action:** UI Wave 2 **#130**, next in the owner's 2026-09-06 order — its blocker (UI Wave
+  1) is now shipped, but the `blocked` label itself hasn't been flipped yet (same situation #129
+  was in at the top of this tick); do that reconciliation at the start of the next tick before
+  picking it up. #131 (UI Wave 3) follows after. Unsequenced and pickable on their own merits:
+  #125, #127, #138, #145, #135 (`ready`), #141 (P3), #148 (`intake`). Queued behind accounts by
+  owner call: **#132** (history scrub, `approved` label on, mirror backup mandatory), **#137**
+  (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#129** — claimed 2026-09-07T18:54:30Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
