@@ -3,6 +3,15 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-07 — #124 approved individually via `/orchestrate approve 124`, not folded into a standing approval
+
+The owner typed `/orchestrate approve 124` directly, rather than expanding the 2026-09-05 standing
+approval (which names only #105/#86/#87 against the accounts-auth-design spec) to cover it. #124 was
+correctly held back from a live-session "go on" the day before, per GUARDRAILS "Approval is
+human-only" — this is the sanctioned channel that go-ahead was not. Establishes the pattern for any
+future destructive Issue outside an already-approved spec's scope: its own individual `approve`,
+not an assumed extension of a prior grant.
+
 ## 2026-09-06 — #142 filed and worked ahead of #124, by direct owner call
 
 Right after the #87 tick closed, the owner reported their phone PWA "never updates the version and
