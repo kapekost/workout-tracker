@@ -44,7 +44,7 @@ export default function ResumeBanner() {
           </div>
         ) : (
           <button aria-label="discard session" className="tap-target" onClick={() => setConfirming(true)}
-            style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px' }}>×</button>
+            style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: type.size.strong, padding: '0 4px' }}>×</button>
         )}
       </div>
     </div>

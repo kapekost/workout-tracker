@@ -6,7 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
 import StatPair from '../components/StatPair'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -77,13 +77,13 @@ export default function Progress() {
           {selected && (
             <div>
               {pr && (
-                <div className="card" style={{ padding: '16px 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <StatPair label="Personal Record" value={`🏆 ${pr} kg`} valueColor={colors.amber} />
                   <StatPair label="Sessions" value={data.length} align="right" />
                 </div>
               )}
 
-              <div className="card" style={{ padding: '20px 8px 12px 0' }}>
+              <div className="card" style={{ padding: `${space.xxl}px ${space.sm}px ${space.md}px 0` }}>
                 <p style={{ color: colors.muted, fontSize: type.size.md, fontWeight: type.weight.semibold, paddingLeft: 20, marginBottom: 16 }}>{selectedName}</p>
                 {loading ? (
                   <div style={{ padding: '12px 20px' }}><Skeleton height={180} /></div>

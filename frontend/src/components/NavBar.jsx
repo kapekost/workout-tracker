@@ -33,30 +33,37 @@ export default function NavBar() {
       // rendered height feeds --navbar-height (index.css :root) — keep
       // that in sync if this ever changes.
       paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
-      justifyContent: 'space-around', zIndex: 50
+      zIndex: 50
     }}>
-      {tabs.map(tab => {
-        const isActive = active === tab.path
-        return (
-          <button
-            key={tab.path}
-            onClick={() => nav(tab.path)}
-            style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 3, background: 'none', border: 'none',
-              cursor: 'pointer', padding: '4px 0', minHeight: 48
-            }}
-          >
-            <span style={{
-              fontSize: '1.35rem', lineHeight: 1,
-              color: isActive ? colors.mint : colors.muted
-            }}>{tab.icon}</span>
-            <Eyebrow color={isActive ? colors.mint : colors.muted} style={{ fontWeight: type.weight.semibold }}>
-              {tab.label}
-            </Eyebrow>
-          </button>
-        )
-      })}
+      {/* TopBar already solves the same problem by wrapping its contents in
+          .page-shell (index.css) -- without this, the tabs spread across the
+          full viewport at justify-content: space-around, sitting ~350px apart
+          under a 448px content column on a wide screen (2026-09-06 UI review,
+          item 14). */}
+      <div className="page-shell" style={{ display: 'flex', width: '100%', justifyContent: 'space-around', paddingBottom: 0 }}>
+        {tabs.map(tab => {
+          const isActive = active === tab.path
+          return (
+            <button
+              key={tab.path}
+              onClick={() => nav(tab.path)}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 3, background: 'none', border: 'none',
+                cursor: 'pointer', padding: '4px 0', minHeight: 48
+              }}
+            >
+              <span style={{
+                fontSize: '1.35rem', lineHeight: 1,
+                color: isActive ? colors.mint : colors.muted
+              }}>{tab.icon}</span>
+              <Eyebrow color={isActive ? colors.mint : colors.muted} style={{ fontWeight: type.weight.semibold }}>
+                {tab.label}
+              </Eyebrow>
+            </button>
+          )
+        })}
+      </div>
     </nav>
   )
 }

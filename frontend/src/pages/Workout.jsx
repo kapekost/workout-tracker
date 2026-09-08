@@ -53,7 +53,7 @@ function SetRow({ s, armed, onRequestDelete }) {
           aria-label={armed ? `confirm delete set ${s.set_number}` : `delete set ${s.set_number}`}
           style={{ background: 'none', border: 'none', cursor: 'pointer',
             color: armed ? colors.danger : colors.muted,
-            fontSize: armed ? type.size.base : '1.1rem', fontWeight: armed ? type.weight.bold : type.weight.regular,
+            fontSize: armed ? type.size.base : type.size.strong, fontWeight: armed ? type.weight.bold : type.weight.regular,
             width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {armed ? '✓?' : '×'}
         </button>
@@ -266,7 +266,7 @@ export default function Workout() {
   if (summary) return (
     <div style={{ paddingTop: 24 }}>
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 16 }}>Workout complete 🎉</h1>
-      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+      <div className="card" style={{ padding: space.xxl, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
         <Stat label="Sets" value={summary.totalSets} />
         <Stat label="Volume" value={`${summary.totalVolume.toLocaleString()} kg`} />
@@ -453,7 +453,11 @@ export default function Workout() {
             Active session
           </Eyebrow>
           <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
+          {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
+              PersonalBests' page-subtitle convention -- this was the one
+              page whose subtitle used a different color/size pair
+              (2026-09-06 UI review, item 18c). */}
+          <p style={{ color: colors.muted2, fontSize: type.size.lg, marginTop: 2 }}>{session.date}</p>
         </div>
         <button className="tap-target" onClick={finishWorkout} disabled={finishing}
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color,
@@ -477,7 +481,10 @@ export default function Workout() {
             // top of the *viewport*, but the header is position: fixed and would cover
             // it. --header-height is already published on .page-shell (App.jsx) and
             // inherits down, so this needs no new plumbing.
-            style={{ marginBottom: space.md, scrollMarginTop: 'calc(var(--header-height, 0px) + 8px)' }} bodyPadding="16px"
+            // bodyPadding no longer needs an override here -- item 20
+            // resolved DisclosureRow's default to the same space.xl value
+            // this used to spell out explicitly.
+            style={{ marginBottom: space.md, scrollMarginTop: 'calc(var(--header-height, 0px) + 8px)' }}
             isOpen={isOpen}
             onToggle={async () => {
               const opening = !isOpen
@@ -497,8 +504,13 @@ export default function Workout() {
                         fix (1e0d8f5) — it only needs to outrank the cues-link text within its own
                         card, not match the page heading. Tier-3 local literal per the design-tokens
                         spec's own precedent (not every value needs a token). */}
-                    <span style={{ fontWeight: type.weight.bold, fontSize: '1.1rem' }}>{ex.name}</span>
-                    {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
+                    <span style={{ fontWeight: type.weight.bold, fontSize: type.size.strong }}>{ex.name}</span>
+                    {/* The day colour, not mint: the set-dots beside it (below)
+                        already fill in `color` to mean "done", so a mint check
+                        here was a second "done" colour in the same row — on
+                        Lower B, a mint tick next to orange dots (2026-09-06 UI
+                        review, item 18b). One colour, one meaning. */}
+                    {complete && <span style={{ color, fontSize: type.size.base }}>✓</span>}
                   </div>
                   <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
                     {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
@@ -583,7 +595,7 @@ export default function Workout() {
                 </div>
               </div>
               <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
-                style={{ background: color, fontSize: '0.9rem', padding: '12px' }}>
+                style={{ background: color, fontSize: type.size.body, padding: '12px' }}>
                 {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
               </button>
             </div>
@@ -599,10 +611,12 @@ export default function Workout() {
               </div>
             )}
 
-            {/* Muscles */}
+            {/* Muscles. No `color` here: Chip's non-toggle (label) branch
+                hardcodes colors.muted regardless of what's passed, so this
+                was a silent no-op (2026-09-06 UI review, item 18a). */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
               {ex.muscles.map(m => (
-                <Chip key={m} color={colors.muted}>{m}</Chip>
+                <Chip key={m}>{m}</Chip>
               ))}
             </div>
           </DisclosureRow>
