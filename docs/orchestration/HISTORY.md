@@ -9,6 +9,75 @@
 
 ---
 
+## Tick — 2026-09-08 (#131 shipped: UI Wave 3, closing out the three-wave UI review; a dead subagent handled cleanly)
+
+Continuation of the same session. Owner said "ok next" after the prior tick's hand-off/deploy
+summary — read as authorization to resume normal queue order and pick up #131, since that's what
+"next" pointed at in `STATE.md`.
+
+**Picked #131 the same way #129/#130 were.** Its Issue body was already decomposed (8 named items,
+files, sizes, two called out with a stated reason), not destructive, effort:M. Relabeled
+`blocked`→`ready` (blocker #130 had shipped, label was stale), commented why, claimed on the home
+branch before any execution.
+
+**First dispatch died mid-task.** The implementation subagent hit `API Error: Connection closed
+mid-response` while still reading files for context — before creating a worktree or making any
+commits. Per this repo's own documented lesson (queued as a `[template]` improvement: "inspect a
+dead agent's worktree for uncommitted work before re-dispatching"), checked first: `git worktree
+list` showed no worktree for that agent ID at all, confirming nothing was lost. Re-dispatched with
+the same brief, adding one instruction the first attempt didn't have: commit and push incrementally
+per item rather than only at the end, so a repeat infra failure would lose at most one item's
+worth of work, not the whole task's research.
+
+**Execution, second attempt, succeeded end-to-end.** All 8 items landed across 5 commits: dead
+Tailwind class removed (`ExerciseCuesModal.jsx`), `NavBar` constrained to the ~448px content column,
+`TopBar`'s duplicate page label scoped off nav-tab routes, `type.size.body`/`strong` tokens added
+and 12 hardcoded literal sites swept, `StatPair` rebuilt onto `Eyebrow` and shared tokens, three
+small `Chip`/`Workout` fixes (a genuinely-dead `color` prop removed from two no-op call sites while
+correctly kept on the component itself since a `selected`-toggle case still uses it, the
+exercise-complete checkmark switched from hardcoded mint to the day's own theme color, Workout's
+subtitle brought in line with every other page's), `PersonalBests`' add-form moved behind a
+closed-by-default disclosure, and `.card`'s 8 ad hoc padding values consolidated to 3 `space.*`
+tokens across the ~10 files that actually use it (not quite the audit's estimated ~14 — Waves 1/2
+had already cleaned some up). 361/361 unit, 22/22 e2e, clean build per the implementer's own report.
+
+**Independent code review** (fresh subagent, explicit git range, re-ran the suite itself rather
+than trusting the reported counts) found no Critical/Important issues. Traced the three
+highest-risk items directly in source rather than accepting the diff at face value: confirmed the
+day-color checkmark logic is a single value shared with the day-dot component (no per-exercise
+divergence possible, so the implementer's one-day test was structurally sufficient), confirmed
+`Chip`'s `color` prop really is still read by the toggle branch (not a half-finished cleanup), and
+grepped the whole tree post-diff to confirm zero remaining hardcoded `0.9rem`/`1.1rem` literals.
+Two Minor nits: `DisclosureRow`'s new default padding had no direct test pinning it (the existing
+test only covered a caller override that happened to equal the new default), and `PersonalBests`
+carried a now-redundant explicit `bodyPadding` prop identical to the new default. Both fixed
+directly (cheap, <10 min combined), re-verified 362/362 + 22/22 + clean build before pushing.
+
+**UI/UX review of the rendered screens caught a real process gap, not a real bug.** Stood up the
+actual app (seeded a local dev password, logged in, logged and finished a real session) and
+captured 4 real screenshots for the reviewer. The reviewer flagged that the screenshot meant to
+demonstrate `PersonalBests`' disclosure in its *open* state actually showed the closed-state
+chevron (`∨`) with no form rendered — a capture-timing mistake in the controller's own browser
+automation, not evidence of an actual defect (the implementer's Playwright suite had already
+exercised opening this exact component at this exact width and passed). Re-verified live
+immediately: restarted the dev servers, navigated fresh, clicked "+ Add," and confirmed the
+disclosure opens correctly with the full form and clean, token-consolidated padding. No code
+change needed — this was purely a screenshot-capture defect in this tick's own verification step,
+now corrected for the record.
+
+**PR #153 opened, CI watched to genuine completion** (confirmed the checked commit matched the
+actual last push before merging) — all 3 checks green on `5eb4006`, squash-merged as `5b35943`,
+branch and worktree cleaned up. **Not deployed this tick** — #129/#130 are live on the Pi from the
+prior tick's deploy; #131 sits merged on `main` waiting for the next deploy, whenever the owner
+wants it (not assumed automatically this time, unlike the prior tick's explicit "deploy too").
+
+**No new `IMPROVEMENTS.md` entries this tick.** The dead-subagent recovery worked exactly as this
+repo's own already-queued `[template]` improvement describes it should — confirmation the existing
+lesson is sound, not a new finding. The two review-caught defects (a missing test, a mis-timed
+screenshot) are ordinary process working as intended.
+
+---
+
 ## Tick — 2026-09-08 (deploy #86→98c89a0 batch to the Pi; #131 explicitly handed off; #152 filed)
 
 Continuation of the same session, immediately after #129/#130 shipped. Owner gave two direct

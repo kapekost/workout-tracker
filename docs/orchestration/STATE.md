@@ -12,44 +12,29 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#130 shipped** (UI Wave 2 — the screens around the logger), same tick as
-  #129. Unblocked `blocked`→`ready` the same way #129 was. Six items: Progress auto-selects the
-  first exercise + real 44px chip targets, `DisclosureRow` → real `<button aria-expanded>` +
-  global `:active`/`:focus-visible` states, Finish Workout moved into the header slot, first-run
-  Home hides the empty recovery picker/export link, contrast fix (measured: `muted2` ~4.08:1 →
-  ~5.29:1, recovery-disclosure text 2.61:1 → clears AA), copy pass on 5 developer-facing strings.
-  PR #151, merged `98c89a0`. **Real finding, not a rejected duplicate:** the tool call that
-  dispatched #130's implementation was interrupted mid-turn and reported as user-rejected, but had
-  actually already run to completion in its own worktree — the re-dispatch (per the user's explicit
-  "re-dispatch as before") found a second, equivalent, never-pushed 6-commit implementation sitting
-  there. Inspected for anything unique, found none, discarded before it ever reached a push — no
-  collision, no lost work. Logged as an `[unsure]` IMPROVEMENTS.md entry (harness rejection/execution
-  semantics, not fixable here). Independent code review found one Important issue (Home's "Last
-  session" card missed the `DisclosureRow`-style button fix, outside item 8's stated file scope) —
-  fixed same tick. Independent UI/UX review of the rendered screens caught a real regression in
-  that very fixup (chrome-reset styles landed on the same element as `.card`, cancelling its own
-  background/border — the card lost its visible box entirely) — fixed in a second follow-up commit,
-  re-verified live in a browser (card box restored, focus ring visible on tab). Hand-verified all
-  six items live against a real backend. 347/347 unit, 20/20 e2e, clean build.
-  **Deployed same session, owner request ("deploy too"):** the Pi jumped straight from `2bd2885`
-  (the #86 build) to `98c89a0` in one deploy — the whole #87/#142/#126/#124/#129/#130 batch had been
-  sitting merged-not-deployed. Checked first: no schema/migration changes anywhere in that range
-  (`git diff 2bd2885..98c89a0 -- backend/main.py` touches only endpoint role-gating and an
-  auto-snapshot-on-import path, no `CREATE`/`ALTER TABLE`, no `user_version` bump), so this was a
-  routine deploy, not a migration one. Took a fresh manual backup on the Pi first anyway (backups
-  are manual-only since 2026-09-04, and this was a large batch after a long gap) —
-  `scripts/backup.sh` exit 0, local+remote both `ok`. `scripts/deploy.sh` ran clean (build → arm64
-  image → transfer → restart), then independently re-verified rather than trusting its own
-  assertion: `curl /api/health` → `{"status":"ok","version":"98c89a0"}`, `docker ps` shows the
-  container running the exact commit tag (not `:latest`), Home Assistant co-tenant unaffected
-  (`Up 47 hours (healthy)`, untouched by this deploy).
-- **Next action:** UI Wave 3 **#131** is next in the owner's 2026-09-06 order, but **explicitly
-  handed off, owner's call this tick** ("handoff for phase 3") — do not pick it up automatically;
-  wait for the next `/orchestrate` invocation or explicit instruction. Its blocker (UI Wave 2) is
-  now shipped, so the same `blocked`→`ready` reconciliation #129 and #130 each needed will apply
-  when it's picked up. New this tick: **#152** (`intake`, new) — owner asked for a UI icon/polish
-  pass, flagging Home's "Next up" 🔥 icon as an irrelevant example; not yet triaged, needs a scoping
-  pass (custom SVGs vs. an icon library, targeted fix vs. broader design pass) before `ready`.
+- **Current focus:** **#131 shipped** (UI Wave 3 — consistency debt), closing out the three-wave
+  UI review (#129/#130/#131 all now merged). Unblocked `blocked`→`ready` the same way #129/#130
+  were. Eight items: dead Tailwind class removed from the cues modal, `NavBar` constrained to the
+  content column, `TopBar`'s duplicate page label dropped on nav routes, two new type tokens + a
+  12-site sweep, `StatPair` onto `Eyebrow`/tokens, three small `Chip`/`Workout` fixes (dead prop,
+  day-colored checkmark, subtitle styling), `PersonalBests`' add-form behind a disclosure, `.card`'s
+  8 padding variants consolidated to 3 tokens across ~10 files. PR #153, merged `5b35943`.
+  **First dispatch of this issue died mid-task from an infra error** (API connection closed) before
+  it had created a worktree or made any commits — per this repo's own documented dead-subagent
+  lesson, checked for salvageable work first (none existed, confirmed via `git worktree list`), then
+  re-dispatched clean with an added instruction to commit/push incrementally rather than only at the
+  end, so a repeat failure loses at most one item's worth of work next time. Independent code review
+  found no Critical/Important issues (2 trivial Minor nits fixed before merge). Independent UI/UX
+  review caught a process slip, not a code bug: the screenshot meant to show the `PersonalBests`
+  disclosure open actually showed it closed (a capture-timing mistake) — re-verified live
+  immediately after, confirmed working correctly. Hand-verified all eight items live against a real
+  backend. 362/362 unit, 22/22 e2e, clean build. **Merged, not yet deployed** — #129/#130 are live
+  on the Pi (deployed the prior tick), #131 is sitting on top of that same `main` waiting for the
+  next deploy whenever the owner wants it.
+- **Next action:** No UI wave work left — the three-wave review is fully shipped. **#152**
+  (`intake`) is the natural next design-related item: owner asked for a UI icon/polish pass,
+  flagging Home's "Next up" 🔥 icon as an irrelevant example; not yet triaged, needs a scoping pass
+  (custom SVGs vs. an icon library, targeted fix vs. broader design pass) before `ready`.
   Unsequenced and pickable on their own merits: #125, #127, #138, #145, #135 (`ready`), #141 (P3),
   #148 (`intake`). Queued behind accounts by owner call: **#132** (history scrub, `approved` label
   on, mirror backup mandatory), **#137** (model tiering).
@@ -58,7 +43,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#131** — claimed 2026-09-08T07:07:08Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
