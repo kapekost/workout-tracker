@@ -3,6 +3,32 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-08 — "Complete" means merged and deployed, not just merged
+
+Owner, right after a tick reported #131 as "shipped" while it was actually only merged to `main`
+and sitting undeployed: "ok lets make sure to consider something complet[e] that is alos [also]
+deployed." A merged PR is real progress but not the bar for calling something done — the owner
+can't see or try anything that hasn't reached the actual running app.
+
+**What this changes:** tick summaries (PLAYBOOK step 9's "what's live and what it does") must
+distinguish merged-not-deployed from actually-deployed, and default toward closing that gap —
+deploy after merging rather than leaving work in a merged-only state — when the change is safe to
+deploy (no pending schema/migration risk, no standing reason to hold back per an existing
+`DECISIONS.md` entry). This is not a license to auto-deploy destructive or risky changes; the
+existing deploy discipline (check for schema changes first, take a manual backup for anything
+non-trivial, independently re-verify `/api/health` and the running container's image tag rather
+than trusting the deploy script's own assertion) still applies in full — it's the *default to
+proceed to deploy* that's new, not a relaxation of care once there.
+
+**What this caught, same tick, worth recording because it's exactly why this bar matters:** trying
+to deploy #131 responsibly (taking a manual backup first) surfaced a real bug — #126's
+`APP_COMMIT`-required change to `docker-compose.yml` had only ever been patched into
+`scripts/deploy.sh`'s own invocation, so `scripts/backup.sh` had been silently broken by every
+deploy since #126 landed, with no code change to `backup.sh` itself. Filed and fixed as #154/PR
+#155, verified live against the real target. This would not have been found by code review or CI —
+only by actually trying to operate the deployed thing, which is the same principle the owner's
+"also deployed" instruction is asking for at the reporting level.
+
 ## 2026-09-07 — #124 approved individually via `/orchestrate approve 124`, not folded into a standing approval
 
 The owner typed `/orchestrate approve 124` directly, rather than expanding the 2026-09-05 standing
