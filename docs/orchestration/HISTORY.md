@@ -9,6 +9,45 @@
 
 ---
 
+## Tick — 2026-09-08 (deploy #86→98c89a0 batch to the Pi; #131 explicitly handed off; #152 filed)
+
+Continuation of the same session, immediately after #129/#130 shipped. Owner gave two direct
+instructions in one message: hand off UI Wave 3 (#131) rather than continue into it, and deploy
+what had already shipped ("hamdfoff for phsae 3 but deploy too").
+
+**#131 deliberately not picked up.** Per the owner's explicit hand-off, `STATE.md`'s Next action
+now says so directly rather than treating this as a blocker or a stopping condition — the next
+`/orchestrate` tick (or explicit instruction) picks #131 up fresh, including the same
+`blocked`→`ready` label reconciliation #129 and #130 each needed at the top of their own tick.
+
+**Deploy.** The Pi had been running `2bd2885` (the #86 build) since before #87, so #87/#142/#126/
+#124/#129/#130 were all sitting merged-not-deployed — six shipped features in one jump. Checked for
+migration risk before doing anything: `git diff 2bd2885..98c89a0 -- backend/main.py` touches only
+endpoint role-gating (export/import scoped by role) and an auto-snapshot-on-import path, no
+`CREATE`/`ALTER TABLE`, no `user_version` bump — a routine deploy, not a schema one. Took a fresh
+manual backup on the Pi first regardless (backups are manual-only since 2026-09-04 and this was an
+unusually large batch after a long gap) — `scripts/backup.sh` exited 0, both local and off-site
+legs `ok`. Confirmed on-LAN SSH reachability first (per `AGENTS.local.md`'s own `BatchMode=yes`
+trap, avoided) before running `scripts/deploy.sh`, which built the arm64 image locally, transferred
+it, and restarted the service. **Did not trust the script's own verification alone** — independently
+re-ran `curl http://localhost:8080/api/health` (`{"status":"ok","version":"98c89a0"}`) and `docker
+ps` (container running `kapekost/workout-tracker:98c89a0`, the exact commit tag, not `:latest` —
+direct proof against the exact #126 failure mode) and confirmed the Home Assistant co-tenant
+container was untouched and healthy throughout.
+
+**#152 filed.** Owner raised, mid-turn, a UI-polish ask: move off generic/"AI default"-feeling UI
+elements, introduce a real icon system (custom SVGs or an appropriate library) rather than ad hoc
+emoji, naming Home's "Next up" 🔥 icon as a concrete example of the problem. Captured verbatim as a
+new `intake` Issue per this repo's Feature Intake convention — not decomposed or scoped yet
+(custom SVGs vs. a library, targeted fix vs. a broader design pass are all still open), stays
+`intake` until an owner Q&A or a design pass answers those.
+
+**No new `IMPROVEMENTS.md` entries this tick** — the deploy and issue-filing were routine
+executions of already-documented process (the deploy runbook in `AGENTS.md`, the Feature Intake
+flow in `PLAYBOOK.md`), not new friction.
+
+---
+
 ## Tick — 2026-09-07 (#130 shipped: UI Wave 2, same session as #129; a rejected subagent dispatch turned out to have run anyway, producing a real duplicate)
 
 Continuation of the same session that had just shipped #129. Owner explicitly chose to continue

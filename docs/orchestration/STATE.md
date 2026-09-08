@@ -31,14 +31,28 @@
   background/border — the card lost its visible box entirely) — fixed in a second follow-up commit,
   re-verified live in a browser (card box restored, focus ring visible on tab). Hand-verified all
   six items live against a real backend. 347/347 unit, 20/20 e2e, clean build.
-  Merged-not-deployed: the Pi still runs `2bd2885` (the #86 build) — predates #87, #142, #126,
-  #124, #129, and now #130 too.
-- **Next action:** UI Wave 3 **#131**, next in the owner's 2026-09-06 order — its blocker (UI Wave
-  2) is now shipped, but the `blocked` label itself hasn't been flipped yet (same reconciliation
-  #129 and #130 each needed at the top of their own tick); do that at the start of the next tick
-  before picking it up. Unsequenced and pickable on their own merits: #125, #127, #138, #145, #135
-  (`ready`), #141 (P3), #148 (`intake`). Queued behind accounts by owner call: **#132** (history
-  scrub, `approved` label on, mirror backup mandatory), **#137** (model tiering).
+  **Deployed same session, owner request ("deploy too"):** the Pi jumped straight from `2bd2885`
+  (the #86 build) to `98c89a0` in one deploy — the whole #87/#142/#126/#124/#129/#130 batch had been
+  sitting merged-not-deployed. Checked first: no schema/migration changes anywhere in that range
+  (`git diff 2bd2885..98c89a0 -- backend/main.py` touches only endpoint role-gating and an
+  auto-snapshot-on-import path, no `CREATE`/`ALTER TABLE`, no `user_version` bump), so this was a
+  routine deploy, not a migration one. Took a fresh manual backup on the Pi first anyway (backups
+  are manual-only since 2026-09-04, and this was a large batch after a long gap) —
+  `scripts/backup.sh` exit 0, local+remote both `ok`. `scripts/deploy.sh` ran clean (build → arm64
+  image → transfer → restart), then independently re-verified rather than trusting its own
+  assertion: `curl /api/health` → `{"status":"ok","version":"98c89a0"}`, `docker ps` shows the
+  container running the exact commit tag (not `:latest`), Home Assistant co-tenant unaffected
+  (`Up 47 hours (healthy)`, untouched by this deploy).
+- **Next action:** UI Wave 3 **#131** is next in the owner's 2026-09-06 order, but **explicitly
+  handed off, owner's call this tick** ("handoff for phase 3") — do not pick it up automatically;
+  wait for the next `/orchestrate` invocation or explicit instruction. Its blocker (UI Wave 2) is
+  now shipped, so the same `blocked`→`ready` reconciliation #129 and #130 each needed will apply
+  when it's picked up. New this tick: **#152** (`intake`, new) — owner asked for a UI icon/polish
+  pass, flagging Home's "Next up" 🔥 icon as an irrelevant example; not yet triaged, needs a scoping
+  pass (custom SVGs vs. an icon library, targeted fix vs. broader design pass) before `ready`.
+  Unsequenced and pickable on their own merits: #125, #127, #138, #145, #135 (`ready`), #141 (P3),
+  #148 (`intake`). Queued behind accounts by owner call: **#132** (history scrub, `approved` label
+  on, mirror backup mandatory), **#137** (model tiering).
 
 ## Stop-condition
 (none — runner proceeds normally)
