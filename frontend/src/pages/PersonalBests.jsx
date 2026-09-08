@@ -5,8 +5,10 @@ import { ALL_EXERCISES } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
+import DisclosureRow from '../components/DisclosureRow'
+import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
@@ -29,6 +31,11 @@ export default function PersonalBests() {
   const [saving, setSaving] = useState(false)
   const { toast, showToast } = useToast()
   const [confirmId, setConfirmId] = useState(null)
+  // Closed by default: this is a page you visit to read your PBs far more
+  // often than to add one, so the 5-field form starts hidden behind a
+  // disclosure instead of competing with the list for attention on load
+  // (2026-09-06 UI review, item 19).
+  const [addOpen, setAddOpen] = useState(false)
 
   useEffect(() => {
     api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
@@ -85,42 +92,10 @@ export default function PersonalBests() {
         Historical PBs from before you started logging here
       </p>
 
-      <form onSubmit={submit} className="card personal-bests-form" style={{ padding: 16, marginBottom: 24 }}>
-        <label style={labelStyle}>Exercise</label>
-        <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
-          style={{ ...fieldStyle, marginBottom: 14 }}>
-          {ALL_EXERCISES.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-        </select>
-
-        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Weight (kg)</label>
-            <input type="number" inputMode="decimal" value={weight}
-              onChange={e => setWeight(parseFloat(e.target.value) || 0)}
-              style={{ ...fieldStyle, width: '100%' }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Reps</label>
-            <input type="number" inputMode="numeric" value={reps}
-              onChange={e => setReps(parseInt(e.target.value, 10) || 1)}
-              style={{ ...fieldStyle, width: '100%' }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Year</label>
-            <input type="number" inputMode="numeric" value={year}
-              onChange={e => setYear(parseInt(e.target.value, 10) || year)}
-              style={{ ...fieldStyle, width: '100%' }} />
-          </div>
-        </div>
-
-        <label style={labelStyle}>Note (optional)</label>
-        <input type="text" value={note} onChange={e => setNote(e.target.value)}
-          placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
-        <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : '+ Add Personal Best'}
-        </button>
-      </form>
-
+      {/* List first: this page is visited to read PBs far more often than to
+          add one, so the list -- not a 5-field form -- gets the eye on load
+          (2026-09-06 UI review, item 19). The add form moved into the
+          disclosure below. */}
       {loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
         <EmptyState title="No historical PBs logged yet." />
       ) : Object.entries(grouped).map(([name, rows]) => (
@@ -142,6 +117,50 @@ export default function PersonalBests() {
           })}
         </div>
       ))}
+
+      <DisclosureRow
+        isOpen={addOpen}
+        onToggle={() => setAddOpen(o => !o)}
+        style={{ marginTop: 14 }}
+        bodyPadding={`${space.xl}px`}
+        header={<Eyebrow color={colors.mint}>+ Add</Eyebrow>}
+      >
+        <form onSubmit={submit} className="personal-bests-form">
+          <label style={labelStyle}>Exercise</label>
+          <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
+            style={{ ...fieldStyle, marginBottom: 14 }}>
+            {ALL_EXERCISES.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+          </select>
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Weight (kg)</label>
+              <input type="number" inputMode="decimal" value={weight}
+                onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+                style={{ ...fieldStyle, width: '100%' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Reps</label>
+              <input type="number" inputMode="numeric" value={reps}
+                onChange={e => setReps(parseInt(e.target.value, 10) || 1)}
+                style={{ ...fieldStyle, width: '100%' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Year</label>
+              <input type="number" inputMode="numeric" value={year}
+                onChange={e => setYear(parseInt(e.target.value, 10) || year)}
+                style={{ ...fieldStyle, width: '100%' }} />
+            </div>
+          </div>
+
+          <label style={labelStyle}>Note (optional)</label>
+          <input type="text" value={note} onChange={e => setNote(e.target.value)}
+            placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving ? 'Saving…' : '+ Add Personal Best'}
+          </button>
+        </form>
+      </DisclosureRow>
     </div>
   )
 }
