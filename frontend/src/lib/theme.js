@@ -41,6 +41,14 @@ export const type = {
     base: '0.75rem',
     md: '0.8rem',
     lg: '0.875rem',
+    // Added 2026-09-06 UI review, item 16: the two literal sizes duplicated
+    // across 8 and 4 call sites respectively (exercise names, session
+    // titles, the app name, the Log Set label, and others). Deliberately not
+    // a full rationalisation of the type scale's other one-off sizes (0.95,
+    // 1.2, 1.25...) -- the review explicitly rejects that; these two cover
+    // the only values actually duplicated enough to be worth a token.
+    body: '0.9rem',
+    strong: '1.1rem',
     title: '1.75rem',
     display: '2rem',
   },

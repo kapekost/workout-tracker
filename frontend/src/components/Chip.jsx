@@ -14,6 +14,11 @@ import { colors, type, radius } from '../lib/theme'
 // spec's prop table but is required to keep Progress.jsx's filter chip
 // clickable; it's what decides whether Chip renders a <button> (with its own
 // real 44px box, see below) or a plain <span>.
+// `color` only drives the selected-toggle treatment below -- the plain
+// label (non-toggle) chip always renders colors.muted regardless of what's
+// passed. Two call sites used to pass color to a label chip anyway; it was
+// a silent no-op there (2026-09-06 UI review, item 18a), so both were
+// cleaned up rather than this branch quietly "honouring" an unused prop.
 export default function Chip({ children, color = colors.mint, selected, size = 'md', onClick, style }) {
   const isToggle = selected !== undefined
   const base = {

@@ -88,4 +88,13 @@ describe('DisclosureRow', () => {
     )
     expect(screen.getByText('Y').parentElement.style.padding).toBe('16px')
   })
+
+  it('defaults bodyPadding to space.xl, matching the header (#131 item 20)', () => {
+    render(
+      <DisclosureRow header={<span>X</span>} isOpen={true} onToggle={() => {}}>
+        <p>Y</p>
+      </DisclosureRow>
+    )
+    expect(screen.getByText('Y').parentElement.style.padding).toBe('16px')
+  })
 })

@@ -23,7 +23,7 @@ export default function Exercise() {
     <div style={{ paddingTop: 16 }}>
       {/* Back */}
       <button className="tap-target" onClick={() => nav(-1)}
-        style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: '0.9rem',
+        style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: type.size.body,
           fontWeight: type.weight.semibold, padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
         ← Back to workout
       </button>

@@ -19,10 +19,10 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
       }}>
-      <div onClick={e => e.stopPropagation()} className="max-w-md mx-auto"
+      <div onClick={e => e.stopPropagation()}
         style={{
           background: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-          width: '100%', maxHeight: '85vh', overflowY: 'auto',
+          width: '100%', maxWidth: 'var(--content-max-width)', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto',
           padding: '20px 16px calc(24px + env(safe-area-inset-bottom))'
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>

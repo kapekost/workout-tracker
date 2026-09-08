@@ -311,6 +311,38 @@ test.describe('Progress chips — real 44px boxes, no overlap (item 7)', () => {
 // (no real focus/paint pipeline), so only a real browser proves it.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// 2026-09-06 UI review, items 13 & 14: the two fixes in this wave with a
+// visible consequence on a wide screen — jsdom can't compute real layout, so
+// only a real browser at a wide viewport proves either one actually
+// constrains itself to the app's 448px content column instead of the full
+// viewport.
+// ---------------------------------------------------------------------------
+
+test.describe('Wide-screen content column (items 13 & 14)', () => {
+  test.use({ viewport: { width: 1047, height: 800 } })
+
+  test('item 14: NavBar tabs stay within the 448px content column, not the full viewport', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Home'))
+    const shell = page.locator('nav .page-shell')
+    const box = await shell.boundingBox()
+    expect(box.width).toBeLessThanOrEqual(448)
+    // Roughly centered, not pinned to one edge of the 1047px viewport.
+    const leftGap = box.x
+    const rightGap = 1047 - (box.x + box.width)
+    expect(Math.abs(leftGap - rightGap)).toBeLessThan(2)
+  })
+
+  test('item 13: the exercise-cues sheet stays within the 448px content column on desktop', async ({ page }) => {
+    await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
+    await page.getByRole('button', { name: /Form cues/i }).click()
+    const sheet = page.locator('[role="dialog"] > div')
+    await sheet.waitFor()
+    const box = await sheet.boundingBox()
+    expect(box.width).toBeLessThanOrEqual(448)
+  })
+})
+
 test.describe('Global interactive-element feedback (item 8)', () => {
   test('DisclosureRow header is a real, keyboard-operable button with aria-expanded', async ({ page }) => {
     await gotoReady(page, PAGES.find(p => p.name === 'Workout'))

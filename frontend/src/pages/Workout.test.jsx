@@ -390,6 +390,53 @@ describe('Workout page', () => {
     // the contract under test is "matches the token", not one literal string.
     expect(cuesLink.style.color).toBe(hexToRgb(colors.muted))
   })
+
+  // 2026-09-06 UI review, item 18b: a completed exercise's ✓ used to be
+  // colors.mint regardless of day, while the set-dots beside it (DayAccent)
+  // already fill in that day's own colour to mean the same "done" -- two
+  // different "done" colours in the same row. On Lower B (day colour
+  // #fb923c, orange) that read as a mint tick next to orange dots. upper_a's
+  // day colour happens to equal colors.mint, which would mask a regression
+  // here, so this uses lower_b specifically.
+  it("colours a completed exercise's checkmark with the day's own colour, not colors.mint", async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return {
+          id: 1, workout_day: 'lower_b', date: '2026-07-09', completed: 0,
+          created_at: '2026-07-09 10:00:00', ended_at: null,
+          sets: [
+            { id: 1, exercise_id: 'deadlift', exercise_name: 'Deadlift', set_number: 1, reps: 6, weight_kg: 100 },
+            { id: 2, exercise_id: 'deadlift', exercise_name: 'Deadlift', set_number: 2, reps: 6, weight_kg: 100 },
+            { id: 3, exercise_id: 'deadlift', exercise_name: 'Deadlift', set_number: 3, reps: 6, weight_kg: 100 },
+          ],
+        }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    const title = await screen.findByText('Deadlift')
+    const check = title.parentElement.querySelector('span:last-child')
+    expect(check).toHaveTextContent('✓')
+    expect(check.style.color).toBe(hexToRgb('#fb923c'))
+    expect(check.style.color).not.toBe(hexToRgb(colors.mint))
+  })
+
+  // 2026-09-06 UI review, item 18c: this was the only page whose subtitle
+  // used colors.muted/type.size.md instead of the colors.muted2/type.size.lg
+  // pair Home, Progress, History and PersonalBests all share.
+  it('styles the session-date subtitle like every other page subtitle in the app', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const subtitle = screen.getByText('2026-07-09')
+    expect(subtitle.style.color).toBe(hexToRgb(colors.muted2))
+    expect(subtitle.style.fontSize).toBe(type.size.lg)
+  })
 })
 
 describe('PR toast with a zero-weight baseline', () => {

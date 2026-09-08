@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { bestDayForMuscle } from '../lib/muscles'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 import Eyebrow from './Eyebrow'
 
 // Shown at the point of display, never in settings and never behind an icon.
@@ -131,7 +131,7 @@ export default function MuscleGroupPicker({
       </div>
 
       {expanded && (
-        <div className="card" style={{ padding: 16, marginTop: 12 }}>
+        <div className="card" style={{ padding: space.xl, marginTop: 12 }}>
           {/* The one line on this screen that is simply true. */}
           <p style={{ color: colors.textSecondary, fontSize: type.size.md }}>{rawFact(expanded)}</p>
           <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 4 }}>
