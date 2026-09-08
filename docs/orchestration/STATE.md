@@ -28,16 +28,33 @@
   review caught a process slip, not a code bug: the screenshot meant to show the `PersonalBests`
   disclosure open actually showed it closed (a capture-timing mistake) — re-verified live
   immediately after, confirmed working correctly. Hand-verified all eight items live against a real
-  backend. 362/362 unit, 22/22 e2e, clean build. **Merged, not yet deployed** — #129/#130 are live
-  on the Pi (deployed the prior tick), #131 is sitting on top of that same `main` waiting for the
-  next deploy whenever the owner wants it.
-- **Next action:** No UI wave work left — the three-wave review is fully shipped. **#152**
-  (`intake`) is the natural next design-related item: owner asked for a UI icon/polish pass,
-  flagging Home's "Next up" 🔥 icon as an irrelevant example; not yet triaged, needs a scoping pass
-  (custom SVGs vs. an icon library, targeted fix vs. broader design pass) before `ready`.
+  backend. 362/362 unit, 22/22 e2e, clean build.
+  **Deployed same session** (owner: "let's make sure to consider something complet[e] that is
+  al[s]o deployed" — new standing bar, recorded in `DECISIONS.md`): #131 went from merged-only to
+  live on the Pi (`5b35943`). Taking the pre-deploy backup responsibly (per that same new bar)
+  surfaced a real bug: `docker compose exec` (what `scripts/backup.sh` uses) failed outright with
+  `required variable APP_COMMIT is missing a value` — #126 made that variable required in
+  `docker-compose.yml` but only ever supplied it inline to `deploy.sh`'s own `up` call, so every
+  deploy since #126 landed had been silently breaking the app's only backup mechanism. Filed as
+  **#154**, fixed in **PR #155** (writes `APP_COMMIT` into the target's `.env` so Compose's
+  auto-load covers `backup.sh` too; independent code review caught two real permission/robustness
+  gaps — a transient wider-than-600 window on the secrets file, and an over-broad `|| true` that
+  would've silently dropped other `.env` lines on a genuine read failure — both fixed before merge).
+  Deployed for real (`87f5c53`) and independently re-verified: `.env` now carries `APP_COMMIT`,
+  `bash scripts/backup.sh` succeeds standalone with no manual export. Mirrored the new
+  `DECISIONS.md` entry to `main` via **PR #156** (stable-doc sync, same pattern as PLAYBOOK/
+  GUARDRAILS) — also added a short note on `main`'s copy pointing back to the home branch, since
+  two prior ticks got burned reading `main`'s stale `DECISIONS.md`.
+- **Next action:** No UI wave work left — the three-wave review is fully shipped and deployed.
+  **#152** (`intake`) is the natural next design-related item: owner asked for a UI icon/polish
+  pass, flagging Home's "Next up" 🔥 icon as an irrelevant example; not yet triaged, needs a scoping
+  pass (custom SVGs vs. an icon library, targeted fix vs. broader design pass) before `ready`.
   Unsequenced and pickable on their own merits: #125, #127, #138, #145, #135 (`ready`), #141 (P3),
   #148 (`intake`). Queued behind accounts by owner call: **#132** (history scrub, `approved` label
-  on, mirror backup mandatory), **#137** (model tiering).
+  on, mirror backup mandatory), **#137** (model tiering). **New from this tick's own finding:**
+  worth a spot-check that no other operational script/doc assumes `APP_COMMIT` is available without
+  either `deploy.sh`'s inline export or the new persisted `.env` value — none found this pass, but
+  not exhaustively audited beyond `backup.sh` and the off-LAN recipe.
 
 ## Stop-condition
 (none — runner proceeds normally)

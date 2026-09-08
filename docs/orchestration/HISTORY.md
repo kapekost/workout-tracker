@@ -9,6 +9,67 @@
 
 ---
 
+## Tick — 2026-09-08 (deploy #131; a real backup-tooling bug found and fixed; "complete means deployed" recorded)
+
+Continuation of the same session, immediately after #131 shipped. Owner: "ok lets make sure to
+consider something complet[e] that is al[s]o deployed" — a new standing bar, since the prior
+message had reported #131 as "shipped" while it was actually only merged. Recorded as a
+`DECISIONS.md` entry (2026-09-08) rather than treated as one-off feedback, since it changes how
+every future tick should report and default its own next steps.
+
+**Checked risk before deploying.** #131 is entirely frontend (`git diff` against the last-deployed
+commit touched zero backend files), so no schema/migration risk — a routine deploy.
+
+**Taking the pre-deploy backup responsibly is what surfaced a real bug.** `scripts/backup.sh`
+failed outright: `docker compose exec` (what the script uses to snapshot the SQLite DB inside the
+container) requires Compose to interpolate the whole compose file first, including the image tag —
+and #126 had changed that tag from `${APP_COMMIT:-latest}` to `${APP_COMMIT:?...}` (correctly
+closing a silent-rollback bug), but only ever supplied `APP_COMMIT` inline to `scripts/deploy.sh`'s
+own `docker compose up` call. Nothing persisted it anywhere else, so every deploy since #126 landed
+had been silently breaking the app's only backup mechanism (backups are manual-only, no cron, since
+2026-09-04) — with no code change to `backup.sh` itself needed to trigger the break. Confirmed the
+gap was real by checking the target's `.env` directly (no `APP_COMMIT` line, file untouched since
+2026-09-06) and by reproducing the exact failure.
+
+**Worked around it for this backup** (exported `APP_COMMIT` inline for one manual run, reading the
+value from the currently-running container's own image tag via `docker ps`), then filed the
+underlying bug as **#154** and fixed it as **#155**: `scripts/deploy.sh` now also writes
+`APP_COMMIT=<sha>` into the deploy target's `.env` right after `git pull`, since Compose auto-loads
+`.env` from the project directory for every invocation — this is what lets `backup.sh` (and any
+bare `docker compose` command typed by hand) resolve the variable afterward, with zero change
+needed to `backup.sh` itself. The identical gap in the off-LAN deploy recipe (`AGENTS.local.md`,
+gitignored, local-only) was fixed the same way, not part of the tracked diff.
+
+**Independent code review**, appropriately rigorous given the change touches a file holding live
+secrets (`RESEND_API_KEY`, etc.) on a production host that also runs Home Assistant: confirmed the
+core replace-or-append logic, the local→remote SSH quoting, and the `&&`-chain failure semantics
+were all correct, but found two real Important issues — a transient window where `.env.new` could
+sit wider than the required mode 600 before the trailing `chmod`, and an over-broad `|| true` that
+would silently discard every other line in `.env` (not just tolerate grep's benign "no match" case)
+if the file were ever genuinely unreadable. Both fixed directly: the write now runs under
+`umask 077`, and an explicit `test -f .env` fails the deploy loudly if the file is missing, rather
+than degrading mail config silently. Tested the replace/append/no-trailing-newline/missing-file
+cases in isolation before pushing, since this diff touches no application code and has no CI
+coverage of its own.
+
+**PR #155 merged (`87f5c53`), then actually re-run against the real Pi** to verify the fix in
+production rather than trusting the isolated tests alone: `.env` now carries a fresh `APP_COMMIT`
+line at mode 600, and `bash scripts/backup.sh` (no manual export) succeeds standalone. `/api/health`
+and `docker ps` independently confirm the deployed commit and an untouched, healthy Home Assistant
+co-tenant, same verification discipline as every deploy this session.
+
+**Mirrored the new `DECISIONS.md` entry to `main`** via PR #156 — a stable-doc sync, same pattern
+already used for PLAYBOOK/GUARDRAILS entries — and added a short note on `main`'s copy pointing
+back to the home branch, since two prior ticks (2026-09-05, recorded earlier in this file) read
+`main`'s stale `DECISIONS.md` and mis-reported a standing approval as missing. Small, targeted,
+doc-only; did not attempt to backfill the rest of the accumulated drift between the two copies.
+
+**No new `IMPROVEMENTS.md` entry this tick** — #154/#155 is an application/ops bug with its own
+GitHub issue and fix, not orchestration-process friction; it's tracked where application bugs
+belong, not in the orchestration loop's own log.
+
+---
+
 ## Tick — 2026-09-08 (#131 shipped: UI Wave 3, closing out the three-wave UI review; a dead subagent handled cleanly)
 
 Continuation of the same session. Owner said "ok next" after the prior tick's hand-off/deploy
