@@ -122,7 +122,6 @@ export default function PersonalBests() {
         isOpen={addOpen}
         onToggle={() => setAddOpen(o => !o)}
         style={{ marginTop: 14 }}
-        bodyPadding={`${space.xl}px`}
         header={<Eyebrow color={colors.mint}>+ Add</Eyebrow>}
       >
         <form onSubmit={submit} className="personal-bests-form">
