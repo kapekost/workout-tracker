@@ -92,7 +92,7 @@ export default function ExerciseDetails({ ex, color }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               background: colors.border, border: `1px solid ${color}44`,
               borderRadius: 12, padding: '16px 20px', color,
-              textDecoration: 'none', fontWeight: type.weight.bold, fontSize: '0.9rem'
+              textDecoration: 'none', fontWeight: type.weight.bold, fontSize: type.size.body
             }}>
             <span style={{ fontSize: '1.4rem' }}>▶</span>
             Watch form demo on YouTube

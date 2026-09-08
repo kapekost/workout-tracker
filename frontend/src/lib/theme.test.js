@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { colors } from './theme'
+import { colors, type } from './theme'
+
+// 2026-09-06 UI review, item 16: the two literal font sizes duplicated
+// across 12 call sites (8 at 0.9rem, 4 at 1.1rem) — a deliberately narrow
+// addition, not a rationalisation of the type scale's other one-off sizes.
+describe('type.size — item 16 of the 2026-09-06 UI review', () => {
+  it('adds exactly the two tokens covering the duplicated literal sizes', () => {
+    expect(type.size.body).toBe('0.9rem')
+    expect(type.size.strong).toBe('1.1rem')
+  })
+})
 
 // These 9 values must stay byte-identical to index.css's :root custom
 // properties (frontend/src/index.css:24-32). The two layers serve

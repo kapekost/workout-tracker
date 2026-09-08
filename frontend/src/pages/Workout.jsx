@@ -53,7 +53,7 @@ function SetRow({ s, armed, onRequestDelete }) {
           aria-label={armed ? `confirm delete set ${s.set_number}` : `delete set ${s.set_number}`}
           style={{ background: 'none', border: 'none', cursor: 'pointer',
             color: armed ? colors.danger : colors.muted,
-            fontSize: armed ? type.size.base : '1.1rem', fontWeight: armed ? type.weight.bold : type.weight.regular,
+            fontSize: armed ? type.size.base : type.size.strong, fontWeight: armed ? type.weight.bold : type.weight.regular,
             width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {armed ? '✓?' : '×'}
         </button>
@@ -497,7 +497,7 @@ export default function Workout() {
                         fix (1e0d8f5) — it only needs to outrank the cues-link text within its own
                         card, not match the page heading. Tier-3 local literal per the design-tokens
                         spec's own precedent (not every value needs a token). */}
-                    <span style={{ fontWeight: type.weight.bold, fontSize: '1.1rem' }}>{ex.name}</span>
+                    <span style={{ fontWeight: type.weight.bold, fontSize: type.size.strong }}>{ex.name}</span>
                     {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
                   </div>
                   <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
@@ -583,7 +583,7 @@ export default function Workout() {
                 </div>
               </div>
               <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
-                style={{ background: color, fontSize: '0.9rem', padding: '12px' }}>
+                style={{ background: color, fontSize: type.size.body, padding: '12px' }}>
                 {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
               </button>
             </div>

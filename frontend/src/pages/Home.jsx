@@ -134,7 +134,7 @@ export default function Home() {
               borderBottom: i < next.exercises.length - 1 ? `1px solid ${colors.border}` : 'none'
             }}>
               <div>
-                <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem' }}>{ex.name}</p>
+                <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body }}>{ex.name}</p>
                 {ex.alt && <p style={{ color: colors.muted2, fontSize: type.size.base }}>{ex.alt}</p>}
               </div>
               <p className="font-mono" style={{ color, fontSize: type.size.md, fontWeight: type.weight.bold, whiteSpace: 'nowrap', marginLeft: 12 }}>

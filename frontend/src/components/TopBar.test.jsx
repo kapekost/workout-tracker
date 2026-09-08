@@ -178,12 +178,11 @@ describe('TopBar on the auth screens', () => {
     expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
   })
 
-  it('still labels the ordinary app screens and still offers the door', async () => {
+  it('still offers the door on the ordinary app screens', async () => {
     signedOut()
     renderTopBarAt('/history')
 
     expect(await screen.findByRole('link', { name: 'Log in' })).toBeInTheDocument()
-    expect(screen.getByText('History')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Back to workouts' })).not.toBeInTheDocument()
   })
 
@@ -196,5 +195,36 @@ describe('TopBar on the auth screens', () => {
 
     expect(await screen.findByRole('link', { name: 'Log in' }))
       .toHaveStyle({ color: 'rgb(156, 163, 175)' })
+  })
+})
+
+// 2026-09-06 UI review, item 15: NavBar already renders a mint label for the
+// active tab at the bottom of the same screen on every nav-tab route -- this
+// bar's own copy of it was pure duplication. Workout and Exercise have no
+// nav tab, so they're the only routes where this bar is the sole thing
+// naming the screen.
+describe('TopBar page label — item 15', () => {
+  it.each([['/'], ['/progress'], ['/history']])(
+    'drops the page label on %s, a route NavBar already labels',
+    async (path) => {
+      signedOut()
+      renderTopBarAt(path)
+      await screen.findByText('🏋 Gym Tracker')
+      expect(screen.queryByText('Home')).not.toBeInTheDocument()
+      expect(screen.queryByText('Progress')).not.toBeInTheDocument()
+      expect(screen.queryByText('History')).not.toBeInTheDocument()
+    }
+  )
+
+  it('keeps the page label on /workout, which has no nav tab', async () => {
+    signedOut()
+    renderTopBarAt('/workout/1')
+    expect(await screen.findByText('Workout')).toBeInTheDocument()
+  })
+
+  it('keeps the page label on /exercise, which has no nav tab', async () => {
+    signedOut()
+    renderTopBarAt('/exercise/upper_a/bench_press')
+    expect(await screen.findByText('Exercise')).toBeInTheDocument()
   })
 })

@@ -14,7 +14,7 @@ const labelStyle = {
 }
 const fieldStyle = {
   width: '100%', background: colors.border, color: colors.text, border: 'none',
-  borderRadius: 8, padding: '10px 8px', fontSize: '0.9rem',
+  borderRadius: 8, padding: '10px 8px', fontSize: type.size.body,
 }
 
 export default function PersonalBests() {
@@ -125,12 +125,12 @@ export default function PersonalBests() {
         <EmptyState title="No historical PBs logged yet." />
       ) : Object.entries(grouped).map(([name, rows]) => (
         <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
-          <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem', marginBottom: 8 }}>{name}</p>
+          <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body, marginBottom: 8 }}>{name}</p>
           {rows.map(r => {
             const armed = confirmId === r.id
             return (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
-                <span className="font-mono" style={{ fontSize: '0.9rem', fontWeight: type.weight.bold, color: colors.amber }}>{r.weight_kg}kg × {r.reps}</span>
+                <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.amber }}>{r.weight_kg}kg × {r.reps}</span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}
                   aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}

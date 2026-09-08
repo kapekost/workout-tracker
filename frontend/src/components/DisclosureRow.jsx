@@ -1,5 +1,5 @@
 import { forwardRef } from 'react'
-import { colors, space } from '../lib/theme'
+import { colors, space, type } from '../lib/theme'
 
 // The expandable-row + chevron shell duplicated verbatim between Workout.jsx
 // and History.jsx (design-system inventory §3.2e): a `card` wrapper, a
@@ -48,7 +48,7 @@ const DisclosureRow = forwardRef(function DisclosureRow(
         }}
       >
         {header}
-        <span style={{ color: colors.muted, fontSize: '1.1rem' }}>{isOpen ? '∧' : '∨'}</span>
+        <span style={{ color: colors.muted, fontSize: type.size.strong }}>{isOpen ? '∧' : '∨'}</span>
       </button>
       {isOpen && (
         <div style={{ borderTop: `1px solid ${colors.border}`, padding: bodyPadding }}>
