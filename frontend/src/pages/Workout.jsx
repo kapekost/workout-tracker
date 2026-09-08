@@ -266,7 +266,7 @@ export default function Workout() {
   if (summary) return (
     <div style={{ paddingTop: 24 }}>
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 16 }}>Workout complete 🎉</h1>
-      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+      <div className="card" style={{ padding: space.xxl, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
         <Stat label="Sets" value={summary.totalSets} />
         <Stat label="Volume" value={`${summary.totalVolume.toLocaleString()} kg`} />
@@ -481,7 +481,10 @@ export default function Workout() {
             // top of the *viewport*, but the header is position: fixed and would cover
             // it. --header-height is already published on .page-shell (App.jsx) and
             // inherits down, so this needs no new plumbing.
-            style={{ marginBottom: space.md, scrollMarginTop: 'calc(var(--header-height, 0px) + 8px)' }} bodyPadding="16px"
+            // bodyPadding no longer needs an override here -- item 20
+            // resolved DisclosureRow's default to the same space.xl value
+            // this used to spell out explicitly.
+            style={{ marginBottom: space.md, scrollMarginTop: 'calc(var(--header-height, 0px) + 8px)' }}
             isOpen={isOpen}
             onToggle={async () => {
               const opening = !isOpen

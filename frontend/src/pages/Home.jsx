@@ -11,7 +11,7 @@ import Eyebrow from '../components/Eyebrow'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 export function planForDay(workoutDay) {
   return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
@@ -123,7 +123,7 @@ export default function Home() {
 
       {/* Exercise preview */}
       {next.exercises.length > 0 && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
           <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             {next.exercises.length} exercises
           </Eyebrow>
@@ -180,7 +180,7 @@ export default function Home() {
           <div className="card" style={{ overflow: 'hidden' }}>
             <button type="button" onClick={() => nav('/history')} style={{
               width: '100%', background: 'none', border: 'none', margin: 0, font: 'inherit',
-              color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: 16,
+              color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: space.xl,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <div>

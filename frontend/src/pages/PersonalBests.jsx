@@ -99,7 +99,7 @@ export default function PersonalBests() {
       {loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
         <EmptyState title="No historical PBs logged yet." />
       ) : Object.entries(grouped).map(([name, rows]) => (
-        <div key={name} className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
+        <div key={name} className="card" style={{ padding: space.xl, marginBottom: 10 }}>
           <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body, marginBottom: 8 }}>{name}</p>
           {rows.map(r => {
             const armed = confirmId === r.id

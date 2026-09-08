@@ -3,7 +3,7 @@ import { getDemoFrames } from '../lib/demos'
 import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
 import Chip from './Chip'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 // Target / cues / demo body shared by the standalone Exercise page and the
 // in-workout cues modal, so both stay in sync and only track views once.
@@ -41,7 +41,7 @@ export default function ExerciseDetails({ ex, color }) {
       </div>
 
       {/* Target */}
-      <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+      <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
         <Eyebrow style={{ marginBottom: 12 }}>Target</Eyebrow>
         <div style={{ display: 'flex', gap: 32 }}>
           <div>
@@ -56,7 +56,7 @@ export default function ExerciseDetails({ ex, color }) {
       </div>
 
       {/* Form cues */}
-      <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+      <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
         <Eyebrow style={{ marginBottom: 14 }}>Form cues</Eyebrow>
         <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {ex.cues.map((cue, i) => (
@@ -76,7 +76,7 @@ export default function ExerciseDetails({ ex, color }) {
 
       {/* Demo */}
       {frames && !demoFailed ? (
-        <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+        <div className="card" style={{ padding: space.md, marginBottom: space.md }}>
           <Eyebrow style={{ marginBottom: 10 }}>Demo</Eyebrow>
           {/* crossOrigin makes the SW see a real CORS response (jsDelivr sends
               ACAO:*) instead of an opaque one — opaque entries can't be cached
