@@ -12,11 +12,22 @@ function hexToRgb(hex) {
 
 describe('Chip', () => {
   it('renders the stateless label form as a plain, non-interactive span', () => {
-    render(<Chip color={colors.muted}>Chest</Chip>)
+    render(<Chip>Chest</Chip>)
     const el = screen.getByText('Chest')
     expect(el.tagName).toBe('SPAN')
     expect(el.style.color).toBe(hexToRgb(colors.muted))
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  // 2026-09-06 UI review, item 18a: `color` used to be passed to label chips
+  // at two call sites even though this branch never reads it -- a silent
+  // no-op. Both call sites were cleaned up; this guards against either the
+  // prop quietly starting to apply here unnoticed, or (the actual bug) a
+  // caller passing it and expecting an effect it doesn't have.
+  it('ignores an explicit color on the stateless label form (non-toggle branch always renders colors.muted)', () => {
+    render(<Chip color={colors.amber}>Chest</Chip>)
+    const el = screen.getByText('Chest')
+    expect(el.style.color).toBe(hexToRgb(colors.muted))
   })
 
   it('renders as a clickable button when onClick is given, and fires it', () => {

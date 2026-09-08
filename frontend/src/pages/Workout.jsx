@@ -453,7 +453,11 @@ export default function Workout() {
             Active session
           </Eyebrow>
           <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
+          {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
+              PersonalBests' page-subtitle convention -- this was the one
+              page whose subtitle used a different color/size pair
+              (2026-09-06 UI review, item 18c). */}
+          <p style={{ color: colors.muted2, fontSize: type.size.lg, marginTop: 2 }}>{session.date}</p>
         </div>
         <button className="tap-target" onClick={finishWorkout} disabled={finishing}
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color,
@@ -498,7 +502,12 @@ export default function Workout() {
                         card, not match the page heading. Tier-3 local literal per the design-tokens
                         spec's own precedent (not every value needs a token). */}
                     <span style={{ fontWeight: type.weight.bold, fontSize: type.size.strong }}>{ex.name}</span>
-                    {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
+                    {/* The day colour, not mint: the set-dots beside it (below)
+                        already fill in `color` to mean "done", so a mint check
+                        here was a second "done" colour in the same row — on
+                        Lower B, a mint tick next to orange dots (2026-09-06 UI
+                        review, item 18b). One colour, one meaning. */}
+                    {complete && <span style={{ color, fontSize: type.size.base }}>✓</span>}
                   </div>
                   <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
                     {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
@@ -599,10 +608,12 @@ export default function Workout() {
               </div>
             )}
 
-            {/* Muscles */}
+            {/* Muscles. No `color` here: Chip's non-toggle (label) branch
+                hardcodes colors.muted regardless of what's passed, so this
+                was a silent no-op (2026-09-06 UI review, item 18a). */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
               {ex.muscles.map(m => (
-                <Chip key={m} color={colors.muted}>{m}</Chip>
+                <Chip key={m}>{m}</Chip>
               ))}
             </div>
           </DisclosureRow>

@@ -32,8 +32,11 @@ export default function ExerciseDetails({ ex, color }) {
     <>
       {/* Muscles */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+        {/* No `color` here: Chip's non-toggle (label) branch hardcodes
+            colors.muted regardless of what's passed, so color={color} was a
+            silent no-op (2026-09-06 UI review, item 18a). */}
         {ex.muscles.map(m => (
-          <Chip key={m} color={color}>{m}</Chip>
+          <Chip key={m}>{m}</Chip>
         ))}
       </div>
 
