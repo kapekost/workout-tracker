@@ -3,6 +3,27 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+> **Note:** this file is mirrored from the orchestration home branch
+> (`claude/workout-tracker-backlog-bu9qnw`), which is the source of truth and is not merged to
+> `main` (2026-09-04 decision on that branch). `main`'s copy lags — entries here may be missing
+> intermediate decisions recorded on the home branch. Read the home branch directly for the full,
+> current log.
+
+## 2026-09-08 — "Complete" means merged and deployed, not just merged
+
+Owner, right after a tick reported a UI wave as "shipped" while it was actually only merged to
+`main` and sitting undeployed: work isn't done until it's reached the actual running app, not just
+merged. Tick summaries must distinguish merged-not-deployed from actually-deployed, and default
+toward closing that gap when safe to (no pending schema/migration risk, no standing reason to hold
+back) — existing deploy discipline (check for schema changes, take a backup, independently
+re-verify rather than trusting the deploy script's own assertion) still applies in full; this
+changes the default toward proceeding to deploy, not the care taken once there. Same tick, trying
+to deploy responsibly surfaced a real bug (#154/#155): #126's `APP_COMMIT`-required change had only
+ever been patched into `scripts/deploy.sh`'s own invocation, silently breaking `scripts/backup.sh`
+on every deploy since. Only found by actually operating the deployed thing — the same principle
+this instruction is asking for at the reporting level. Full record on the home branch's
+`DECISIONS.md`, same date.
+
 ## 2026-09-06 — Any UI change gets a UI/UX review, and gets looked at in a browser
 
 Owner, after opening #105's login screen for the first time: "it's nothing to standards expected
