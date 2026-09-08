@@ -76,10 +76,29 @@ echo "==> restarting service"
 # problem rather than a stale clone.
 # --ff-only so a diverged clone halts the deploy loudly rather than quietly
 # merging on the target.
+#
+# APP_COMMIT is also written into .env here, not just exported for this one
+# command: Compose auto-loads .env from the project directory for every
+# invocation, so this is what lets scripts/backup.sh (or a bare `docker
+# compose ...` typed by hand) resolve `${APP_COMMIT:?...}` too. Before this,
+# #126 made that variable required but only ever supplied it inline to this
+# one `up` call — so backup.sh's own `docker compose exec` calls failed the
+# interpolation outright the moment a deploy landed the stricter compose
+# file, breaking the app's only backup mechanism with no code change to
+# backup.sh itself. Real incident, 2026-09-08.
+#
+# `.env` holds live secrets (RESEND_API_KEY, ...) and stays mode 600 — the
+# rewrite runs under `umask 077` so `.env.new` is never briefly wider than
+# that, and fails loudly (via `-f .env` first) rather than silently dropping
+# every other line if the file is ever missing, instead of only tolerating
+# grep's own "no APP_COMMIT line to remove" exit status.
 # shellcheck disable=SC2086
 ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
   "cd '$DEPLOY_APP_DIR' \
      && git pull --ff-only \
+     && test -f .env \
+     && (umask 077; { grep -v '^APP_COMMIT=' .env || true; printf 'APP_COMMIT=%s\n' '$short_sha'; } > .env.new) \
+     && mv .env.new .env && chmod 600 .env \
      && APP_COMMIT='$short_sha' docker compose up -d --force-recreate workout-tracker"
 
 echo "==> verifying /api/health"
