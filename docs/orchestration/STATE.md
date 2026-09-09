@@ -12,29 +12,24 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#135 shipped** (security review of the accounts system, once the gate
-  closed) — the overdue PLAYBOOK step-5 milestone-checkpoint review, now that accounts and all
-  three UI waves are shipped and deployed. Real review, not a rubber stamp: 238/238 backend tests
-  run, all 30 route decorators hand-cross-checked against the #86 gate's own completeness table,
-  every `acting_profile_id` call site and #87's member-import isolation inspected directly. Came
-  back clean except one low-severity finding, **#157** — `forgot_password`'s known-email branch
-  does an extra DB write before responding while the unknown-email branch doesn't, a timing
-  side-channel `login()` already closed for itself (`_dummy_hash()`) but this endpoint never got
-  the same treatment. P3/`ready`, correctly rated low-exploitability (tailnet-only, rate-limited,
-  ~4 known users). Independently re-verified after the subagent's own report: #135 genuinely
-  closed, #157 genuinely filed with the labels claimed. **Review-only — no app code changed,
-  nothing new to deploy.** Full breakdown: `HISTORY.md`'s 2026-09-09 entry.
-- **Next action:** Nothing `ready` is blocked. Pickable on their own merits: #125, #127, #138,
-  #145, #157 (new), #137, #141 (`ready` as of this tick — see below). **#132** (history scrub)'s
-  named blocker (the accounts chain, #86→#87→#124) closed 2026-09-07, so the old "queued behind
-  accounts" note no longer applies — corrected here — but it's stuck on a real doc contradiction,
-  see Needs owner. `#152`/`#148`/other `intake` unchanged from last tick.
+- **Current focus:** **#125 planned** (deploy reach + running-version visibility) — plan-only PR
+  #160 merged, no app code changed yet. Plan: `docs/superpowers/plans/
+  2026-09-09-125-deploy-reach-version-visibility.md` (233 lines). Key calls: version chip in
+  `TopBar.jsx` (rendered on every route incl. `/login`); `vite.config.js`'s `registerType` moves
+  `autoUpdate` → `prompt` (verified empirically — `autoUpdate` has no waiting state to prompt from
+  at all, so the Issue's ask was structurally blocked by the current config); mid-workout
+  suppression reuses the existing `shouldCheckForUpdate` gate for display, not a new flag; no new
+  dependency. Full breakdown: `HISTORY.md`'s 2026-09-09-later entry.
+- **Next action:** **#125 is `ready` to execute** against its new plan — next tick (or this one,
+  owner's call) should run it directly, no further planning needed. Also still pickable on their
+  own merits: #127, #138, #145, #157, #137, #141. **#132** stays blocked on the GUARDRAILS
+  contradiction (see Needs owner, unchanged). `#152`/`#148`/other `intake` unchanged.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#125** — claimed 2026-09-09T21:31:09Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick.** Its

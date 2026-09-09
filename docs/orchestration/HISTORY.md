@@ -9,6 +9,48 @@
 
 ---
 
+## Tick — 2026-09-09 later (#125 planned: deploy reach + running-version visibility)
+
+Reconciled first: no drift since the previous tick's HEAD (`1b1985c`); no in-flight claim, no open
+PRs but the two Dependabot bumps (#158/#159, untouched — not this tick's concern), no new owner
+comments waiting on #132/#30/#32 or any in-progress Issue. Picked **#125** (P1, effort:M) —
+`#132` is also P1 but stays untouched pending the owner's resolution of the GUARDRAILS
+contradiction flagged in the prior tick; #125 has no such blocker. Claimed on this branch before
+any work, per "Claiming work".
+
+**#125 wasn't decomposed** — the Issue has scope, out-of-scope, and acceptance criteria, but only
+a loose "suggested shape," not an ordered task sequence with named files — so this tick took the
+plan gate rather than executing directly, per PLAYBOOK step 3.
+
+Dispatched a subagent to brainstorm the design and write the plan. Key decisions it made and
+recorded in the plan (all non-interactive, no owner input needed — every fork had a clear best
+answer from the existing code): the version chip mounts in `TopBar.jsx`, not the existing
+`Home.jsx` `VersionStamp`, since `TopBar` is the one chrome component rendered on every route
+including `/login` — where #105's silent-staleness incident actually hurt. `vite.config.js`'s
+`registerType` moves from `'autoUpdate'` to `'prompt'`, verified empirically (built both ways,
+diffed `dist/sw.js`): `autoUpdate` calls `skipWaiting()`/`clientsClaim()` unconditionally with no
+waiting state to prompt from at all, so the issue's core ask was structurally impossible under the
+current config — this also incidentally fixes an unasked-for bug (silent reload on any screen
+today, not just mid-workout). Mid-workout suppression reuses the existing
+`shouldCheckForUpdate(pathname)` gate for the *display* too, so check-trigger and display can never
+disagree — no new flag invented. A small `createUpdateStore()` factory bridges the SW's callbacks
+(outside React) to the new `VersionBadge` via React 19's built-in `useSyncExternalStore` — no new
+dependency, matching the Issue's explicit "no new dependency" constraint.
+
+Plan landed at `docs/superpowers/plans/2026-09-09-125-deploy-reach-version-visibility.md`, 233
+lines — inside this repo's 200-300 target
+for effort:M. Branch `docs/125-plan-deploy-reach-version-visibility` → PR **#160**, CI green,
+merged (squash, branch deleted) per the standing agent-watches-then-merges policy — plan-only, no
+app code changed, so nothing new to deploy. Issue #125's body now carries the required
+`**Plan:**` link line; a summary comment was posted on the Issue linking the plan and PR.
+Independently re-verified after the subagent's report: PR #160 genuinely merged, #125's body
+genuinely carries the plan link, the plan file genuinely on `main` at the stated path.
+
+**Execution of #125's plan is next tick's work, not this one** — per the plan gate, this tick
+stops once the plan is written and linked.
+
+No `IMPROVEMENTS.md` entry this tick — no friction found worth logging.
+
 ## Tick — 2026-09-09 (#135 security review: clean except one low-severity timing gap, filed as #157)
 
 Reconciled first: no drift since the last tick (home branch, main, and #135 all exactly as the
