@@ -34,7 +34,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#125** — claimed 2026-09-09T21:31:09Z, live session.
 
 ## Needs owner
 - **#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick.** Its
