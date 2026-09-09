@@ -9,6 +9,63 @@
 
 ---
 
+## Tick — 2026-09-09 (#135 security review: clean except one low-severity timing gap, filed as #157)
+
+Reconciled first: no drift since the last tick (home branch, main, and #135 all exactly as the
+2026-09-08 entries left them), no new owner comments waiting, accounts (#86/#87/#124) and the
+#126/#142 incidents all confirmed closed via direct issue reads. Picked **#135** — P1, effort:M,
+its own precondition ("once the gate is closed") now satisfied, and the overdue PLAYBOOK step-5
+milestone-checkpoint review now that accounts plus all three UI waves are shipped and deployed. Not
+destructive (findings + filed issues only, no inline fixes), so no approval gate applied. Claimed
+on this branch before dispatch, per "Claiming work".
+
+Dispatched a subagent to review the auth core, the #86 gate's completeness, multi-user isolation
+(`acting_profile_id`, #87's export/import role split), and client/deployment posture (#124/#142's
+logout-wipe and cache-versioning, `APP_COMMIT` handling), against #135's own checklist. First
+dispatch died immediately on a platform session rate-limit (zero work done — confirmed via #135's
+unchanged comment count and an unchanged home-branch HEAD before retrying — a genuine infra
+failure, not a finding). Waited past the stated reset and re-verified nothing had moved in the gap
+before retrying clean.
+
+**Result: real, thorough review — 238/238 backend tests run, all 30 route decorators hand-checked
+against the gate's own table — and mostly clean.** One finding: **#157**, `forgot_password`'s
+known-email branch does an extra DB insert+commit before responding while the unknown-email branch
+just returns, a timing side-channel `login()` already closed for itself via `_dummy_hash()` but
+`forgot_password` never got the equivalent treatment. Correctly rated P3/low-exploitability
+(tailnet-only, rate-limited, ~4 known users who already know each other's emails) — filed for
+consistency with the login endpoint's own stated threat model, not because it's a live risk.
+Everything else — cookie attributes, session fixation/invalidation, token entropy/single-use/
+expiry, the gate's route-table completeness, every `acting_profile_id` call site, member import's
+inability to write cross-profile, `APP_COMMIT`'s required-not-fallback form — came back clean on
+direct inspection, not asserted. Comment posted on #135 with the full breakdown; #135 closed
+completed. Verified independently after the subagent reported: #135 genuinely closed, #157
+genuinely filed with the labels claimed.
+
+**Also this tick:** relabeled **#141** `ready` — it carried no state label at all (no
+`ready`/`intake`/`blocked`), the exact "orphaned split-created child issue" pattern already
+flagged as a `[template]` improvement candidate; it was sitting invisible to both tracks. Corrected
+a stale "queued behind accounts" note on #132/#137 in Cursor — the accounts chain it named
+(#86→#87→#124) has been closed since 2026-09-07, so nothing currently blocks either.
+
+**Found, not resolved: a real contradiction inside this repo's own docs.** GUARDRAILS' destructive-
+ops section lets an approved history-rewrite/force-push (exactly #132's shape) proceed on a fresh
+human approval — which #132 already carries. But GUARDRAILS' Hard-stops section separately lists
+"a force-push... is attempted" as unconditional, "no flag overrides these." Per GUARDRAILS' own
+instruction (an ambiguous or self-contradicting requirement is itself a hard stop), left #132
+untouched and flagged it for the owner rather than picking a reading — the stakes (a full-history
+rewrite + force-push on a public repo) are too high to resolve by inference.
+
+**Harness friction, not repo bugs, logged to IMPROVEMENTS.md (`[unsure]` ×2, cursor advanced
+23→25):** this session's injected CLAUDE.md/AGENTS.md were for a different attached repo
+(kapekost-web) than the one `/orchestrate` actually targets here — caught by exact-text-matching
+the command banner against each repo's own `.claude/commands/orchestrate.md`, not by anything in
+this file; and the outer session's generic single-branch dispatch assignment conflicted with this
+repo's own multi-branch orchestration design, resolved by treating this repo's checked-in docs as
+the explicit permission the outer rule carves out for. Both are Claude Code Remote/task-dispatch-
+level, not fixable via a PR here.
+
+---
+
 ## Tick — 2026-09-08 (deploy #131; a real backup-tooling bug found and fixed; "complete means deployed" recorded)
 
 Continuation of the same session, immediately after #131 shipped. Owner: "ok lets make sure to
