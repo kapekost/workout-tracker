@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
+import VersionBadge from './VersionBadge'
 import { colors, type } from '../lib/theme'
 import { useSession } from '../lib/session'
 
@@ -54,12 +55,15 @@ export default function TopBar() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px'
       }}>
-        <span style={{
-          fontWeight: type.weight.bold, fontSize: type.size.body, color: colors.text,
-          letterSpacing: type.labelTracking, whiteSpace: 'nowrap', flexShrink: 0
-        }}>
-          🏋 Gym Tracker
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, minWidth: 0 }}>
+          <span style={{
+            fontWeight: type.weight.bold, fontSize: type.size.body, color: colors.text,
+            letterSpacing: type.labelTracking, whiteSpace: 'nowrap', flexShrink: 0
+          }}>
+            🏋 Gym Tracker
+          </span>
+          <VersionBadge />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           {authScreen ? (
             // With NavBar gone from these screens, this is the only way back
