@@ -15,7 +15,15 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt', not 'autoUpdate': 'autoUpdate' never wires onNeedRefresh at
+      // all -- it calls self.skipWaiting()/clientsClaim() unconditionally the
+      // moment the generated worker's top-level code runs, so there is no
+      // "waiting" state to prompt from and no gate on the RELOAD, only on
+      // when the update CHECK runs (see swUpdate.js). 'prompt' instead emits
+      // a worker that skips waiting only on an explicit postMessage, which is
+      // what main.jsx's onNeedRefresh/updateServiceWorker wiring (#125) needs
+      // to hold a found update until the user taps to apply it.
+      registerType: 'prompt',
       // main.jsx registers explicitly (it needs the registration object to
       // drive its own update checks), so don't also inject a register script.
       injectRegister: null,

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './index.css'
-import { shouldCheckForUpdate } from './lib/swUpdate'
+import { shouldCheckForUpdate, updateStore } from './lib/swUpdate'
 
 // An installed PWA resumed from the background never does a fresh navigation,
 // so the browser's own update check does not fire and a deploy stays invisible
@@ -11,13 +11,19 @@ import { shouldCheckForUpdate } from './lib/swUpdate'
 // the app becomes visible (the moment a stale build is most likely and least
 // disruptive to replace), and on a slow timer for a session left open.
 //
-// registerType is 'autoUpdate', so a found update reloads the page — which is
-// why shouldCheckForUpdate refuses while a workout is in progress.
+// registerType is 'prompt', so a found update waits rather than reloading on
+// its own — updateStore.markReady() below flags it and VersionBadge (#125)
+// shows a tap-to-reload prompt, gated the same way shouldCheckForUpdate
+// already gates whether the check itself runs.
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000
 
-registerSW({
+const updateServiceWorker = registerSW({
   immediate: true,
+  onNeedRefresh() {
+    updateStore.markReady()
+  },
   onRegisteredSW(_swUrl, registration) {
+    updateStore.setRegistration(registration)
     if (!registration) return
     const check = () => {
       if (shouldCheckForUpdate(window.location.pathname)) registration.update()
@@ -28,6 +34,7 @@ registerSW({
     setInterval(check, UPDATE_CHECK_INTERVAL_MS)
   },
 })
+updateStore.setAction(updateServiceWorker)
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
