@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { shouldCheckForUpdate } from './swUpdate'
+import { describe, it, expect, vi } from 'vitest'
+import { shouldCheckForUpdate, createUpdateStore } from './swUpdate'
 
 describe('shouldCheckForUpdate', () => {
   // The service worker registers with registerType: 'autoUpdate', so finding a
@@ -30,5 +30,64 @@ describe('shouldCheckForUpdate', () => {
     // A missed check costs one deploy cycle; a bad reload costs logged work.
     expect(shouldCheckForUpdate(undefined)).toBe(false)
     expect(shouldCheckForUpdate(null)).toBe(false)
+  })
+})
+
+describe('createUpdateStore', () => {
+  it('starts with no update ready', () => {
+    const store = createUpdateStore()
+    expect(store.getSnapshot()).toBe(false)
+  })
+
+  it('markReady flips the snapshot and notifies subscribers', () => {
+    const store = createUpdateStore()
+    const cb = vi.fn()
+    store.subscribe(cb)
+    store.markReady()
+    expect(store.getSnapshot()).toBe(true)
+    expect(cb).toHaveBeenCalledTimes(1)
+  })
+
+  it('subscribe returns an unsubscribe function that stops further notifications', () => {
+    const store = createUpdateStore()
+    const cb = vi.fn()
+    const unsubscribe = store.subscribe(cb)
+    unsubscribe()
+    store.markReady()
+    expect(cb).not.toHaveBeenCalled()
+  })
+
+  it('applyUpdate calls the action set via setAction', () => {
+    const store = createUpdateStore()
+    const action = vi.fn()
+    store.setAction(action)
+    store.applyUpdate()
+    expect(action).toHaveBeenCalledTimes(1)
+  })
+
+  it('applyUpdate is a no-op if no action has been set yet', () => {
+    const store = createUpdateStore()
+    expect(() => store.applyUpdate()).not.toThrow()
+  })
+
+  it('checkNow calls update() on the registration set via setRegistration', () => {
+    const store = createUpdateStore()
+    const registration = { update: vi.fn() }
+    store.setRegistration(registration)
+    store.checkNow()
+    expect(registration.update).toHaveBeenCalledTimes(1)
+  })
+
+  it('checkNow is a no-op if no registration has been set yet', () => {
+    const store = createUpdateStore()
+    expect(() => store.checkNow()).not.toThrow()
+  })
+
+  it('two createUpdateStore() instances do not share state', () => {
+    const storeA = createUpdateStore()
+    const storeB = createUpdateStore()
+    storeA.markReady()
+    expect(storeA.getSnapshot()).toBe(true)
+    expect(storeB.getSnapshot()).toBe(false)
   })
 })
