@@ -45,6 +45,19 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // clientsClaim without skipWaiting: the new worker still only
+        // activates on the explicit SKIP_WAITING postMessage (main.jsx's tap
+        // handler, #125) — clientsClaim just makes that activate claim the
+        // tab that triggered it, so `navigator.serviceWorker.controller`
+        // actually changes and a `controllerchange` event fires at all (see
+        // main.jsx's own explicit listener, which is what reloads — see that
+        // comment for why vite-plugin-pwa's own built-in reload trigger can't
+        // be relied on here). Without clientsClaim, an uncontrolled tab (any
+        // first-ever visit, i.e. the common case) has nothing to transition
+        // on tap: the worker still activates in the background, but no event
+        // ever tells the page it's safe to reload. Traced empirically in
+        // Task 4 verification.
+        clientsClaim: true,
         // Purges old-build api-reads-* caches on activate — see #142 and
         // public/api-cache-cleanup.js for why this needs importScripts
         // rather than a runtimeCaching option.

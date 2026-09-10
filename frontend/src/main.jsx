@@ -34,7 +34,18 @@ const updateServiceWorker = registerSW({
     setInterval(check, UPDATE_CHECK_INTERVAL_MS)
   },
 })
-updateStore.setAction(updateServiceWorker)
+// workbox-window's own auto-reload (which vite-plugin-pwa's updateServiceWorker
+// return value relies on) only fires on a `controllerchange` whose `isUpdate`
+// flag is true — and that flag is a one-time snapshot taken when the page
+// first loads, of whether a service worker was *already* controlling it then.
+// For the "resumed from background, never re-navigated" case described above,
+// that snapshot is permanently false, so tapping the prompt would silently
+// activate the new worker without ever reloading. Reload directly off the
+// real `controllerchange` instead of trusting that snapshot.
+updateStore.setAction(() => {
+  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true })
+  updateServiceWorker()
+})
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
