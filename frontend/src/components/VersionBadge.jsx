@@ -44,12 +44,21 @@ export default function VersionBadge({ store = updateStore }) {
       <span className="font-mono" style={{ color: colors.muted2, fontSize: type.size.xs }}>
         v {__APP_COMMIT__}
       </span>
-      <button type="button" onClick={handleCheck} aria-label="Check for update" className="tap-target"
+      {/* Not `.tap-target`: that class centers its invisible 44px hit-zone on the
+          button, which bleeds upward into the title text directly above this row
+          (confirmed by a real hit-test: clicking the title triggered this button).
+          Anchoring the zone's top edge to the button's own top instead keeps the
+          full 44px target but only extends it downward/sideways, into empty space. */}
+      <button type="button" onClick={handleCheck} aria-label="Check for update"
         style={{
-          background: 'none', border: 'none', color: colors.muted2, cursor: 'pointer',
-          fontSize: type.size.xs, padding: 0, lineHeight: 1,
+          position: 'relative', background: 'none', border: 'none', color: colors.muted2,
+          cursor: 'pointer', fontSize: type.size.xs, padding: 0, lineHeight: 1,
         }}>
         {checking ? 'Checking…' : '⟳'}
+        <span aria-hidden="true" style={{
+          position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
+          width: 'max(100%, 44px)', height: 44,
+        }} />
       </button>
     </div>
   )
