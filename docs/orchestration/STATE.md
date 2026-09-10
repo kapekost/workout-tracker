@@ -29,7 +29,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#125** — claimed 2026-09-10T03:54:12Z, live session (executing its merged plan).
 
 ## Needs owner
 - **#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick.** Its
