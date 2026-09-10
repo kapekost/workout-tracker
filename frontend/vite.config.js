@@ -15,7 +15,15 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt', not 'autoUpdate': 'autoUpdate' never wires onNeedRefresh at
+      // all -- it calls self.skipWaiting()/clientsClaim() unconditionally the
+      // moment the generated worker's top-level code runs, so there is no
+      // "waiting" state to prompt from and no gate on the RELOAD, only on
+      // when the update CHECK runs (see swUpdate.js). 'prompt' instead emits
+      // a worker that skips waiting only on an explicit postMessage, which is
+      // what main.jsx's onNeedRefresh/updateServiceWorker wiring (#125) needs
+      // to hold a found update until the user taps to apply it.
+      registerType: 'prompt',
       // main.jsx registers explicitly (it needs the registration object to
       // drive its own update checks), so don't also inject a register script.
       injectRegister: null,
@@ -37,6 +45,22 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // clientsClaim without skipWaiting: the new worker still only
+        // activates on the explicit SKIP_WAITING postMessage (main.jsx's tap
+        // handler, #125) — clientsClaim just makes that activate claim the
+        // tab that triggered it, so `navigator.serviceWorker.controller`
+        // actually changes and a `controllerchange` event fires at all (see
+        // main.jsx's own explicit listener, which is what reloads — see that
+        // comment for why vite-plugin-pwa's own built-in reload trigger can't
+        // be relied on here). Without clientsClaim, an uncontrolled tab (any
+        // first-ever visit, i.e. the common case) has nothing to transition
+        // on tap: the worker still activates in the background, but no event
+        // ever tells the page it's safe to reload. Traced empirically in
+        // Task 4 verification. (clientsClaim also means one tap claims every
+        // open tab/instance for this origin, not just the one that tapped —
+        // main.jsx's `onNeedReload() {}` is what stops that from reloading
+        // any of the others.)
+        clientsClaim: true,
         // Purges old-build api-reads-* caches on activate — see #142 and
         // public/api-cache-cleanup.js for why this needs importScripts
         // rather than a runtimeCaching option.
