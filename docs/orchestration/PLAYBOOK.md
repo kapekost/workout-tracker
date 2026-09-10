@@ -28,7 +28,14 @@ go straight to code, and does not get invented scope on their behalf.
    `ready` (or `needs-clarification` if it still doesn't pass) directly. If it needs splitting, open
    properly-scoped child Issues (type/priority/effort labeled, INVEST-checked, referencing the
    `intake` Issue), add them to the Project board ranked, then close the `intake` Issue with a
-   pointer to its children. **A third outcome**: owner Q&A can shape real direction — what to build,
+   pointer to its children. **Every child needs a state label — `ready`, `intake` or
+   `needs-clarification` — set explicitly.** The issue forms default to `intake`, but that default
+   only applies to Issues created through the UI; `gh issue create` during a split bypasses the form
+   entirely, so a child can land with type/priority/effort and no state at all. Such an Issue is
+   invisible to both tracks: `gh issue list --label ready` skips it and intake triage never sees it.
+   Real case in this repo: #141 sat with no state label at all, invisible to both tracks, until a
+   tick's reconcile step caught it (2026-09-09).
+   **A third outcome**: owner Q&A can shape real direction — what to build,
    what's explicitly out of scope — without yet producing something concrete enough to size or split.
    The mechanism itself still needs a written spec (this repo's `docs/superpowers/specs/` convention,
    typically via `superpowers:brainstorming` → spec → plan) before it can become `ready`. When that
@@ -155,6 +162,13 @@ only because the owner happened to ask about it, not by anything in this file. H
    missing tool, an outdated doc) as a named section of the subagent's result, and have the
    controller log it with `scripts/append_improvement.sh <local|template|unsure> "<note>"` from the
    home branch at step 8.
+   **If a dispatched subagent dies mid-task** (an infra error, a dropped connection, a rejected call
+   that may have started anyway) **before re-dispatching, check for salvageable work first** —
+   `git worktree list` for a worktree it may have created, and inspect it for uncommitted or
+   unpushed commits. Re-dispatching blind risks either discarding real work or producing a silent
+   duplicate of it. Only re-dispatch clean once you've confirmed there's nothing to recover — this
+   is exactly what caught the #131 dead-dispatch (2026-09-08) and the #130 rejected-but-still-ran
+   duplicate (2026-09-07) before either cost more than one item's worth of rework.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
 

@@ -9,6 +9,26 @@
 
 ---
 
+## 2026-09-10 — Resolved Needs-owner: #132's GUARDRAILS contradiction
+
+Was: "#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick. Its
+destructive-ops section lets an approved history-rewrite/force-push proceed on a fresh human
+approval — which #132 already carries (`approved` label on). But the separate Hard-stops section
+lists 'a force-push... is attempted' as unconditional, 'no flag overrides these.' Not resolved by
+inference — the stakes (`git-filter-repo` across this repo's full history + a force-push, on a
+public repo) are too high to pick a reading unattended. Needs either a wording fix to GUARDRAILS
+(e.g. hard-stops carves out the approved-history-rewrite case explicitly) or a direct owner call
+on which section governs, before any tick attempts #132."
+
+Resolved: owner asked directly, chose the hard-stop over the carve-out — "i prefer never to force
+push as other agents could be working at the same thing by accident." Both `GUARDRAILS.md`
+sections now cross-reference this explicitly: an approved (or standing-approved) history-rewrite/
+force-push Issue means a human runs it themselves, never a tick, under any approval mechanism. Full
+record: `DECISIONS.md` 2026-09-10. Propagated to `agent-scaffold`'s template (PR #2) and to
+`main` via `copier update`, so it isn't a workout-tracker-only fix.
+
+---
+
 ## Tick — 2026-09-09 later (#125 planned: deploy reach + running-version visibility)
 
 Reconciled first: no drift since the previous tick's HEAD (`1b1985c`); no in-flight claim, no open

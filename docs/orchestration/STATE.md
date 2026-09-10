@@ -22,8 +22,10 @@
   dependency. Full breakdown: `HISTORY.md`'s 2026-09-09-later entry.
 - **Next action:** **#125 is `ready` to execute** against its new plan — next tick (or this one,
   owner's call) should run it directly, no further planning needed. Also still pickable on their
-  own merits: #127, #138, #145, #157, #137, #141. **#132** stays blocked on the GUARDRAILS
-  contradiction (see Needs owner, unchanged). `#152`/`#148`/other `intake` unchanged.
+  own merits: #127, #138, #145, #157, #137, #141. **#132**'s GUARDRAILS contradiction is fixed
+  (2026-09-10, see `DECISIONS.md`) — it still needs a human to actually run the history rewrite +
+  force-push, never a tick, but nothing in the docs blocks picking it up and preparing it. `#152`/
+  `#148`/other `intake` unchanged.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -32,28 +34,20 @@
 - **#125** — claimed 2026-09-10T03:54:12Z, live session (executing its merged plan).
 
 ## Needs owner
-- **#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick.** Its
-  destructive-ops section lets an approved history-rewrite/force-push proceed on a fresh human
-  approval — which #132 already carries (`approved` label on). But the separate Hard-stops section
-  lists "a force-push... is attempted" as unconditional, "no flag overrides these." Not resolved by
-  inference — the stakes (`git-filter-repo` across this repo's full history + a force-push, on a
-  public repo) are too high to pick a reading unattended. Needs either a wording fix to GUARDRAILS
-  (e.g. hard-stops carves out the approved-history-rewrite case explicitly) or a direct owner call
-  on which section governs, before any tick attempts #132.
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
   2026-08-30. **2026-09-06:** #33 (nutrition) merged into #32 by direct owner decision, so the spec
   now needs the nutrition/in-app-AI-query scope folded in *before* the skim means anything. Until
   then #30/#32 stay `intake`.
-- **Three `[template]` improvements are queued against `agent-scaffold` PR #2** (open, unreviewed,
-  no CI on that repo — all four `tests/*.sh` run locally and pass): (1) dead-subagent recovery —
-  PLAYBOOK should require inspecting a dead agent's worktree for uncommitted work before
-  re-dispatching; (2) `/orchestrate approve`'s home-branch ambiguity (the #84 approval once landed
-  on a stale `main` copy of `STATE.md`); (3) PLAYBOOK step 1 not naming which branch to read docs
-  from (fixed locally here in PR #116; `agent-scaffold` has the same gap). Filing any of them needs
-  a named credential or a direct owner ask per GUARDRAILS "Cross-repo writes" — `~/dev/agent-scaffold`
-  is checked out locally if the owner would rather apply them by hand.
+- **Two `[template]` improvements still genuinely open in `agent-scaffold`** (narrowed 2026-09-10 —
+  PR #2 merged with corrections, which covered a third): `/orchestrate approve`'s home-branch
+  ambiguity (the #84 approval once landed on a stale `main` copy of `STATE.md`), and PLAYBOOK step 1
+  not naming which branch to read docs from. Both only make sense once `agent-scaffold`'s own
+  template has a "Claiming work"/home-branch concept — it doesn't yet, and propagating that is a
+  larger, deliberately separate sync (per PR #2's own body). Dead-subagent recovery, the third
+  original item, is done — landed in the template via PR #2 and mirrored directly into this repo's
+  own `PLAYBOOK.md` step 4, 2026-09-10.
 - **Five `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
   (2026-08-30) the `code-review` skill's forked execution silently reviewed the wrong attached repo
   with no explicit target given; (2026-08-31) the Agent tool without `isolation:'worktree'` shared
