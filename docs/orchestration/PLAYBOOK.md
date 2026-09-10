@@ -28,7 +28,13 @@ go straight to code, and does not get invented scope on their behalf.
    `ready` (or `needs-clarification` if it still doesn't pass) directly. If it needs splitting, open
    properly-scoped child Issues (type/priority/effort labeled, INVEST-checked, referencing the
    `intake` Issue), add them to the Project board ranked, then close the `intake` Issue with a
-   pointer to its children. **A third outcome**: owner Q&A can shape real direction — what to build,
+   pointer to its children. **Every child needs a state label — `ready`, `intake` or
+   `needs-clarification` — set explicitly.** The issue forms default to `intake`, but that default
+   only applies to Issues created through the UI; `gh issue create` during a split bypasses the form
+   entirely, so a child can land with type/priority/effort and no state at all. Such an Issue is
+   invisible to both tracks: `gh issue list --label ready` skips it and intake triage never sees it.
+   Seen for real — a child created alongside three siblings sat unnoticed for three days.
+   **A third outcome**: owner Q&A can shape real direction — what to build,
    what's explicitly out of scope — without yet producing something concrete enough to size or split.
    The mechanism itself still needs a written spec (this repo's `docs/superpowers/specs/` convention,
    typically via `superpowers:brainstorming` → spec → plan) before it can become `ready`. When that
@@ -115,7 +121,11 @@ only because the owner happened to ask about it, not by anything in this file. H
    worktree checked out on that branch. Do not read source files yet.
 2. **Reconcile reality:** `git status`, `gh pr list`, `gh issue list --label ready --state open`
    (sorted by the Project's manual rank). If reality diverged from `STATE.md`, correct `STATE.md` and
-   continue. Also check for new owner comments since the last tick on any Issue currently in
+   continue. **Also sweep for open Issues carrying no state label at all** — e.g.
+   `gh issue list --state open --json number,title,labels` filtered to those with none of `ready` /
+   `intake` / `needs-clarification`. A label-filtered query cannot report what it never matches, so
+   without this sweep a state-less Issue is invisible to every tick indefinitely. Give each one a
+   state before continuing. Also check for new owner comments since the last tick on any Issue currently in
    progress, or any `intake`/`needs-clarification` Issue awaiting an answer
    (`gh issue view <n> --comments`, or `gh api` filtered by date if scripting it across many Issues) —
    respond to them (answer, incorporate the feedback, or act on it) before picking the next action.
@@ -147,7 +157,9 @@ only because the owner happened to ask about it, not by anything in this file. H
    gitignored and are not shared with the main checkout (`AGENTS.md` says so under Setup). Hand the
    subagent the main checkout's absolute interpreter path, or tell it to install first — otherwise
    its verification commands fail for reasons that have nothing to do with the change it made.
-   **Friction goes in the subagent's final report, not into `IMPROVEMENTS.md` directly.** The
+   **Friction goes in the subagent's final report, not into `IMPROVEMENTS.md` directly** (this
+   overrides the template default of having the subagent run
+   `scripts/append_improvement.sh` inline — deliberately, not an oversight: see below). The
    improvements log and its `last-reviewed-count` cursor belong to the home branch — that is where
    every tick appends and where step 8 reads from. A subagent on a feature branch running
    `scripts/append_improvement.sh` writes the note somewhere it will sit unmerged until that PR
@@ -155,6 +167,11 @@ only because the owner happened to ask about it, not by anything in this file. H
    missing tool, an outdated doc) as a named section of the subagent's result, and have the
    controller log it with `scripts/append_improvement.sh <local|template|unsure> "<note>"` from the
    home branch at step 8.
+   **If a dispatched subagent dies mid-task** (an infra error, a dropped connection, a rejected call
+   that may have started anyway) **before re-dispatching, check for salvageable work first** —
+   `git worktree list` for a worktree it may have created, and inspect it for uncommitted or
+   unpushed commits. Re-dispatching blind risks either discarding real work or producing a silent
+   duplicate of it. Only re-dispatch clean once you've confirmed there's nothing to recover.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
 
@@ -197,6 +214,24 @@ only because the owner happened to ask about it, not by anything in this file. H
    when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
    decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
    this same write-back — a shipped or stopped tick must never leave a stale claim behind.
+   **`STATE.md` keeps no Tick log.** Write this tick's narrative entry straight to `HISTORY.md`,
+   **prepended at the top** (newest first), verbatim — do not add it to `STATE.md` and roll it
+   later. If a Needs-owner item this tick resolved, move it to `HISTORY.md` the same way rather
+   than leaving a struck-through remnant in `STATE.md`. A "keep the last N ticks" rule regrows the
+   same way a full tick log does, so keep none. `DECISIONS.md` is never rolled or summarized by
+   this step.
+   **Before committing, re-check `STATE.md`'s line budget stated at its own top** — Cursor and
+   Needs-owner are the only sections that can grow it, so if either has, tighten it in the same
+   commit rather than letting it ride.
+   **Do not open a PR from the orchestration home branch to `main`.** If the repo has
+   GitHub's "Automatically delete head branches" enabled — and it is worth enabling, it is the fix for
+   stray merged branches piling up — then merging that PR *deletes the home branch*, even when merged
+   deliberately without `--delete-branch`. Where that branch is also the tick claim mechanism, losing
+   it silently disables collision protection for every later tick, and nothing fails loudly to tell
+   you. Push orchestration doc commits **directly** to the home branch and leave it permanently
+   unmerged; when `main` should carry them, cherry-pick those commits onto a
+   short-lived branch and PR that instead. The home branch then never merges, so auto-delete can never
+   reach it.
 8. **Feedback review:** if this tick appended any `IMPROVEMENTS.md` entries, run
    `scripts/improvements_since_cursor.sh`, classify each (`[local]` → PR in this repo; `[template]` →
    PR against the template repo per GUARDRAILS "Cross-repo writes"; `[unsure]` → `STATE.md` → Needs

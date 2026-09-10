@@ -1,0 +1,561 @@
+# Orchestration History
+
+> Append-only archive for `STATE.md`. **No tick reads this file** — it exists so `STATE.md` can
+> stay near its line budget without losing anything. Content lands here **verbatim** (per
+> PLAYBOOK step 7), newest first — each tick's entry is prepended right below this header, ahead
+> of everything already here. Nothing is ever edited or deleted once it lands.
+>
+> Read this when you need to know *why* something was done a particular way and `DECISIONS.md`
+> doesn't carry the working. Otherwise you don't need this file.
+
+---
+
+**`main`'s `Needs owner`/`Closed` snapshot as of 2026-09-05, recovered during the 2026-09-10
+`copier update` reconciliation.** `main`'s `STATE.md` had not been synced from the orchestration
+home branch since around this point — see the Cursor section above, and `HISTORY.md`/`STATE.md`
+on the home branch (`claude/workout-tracker-backlog-bu9qnw`) for what's actually live today. This
+is preserved as historical record, not current status; several items below (the accounts
+approvals, #105/#86/#87, the orphaned-child-issue template gap) were resolved in the days
+following and are not open anymore.
+
+- **One wording call, low stakes but it caused this tick's misread.** This file's Next action used to
+  say the accounts approvals are "granted per-step as each predecessor lands", while `DECISIONS.md`'s
+  standing approval says #105/#86/#87 are covered outright. The owner resolved it live in favour of
+  `DECISIONS.md`, and the stale phrasing is now removed — noted here only so the contradiction is
+  not re-introduced from an older cursor.
+- **#30/#32 need a 5-minute spec skim, not a decision.**
+  `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114)
+  gates itself on an owner skim before either Issue may be split into `ready` children. Every
+  fork-in-the-road question in it was already answered by owner Q&A on 2026-08-30; the skim is
+  confirming the spec-writer's mechanism design, not re-deciding anything. Until it happens, #30 and
+  #32 stay `intake` and cannot become executable work — which matters more than usual right now,
+  because with #105 unapproved the executable queue is empty.
+- **#105 needs `/orchestrate approve 105`.** Genuinely unblocked (see Next action above) but not
+  literally named by the standing approval on file, and GUARDRAILS' approval rule has no
+  unattended-execution exception. This is the one thing between here and a working, testable login
+  — once approved, the next tick can ship a screen the owner can actually use: receive the real
+  invite email, set a password, log in, see the top bar change, log out.
+- **Off-site backups: working now, likely to lapse again around 2026-09-11/12.** Re-authorized
+  2026-09-04 21:24 (confirmed landing in Drive, `/api/health` reads `ok`), but the Google Cloud
+  OAuth app is still in "Testing" publish status, which expires refresh tokens every 7 days. Fixing
+  this for good was **deliberately deferred by the owner** (#94, closed `not_planned`) — full
+  reactivation steps (which OAuth scopes to drop, exact console URL, why it was left alone) are
+  written out in #94 for whenever it's picked up. Local snapshots (90-day retention on the Pi) are
+  unaffected either way. Backup alerting (healthchecks.io) is separately deferred, same owner call
+  (#89, closed).
+- **`#86`'s issue body is stale** — still describes replacing all 7 `_default_profile_id` call
+  sites, which #110 already did. Left a scope-narrowing comment on #86 rather than editing the
+  owner's own issue text; flagging here so it isn't mistaken for drift nobody noticed.
+- **`[template]` IMPROVEMENTS.md entry (2026-09-02), newly triaged this tick:** split-created child
+  Issues can land with no state label at all (real case: #68 sat invisible to both the `ready` and
+  `intake` tracks for 3 days). Belongs in `agent-scaffold` per GUARDRAILS "Cross-repo writes", which
+  requires "a named, explicit credential set up for that purpose — never implied by this repo's own
+  `gh` auth." This session has no such dedicated credential, only ordinary multi-repo access, so
+  flagging rather than opening that PR myself. Improvements cursor advanced to 4 regardless
+  (triaged, not silently dropped) — see `IMPROVEMENTS.md`.
+- **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
+  silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
+  invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
+  template repo — looks like Claude Code harness/skill-runtime behavior. Flagging per PLAYBOOK
+  step 8 rather than guessing at a fix.
+- **`[unsure]` IMPROVEMENTS.md entry (2026-08-31):** the Agent tool, dispatched without
+  `isolation:'worktree'` for #66's execution, shared the parent session's own working
+  directory/git checkout by default — its `git checkout -b ...` silently switched the
+  orchestrator's own checked-out branch mid-session. Caught via a stale-file system-reminder, not
+  a loud failure. Not fixable via a PR in this repo — Agent-tool/harness default behavior. Real
+  fix candidate for `PLAYBOOK.md`'s Execute step: default to `isolation:'worktree'` for any
+  subagent dispatch that does its own git branch/commit work.
+
+### Closed 2026-09-04
+- ~~**Orphaned branches, manual cleanup scheduled**~~ — **done**. 28 dead remote branches deleted.
+  The runner's long-standing 403 on `git push --delete` turned out to be specific to the GitHub
+  App's permission set: the same command runs fine from the owner's Mac with the owner's own
+  credentials. Worth remembering as the workaround rather than re-filing this each tick.
+- ~~**Branch auto-delete-on-merge is silently broken**~~ — **resolved**. Verified via
+  `gh api repos/kapekost/workout-tracker --jq .delete_branch_on_merge` → `true`. The setting is
+  on, so merged branches clean themselves up and the pile stops growing.
+- ~~**`STATE.md` on `main` is stale and conflicts with this branch**~~ — **resolved this tick**.
+  The conflict was real but turned out to be strictly additive: `main`'s side was empty in the
+  conflicting region, so this branch already contained every entry `main` had plus the newer ones.
+  Verified entry-by-entry that nothing on `main` was dropped before committing the resolution.
+  `IMPROVEMENTS.md` conflicted the same way and was resolved by keeping all four entries in date
+  order.
+
+---
+
+- **2026-09-05 later (both tracks owner-gated — spec refreshed, approval gap found):** Ready track
+  stopped at step 3: #105 is the only `ready` Issue and carries no `approved` label, so GUARDRAILS
+  forbade executing it and forbade fixing that here. Took the intake track instead (#30 claimed on
+  the live branch before any work, per "Claiming work").
+
+  **The real find: `main`'s orchestration docs are a trap, and they had just cost two ticks.** The
+  tick's first conclusion — that no standing approval had ever been recorded, since
+  `grep -i approv DECISIONS.md` came back empty — was wrong. The record exists, names #105/#86/#87
+  explicitly, and quotes the owner ("let's trust the process on these approvals"). It lives on the
+  **home branch**, which by owner decision (`DECISIONS.md` 2026-09-04) never merges to `main`; doc
+  commits go there and only get cherry-picked onto `main` selectively. `main` was missing six
+  DECISIONS entries and 28 commits' worth of `STATE.md`. PLAYBOOK step 1 said only "read `STATE.md`,
+  `GUARDRAILS.md`, `DECISIONS.md`" without saying *from where*, so both this tick and PR #113 before
+  it read the working tree — i.e. `main` — and reported the accounts chain blocked on an approval
+  that had been granted hours earlier. It surfaced only because clearing the In-flight claim forced a
+  merge that exposed the divergence; nothing in the loop would otherwise have caught it.
+
+  Fixed rather than noted: PLAYBOOK step 1 now names the branch to read these files from and says
+  why, and `main`'s `DECISIONS.md` was synced to the home branch's (its one unique entry, the thinner
+  "#27 → P3", is fully subsumed by the home branch's "Prove the accounts UX before closing the gate",
+  verified before overwriting). The owner confirmed the standing-approval reading live, and **#105
+  went to execution in the same tick** — under the standing approval, with no `approved` label added
+  by the runner.
+
+  **Intake: #30 picked, stays `intake`, and the reason is narrow.** Its mechanism is fully specced
+  (`2026-08-31-ai-structured-io-design.md`, shared with #32), but that spec's own Status block gates
+  splitting on an owner skim — it was drafted from recorded Q&A rather than walked through live.
+  Not a failed INVEST gate and not a guess to be made; PLAYBOOK's third intake outcome (waiting on a
+  spec, not on an answer) covers it exactly.
+
+  **What was actually shipped: #114**, refreshing that spec so the skim is against reality. Two of
+  its statements had become traps rather than staleness: it named #67 as the login dependency (closed
+  as superseded 2026-09-04) and instructed an executor to scope rows with `_default_profile_id`
+  "until #67 supplies the real one" — which #110 has since replaced with a single
+  `acting_profile_id(conn)` seam (`backend/main.py:63`) and which #86 deletes outright, so following
+  the spec literally would have reintroduced the exact call site #86 exists to remove. Its four
+  `backend/main.py` line references had also drifted ~650 lines. Design decisions untouched; CI green
+  on the pushed head (`d7ff9c8`), squash-merged. A real find fell out of it: #110 delivered
+  per-profile scoping independently of login, so #30/#32 depend only on #86, not the whole chain.
+
+  **No IMPROVEMENTS.md entry this tick** — the one piece of friction found (the missing standing
+  approval) is a gap in this repo's own docs, already tracked under "Needs owner", not feedback about
+  the template or the harness.
+- **2026-09-05 (state reconciliation — large untracked gap found, no execution):** Ran the normal
+  tick algorithm; step 2's reconcile found this file badly stale and spent the tick correcting it
+  rather than executing new work. Local checkout, `claude/orchestrate-xi7tyc`, and `origin/main`
+  were all identical (`240acc4`) — the drift was entirely in this file's Cursor/Tick log, not in
+  code or GitHub issue/comment state, which were internally consistent throughout.
+
+  **What actually shipped since the last recorded cursor** (reconstructed from `git log` and issue
+  state, since no tick wrote it down as it happened): **#84** (schema v6 + auth core — #101 plan,
+  #102 playbook fix, #103 execution, #104 deploy note) and **#85** (Resend invite/reset, rate
+  limiting, owner bootstrap — #107) both merged under the standing-approval mechanism (#106 added
+  it to GUARDRAILS). The owner then personally opened **#110** — a real cross-profile data leak
+  (reads never scoped to a profile, only writes were, since #66's deliberate deferral) — and it
+  shipped same-day via #112. #86 was rescoped in place (comment posted this tick narrowing it now
+  that #110 landed) and had its frontend screens split into new **#105**. Also merged in the same
+  window: #88/#93/#94/#89 (backup heartbeat-to-file, weekly cron, off-site/local status split,
+  OAuth publish deferred, alerting deferred — #91/#95-#100), #108 (deploy env vars → target `.env`),
+  #109 (Resend User-Agent fix), #111 (CI secrets/env-file scan). Owner also deprioritized #27 to P3
+  via an issue comment (2026-09-05) that was never logged to `DECISIONS.md` — added it this tick.
+
+  **Corrected this tick:** `STATE.md` Cursor/Next-action/Needs-owner rewritten to match reality;
+  `DECISIONS.md` gained the missing #27 entry; #105 relabeled `blocked` → `ready` (its only
+  blocker, #85, is merged) — it is not, however, literally named by the existing standing-approval
+  text (which says `#84-#87`), so it still needs its own `/orchestrate approve 105` rather than
+  being treated as covered; a scope-narrowing comment posted on #86; the `[template]`
+  IMPROVEMENTS.md entry from 2026-09-02 triaged (flagged to Needs-owner rather than actioned — no
+  dedicated cross-repo credential available this session per GUARDRAILS), cursor advanced 3 → 4.
+
+  **No code executed this tick** — with #105/#86/#87 all needing either a dependency or an owner
+  approval, and the only other track (intake: #30/#32/#33, already spec'd) being backlog grooming
+  rather than anything try-able, judged the highest-leverage use of this tick to be surfacing the
+  #105 approval ask clearly rather than spending the same budget on a intake split. Flagged as a
+  judgment call, not a rule — next tick can do the intake split if the owner would rather have that
+  than wait on an approval click.
+- **2026-09-04 (owner-driven session — accounts designed, backups found broken):** Not an
+  unattended tick; the owner asked for a status pass and the next round of work.
+
+  **Found broken, needs the owner:** off-site Google Drive backups have been failing since
+  2026-09-02 (`invalid_grant`), last good copy 2026-08-31. Caught from `/api/health`'s
+  `last_backup_status: "failed"` while checking what was actually deployed. Local snapshots are
+  fine — `rclone copy` sits after the snapshot reaches the host's disk, so the chain kept
+  producing them. Cause matches the "Testing publish status expires grants every 7 days" trap
+  already written down in `AGENTS.local.md`; the client_id migration was exactly 7 days before the
+  first failure. See "Needs owner".
+
+  **Accounts designed.** #67 and #68 merged into one workstream and closed as superseded — the
+  owner's 2026-09-02 emailed-link decision makes them mutually dependent, so neither can go first.
+  Spec at `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83), split into #84-#87.
+  Two choices were settled by measuring on the real Pi instead of assuming, both of which changed
+  the answer: bcrypt cost 12 (627 ms) over any memory-hard KDF, because OWASP's scrypt baseline
+  wants 128 MiB against ~185 MiB free and each concurrent memory-hard hash reserves its full
+  working set — a few parallel logins to an unauthenticated endpoint could OOM the container on a
+  box that also runs Home Assistant; and confirming both bcrypt and argon2-cffi ship aarch64
+  wheels, so the Dockerfile's no-build-tools rule survives either way.
+
+  **Two sequencing traps found while designing, both recorded in the issues rather than left to be
+  rediscovered:** gating `/api/events` breaks the nightly backup heartbeat (it posts there from
+  cron with no session and swallows failures via `|| true`), so #88 must land before or with #86;
+  and taking the cron weekly makes `/api/health`'s 26h staleness check permanently `stale`, so the
+  threshold has to move with the schedule — a signal that is always red is one nobody reads, which
+  is how this week's failures went unnoticed for three nights.
+
+  **Dependabot #80/#81 hand-verified and merged.** Both were green in CI, which proves little for
+  #81: CI runs tests bare-metal and never builds the Dockerfile, the same blind spot that kept
+  #7/#23 open for weeks. Verified by hand instead — full `docker buildx build --platform
+  linux/arm64` (deps installed in 5.2s with no compilation, so the no-gcc premise still holds on
+  py3.14), 88 backend tests on py3.14 + pydantic 2.13.5, container smoke test, fresh DB migrating
+  to `user_version = 5`, image +4 MB. #81 left two things behind — CI still pinned to py3.11, and
+  a Dockerfile comment still asserting the wheel fact for py3.11 — both fixed in #82, which also
+  writes the "CI never builds this Dockerfile" warning into the comment so the next base-image
+  bump doesn't trust a green check either.
+
+  **Housekeeping:** 28 dead remote branches deleted, closing a "Needs owner" item that had been
+  open since 2026-08-30. The runner's 403 on `git push --delete` is specific to the GitHub App's
+  permissions — the same command works from the owner's Mac. `delete_branch_on_merge` also
+  verified on, so the pile stops growing. `AGENTS.md`'s Status section refreshed: it claimed
+  `5247896` was live and "nothing is unreleased", when `17bd4fc` is deployed and `main` is 4
+  commits ahead including a base-image change.
+- **2026-08-31 (deploy repair → #78):** `main` reached the Pi for the first time since
+  2026-08-25. The running app was pinned at `5247896`, **53 commits behind**, because the deploy
+  path was broken in two independent places — both shipped and closed without ever having been
+  run against the real target.
+  1. **`scripts/deploy.sh` could not start.** It parses `AGENTS.local.md` for a
+     `## Scripted deploy configuration` section and hard-fails via `: "${DEPLOY_HOST:?...}"` if
+     absent. That section existed only in `AGENTS.local.md.example`, never in the real file. So
+     #34/#61 shipped a deploy script that had never once executed. Fixed locally (the real file
+     is gitignored, and stays that way per GUARDRAILS "Deployment knowledge stays local"), with
+     the parser's four failure modes documented inline next to the values: keep the keys at
+     column 0 above the next `## `; `DEPLOY_APP_DIR` must be absolute because it lands inside
+     single quotes in a remote `cd`; the SSH key path must be absolute because the value is
+     word-split unquoted onto the `ssh` command line; and **never** `BatchMode=yes`, despite the
+     `.example` suggesting it — the key is passphrase-protected and BatchMode blocks the macOS
+     keychain, surfacing as a misleading `Permission denied (publickey)`.
+  2. **`deploy.sh` skipped the target-side `git pull`** — fixed via PR #78. The Pi supplies its
+     own `docker-compose.yml` from its own clone; that clone was also at `5247896`, so it still
+     hardcoded `image: ...:latest` instead of `:${APP_COMMIT:-latest}`. `APP_COMMIT` was
+     therefore ignored, the stale image would have been re-created, and the script's own
+     `/api/health` assertion would then have failed with a version mismatch that reads like a
+     build problem rather than a stale-checkout one. The manual runbook had always done this
+     pull; the scripted path dropped it. `--ff-only` so a diverged target halts loudly instead of
+     quietly merging on the Pi.
+
+  **Deployed `17bd4fc`, verified independently of the script's own assertion:** `/api/health`
+  reports `version=17bd4fc` with `last_backup_status=ok` (not stale), `/` returns 200, the
+  container runs `kapekost/workout-tracker:17bd4fc` (not `:latest` — direct proof the pull fix
+  worked), the Pi's clone advanced to `17bd4fc`, and `homeassistant` stayed `Up (healthy)`
+  throughout, as did `tailscale`.
+
+  **Migration v3→v5 landed clean.** Snapshot taken before touching anything (845 rows, schema
+  v3) and diffed against a post-deploy export: `user_version = 5`, `integrity_check = ok`, no
+  leftover `*_old` tables, identical row counts, and every pre-existing row byte-identical on all
+  shared columns — the only change is the added `profile_id`, backfilled to the `kapekost` admin
+  profile. Worth recording that the risk was lower than it looked: the v3→v4 rebuild
+  (rename → create → copy → **drop**) only touches `exercise_notes` and `personal_bests`, and both
+  were empty. The 845 rows that exist live in tables it does not rebuild.
+
+  **Rollback was impossible when this tick started** and is now possible: the running image and
+  its predecessor were both untagged dangling IDs, one prune away from gone. Tagged
+  `:5247896` and `:adbf3f5` explicitly on the Pi after confirming each one's identity from its
+  `APP_COMMIT` env stamp rather than trusting the ID in the notes. Recorded in `AGENTS.local.md`,
+  along with the caveat that rolling back below `17bd4fc` needs a DB restore, not just a tag
+  swap — a pre-v4 image sees `user_version = 5`, no-ops its own migration, and then fails every
+  insert into the rebuilt tables because it never supplies the now-`NOT NULL` `profile_id`.
+
+  **Not fixed, flagged deliberately:** under the image's Python 3.11 `sqlite3`, DDL runs in
+  autocommit, so the v4 rebuild is not atomic end-to-end — a crash mid-rebuild leaves a
+  half-migrated DB. It completed cleanly here and both affected tables were empty, so the
+  exposure was nil this time; it will not be on the next schema-changing deploy onto a non-empty
+  `exercise_notes`. Out of scope for this tick, not silently dropped.
+- **2026-08-31 (#69 → #77):** Shipped. Picked up directly (effort:S, no separate plan needed per
+  `PLAYBOOK.md`'s effort:M+ threshold) once #67 turned out to be blocked on owner approval. Scoped
+  down from the issue's full text to just the TopBar-display piece — schema v5 (nullable
+  `profiles.icon`, seeded 💪 for `kapekost` so the display isn't empty immediately), `GET
+  /api/profile/me`, `TopBar.jsx` rendering it — deferring the emoji-picker-at-creation-time piece
+  since profile creation doesn't exist until #67. `code-review` (explicit target again) found two
+  more real bugs: the brand title and the new profile chip shared one flex row with no
+  shrink/overflow handling, so a longer username than the seeded one (nothing bounds
+  `profiles.username`'s length) wraps "🏋 Gym Tracker" onto two lines on narrow viewports —
+  confirmed live in a real browser, fixed with `nowrap`/`flexShrink:0` on the title and ellipsis
+  truncation on the username. Separately, the new migration-guard test
+  (`test_icon_migration_does_not_override_an_already_set_icon`) could never actually fail: by the
+  time it ran, `user_version` was already 5 from the fixture's own setup, so its second `init()`
+  call never re-entered the `if v < 5` block the guard lives in at all — confirmed by removing the
+  guard clause from `main.py` and watching the test stay green regardless. Fixed by resetting
+  `user_version` to 4 first (matching this file's other migration-guard tests), then verified it
+  now fails without the guard and passes with it restored, same rigor as #66's import-path catch.
+  Backend 88/88, frontend 216/216, build green. **Process note, logged honestly rather than
+  glossed over:** this tick's own In-flight claim was pushed late — after the PR was already open,
+  not before starting work, contrary to `PLAYBOOK.md`'s own "Claiming work" section. No actual
+  collision occurred (no concurrent tick was running), but this is exactly the discipline that
+  section exists to enforce; noting it so it doesn't quietly become a habit. All 3 checks green,
+  merged squash.
+- **2026-08-31 (#66 → #76):** Shipped. Executed the merged plan
+  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`) via a background subagent,
+  dispatched with an explicit file list and told not to touch `docs/orchestration/*` — it followed
+  the plan's actual migration code verbatim (verified by diffing the final `_migrate` block
+  against the plan's literal SQL) across 7 commits, 83/83 tests passing, and reported 5 small,
+  well-reasoned deviations up front rather than silently diverging: two of the plan's own new
+  tests had a real setup bug (resetting `PRAGMA user_version` alone doesn't simulate "pre-v4 data"
+  for the two *rebuilt* tables, since the test fixture's `init()` already migrates them first —
+  fixed by actually recreating the old table shape); one task-sequencing gap the plan had already
+  pre-empted for a different function but not this one (pulled the fix forward, same resolution);
+  5 pre-existing hardcoded `user_version == 3` assertions across two other test files broke on the
+  version bump and needed updating to 4 (expected migration hygiene, not a bug); and one
+  documentation-location assumption in the plan didn't match reality (schema history actually
+  lives in `docs/CHANGELOG.md`, not `AGENTS.md`), resolved by using the closest existing analog
+  since the task's own file target was unambiguous. None of this touched the migration design
+  itself.
+
+  **`code-review`, run with an explicit target (path + diff range) per this session's own logged
+  harness gotcha, caught a real, severe bug the 83 passing tests never exercised:** once
+  `profiles` joined `TABLES`, `/api/import` restoring *any* pre-v4 backup would permanently wipe
+  the seed profile with no `"profiles"` key in the old envelope to restore it from — every write
+  endpoint's `_default_profile_id()` then crashes with no way to self-heal (schema's already at
+  v4, so the reseed guard in `_migrate` never re-runs, not even across a restart). A second,
+  related bug: a real pre-v4 backup containing actual `exercise_notes`/`personal_bests` data (both
+  pre-existing, already-shipped features — a plausible, not edge-case, scenario) would reject the
+  *entire* import with a 400, since those two rebuilt tables now require `profile_id NOT NULL` and
+  legacy rows don't have one. Both were exactly the restore-drill scenario `AGENTS.md`'s deploy
+  runbook — and this migration's own plan — exist to catch, and the plan's own Task 6 reasoning
+  ("NULL is exempt from FK enforcement... a one-time, expected consequence") was correct for
+  `sessions`/`sets`/`events` but didn't extend to the two rebuilt tables or to `profiles` itself.
+  Fixed directly (not deferred) before opening the PR: skip touching `profiles` on import when the
+  envelope has no opinion about it, and backfill `profile_id` from the live default profile for
+  any row landing in a `NOT NULL` `profile_id` column that doesn't supply one — same backfill
+  philosophy the migration itself already uses. Two new regression tests confirmed failing with
+  the exact reported symptoms (400; a broken write afterward) when reverted against the pre-fix
+  code, passing with it restored. One minor `code-review` finding (`_default_profile_id`
+  re-queries every write instead of caching) consciously left as-is — explicitly temporary code
+  slated for removal in #67, not worth hardening further. Full suite re-verified green (85/85)
+  after the fix. Posted the plan's own scripted hand-off comment on #67 (seeded profile's
+  `password_hash IS NULL` by design; replace `_default_profile_id()` call sites, don't add a
+  second mechanism) — corrected one wording slip in it immediately after posting. #67 and #69
+  (both depended only on #66) labeled `ready`. All 3 checks green, merged squash.
+- **2026-08-31 (#27 spec → #75):** Shipped, docs-only, given the extra care DECISIONS.md asked
+  for rather than folded in alongside the other three specs this session.
+  `docs/superpowers/specs/2026-08-31-public-access-design.md`: resolves the owner's actual
+  2026-08-30 direction (keep the Pi, Cloudflare Tunnel not a VPN, Home Assistant safety is a hard
+  requirement, sequenced behind real login), then designs the part actually left open — a tunnel
+  alone only solves reachability/TLS, not access control, so proposed a second edge-level auth
+  layer (Cloudflare Access, email allow-list) in front of the app's own login rather than treating
+  the tunnel as sufficient on its own. Scoped the tunnel to exactly one ingress rule (this app's
+  Compose service, over the internal Docker network) with Home Assistant explicitly never added to
+  it. Rather than just asserting the design is safe, wrote a concrete, checkable verification list
+  (confirm Home Assistant is actually unreachable through the new public hostname, confirm the
+  ingress config has no catch-all rule, confirm no new router port-forward appeared, etc.) for
+  whoever executes this to actually run through before it goes live — matching DECISIONS.md's
+  explicit ask for a real home-network review, not just an app-level one. No real hostnames/tunnel
+  IDs/account details anywhere in the doc — those stay in `AGENTS.local.md` per the existing
+  convention; `docker-compose.yml`'s own already-tracked port numbers were fine to reference
+  directly. Two things flagged explicitly as this spec's proposals, not owner decisions: the
+  Access auth-method choice (§4) and the verification checklist itself (§5) — both need an actual
+  skim, more so than a typical spec, per the PR body. Stays `intake`. All four intake issues
+  (#27/#30/#32/#33) now have written specs. All 3 checks green, merged squash.
+- **2026-08-31 (#33 spec → #74):** Shipped, docs-only, written in parallel with #66's execution
+  (separate `git worktree` checkout — see the Agent-tool `IMPROVEMENTS.md` entry above for why
+  that was necessary this tick). `docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`:
+  resolves the owner's actual 2026-08-30 answers (bodyweight + height, standalone, ISSN-sourced,
+  not personalized dosing), then does the spec-writer job — data model (two nullable columns
+  direct on `profiles`, no history table), endpoint contracts, and the actual guidance copy written
+  out close to verbatim (protein range formula, timing guidance, the always-visible disclaimer) so
+  a future plan doesn't have to re-derive it. One thing surfaced rather than silently assumed: the
+  ISSN protein guidance itself only needs bodyweight (it's g/kg) — height was the owner's own
+  addition beyond that minimum, so the spec proposes a concrete, honest use (a contextual BMI
+  figure, explicitly labeled a reference number, not a health assessment) and flags it as this
+  spec's proposal, not a recorded decision, so it's easy to correct. Also narrower in sequencing
+  than #30/#32: depends on #66 only, not #67 — bodyweight/height are meaningful even before real
+  login exists, unlike per-profile import/coaching. Stays `intake` — next action is splitting into
+  `ready` per the spec's §8. All 3 checks green, merged squash.
+- **2026-08-31 (#30/#32 spec → #73):** Shipped, docs-only. Combined design for both issues in one
+  pass, per the third Feature Intake outcome PR #71 named and IMPROVEMENTS.md's friction log —
+  #30 and #32 independently converged on the same "structured AI output, reviewed and confirmed,
+  then written to real data" shape, so one spec covers both rather than duplicating the
+  review-before-write design twice. `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`:
+  resolves every fork-in-the-road question either issue posed to the owner (all already answered
+  in `DECISIONS.md` 2026-08-30 — nothing guessed here), then does the actual spec-writer job of
+  designing the shared mechanism and concrete schemas — a new additive `/api/import/sessions`
+  endpoint (separate from the existing disaster-recovery `/api/import`, matching its own
+  `confirm`/envelope convention rather than inventing a parallel one), upsert-by-id semantics,
+  lb→kg conversion offloaded to the AI's prompt instructions instead of app code, a new
+  `exercise_targets` table for #32's proposed updates, and the recovery-science §7 constraint
+  enforced structurally (no field in the response schema shaped like a percentage/readiness score)
+  rather than only requested in the prompt. Both issues stay `intake` — this is a spec, not a
+  split; splitting into `ready` children per the spec's §7 is the next action on these two, not
+  done in this tick. All 3 checks green, merged squash.
+- **2026-08-31 (#66 plan → #72):** Shipped, docs-only. `#66` is `effort:M` with no linked plan, so
+  per `PLAYBOOK.md` step 3 this tick wrote the plan and stopped rather than executing directly.
+  `docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`: read the live schema
+  (`backend/main.py`) rather than assuming it, which surfaced two real correctness traps the issue
+  itself didn't call out — `exercise_notes` and `personal_bests` each carry a uniqueness constraint
+  (`PRIMARY KEY`, `UNIQUE`) that must *expand* to include `profile_id`, which SQLite can't do via a
+  plain `ALTER ADD COLUMN` (needs a rename/create/copy/drop rebuild); and `/api/import`'s existing
+  per-table delete-then-insert-immediately loop requires `profiles` to be **first** in `TABLES`
+  with `ON DELETE CASCADE` on every new FK, or a restore violates the FK either on delete (children
+  still reference the parent) or on insert (parent doesn't exist yet). Also resolved the issue's
+  own open question ("confirm the exact table list against the live schema") — `personal_bests`
+  gets `profile_id` too, alongside the four tables the issue named. Plan hands off one item to
+  #67 via a comment (Task 7): the seeded profile's `password_hash` is left `NULL` by design, so
+  #67's login flow must handle a profile with no password set yet, not assume every profile has
+  one. #66 stays `ready` — now unblocked for real execution next tick, not just plan-then-stop.
+  All 3 checks green, merged squash.
+- **2026-08-31 (status + tick resume):** `/orchestrate status` reconciled cleanly against live
+  GitHub — zero drift from this file, nothing to correct (no open PRs beyond what's logged here,
+  #66 confirmed the sole `ready` issue, #67/#68/#69 correctly withheld from `ready`, no new owner
+  comments on any `intake`/`needs-clarification` issue since 2026-08-30). Confirmed both
+  owner-pending items are genuinely still pending rather than assumed: the 13-branch cleanup
+  command hasn't been run (all still present, unchanged SHAs), and the auto-delete-on-merge repo
+  setting is still off (direct evidence: #71's own head branch survived its merge) — see "Needs
+  owner" above for the now-updated tally.
+- **2026-08-30 (PLAYBOOK.md fix → #71):** Shipped. Logged the "shaped but needs a spec" Feature
+  Intake gap (hit on #27/#30/#32/#33 this session) via `scripts/append_improvement.sh`, then acted
+  on it immediately rather than leaving it for a future review pass — small, well-understood,
+  docs-only. `PLAYBOOK.md` step 3 now names this as a third Feature Intake outcome alongside
+  relabel-`ready` and split-into-children. All 3 checks green, merged squash. Improvements cursor
+  advanced to 2.
+- **2026-08-30 (#30/#32/#33 triage, #70 opened):** Further owner Q&A, same session as the #29
+  split. #30 (Import): build full-session import (working interpretation of a slightly uncertain
+  answer, flagged on the issue for correction), scoped per-profile; POC-simple idempotency (no
+  dedup handling yet); add-only overwrite semantics except upsert-by-id when the imported record
+  names a known ID. #32 (Adaptive coaching): v1 is manual export-a-prompt only (live API
+  explicitly deferred); cadence is before/after only ("during" scoped out); "update" stays a
+  simple layer above existing per-session nudging, not a `workoutPlan.js` restructure; AI output
+  can propose real profile/plan updates but only after explicit user confirmation, never
+  fabricated; sequenced behind the user system (#66/#67). #33 (Nutrition): collect both
+  bodyweight *and* height (new scope beyond the original bodyweight-only ask); ships standalone,
+  not folded into #32; also sequenced behind #66 since the new fields need real profiles. #30 and
+  #32 independently converged on the same underlying shape — structured AI output, reviewed and
+  confirmed, then written to real data — flagged on both issues as worth one spec pass
+  considering together. A future "competition/comparison screens across users" idea came up in
+  passing during #30's triage; captured as new intake issue #70 rather than lost, per this repo's
+  Feature Intake convention. All four (#27/#30/#32/#33) stay `intake` — direction is real now,
+  but each still needs an actual written spec before splitting into `ready` work. Logged in
+  `DECISIONS.md`. No code changes — pure triage.
+- **2026-08-30 (#23 → #65):** Shipped. Bumped the Dockerfile's builder stage `node:20-alpine` →
+  `node:26-alpine` — same target Dependabot PR #7 proposed, actually investigated this time
+  instead of rubber-stamped, per the issue's own instruction. Root cause per the issue: npm
+  11.19.0 (bundled with `node:26-alpine`) resolving `frontend/package-lock.json`'s optional
+  platform packages differently than npm 10.x, producing a false-green in CI (which never touches
+  the Dockerfile). Investigated for real rather than assumed: this sandbox has no Docker daemon
+  (same confirmed constraint as #21/#22), so downloaded a checksum-verified
+  `node-v26.8.1-linux-x64` binary directly from nodejs.org and ran actual `npm ci` under its
+  bundled npm 11.19.0 — against the current lockfile, against the exact pre-#59 lockfile that
+  still contained the `@esbuild/aix-ppc64@0.21.5` entry named in the original error, and again
+  with `--os=linux --cpu=x64 --libc=musl` forced to approximate Alpine. All three succeeded
+  cleanly; `npm install --package-lock-only` under node 26 regenerated the lockfile byte-identical
+  to what's committed. **Real finding: no lockfile regeneration was actually needed** — `esbuild`
+  is no longer even resolved in the dependency tree since #59's vite 5→8 bump already regenerated
+  the lockfile fresh, so PR #7's original failure likely doesn't reproduce outside the real
+  Alpine/musl `buildx` environment. Noted in `AGENTS.md`'s Gotchas section. Verification: 212/212
+  vitest, prod build + real backend/dist smoke test (200 on `/`, correct `/api/health`), 69/69
+  backend pytest, lockfile reconfirmed installing cleanly under the sandbox's own node 22/npm 10
+  too. Playwright e2e blocked in this sandbox by an unrelated egress-proxy 403 — flagged as
+  session-to-session sandbox variance (not a permanent constraint like the Docker one; #21/#22 had
+  it working same-day) — CI's own Playwright run on GitHub's runner was the real gate regardless.
+  Literal `docker buildx build` verification remains impossible in-sandbox and is flagged for a
+  spot-check at the next real deploy, same precedent as #21/#22. `code-review` skill run with an
+  explicit target this time (per the #38-tick gotcha) — fixed one real finding (a duplicate
+  12-line Dockerfile comment re-narrating the AGENTS.md entry, trimmed to a pointer), correctly
+  did *not* act on an out-of-scope one (node 26 vs. 24 LTS choice — flagged as a possible separate
+  issue, not this one's job). All CI green, merged squash. Dependabot PR #7 closed, pointing at
+  #65.
+- **2026-08-30 (#29 triage → #66/#67/#68/#69):** Resolved via live owner Q&A during an
+  `/orchestrate status` + tick session. Profiles are real, isolated, data-owning accounts, not
+  just a label — explicit prework for later Google/Apple OAuth (not built now, but the schema
+  shouldn't preclude it). Existing data migrates to a seeded `kapekost` profile with `role:
+  admin` (no admin-only behavior built yet, just the flag). Real login gate before Home, not a
+  device-remembered switcher. v1 auth is username + hashed password with email-based reset —
+  OAuth explicitly deferred. Emoji icons confirmed fine for now. Split into #66
+  (schema/migration, `ready` now — foundational, nothing else depends on it), #67 (login, depends
+  on #66, not yet `ready`), #68 (password reset via email, depends on #67, not yet `ready`), #69
+  (switcher UI, depends on #66, not yet `ready`). #68's one open question (which email provider,
+  since this repo has no existing email-sending capability) was resolved same-session: **Resend**
+  (matches `kapekost-web`'s existing pattern), API key to live in `AGENTS.local.md` per this
+  repo's "deployment knowledge stays local" convention. #30 and #32 (both still `intake`) had
+  their "depends on Profiles (#29)" notes updated to point at #66 instead, since #29 is now
+  closed. No native GitHub blocked-by relationship set on #67/#68/#69 (no graphql-capable tool
+  available this session) — sequencing is a manual note in each issue body and above instead.
+  Logged in `DECISIONS.md`. No code changes — pure triage.
+- **2026-08-30 (#61 follow-up → #63):** Shipped. `scripts/deploy.sh`'s `/api/health` check ran
+  exactly once immediately after `docker compose up -d --force-recreate`, which returns as soon
+  as the container *starts*, not once uvicorn is actually accepting connections — a real race
+  that could fail a perfectly good deploy. Caught by the recurring routine's now-archived session
+  (see below), which had independently kept working #34 after being interrupted mid-collision and
+  compared its own draft against the merged #61 script before stopping for good. Verified the gap
+  against the actual merged code first rather than trusting the claim on faith — confirmed real.
+  Fixed with a retry loop (~30s, 15×2s) inside the *same* SSH session rather than one connection
+  per attempt. `code-review` caught two real issues in the first draft of the fix itself before
+  it shipped: swallowed stderr on persistent (non-transient) failures, and per-attempt SSH
+  reconnect overhead that would've made the "~30s" claim inaccurate — both fixed by moving the
+  loop into the remote shell entirely. Retry logic verified standalone (extracted the exact
+  remote snippet, ran it directly: fails-then-succeeds and always-fails cases both correct).
+  Session `session_01GPKYsV68JuLWsrZCwLYyFa` archived after this — confirmed idle since the
+  interrupt, never pushed its own fix (the branch it intended to push to was already merged and
+  squashed by then anyway, so that plan was moot regardless), nothing salvageable left in it.
+- **2026-08-30 (#34 → #61):** Shipped. `scripts/deploy.sh` wraps the existing
+  build→transfer→restart→verify runbook into one command, reading `DEPLOY_HOST`/
+  `DEPLOY_APP_DIR`/`DEPLOY_SSH_OPTS` from a new `AGENTS.local.md` section instead of hardcoding.
+  Adapted from a solid, complete draft found on the abandoned `tmp/repair-38-stacked-9` branch
+  (see the #38 tick's orphaned-branch finding below) rather than written from scratch — fixed
+  one real bug in it: the remote `docker compose up` step wasn't setting `APP_COMMIT`, so it
+  would've silently deployed `:latest` instead of the built commit. `code-review` skill (run
+  with an explicit path/target this time) caught a second real bug before shipping: the first
+  draft of `AGENTS.local.md.example`'s own documentation broke the script's config parser (its
+  fenced example repeated the section heading, truncating the `sed` range before the actual
+  variable lines). Both fixed and verified — including against the real shipped `.example` file,
+  not just a synthetic test fixture — before merging. All 3 checks green, merged squash.
+
+  **Near-miss, worth the full story:** while this was in progress, the recurring routine (set up
+  earlier this session) fired for the first time on its normal schedule and independently picked
+  #34 too, in its own separate session — checked out the same branch, was about to make redundant
+  edits. Caught via `get_session` (prompted by the owner asking "won't they clash?") and
+  interrupted before it pushed anything: no git damage, but real cost wasted on now-discarded
+  duplicate work. **Resolved same tick:** owner decided against relying on remembering to toggle
+  the routine — `PLAYBOOK.md` gained a real "Claiming work" mechanism instead (a tick pushes an
+  In-flight claim to `claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue,
+  *before* any execution; other ticks check that live branch first and back off on a fresh claim;
+  git's own push-rejection on a non-fast-forward is what actually enforces it, not just
+  cooperative reading). Logged as a standing decision in `DECISIONS.md`. The routine itself stays
+  disabled for now — nothing stops the owner re-enabling it whenever unattended coverage is
+  wanted again; that's now safe to do.
+- **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
+  `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
+  before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
+  `package-lock.json`) — resolved cleanly (non-overlapping `dependencies`/`devDependencies` lines,
+  git's 3-way merge needed no manual edits) and the *combined* react-19 + vite-8 + vitest-4 state
+  was fully re-verified together (212/212 unit, 14/14 Playwright, prod build, real backend +
+  built-`dist/` smoke test, 69/69 backend pytest sanity check) — no interaction issues found.
+  Real finding, not just an unverifiable gap: vite 8 defaults to the Rolldown bundler, adding a
+  *new* family of per-platform optional native bindings — same bug class as the Rollup/Alpine
+  issue this repo already hit once (`efd88ca`). Noted in `AGENTS.md`'s Gotchas section for the
+  next real `docker buildx build` to watch for. Owner explicitly decided to merge without a
+  literal Docker build (blocked in-sandbox by org egress policy, confirmed 3×) since merging to
+  `main` isn't a deploy here — the real Mac build machine remains the actual gate. Dependabot PRs
+  #13/#16 closed, pointing at #59.
+- **2026-08-30 (#21 → #58):** Shipped. Coordinated `react`+`react-dom` bump to 19.2.8 — zero source
+  changes needed (already on `createRoot`, no legacy patterns), zero other packages needed
+  bumping (`react-router-dom`/`@testing-library/react`/`recharts` peer ranges already covered
+  19). 212/212 unit, 14/14 Playwright, prod build, real backend + built-`dist/` smoke test all
+  green. Literal `docker buildx build` blocked by this sandbox's org egress policy (Docker Hub
+  CDN denied) — Dockerfile itself untouched by this PR, so merged on the strength of the rest;
+  flagged in the PR for a real build-machine verification at the next deploy regardless.
+  Dependabot PR #14 closed, pointing at #58.
+- **2026-08-30 (owner check-in):** Owner reviewed the flagged items live. Decisions: (1) codify
+  the intake-vs-ready sequencing precedent — `DECISIONS.md` entry added, `PLAYBOOK.md` step 3
+  reworded to match; (2) delete the 11 orphaned branches — attempted, blocked by a GitHub App
+  permission gap (see Needs owner); (3) proceed with #21/#22 now — dispatched below; (4) #27's
+  direction still being talked through with the owner, not yet decided.
+- **2026-08-30 (#38 → #55):** Shipped. Backfilled `docs/CHANGELOG.md` (in its correct
+  2026-08-17 chronological slot, marked as written retroactively) and an `AGENTS.md`
+  Design-docs bullet for the already-shipped Personal Bests feature — 5 commits verified
+  against actual repo history first (`3eb468e`, `8af065e`, `82f164b`, `c1ff0ab`, `fd83851`),
+  not just copied from the Issue body. Docs-only; `code-review` skill run on the diff (clean,
+  no findings — note: its first invocation silently reviewed a different repo entirely in
+  this multi-repo session, had to re-run with an explicit path/branch target to get a
+  trustworthy result). All 3 checks green, merged squash. Also surfaced the orphaned-branch
+  and intake-sequencing items now under "Needs owner" above.
+- **2026-08-30 (#24 → #53):** Shipped. Added `backend-tests.yml` with an explicit `Backend tests`
+  job name (frontend-tests.yml's job displays as plain `test`, which is what let backend-only
+  Dependabot bumps merge on an unrelated green check). Supersedes #44, which was the same fix
+  opened against a stale feature branch instead of `main` and closed same-day unexplained — #53
+  is a clean rebase of it onto current `main`. All 3 checks green (`test`, `sanity`, `Backend
+  tests`), merged squash, verified 69/69 backend tests locally first.
+- **2026-08-30 (state reconciliation):** `/orchestrate status` found this file stale against
+  live GitHub state: #36 was already closed (2026-08-29) but still listed above as open; #38
+  (ready, opened 2026-08-26) and #27 (intake, opened 2026-08-26) were never reflected in the
+  cursor. Corrected above — no code changes, just catching this file up to reality.
+- **2026-08-30 (catch-up pass):** Reviewed 6 open Dependabot PRs. Merged #41 (recharts) and
+  #40 (@testing-library/jest-dom) — green, no known blockers. Left #14/#16/#13/#7 open:
+  each is individually broken for reasons already correctly diagnosed in #21/#22/#23 (peer-dep
+  conflicts needing coordinated bumps; #7 passes CI but fails the actual `docker buildx build`).
+  No action taken on #21-24 themselves — real engineering work, not a merge-queue item.
+- **2026-08-30 (#35):** Shipped. `docker-compose.yml` reads the run tag from `$APP_COMMIT`
+  instead of hardcoding `:latest`; `AGENTS.md`/`AGENTS.local.md` runbooks updated to match.
+  Not yet deployed to the Pi — lands on the next real deploy.
