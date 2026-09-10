@@ -3,6 +3,26 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-10 — Force-push is never agent-executed, approval or not
+
+`GUARDRAILS.md` contradicted itself: the destructive-ops section let an approved (or
+standing-approved) history-rewrite/force-push Issue proceed, while Hard stops separately listed
+force-push as unconditional, "no flag overrides these." Surfaced by a `/orchestrate` tick against
+#132 (the approved history-scrub Issue), which correctly refused to pick a reading and flagged it
+instead rather than guessing.
+
+Owner, asked directly: "i prefer never to force push as other agents could be working at the same
+thing by accident." Resolved in favor of the hard-stop, not the carve-out — both sections now say
+explicitly that an approved history-rewrite/force-push Issue means **a human runs it themselves at
+a keyboard**, never the agent, under any approval mechanism. This is a real risk, not a
+hypothetical: this repo has already had a genuine concurrent-tick collision (see "Claiming work"
+and the 2026-08-30 decision below), and a force-push from one tick can silently destroy another's
+in-flight work with no warning. `#132` itself is unaffected in substance — it still needs the
+history scrub done — but the doing is the owner's, not a tick's.
+
+Propagated to `agent-scaffold`'s template (PR #2) and cherry-picked onto `main` via a
+`copier update`, so this isn't a workout-tracker-only fix.
+
 ## 2026-09-08 — "Complete" means merged and deployed, not just merged
 
 Owner, right after a tick reported #131 as "shipped" while it was actually only merged to `main`
