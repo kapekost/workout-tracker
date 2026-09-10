@@ -30,11 +30,18 @@ export default function VersionBadge({ store = updateStore }) {
 
   if (ready && shouldCheckForUpdate(pathname)) {
     return (
-      <button type="button" onClick={store.applyUpdate} className="tap-target" style={{
-        fontSize: type.size.sm, fontWeight: type.weight.semibold, color: colors.mint,
+      // Not `.tap-target`: same centered-44px-hit-zone overlap the check
+      // button had (see below) — confirmed by the same kind of real hit-test,
+      // clicking the title applied the update. Same top-anchored fix.
+      <button type="button" onClick={store.applyUpdate} style={{
+        position: 'relative', fontSize: type.size.sm, fontWeight: type.weight.semibold, color: colors.mint,
         background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
       }}>
         New version — tap to reload
+        <span aria-hidden="true" style={{
+          position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
+          width: 'max(100%, 44px)', height: 44,
+        }} />
       </button>
     )
   }

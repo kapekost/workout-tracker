@@ -22,6 +22,19 @@ const updateServiceWorker = registerSW({
   onNeedRefresh() {
     updateStore.markReady()
   },
+  // vite-plugin-pwa's own internal reload-on-controllerchange (see the
+  // comment on updateStore.setAction below for why we don't rely on it) is
+  // NOT scoped to the tab that tapped — with clientsClaim (vite.config.js),
+  // one tap claims every open tab/instance for this origin, and every tab
+  // that had already seen the waiting update independently registers this
+  // same internal listener. Left as the library's default, a sibling tab
+  // (e.g. a second device, or a desktop tab left open) could self-reload the
+  // instant clientsClaim runs — including one sitting mid-workout, which is
+  // exactly the data-loss case this whole feature exists to prevent. A no-op
+  // here fully replaces that branch (see register.js's `if (onNeedReload)
+  // onNeedReload(); else window.location.reload()`), leaving our own
+  // tap-scoped listener below as the only thing that ever reloads anything.
+  onNeedReload() {},
   onRegisteredSW(_swUrl, registration) {
     updateStore.setRegistration(registration)
     if (!registration) return

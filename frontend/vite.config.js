@@ -56,7 +56,10 @@ export default defineConfig({
         // first-ever visit, i.e. the common case) has nothing to transition
         // on tap: the worker still activates in the background, but no event
         // ever tells the page it's safe to reload. Traced empirically in
-        // Task 4 verification.
+        // Task 4 verification. (clientsClaim also means one tap claims every
+        // open tab/instance for this origin, not just the one that tapped —
+        // main.jsx's `onNeedReload() {}` is what stops that from reloading
+        // any of the others.)
         clientsClaim: true,
         // Purges old-build api-reads-* caches on activate — see #142 and
         // public/api-cache-cleanup.js for why this needs importScripts
