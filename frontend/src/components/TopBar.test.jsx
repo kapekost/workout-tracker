@@ -228,3 +228,22 @@ describe('TopBar page label — item 15', () => {
     expect(await screen.findByText('Exercise')).toBeInTheDocument()
   })
 })
+
+// #125: the badge sits under the title on every route, including the auth
+// screens -- Home.jsx's own VersionStamp can't reach /login, since you can't
+// get to Home without a session, and that's exactly where a stale build hurt
+// the owner before (#105). Thin integration checks only -- VersionBadge.test.jsx
+// covers its own behavior (check control, ready-prompt swap, mid-workout gate).
+describe('TopBar version badge', () => {
+  it('renders the version badge on the ordinary app screens', async () => {
+    signedOut()
+    renderTopBarAt('/')
+    expect(await screen.findByText(/^v \S+$/)).toBeInTheDocument()
+  })
+
+  it('renders the version badge on the login screen too', async () => {
+    signedOut()
+    renderTopBarAt('/login')
+    expect(await screen.findByText(/^v \S+$/)).toBeInTheDocument()
+  })
+})
