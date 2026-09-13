@@ -625,6 +625,19 @@ def test_member_import_rejects_a_stolen_admin_backup(mainmod, client):
     after = member.get("/api/export").json()["tables"]
     assert len(after["sessions"]) == 0  # the admin's session was never absorbed
 
+def test_member_import_rejects_malformed_profiles_shape_with_400(mainmod):
+    # Regression guard, merge-mode counterpart to the replace-mode test below:
+    # the profile-match guard's `.get("id")` used to run on whatever
+    # "profiles" was even if it wasn't a list of row-dicts, so a non-list (or
+    # a list of non-dicts) shape crashed with an uncaught AttributeError
+    # instead of landing on this guard's existing clean 400.
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["profiles"] = "not-a-list"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
 def test_import_replace_rejects_malformed_profiles_shape_with_400(client):
     # Regression guard: `env["tables"]["profiles"]` present but not a list
     # (e.g. a hand-corrupted backup) used to 500 out of the admin-lockout
