@@ -29,7 +29,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#137** — claimed 2026-09-13T07:39:58Z, scheduled routine.
 
 ## Needs owner
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
