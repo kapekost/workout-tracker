@@ -34,14 +34,14 @@
   restored; the divergence-sweep bullet itself was rewritten to mandate hunk-by-hunk bidirectional
   reconciliation, since the version that shipped first didn't actually prevent the mistake it was
   written to prevent. Full detail in `HISTORY.md` (2026-09-13 entries).
-- **Next action:** pick the next `ready` Issue by rank (`#141, #145, #157, #176` — #132 stays
-  next-in-rank but is owner-only, see below).
+- **Next action:** picking **#141** (member import/export hardening) this tick; `#145, #157, #176`
+  remain queued behind it (`#132` stays next-in-rank but is owner-only, see below).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#141** — claimed 2026-09-13T17:14:18Z, live session.
 
 ## Needs owner
 - **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller.**
@@ -51,12 +51,18 @@
   immediately. Both `[unsure]` in `IMPROVEMENTS.md`; not fixable via a PR here. Not blocking
   anything — just means a merge denial (controller or subagent) is worth one retry before treating
   it as a hard stop requiring hand-off.
-- **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
+- **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
   2026-08-30. **2026-09-06:** #33 (nutrition) merged into #32 by direct owner decision, so the spec
-  now needs the nutrition/in-app-AI-query scope folded in *before* the skim means anything. Until
-  then #30/#32 stay `intake`.
+  needs the nutrition/in-app-AI-query scope folded in *before* the skim means anything. **Grew again
+  2026-09-13** (found this tick, already handled by an earlier pass same day, not new work required
+  now): #30's 2026-09-10 stray comment (an ask to edit upcoming planned workouts, unrelated to
+  Import's own scope) was split out to its own `intake` Issue, **#177**, matching the #70/#139
+  precedent; #32 got an owner follow-up sharpening the AI-in-the-loop ask toward live/chat-driven
+  interaction and flagging a new dependency, **#171** (workout-science/nutrition domain agents),
+  which should land before #32 is sequenced. Both still `intake`, unchanged, until the owner skim
+  above happens.
 - **Two `[template]` improvements still genuinely open in `agent-scaffold`** (narrowed 2026-09-10 —
   PR #2 merged with corrections, which covered a third): `/orchestrate approve`'s home-branch
   ambiguity (the #84 approval once landed on a stale `main` copy of `STATE.md`), and PLAYBOOK step 1
