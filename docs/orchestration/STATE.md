@@ -4,11 +4,13 @@
 > below; a feature branch must never touch this file. **Hard budget: ~250 lines.** Every tick reads
 > this file first, so its cost is per-tick and compounding — that is what keeping it bounded is for.
 >
-> **Home branch:** (none — this repo commits orchestration docs straight to `main`)
-> **Project number:** (none yet — create one with `gh project create`, then run
-> `scripts/create_board_view.sh <owner> <number>`)
-> **Project owner:** (defaults to `@me`, the authenticated `gh` user — set explicitly only if the
-> Project belongs to a different login or an org)
+> **Home branch:** `claude/workout-tracker-backlog-bu9qnw` — the real orchestration state (Cursor,
+> In-flight, Needs owner) lives there, not below. This `main` copy exists only so scripts run from
+> a plain `main` checkout (e.g. `create_issue.sh`, `orchestrate_status.sh`) can resolve the home
+> branch/Project pointers without a git worktree. Do not fill in the Cursor/In-flight sections below
+> from `main` — they are not kept current here by design (see `PLAYBOOK.md` step 1).
+> **Project number:** 3
+> **Project owner:** kapekost
 >
 > **This file keeps no Tick log.** Each tick's write-back goes straight to `HISTORY.md` — prepended
 > at the top, verbatim, per PLAYBOOK step 7 — and Cursor's "Current focus" carries the live summary
