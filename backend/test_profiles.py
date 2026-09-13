@@ -551,3 +551,99 @@ def test_import_replace_rejects_an_envelope_with_no_admin_profile(client, mainmo
     with mainmod.db() as conn:
         row = conn.execute("SELECT role FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()
     assert row is not None and row["role"] == "admin"
+
+# --- #141: harden member import/export ---
+# Four small gaps deliberately parked during #87's review: merge bypassing the
+# write endpoints' own field validation, no size cap on a member's merge
+# request, no check that the envelope's own `profiles` row is the caller's,
+# and a malformed `profiles` shape 500ing instead of 400ing on replace.
+
+def test_member_import_rejects_unknown_workout_day_and_rolls_back_whole_merge(mainmod):
+    # SessionIn's Literal is enforced by POST /api/sessions but was not
+    # enforced by merge -- an envelope can otherwise plant an arbitrary
+    # workout_day string. The attached, still-valid set must not merge either:
+    # one bad row 400s the *whole* import, not just itself.
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["sessions"][0]["workout_day"] = "bogus_day"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
+    after = member.get("/api/export").json()["tables"]
+    assert len(after["sessions"]) == 1  # nothing merged -- not even the still-valid set
+    assert len(after["sets"]) == 1
+
+def test_member_import_rejects_invalid_set_fields_and_rolls_back_whole_merge(mainmod):
+    # SetIn's ge/le bounds (reps>=1, weight_kg in [0,1000], set_number>=1) are
+    # enforced by POST /api/sessions/{id}/sets but were not enforced by merge.
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+
+    for bad_field, bad_value in (("reps", -99), ("weight_kg", 1e9), ("set_number", -5)):
+        envelope = member.get("/api/export").json()
+        envelope["tables"]["sets"][0][bad_field] = bad_value
+        r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+        assert r.status_code == 400, bad_field
+
+    after = member.get("/api/export").json()["tables"]
+    assert len(after["sessions"]) == 1  # none of the three bad-field attempts merged anything
+    assert len(after["sets"]) == 1
+
+def test_member_import_rejects_envelope_over_the_row_cap(mainmod):
+    # Cranked down so the test doesn't need thousands of rows to prove the cap
+    # is real and enforced before anything is written.
+    mainmod.MERGE_MAX_ROWS = 3
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()  # 1 profiles row already
+    envelope["tables"]["events"] = [{"name": f"e{i}"} for i in range(4)]  # 1 + 4 > 3
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 422
+
+    after = member.get("/api/export").json()["tables"]["events"]
+    assert after == []  # rejected before a single row was inserted
+
+def test_member_import_rejects_a_stolen_admin_backup(mainmod, client):
+    # A member merging a leaked admin whole-database export must not absorb
+    # every account's data into their own -- the envelope's own `profiles`
+    # table names a different (here, the seed admin's) id than the caller's.
+    client.post("/api/sessions", json={"workout_day": "upper_a"})
+    admin_export = client.get("/api/export").json()
+
+    member, member_id = _member_client(mainmod)
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": admin_export})
+    assert r.status_code == 400
+
+    after = member.get("/api/export").json()["tables"]
+    assert len(after["sessions"]) == 0  # the admin's session was never absorbed
+
+def test_member_import_rejects_malformed_profiles_shape_with_400(mainmod):
+    # Regression guard, merge-mode counterpart to the replace-mode test below:
+    # the profile-match guard's `.get("id")` used to run on whatever
+    # "profiles" was even if it wasn't a list of row-dicts, so a non-list (or
+    # a list of non-dicts) shape crashed with an uncaught AttributeError
+    # instead of landing on this guard's existing clean 400.
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["profiles"] = "not-a-list"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
+def test_import_replace_rejects_malformed_profiles_shape_with_400(client):
+    # Regression guard: `env["tables"]["profiles"]` present but not a list
+    # (e.g. a hand-corrupted backup) used to 500 out of the admin-lockout
+    # guard's `any(...)` instead of landing on the existing clean 400.
+    envelope = client.get("/api/export").json()
+    envelope["tables"]["profiles"] = "not-a-list"
+
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
