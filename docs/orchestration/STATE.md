@@ -16,32 +16,25 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #127 closed 2026-09-13, no code change — already fixed by an unrelated PR
-  (#107) the day before it was filed; verified live against the actual deployed container rather
-  than trusting source. Same tick found and fixed a real docs gap: the home branch's own
-  `PLAYBOOK.md`/`GUARDRAILS.md` had fallen behind `main`'s (PR #175 + two `copier update`s added
-  real policy directly to `main` that never reached the home branch). Reconciled home branch onto
-  `main`'s content, added a step-3 premise-check and a step-2 main/home-branch divergence sweep,
-  propagated via PR #181 (merged, CI green). **Caught and fixed a self-inflicted regression from
-  that same reconciliation**, prompted by the owner asking whether anything was lost: the wholesale
-  copy had reverted two spots in `GUARDRAILS.md` (the force-push hard-stop's "or a standing
-  approval" wording) to `main`'s older phrasing. Restored both plus a `PLAYBOOK.md` citation (#141),
-  and *claimed* — inaccurately — that a full re-diff confirmed nothing else was lost. **Ran an
-  independent code-review subagent against that claim (the step-5 gate the original reconciliation
-  had skipped as "docs-only") and it found the claim was false**: two more home-branch-only
-  `PLAYBOOK.md` citations (#130/#131 dead-dispatch, `STATE.md`'s "1067 lines" history) had also been
-  silently dropped, plus a `main`-only `IMPROVEMENTS.md` entry never ported to the home branch. All
-  restored; the divergence-sweep bullet itself was rewritten to mandate hunk-by-hunk bidirectional
-  reconciliation, since the version that shipped first didn't actually prevent the mistake it was
-  written to prevent. Full detail in `HISTORY.md` (2026-09-13 entries).
-- **Next action:** picking **#141** (member import/export hardening) this tick; `#145, #157, #176`
-  remain queued behind it (`#132` stays next-in-rank but is owner-only, see below).
+- **Current focus:** #141 (member import/export hardening) merged 2026-09-13 via PR #183 — 4
+  gaps parked during #87's review: merge-mode field validation against the write endpoints'
+  own pydantic models, a row-count cap sized from this app's real per-session usage, rejecting a
+  merge whose envelope names someone else's profile (the stolen-admin-backup case), and a 500→400
+  fix for a malformed `profiles` shape. **The step-5 review gate caught a real regression in the
+  first draft**: the new profile-match guard (fix 3) reintroduced the exact same 500-crash bug
+  fix 4 patches elsewhere, on a malformed `profiles` shape — ironic given the PR's own theme.
+  Review also pushed back on an undersized row cap (5000 would have rejected a genuinely active
+  user's own multi-year export within ~1-2 years); both fixed, re-verified independently by the
+  controller (read the diff, re-ran the full suite at the exact merged commit), then merged.
+  244 tests passing. Full detail in `HISTORY.md`.
+- **Next action:** pick the next `ready` Issue by rank (`#145, #157, #176` — `#132` stays
+  next-in-rank but is owner-only, see below).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#141** — claimed 2026-09-13T17:14:18Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller.**
@@ -54,15 +47,13 @@
 - **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
-  2026-08-30. **2026-09-06:** #33 (nutrition) merged into #32 by direct owner decision, so the spec
-  needs the nutrition/in-app-AI-query scope folded in *before* the skim means anything. **Grew again
-  2026-09-13** (found this tick, already handled by an earlier pass same day, not new work required
-  now): #30's 2026-09-10 stray comment (an ask to edit upcoming planned workouts, unrelated to
-  Import's own scope) was split out to its own `intake` Issue, **#177**, matching the #70/#139
-  precedent; #32 got an owner follow-up sharpening the AI-in-the-loop ask toward live/chat-driven
-  interaction and flagging a new dependency, **#171** (workout-science/nutrition domain agents),
-  which should land before #32 is sequenced. Both still `intake`, unchanged, until the owner skim
-  above happens.
+  2026-08-30. **2026-09-06:** #33 (nutrition) merged into #32. **2026-09-13:** #30's stray
+  2026-09-10 comment (edit upcoming planned workouts — unrelated to Import's own scope) was split
+  out to its own `intake` Issue, **#177** (#70/#139 precedent); #32 got an owner follow-up
+  sharpening the AI-in-the-loop ask toward live/chat-driven interaction and naming a new
+  dependency, **#171** (workout-science/nutrition domain agents), which should land before #32 is
+  sequenced. Spec needs all of this (#33, #171 dependency, the sharpened ask) folded in before the
+  skim means anything. Both stay `intake` until then.
 - **Two `[template]` improvements still genuinely open in `agent-scaffold`** (narrowed 2026-09-10 —
   PR #2 merged with corrections, which covered a third): `/orchestrate approve`'s home-branch
   ambiguity (the #84 approval once landed on a stale `main` copy of `STATE.md`), and PLAYBOOK step 1
@@ -71,7 +62,7 @@
   larger, deliberately separate sync (per PR #2's own body). Dead-subagent recovery, the third
   original item, is done — landed in the template via PR #2 and mirrored directly into this repo's
   own `PLAYBOOK.md` step 4, 2026-09-10.
-- **Five `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
+- **Six `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
   (2026-08-30) the `code-review` skill's forked execution silently reviewed the wrong attached repo
   with no explicit target given; (2026-08-31) the Agent tool without `isolation:'worktree'` shared
   the parent session's own checkout, and its `git checkout -b` silently switched the orchestrator's
@@ -84,4 +75,9 @@
   by hand-matching the command banner text against each repo's own command file, not by anything in
   this file; (2026-09-09) the outer session's generic single-branch dispatch assignment conflicted
   with this repo's own multi-branch orchestration design, resolved by treating this repo's own
-  checked-in docs as the explicit permission the outer rule carves out for.
+  checked-in docs as the explicit permission the outer rule carves out for; (2026-09-13) a
+  worktree-isolated execution subagent's first Read/Edit calls targeted the shared checkout's
+  absolute path for a source file instead of its own worktree's copy, even though the dispatch
+  prompt only ever gave a relative path for source references — the harness's isolation refused
+  the write before anything was lost, no fix candidate identified beyond "retry in your own
+  worktree path."

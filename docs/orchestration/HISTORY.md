@@ -9,6 +9,68 @@
 
 ---
 
+## 2026-09-13 — #141 (member import/export hardening): review gate caught a real regression in its own fix
+
+Ran a full tick, first reconciling reality (no drift since the prior tick — the claimed home-branch
+state, ready queue, and the deliberately-left `main`/home-branch `GUARDRAILS.md` cosmetic gap all
+checked out exactly as expected). During the reconcile sweep, found #30's stray 2026-09-10 comment had
+already been split to a new Issue (**#177**) and #32 had picked up a fresh owner follow-up (naming a
+new dependency, **#171**) by an earlier pass the same day — both already handled correctly, just
+folded the current status into `STATE.md` since its text was stale on the point.
+
+Picked **#141** (`Harden member import/export: field validation, size cap, envelope scoping`) — next
+in rank behind #132, which stays owner-only (history-scrub/force-push). Spot-checked the Issue's
+premise against current `main` first: `_import_merge`/`_import_replace` and all four described gaps
+were confirmed still present and unfixed by any intervening work.
+
+Claimed the Issue on the home branch, then dispatched a sonnet-tier, worktree-isolated subagent to
+implement all four fixes described in the Issue:
+1. Validate each merged row (`sessions`/`sets`/`events`/`personal_bests`/`exercise_notes`) against the
+   same pydantic models (`SessionIn`/`SetIn`/`EventIn`/`PersonalBestIn`/`NoteIn`) the real write
+   endpoints already enforce, rejecting the whole merge atomically on any bad row.
+2. Cap total row count across all tables in one merge request.
+3. Reject a merge whose envelope's `profiles` row doesn't match the caller's own profile (closes the
+   stolen-admin-backup absorption case).
+4. Fix `_import_replace`'s admin-lockout guard to isinstance-check `profiles` is a list before
+   iterating, so a malformed shape 400s cleanly instead of 500ing.
+
+First pass: 5 new tests, 243 passed total, branch pushed (not PR'd — the code-review gate runs on the
+branch first, per PLAYBOOK step 5, before a PR exists).
+
+**Independent code review (sonnet, no context from the implementation) found a real, reproducible
+regression**: the new fix-3 profile-match guard ran `r.get("id")` on every row of `tables["profiles"]`
+*before* the transaction and *outside* the try/except that turns malformed shapes into a clean 400 —
+so a non-list `profiles` value (a hand-corrupted or adversarial envelope) crashed with an uncaught
+`AttributeError` → bare 500. This is the exact bug class fix 4 patches for `_import_replace`, two
+guards away in the same function — reintroduced by the new code sitting right next to the fix for it.
+The reviewer reproduced the crash live before reporting it. The review also did the math on the
+Issue's suggested row cap (5000) against this app's own real usage (`workoutPlan.js`'s per-session set
+count, every `analytics.js` call site) and found it would reject a genuinely active user's own
+multi-year export within roughly a year or two — not the "multi-year" headroom the first draft's
+comment claimed.
+
+Sent both findings back to the same subagent (resumed via its existing worktree, not re-briefed from
+scratch) rather than re-dispatching fresh: mirror the isinstance guard for fix 3, and redo the cap's
+sizing math properly. Second pass: isinstance-guarded the profile-match check (verified it reproduces
+and then fixes the exact reported `AttributeError`), raised the cap to 100,000 with a comment showing
+the actual math (~52 rows/session including this app's own analytics events, ~9,500 rows/year at
+realistic usage, so 100k covers roughly a decade), added one more regression test. 244 passed.
+
+**Did not stop at the subagent's self-report** — independently re-fetched the branch, read the full
+diff myself, traced both guards' ordering relative to `conn.execute("BEGIN")` to confirm no partial
+writes on rejection, and re-ran the full suite from scratch at the exact commit (`3a94d7a`) that was
+pushed. Confirmed clean. Opened PR #183 (`Closes #141`), watched CI to green, confirmed `headRefOid`
+matched the reviewed commit before merging, merged via `--squash --delete-branch`.
+
+Logged one `[unsure]` `IMPROVENTS.md` entry: the execution subagent's first Read/Edit calls targeted
+the shared checkout's absolute path for `backend/main.py` instead of its own worktree's copy, even
+though the dispatch prompt only ever referenced source files by relative path (the absolute path was
+reserved for the venv interpreter, per existing PLAYBOOK guidance). The harness's worktree isolation
+refused the out-of-scope write before anything was lost; the subagent corrected on the next attempt.
+No PLAYBOOK fix identified — flagged as a harness quirk, not a doc gap. Cursor advanced 33 → 34.
+
+No new `DECISIONS.md` entry — routine execution plus a review-driven fix-up, not a policy call.
+
 ## 2026-09-13 — Independent review found the regression fix (below) was itself incomplete
 
 After fixing and reporting the `GUARDRAILS.md` regression (see the entry immediately below), the
