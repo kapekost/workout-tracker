@@ -30,7 +30,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#127** — claimed 2026-09-13T09:26:28Z, live session.
 
 ## Needs owner
 - **A dispatched subagent's `gh pr merge` was blocked by the harness's own permission classifier**
