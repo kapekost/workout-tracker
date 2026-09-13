@@ -16,22 +16,28 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #125 (deploy reach + running-version visibility) shipped 2026-09-13 — merged
-  (PR #162, squash), deployed, live-verified on the Pi (`/api/health` and `/login` both read
-  `7e23ba4`). Full resolution moved to `HISTORY.md` (2026-09-13 entry): two real service-worker
-  bugs were found during live verification, not the Playwright flakiness this file previously
-  suspected.
-- **Next action:** pick the next `ready` Issue by rank (`#127, #138, #145, #157, #137, #141` —
-  unchanged since 2026-09-10) or continue prepping #132 (still needs the owner to personally run
-  the history rewrite + force-push — see `DECISIONS.md` 2026-09-10, never a tick).
+- **Current focus:** #137 (model tiering for dispatched work) shipped 2026-09-13 — merged to `main`
+  (PR #178), and propagated in the same pass to `kapekost-web` (#63), `dimkos` (#200) and the
+  `agent-scaffold` template (#5), all merged. Also cleared two owner comments that had sat
+  unanswered across a tick boundary (PLAYBOOK step 2 hard stop): #173's direction sharpened
+  (backdated PB entry ≠ today's workout-log entry; same-day entry always logs one) and #30's
+  off-topic "edit upcoming workouts + reset to recommended" ask split out to its own Issue, #177.
+  Full resolution moved to `HISTORY.md` (2026-09-13 entry).
+- **Next action:** pick the next `ready` Issue by rank (`#138, #127, #141, #145, #157, #176` —
+  #132 stays next-in-rank but is owner-only, see below) or continue prepping #132.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#137** — claimed 2026-09-13T07:39:58Z, scheduled routine.
+(no branches in flight)
 
 ## Needs owner
+- **`photo-cull` has no git remote configured locally** — found while propagating #137's model-
+  tiering policy. Its `docs/orchestration/` matches the other three consumer repos, so it should
+  have gotten the same PLAYBOOK.md edit, but there's no `origin` to push a branch/PR to (confirmed:
+  `git remote -v` empty, `.git/config` has no `[remote]` block). Not guessed at — needs the owner to
+  either add a remote or say where it actually lives before the edit can land there.
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on

@@ -9,6 +9,54 @@
 
 ---
 
+## 2026-09-13 — #137 shipped: model tiering for dispatched work, propagated to 3 of 4 repos + template
+
+Picked up as the top-ranked `ready` Issue this tick. Before picking any work, PLAYBOOK step 2's
+comment sweep found two owner comments that had sat unanswered across a tick boundary — a real
+hard stop, addressed first:
+
+- **#173** (PB entry should log a workout) — owner's follow-up comment ("if you enter an old pb
+  with a year obviously is not now... r should be able to as a workout that came separate from the
+  day's planned workout") sharpened the original ask: a backdated/historical PB entry must not
+  create today's workout-log entry, but a same-day entry (PB or not) should, as a separate/off-plan
+  session. Incorporated into the Issue body's Direction section, commented, still `intake`.
+- **#30** (Import) — a 2026-09-10 owner comment there was actually a distinct, unrelated feature ask
+  ("modify the workouts that are coming up, and have a reset to recommended... per user account not
+  global edits"). Split out as its own Issue, **#177**, matching the precedent of #70/#139 being
+  split from comment threads the same way. Commented on #30 noting the split.
+
+**#137 itself:** added a "Model tiering for dispatched work" section to `PLAYBOOK.md` (after "Where
+the effort goes", pointed to from step 4/Execute) — stronger model (`sonnet`) for planning,
+destructive work and code review; cheaper model (`haiku`) for scoped `effort:S` execution;
+destructive-beats-effort-size precedence; the dispatch default pinned rather than inherited from
+the controller's own interactive model; and the note that `model` is ignored for
+`subagent_type: "fork"`. The only open question in the Issue (pin vs. inherit) had already been
+resolved by the owner on 2026-09-06, so this executed directly — no separate plan needed for a
+~40-line docs addition with the shape already spelled out in the Issue body.
+
+**Propagation** (the Issue's own scope: "propagate to the four consumer repos and the template"):
+- `workout-tracker` — home branch commit, cherry-picked to `main`, PR #178, CI green, merged.
+- `agent-scaffold` template — PR #5 (generalized wording, no repo-specific issue numbers), no CI
+  configured on that repo, verified via its full local test suite (5/5 pass) instead, merged.
+- `kapekost-web` — PR #63, CI green (`Verify application`, `sanity`, `Vercel Preview Comments`),
+  merged.
+- `dimkos` — PR #200, CI has a `paths-ignore: docs/**, **/*.md` filter so no checks ran (expected,
+  not stale — confirmed by reading the workflow file), merged.
+- `photo-cull` — **not done.** Its `docs/orchestration/` matches the other three, but the local
+  clone has no `git remote` configured at all — nothing to push a branch/PR to. Flagged under
+  `STATE.md` → Needs owner rather than guessed at (e.g. committing straight to its local `main`,
+  which the merge rules forbid regardless of whether a remote exists).
+
+**Improvement logged** (`[local]`, 2026-09-13): the Triage/INVEST "too large for its stated effort"
+check should treat cross-repo propagation scope as its own effort-size red flag — #137 was labeled
+`effort:S` and was fine to execute directly only because the actual edit was a small, mechanical,
+already-worded markdown block; a similarly-labeled ticket with real per-repo work in the same shape
+would silently blow the per-tick budget.
+
+Stale worktree tidy-up, same tick: removed `.claude/worktrees/agent-a8223e9aff0d079ae` and its
+branch `claude/125-deploy-reach-version-visibility`, both fully merged and clean (left over from
+#125's dispatch, never cleaned up after that PR merged).
+
 ## 2026-09-13 — Resolved In-flight: #125 shipped, merged, deployed
 
 Was: "#125 mid-execution, PAUSED for an owner-side laptop restart... Task 4's live end-to-end
