@@ -4,6 +4,10 @@
 > below; a feature branch must never touch this file. **Hard budget: ~250 lines.** Every tick reads
 > this file first, so its cost is per-tick and compounding — that is what keeping it bounded is for.
 >
+> **Home branch:** `claude/workout-tracker-backlog-bu9qnw`
+> **Project number:** 3
+> **Project owner:** kapekost
+>
 > **This file keeps no Tick log.** Each tick's write-back goes straight to `HISTORY.md` — prepended
 > at the top, verbatim, per PLAYBOOK step 7 — and Cursor's "Current focus" carries the live summary
 > instead. Resolved Needs-owner items move to `HISTORY.md` the same way. This file reached 1067
