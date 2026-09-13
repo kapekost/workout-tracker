@@ -25,10 +25,15 @@
   propagated via PR #181 (merged, CI green). **Caught and fixed a self-inflicted regression from
   that same reconciliation**, prompted by the owner asking whether anything was lost: the wholesale
   copy had reverted two spots in `GUARDRAILS.md` (the force-push hard-stop's "or a standing
-  approval" wording, added post-2026-09-05, that `main` never had) to `main`'s older phrasing.
-  Restored both, plus a minor dropped citation (#141) in `PLAYBOOK.md`, verified via a full re-diff
-  against the pre-reconciliation home branch that nothing else was lost. Full detail in `HISTORY.md`
-  (2026-09-13 entries).
+  approval" wording) to `main`'s older phrasing. Restored both plus a `PLAYBOOK.md` citation (#141),
+  and *claimed* — inaccurately — that a full re-diff confirmed nothing else was lost. **Ran an
+  independent code-review subagent against that claim (the step-5 gate the original reconciliation
+  had skipped as "docs-only") and it found the claim was false**: two more home-branch-only
+  `PLAYBOOK.md` citations (#130/#131 dead-dispatch, `STATE.md`'s "1067 lines" history) had also been
+  silently dropped, plus a `main`-only `IMPROVEMENTS.md` entry never ported to the home branch. All
+  restored; the divergence-sweep bullet itself was rewritten to mandate hunk-by-hunk bidirectional
+  reconciliation, since the version that shipped first didn't actually prevent the mistake it was
+  written to prevent. Full detail in `HISTORY.md` (2026-09-13 entries).
 - **Next action:** pick the next `ready` Issue by rank (`#141, #145, #157, #176` — #132 stays
   next-in-rank but is owner-only, see below).
 

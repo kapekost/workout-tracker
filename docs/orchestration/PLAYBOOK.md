@@ -229,9 +229,24 @@ only because the owner happened to ask about it, not by anything in this file. H
    the Project board setup section, the Status report section, the `create_issue.sh` mandate itself
    — to `main`'s copies that never reached the home branch, so a tick reading these files as
    canonical per step 1 was quietly working from the stale copy, in the direction step 1's own
-   rationale doesn't cover. If they've diverged, reconcile onto the home branch (adopt whatever
-   `main` has that the home branch lacks) before continuing — never silently pick one without
-   comparing.
+   rationale doesn't cover.
+   **If they've diverged, reconcile hunk by hunk — never adopt one side's file wholesale.** A file
+   can be ahead of the other in most hunks and behind it in others *at the same time*, and neither
+   side is reliably "the newer one" for this pair of files the way it is for `STATE.md`/
+   `DECISIONS.md`. For every differing hunk, determine which side has the greater substance (a
+   real citation, a concrete rule, a worked example) and keep that side's wording for that hunk —
+   do not default to preferring `main` (or the home branch) as a whole-file verdict just because it
+   won most of the hunks. Real case, same day: the first attempt at this exact reconciliation
+   adopted `main`'s file wholesale on exactly that reasoning ("`main` is ahead in every hunk I
+   skimmed") and silently reverted three home-branch-only refinements in the process — a
+   `GUARDRAILS.md` safety-rule wording (the force-push hard-stop's "or a standing approval"
+   qualifier, which actually changed what the rule covered, not just its phrasing) and two
+   `PLAYBOOK.md` citations — because only two of the reverted hunks were checked before declaring
+   the reconciliation complete. A verification step that stops after confirming the first issue it
+   already suspected is not a verification step. When resolving a diff this way, diff the *final*
+   reconciled file back against **both** starting versions (not just the one you copied from) and
+   confirm every line that changed is accounted for as a deliberate, examined choice — not "it
+   matched the file I started from."
 3. **Pick the next action.** Intake triage and `ready`-issue execution are independent, non-blocking
    tracks — an untriaged `intake` Issue does not block picking a `ready` Issue this tick
    (`DECISIONS.md` 2026-08-30 "Sequencing"). Pick the highest-ranked open Issue with the `ready`
@@ -246,7 +261,10 @@ only because the owner happened to ask about it, not by anything in this file. H
      a Dockerfile missing a `COPY` line, but that line had already merged the day before via an
      unrelated PR — the Issue was simply never re-validated and sat `ready` for a week. If the
      premise no longer holds, close the Issue with the evidence and move to the next one instead of
-     dispatching a subagent to redo already-shipped work.
+     dispatching a subagent to redo already-shipped work. **An inconclusive spot-check is not
+     grounds to close** — same "never guess" principle as everywhere else in this file. If the grep
+     doesn't clearly confirm the bug is gone, proceed to plan/execute normally rather than closing on
+     a hunch.
    - If it is **destructive** (per GUARDRAILS) and is neither `approved` nor covered by a standing
      approval in `DECISIONS.md` → skip to the next ready Issue; if none, stop + notify. Check the
      "Always needs a fresh human approval" list in GUARDRAILS first — a standing approval never
@@ -281,7 +299,9 @@ only because the owner happened to ask about it, not by anything in this file. H
    that may have started anyway) **before re-dispatching, check for salvageable work first** —
    `git worktree list` for a worktree it may have created, and inspect it for uncommitted or
    unpushed commits. Re-dispatching blind risks either discarding real work or producing a silent
-   duplicate of it. Only re-dispatch clean once you've confirmed there's nothing to recover.
+   duplicate of it. Only re-dispatch clean once you've confirmed there's nothing to recover — this
+   is exactly what caught the #131 dead-dispatch (2026-09-08) and the #130 rejected-but-still-ran
+   duplicate (2026-09-07) before either cost more than one item's worth of rework.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
 
@@ -334,9 +354,9 @@ only because the owner happened to ask about it, not by anything in this file. H
    **`STATE.md` keeps no Tick log.** Write this tick's narrative entry straight to `HISTORY.md`,
    **prepended at the top** (newest first), verbatim — do not add it to `STATE.md` and roll it
    later. If a Needs-owner item this tick resolved, move it to `HISTORY.md` the same way rather
-   than leaving a struck-through remnant in `STATE.md`. A "keep the last N ticks" rule regrows the
-   same way a full tick log does, so keep none. `DECISIONS.md` is never rolled or summarized by
-   this step.
+   than leaving a struck-through remnant in `STATE.md`. This file reached 1067 lines on 2026-09-06
+   (~200 lines/day of tick-log growth) before a first split fixed it — a "keep the last N" rule
+   regrows the same way, so keep none. `DECISIONS.md` is never rolled or summarized by this step.
    **Before committing, re-check `STATE.md`'s line budget stated at its own top** — Cursor and
    Needs-owner are the only sections that can grow it, so if either has, tighten it in the same
    commit rather than letting it ride.

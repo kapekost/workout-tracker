@@ -9,6 +9,51 @@
 
 ---
 
+## 2026-09-13 — Independent review found the regression fix (below) was itself incomplete
+
+After fixing and reporting the `GUARDRAILS.md` regression (see the entry immediately below), the
+owner asked whether it made sense to spin up a review agent for this kind of self-driven work. That
+was the right prompt: PLAYBOOK step 5 requires a code-review gate before any PR merges, and it had
+been skipped for the reconciliation on the reasoning "docs-only, low risk" — the exact rationalization
+that let the first regression through. Ran `superpowers:requesting-code-review` against the full
+range (`3324a99`..`236749f`) as a genuine independent check, explicitly instructed not to stop after
+confirming the two already-disclosed fixes.
+
+**The review found the "nothing else was lost" claim in the prior fix commit was false.** Its own
+verification had re-checked only the two `GUARDRAILS.md` spots the owner's question had already
+pointed at, plus one `PLAYBOOK.md` citation, then declared the file clean — without doing its own
+from-scratch pass. Redone properly (a full hunk-by-hunk diff of `main`-pre-tick against
+home-branch-pre-tick, this time classifying every single hunk's direction instead of stopping once a
+plausible story fit), two more genuine home-branch-only losses turned up in `PLAYBOOK.md`, both
+citations dropped by the identical wholesale-copy mistake:
+- The "Only re-dispatch clean..." sentence lost its evidentiary clause citing the #131 dead-dispatch
+  (2026-09-08) and #130 rejected-but-still-ran duplicate (2026-09-07) incidents.
+- The "keep no tick log" sentence lost the concrete grounding for the rule ("this file reached 1067
+  lines on 2026-09-06 (~200 lines/day) before a first split fixed it").
+
+The review also found a separate, lower-stakes gap: `main`'s `IMPROVEMENTS.md` carried one
+`[template]` entry (2026-09-13, the `create_issue.sh`/`STATE.md`-header-reset finding, PR #174) that
+had never been ported onto the home branch's own copy of the log — not a policy loss, but the same
+class of silent one-directional gap, in the one file whose whole job is to hold this record.
+
+**All four restored/ported.** More importantly, the step-2 divergence-sweep bullet — the actual
+mechanism meant to prevent a repeat of this bug class — was rewritten. As first written it said
+"reconcile onto the home branch (adopt whatever `main` has that the home branch lacks)," which is
+unidirectional and doesn't mandate a hunk-by-hunk check; it would not have caught either round of
+this exact mistake. It now requires resolving divergence hunk by hunk, explicitly warns that either
+side can be ahead in some hunks and behind in others *simultaneously*, and requires diffing the
+final reconciled file against **both** starting versions before declaring it clean — not just the
+one copied from. Also added: an explicit "inconclusive spot-check is not grounds to close" fallback
+to the new premise-check bullet, per the reviewer's minor finding.
+
+Logged as a further `[template]` `IMPROVEMENTS.md` entry (cursor now 33): the transferable lesson is
+that re-verifying your own fix by re-checking the specific issues someone already raised is not
+independent verification, and that skipping a mandatory review gate because a change "is just docs"
+removes exactly the safety net that would have caught this the first time — which is why it recurred
+inside the fix for its own first occurrence.
+
+---
+
 ## 2026-09-13 — Caught and fixed a regression in the same tick's PLAYBOOK/GUARDRAILS reconciliation
 
 Right after reporting the #127/reconciliation tick (below) as closed, the owner asked "do we know
