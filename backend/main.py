@@ -17,6 +17,24 @@ TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_
 TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
                         "personal_bests": 3, "profiles": 4}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
+# #141: a member's merge-mode import has no admin gate on size the way replace
+# always effectively did (only an admin could reach /api/import at all before
+# #87). Deliberately not matched to /api/events's 100-per-batch cap: that cap
+# bounds one frontend analytics flush, not a whole account's history.
+#
+# Sized from this app's own real per-session row count, not a guess:
+# frontend/src/data/workoutPlan.js's 4-day cycle averages 15.5 sets/session
+# ((16+15+16+15)/4), plus 1 sessions row, plus frontend/src/lib/analytics.js's
+# track() call sites (session_start/session_finish, a screen_view+
+# time_on_screen pair per screen visited, one set_logged per set, and
+# TimerBar's rest_actual_vs_target firing roughly once per rest between
+# sets) -- call it ~35 events/session, for ~52 rows/session all in. At a
+# consistent 3-4 sessions/week (~180/year) that's ~9,500 rows/year. This cap
+# (100,000) covers roughly a decade of that real usage pattern in one merge
+# request -- comfortably more than "multi-year" -- while still bounding the
+# pathological/adversarial case of an envelope with no realistic relationship
+# to one person's own workout history.
+MERGE_MAX_ROWS = 100_000
 # scripts/backup.sh writes this next to the DB, in the volume the app already
 # mounts. It replaced an /api/events POST in #88: the status no longer lives
 # inside the database being backed up (a restore used to drag stale heartbeats
@@ -1185,8 +1203,13 @@ def _import_replace(conn, env, admin, cur_version, env_version) -> dict:
     # anything. Pre-v4 envelopes have no "profiles" key at all, which is a
     # different, already-handled case (see the `continue` below) -- this only
     # fires when the key is present but no row in it is an admin.
-    if "profiles" in env["tables"] and not any(
-        r.get("role") == "admin" for r in env["tables"]["profiles"]
+    # A malformed envelope (e.g. "profiles" present but not a list of
+    # row-dicts) must land on this same clean 400, not an unhandled 500 from
+    # `any(...)` iterating something that isn't row-shaped (#141) — a non-list
+    # has no admin row in it by construction, same as an empty list.
+    if "profiles" in env["tables"] and (
+        not isinstance(env["tables"]["profiles"], list)
+        or not any(r.get("role") == "admin" for r in env["tables"]["profiles"])
     ):
         raise HTTPException(400, "envelope contains no admin profile; refusing to replace the database")
     # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
@@ -1268,9 +1291,48 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
     second time adds nothing — merge's one naturally-idempotent corner.
     sessions/sets/events have no such constraint and are not deduplicated;
     that's a documented POC limitation (decision #9), not an oversight.
+
+    #141 hardening, all enforced before any row is inserted (any failure
+    rejects the whole import, same rollback shape as the pre-existing
+    unknown-column check):
+      - the envelope's own `profiles` row(s) must be the caller's own profile
+        — an envelope that also carries someone else's (e.g. a leaked admin
+        whole-database backup) is refused outright rather than silently
+        absorbed into the caller's account.
+      - total row count across every table is capped (MERGE_MAX_ROWS) so one
+        request can't hold the write transaction open indefinitely or grow
+        the DB unboundedly.
+      - each row is validated against the same pydantic model its write
+        endpoint enforces (SessionIn/SetIn/PersonalBestIn/NoteIn/EventIn),
+        so merge can no longer smuggle in a `reps=-99` or an unknown
+        `workout_day` that POST /api/sessions or /api/sessions/{id}/sets
+        would 422 on. events' `props` is excluded from that check: the DB
+        stores it pre-serialized to a JSON string (see ingest_events), while
+        EventIn.props expects a parsed dict — validating the raw column
+        against that shape would reject every legitimate event that ever
+        carried props, not just malformed ones.
     """
     tables = env["tables"]
     merged = {t: 0 for t in TABLES if t != "profiles"}
+
+    # Envelope/caller mismatch (#141 fix 3) — checked before anything else,
+    # mirroring _import_replace's own early-reject admin-lockout guard. A
+    # malformed (non-list) "profiles" shape must land on this same clean 400
+    # rather than an uncaught AttributeError from `.get` on a non-dict row —
+    # the same bug class fix 4 patches for _import_replace two guards away,
+    # and just as wrong to treat a malformed shape as "no mismatch found":
+    # that would let it slide through unchecked instead of being rejected.
+    profile_rows = tables.get("profiles", [])
+    if not isinstance(profile_rows, list) or any(
+        not isinstance(r, dict) or r.get("id") != profile_id for r in profile_rows
+    ):
+        raise HTTPException(400, "envelope profiles row does not match the caller's own profile; refusing to merge")
+
+    # Size cap (#141 fix 2) — count every row across every table before
+    # opening a transaction at all.
+    total_rows = sum(len(tables.get(t, [])) for t in TABLES)
+    if total_rows > MERGE_MAX_ROWS:
+        raise HTTPException(422, f"envelope too large to merge (max {MERGE_MAX_ROWS} rows across all tables)")
 
     def valid_cols(table):
         return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
@@ -1283,6 +1345,7 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
         for row in tables.get("sessions", []):
             if not set(row.keys()) <= valid_sessions:
                 raise ValueError("unknown column in sessions row")
+            SessionIn.model_validate(row)  # #141 fix 1
             old_id = row.get("id")
             new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
             new_row["profile_id"] = profile_id
@@ -1298,6 +1361,7 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
         for row in tables.get("sets", []):
             if not set(row.keys()) <= valid_sets:
                 raise ValueError("unknown column in sets row")
+            SetIn.model_validate(row)  # #141 fix 1
             new_session_id = session_id_map.get(row.get("session_id"))
             if new_session_id is None:
                 continue  # orphaned: no session in this envelope to attach to
@@ -1314,6 +1378,8 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
         for row in tables.get("events", []):
             if not set(row.keys()) <= valid_events:
                 raise ValueError("unknown column in events row")
+            # props excluded — see the docstring note above.
+            EventIn.model_validate({k: v for k, v in row.items() if k != "props"})  # #141 fix 1
             new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
             new_row["profile_id"] = profile_id
             cols = list(new_row.keys())
@@ -1326,6 +1392,7 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
         for row in tables.get("personal_bests", []):
             if not set(row.keys()) <= valid_pbs:
                 raise ValueError("unknown column in personal_bests row")
+            PersonalBestIn.model_validate(row)  # #141 fix 1
             new_row = {k: v for k, v in row.items() if k != "id"}
             new_row["profile_id"] = profile_id
             cols = list(new_row.keys())
@@ -1339,6 +1406,7 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
         for row in tables.get("exercise_notes", []):
             if not set(row.keys()) <= valid_notes:
                 raise ValueError("unknown column in exercise_notes row")
+            NoteIn.model_validate(row)  # #141 fix 1
             new_row = dict(row)
             new_row["profile_id"] = profile_id
             cols = list(new_row.keys())
