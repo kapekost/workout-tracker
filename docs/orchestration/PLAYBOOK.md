@@ -38,20 +38,27 @@ go straight to code, and does not get invented scope on their behalf.
 1. **Ask clarifying questions** to shape it: the actual user-facing outcome, what's explicitly out
    of scope, constraints, rough priority. Do not guess at intent — the same "never guess" principle
    GUARDRAILS applies to destructive-op approval applies here to scope.
-2. **Capture the raw ask as a single Issue labeled `intake`** before attempting full decomposition —
-   even a rough capture beats losing the ask to context. `intake` means "not triaged at all yet";
-   it is a different state from `needs-clarification` ("was triaged and failed" — see the Triage /
-   INVEST gate below). Neither is `ready`.
+2. **Capture the raw ask as a single Issue labeled `intake`, via `scripts/create_issue.sh intake
+   --title "..." --body-file <path>`** — never a bare `gh issue create`. Even a rough capture beats
+   losing the ask to context. `intake` means "not triaged at all yet"; it is a different state from
+   `needs-clarification` ("was triaged and failed" — see the Triage / INVEST gate below). Neither is
+   `ready`.
 3. **Run it through the Triage / INVEST gate.** If it's small enough as one Issue, relabel `intake` →
    `ready` (or `needs-clarification` if it still doesn't pass) directly. If it needs splitting, open
-   properly-scoped child Issues (type/priority/effort labeled, INVEST-checked, referencing the
-   `intake` Issue), add them to the Project board ranked, then close the `intake` Issue with a
-   pointer to its children. **Every child needs a state label — `ready`, `intake` or
-   `needs-clarification` — set explicitly.** The issue forms default to `intake`, but that default
-   only applies to Issues created through the UI; `gh issue create` during a split bypasses the form
-   entirely, so a child can land with type/priority/effort and no state at all. Such an Issue is
-   invisible to both tracks: `gh issue list --label ready` skips it and intake triage never sees it.
-   Seen for real — a child created alongside three siblings sat unnoticed for three days.
+   properly-scoped child Issues via the same `scripts/create_issue.sh <state> --title ... --body-file
+   ... --label "type:...,priority:...,effort:..."` (type/priority/effort labeled, INVEST-checked,
+   referencing the `intake` Issue), then close the `intake` Issue with a pointer to its children.
+   **`scripts/create_issue.sh` exists specifically to make two failure modes structurally impossible:**
+   a bare `gh issue create` bypasses the ISSUE_TEMPLATE form's `intake` default (real case: a child
+   created alongside three siblings landed with type/priority/effort but no state label at all,
+   invisible to both `gh issue list --label ready` and intake triage, unnoticed for three days) —
+   the script's first argument is a required state label, so this can't happen. It also bypasses the
+   Project board entirely (real case, 2026-09-13: 9 new `intake` Issues plus 7 pre-existing open ones
+   — including 3 already `ready` — existed only as bare Issues, invisible to `/orchestrate`'s actual
+   picking query in step 2/3 below, which reads the board via `gh project item-list`, never `gh issue
+   list`) — the script adds every Issue it creates to the Project board with Status `Todo` in the same
+   call. **Never call `gh issue create` directly** for any Issue this repo's `/orchestrate` is meant
+   to see (GUARDRAILS.md).
    **A third outcome**: owner Q&A can shape real direction — what to build,
    what's explicitly out of scope — without yet producing something concrete enough to size or split.
    The mechanism itself still needs a written spec (this repo's `docs/superpowers/specs/` convention,
@@ -186,7 +193,16 @@ only because the owner happened to ask about it, not by anything in this file. H
    `gh issue list --state open --json number,title,labels` filtered to those with none of `ready` /
    `intake` / `needs-clarification`. A label-filtered query cannot report what it never matches, so
    without this sweep a state-less Issue is invisible to every tick indefinitely. Give each one a
-   state before continuing. Also check for new owner comments since the last tick on any Issue currently in
+   state before continuing. **Also sweep for open Issues missing from the Project board entirely**
+   — same failure class, different cause: `comm -23 <(gh issue list --state open --json number -q
+   '.[].number' | sort) <(gh project item-list <N> --owner <owner> --format json --limit 300 -q
+   '.items[] | select(.content.number != null) | .content.number' | sort -u)` (both sides must use
+   plain lexicographic `sort`, not `sort -n` — `comm` compares lines as text, and numeric sort order
+   diverges from it once numbers have different digit counts). Real case, 2026-09-13: 7 open Issues,
+   including 3 already `ready` (#141/#145/#157), existed only as bare Issues and were invisible to
+   this step's own `gh project item-list` query above — `scripts/create_issue.sh` (see Feature intake
+   above) prevents new instances; this sweep catches any that predate it or slip through some other
+   path. Add each one to the board with Status `Todo` before continuing. Also check for new owner comments since the last tick on any Issue currently in
    progress, or any `intake`/`needs-clarification` Issue awaiting an answer
    (`gh issue view <n> --comments`, or `gh api` filtered by date if scripting it across many Issues) —
    respond to them (answer, incorporate the feedback, or act on it) before picking the next action.
