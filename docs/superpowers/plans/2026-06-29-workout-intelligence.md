@@ -501,9 +501,9 @@ git commit -m "feat(frontend): rest pause + remembered duration, loading skeleto
 - [ ] **Step 1: Merge the earlier UX branch into this one first** if not already shared — confirm `feat/ux-improvements` work is present (this branch builds on it). (If branches diverged, rebase/merge before building.)
 - [ ] **Step 2: Build** — `docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --load .`
 - [ ] **Step 3: Smoke locally** — run on :8099 with temp volume; verify `GET /` 200, `GET /api/notes` 200 (`{}`), create+complete a session and `GET /api/sessions/{id}/prs` 200; remove container.
-- [ ] **Step 4: Transfer** — `docker save ... | gzip | ssh -i ~/.ssh/id_raspi kapekost@192.168.1.170 'gunzip | docker load'`.
+- [ ] **Step 4: Transfer** — `docker save ... | gzip | ssh -i ~/.ssh/<deploy-key> <user>@<pi-host> 'gunzip | docker load'`.
 - [ ] **Step 5: Restart on Pi** — `ssh ... 'cd ~/workout-tracker && docker compose up -d'`.
-- [ ] **Step 6: Verify** — app 200; `homeassistant` still healthy; the new `exercise_notes` table auto-created (PUT a note, GET it, then clear it). Confirm a real session shows previous-performance + summary PRs.
+- [ ] **Step 6: Verify** — app 200; the co-tenant service still healthy; the new `exercise_notes` table auto-created (PUT a note, GET it, then clear it). Confirm a real session shows previous-performance + summary PRs. Real host/user/key values are in `AGENTS.local.md`.
 - [ ] **Step 7: Update AGENTS.md status + commit.**
 
 ---

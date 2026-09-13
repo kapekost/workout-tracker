@@ -521,8 +521,8 @@ def enforce_rate_limit(request: Request, *keys: str) -> None:
     """429 if any of the caller's counters is over. Keyed by IP *and* by the
     subject (username or email), per the design.
 
-    This exists because cost-12 hashing is 627 ms of CPU on a 4-core box that
-    also runs Home Assistant — an unthrottled login endpoint is a CPU amplifier
+    This exists because cost-12 hashing is 627 ms of CPU on a 4-core box shared
+    with another service — an unthrottled login endpoint is a CPU amplifier
     pointed at the house. So callers must invoke this *before* doing any hashing;
     rejecting afterwards would leave the amplifier fully intact.
     """

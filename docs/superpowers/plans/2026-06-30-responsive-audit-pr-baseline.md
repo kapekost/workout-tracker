@@ -318,7 +318,7 @@ Re-screenshot the whole matrix once more to confirm every catalogued issue is Fi
 
 - [ ] **Step 1: Append the new commits to the pending-deploy list**
 
-Add the Part A and Part B commits under *Pending deploy → Pi* in `AGENTS.md` (alongside the existing `8405eb1` entry), with a one-line description each. Leave the deploy itself unchecked — it is gated on SSH reachability to the Pi (off-LAN, SSH not exposed over Tailscale). When on the home LAN, deploy is the existing `docker build` (arm64) → `docker save | ssh kapekost@192.168.1.170 'docker load'` → restart sequence already documented in AGENTS.md, run by hand, then verify (`HTTP 200`, serving `Gym Tracker`; visual check: baseline note, TimerBar un-clipped).
+Add the Part A and Part B commits under *Pending deploy → Pi* in `AGENTS.md` (alongside the existing `8405eb1` entry), with a one-line description each. Leave the deploy itself unchecked — it is gated on SSH reachability to the Pi (off-LAN, SSH not exposed over Tailscale). When on the home LAN, deploy is the existing `docker build` (arm64) → `docker save | ssh <user>@<pi-host> 'docker load'` → restart sequence already documented in AGENTS.md (real host/user in `AGENTS.local.md`), run by hand, then verify (`HTTP 200`, serving `Gym Tracker`; visual check: baseline note, TimerBar un-clipped).
 
 - [ ] **Step 2: Commit**
 

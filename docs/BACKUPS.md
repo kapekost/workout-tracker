@@ -189,49 +189,33 @@ safety-critical code in the app and the one least exercised in normal use.
 
 ## What this covers, and what it doesn't
 
-Everything above is about **`workouts.db`**. The host it runs on is shared, and the other
-two things living on it have a very different level of protection. Audited 2026-09-04:
+Everything above is about **`workouts.db`**. The host it runs on is shared with another
+service that has its own, separate backup story — audited 2026-09-04, full detail (real
+names, paths, commands) kept in `AGENTS.local.md`'s "Co-located services" section since
+it isn't this app's to document publicly.
 
 | What | Protection | Off-box? |
 |---|---|---|
 | **workout-tracker DB** | `scripts/backup.sh`, run manually; 2 local snapshots + the last one off-site | Yes |
-| **Home Assistant** | HA's own automatic backup, roughly monthly — now only off-box | Yes, by hand |
-| **The Raspberry Pi itself** | Nothing | **No** |
+| **The co-located service** | Its own automatic backup, roughly monthly — now only off-box | Yes, by hand |
+| **The host itself** | Nothing | **No** |
 
-Two gaps worth naming rather than discovering later:
+Two gaps worth naming rather than discovering later (see `AGENTS.local.md` for the
+exact recovery commands):
 
-- **Home Assistant's backups live on the same SD card as Home Assistant**, and nothing
-  moves them automatically. The card dying would take them with it — the one failure this
-  Pi has already had, in July 2026. The two that existed (~47 MB and ~65 MB, from
-  2026-08-01 and 2026-09-01) were copied to `gdrive:homeassistant-backups` by hand on
-  2026-09-04, verified byte-for-byte by comparing md5 sums computed independently on each
-  side, and then **deleted from the card**. So they now exist off-box only, and
-  `/config/backups` is empty until HA writes its next one. **That next one will not be
-  copied anywhere**, until someone repeats this:
-
-  ```bash
-  # on the host — docker cp because the config volume is root-owned
-  mkdir -p ~/ha-staging
-  docker cp homeassistant:/config/backups/<file>.tar ~/ha-staging/
-  rclone copy ~/ha-staging gdrive:homeassistant-backups
-  rclone check ~/ha-staging gdrive:homeassistant-backups   # expect "0 differences found"
-  rm -rf ~/ha-staging
-  ```
-
-  Verify before deleting anything — `rclone check`, or md5 both sides — because the point
-  of the exercise is that these are the only copies. Note the tradeoff that comes with
-  removing the originals: HA's own UI only lists backups present in `/config/backups`, so
-  restoring now means pulling the tar back down from Drive first. That is the intended
-  state here, not an oversight; disk space was never the reason (the Pi is 11% full with
-  ~100 GB free), getting them off a card that has already died once was.
-- **There is no image or filesystem backup of the Pi.** No timeshift, rpi-clone,
+- **The co-located service's backups live on the same SD card it runs on**, and nothing
+  moves them automatically. The card dying would take them with it — the one failure
+  this host has already had, in July 2026. The existing ones were copied off-box by hand
+  and verified; each *new* one needs the same manual copy-off, or it stays on-card only.
+- **There is no image or filesystem backup of the host.** No timeshift, rpi-clone,
   rsnapshot, borg, restic or duplicity is installed, and no cron or systemd timer does
   anything of the kind. Losing the card means rebuilding the OS and every service by
   hand. For workout-tracker that is fine — it rebuilds from git and its data is off-box.
-  For Home Assistant it is not: months of configuration and history live only there.
+  For the co-located service it is not: months of configuration and history live only
+  there.
 
 Neither is filed as an issue in this repo, because neither is this repo's to fix — the
-Pi is shared infrastructure. They are recorded here so the honest answer to "what is
+host is shared infrastructure. They are recorded here so the honest answer to "what is
 backed up?" isn't mistaken for "the app is backed up, so the box is".
 
 ## Known gaps

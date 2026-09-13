@@ -506,9 +506,9 @@ git commit -m "feat(frontend): faster logging — auto-advance, per-exercise pre
 
 - [ ] **Step 1: Build** — `cd ~/dev/workout-tracker && docker buildx build --platform linux/arm64 -t kapekost/workout-tracker:latest --load .`
 - [ ] **Step 2: Smoke locally** — run the image on :8099 with a temp volume; confirm `GET /` 200 and `GET /manifest.webmanifest` 200; remove container.
-- [ ] **Step 3: Transfer** — `docker save kapekost/workout-tracker:latest | gzip | ssh -i ~/.ssh/id_raspi kapekost@192.168.1.170 'gunzip | docker load'`
-- [ ] **Step 4: Restart on Pi** — `ssh -i ~/.ssh/id_raspi kapekost@192.168.1.170 'cd ~/workout-tracker && docker compose up -d'`
-- [ ] **Step 5: Verify** — app `200`, container `Up`, `homeassistant` still `healthy`. Then on phone: start a workout, lock-check the screen stays on, log a set (rest timer big + REST/GO), confirm auto-advance + prefill, finish.
+- [ ] **Step 3: Transfer** — `docker save kapekost/workout-tracker:latest | gzip | ssh -i ~/.ssh/<deploy-key> <user>@<pi-host> 'gunzip | docker load'`
+- [ ] **Step 4: Restart on Pi** — `ssh -i ~/.ssh/<deploy-key> <user>@<pi-host> 'cd ~/workout-tracker && docker compose up -d'`
+- [ ] **Step 5: Verify** — app `200`, container `Up`, the co-tenant service still `healthy`. Then on phone: start a workout, lock-check the screen stays on, log a set (rest timer big + REST/GO), confirm auto-advance + prefill, finish. Real host/user/key values are in `AGENTS.local.md`.
 - [ ] **Step 6: Update AGENTS.md status + commit.**
 
 ---

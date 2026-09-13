@@ -1048,7 +1048,7 @@ In `AGENTS.md`, under the "Data persistence & backup" section, add:
 
 - **On-demand snapshot (agent):** `GET /api/export` returns a full JSON snapshot.
   Before ANY schema-changing deploy, save one as a pre-deploy safety copy:
-  `curl -s http://192.168.1.170:8080/api/export > pre-deploy-$(date +%F).json`.
+  `curl -s http://<pi-host>:8080/api/export > pre-deploy-$(date +%F).json`.
 - **Restore (agent, destructive):** `POST /api/import` with
   `{"mode":"replace","confirm":true,"envelope":<export-json>}`. It auto-snapshots
   the live DB to `data/pre-import-*.db` first and is atomic (rolls back on error).
@@ -1065,7 +1065,7 @@ In `AGENTS.md`, under the "Data persistence & backup" section, add:
 4. Cron (host, not container): `crontab -e` →
    `30 3 * * * /bin/bash $HOME/workout-tracker/scripts/backup.sh >> $HOME/backup.log 2>&1`
 
-Verify health: `curl -s http://192.168.1.170:8080/api/health` →
+Verify health: `curl -s http://<pi-host>:8080/api/health` →
 `{"status":"ok","last_backup_at":"…","last_backup_status":"ok"}`.
 ```
 
@@ -1105,7 +1105,7 @@ git commit -m "docs: AGENTS.md status — v-next Phase 1 complete"
 
 - [ ] **Step 5: Deploy & verify (per AGENTS.md runbook)**
 
-Build (Mac, arm64) → transfer to Pi → `docker compose up -d` → verify `/api/health` ok, bundle hash matches, Home Assistant still healthy. Run the one-time rclone/cron setup and confirm the first backup lands in Drive and `last_backup_status` becomes `"ok"`.
+Build (Mac, arm64) → transfer to Pi → `docker compose up -d` → verify `/api/health` ok, bundle hash matches, the co-tenant service still healthy. Run the one-time rclone/cron setup and confirm the first backup lands in Drive and `last_backup_status` becomes `"ok"`.
 
 ---
 
