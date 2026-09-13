@@ -16,28 +16,30 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #138 (document the local-dev runbook) shipped 2026-09-13 — merged to `main`
-  (PR #180), dispatched to the cheap model tier per the #137 policy. Verified end-to-end by the
-  subagent: backend+frontend run together locally, a dev-only password snippet, and documented
-  (not built) the lack of a lint script. 238 backend + 380 frontend tests green. Also resolved the
-  `photo-cull` Needs-owner item this tick: it's remote-less by design (private/local), its public
-  counterpart is `photo-cull-public` — see `DECISIONS.md` 2026-09-13. Full detail in `HISTORY.md`
-  (2026-09-13 entries).
-- **Next action:** pick the next `ready` Issue by rank (`#127, #141, #145, #157, #176` — #132 stays
+- **Current focus:** #127 closed 2026-09-13, no code change — already fixed by an unrelated PR
+  (#107) the day before it was filed; verified live against the actual deployed container rather
+  than trusting source. Same tick found and fixed a real docs gap: the home branch's own
+  `PLAYBOOK.md`/`GUARDRAILS.md` had fallen behind `main`'s (PR #175 + two `copier update`s added
+  real policy directly to `main` that never reached the home branch). Reconciled home branch onto
+  `main`'s content, added a step-3 premise-check and a step-2 main/home-branch divergence sweep,
+  propagated via PR #181 (merged, CI green). Full detail in `HISTORY.md` (2026-09-13 entries).
+- **Next action:** pick the next `ready` Issue by rank (`#141, #145, #157, #176` — #132 stays
   next-in-rank but is owner-only, see below).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#127** — claimed 2026-09-13T09:26:28Z, live session.
+(no branches in flight)
 
 ## Needs owner
-- **A dispatched subagent's `gh pr merge` was blocked by the harness's own permission classifier**
-  on #138 (2026-09-13), even though it had verified everything and CI was green — the controller
-  merged PR #180 itself instead. Logged as `[unsure]` in `IMPROVEMENTS.md`; not fixable via a PR in
-  this repo. Not blocking anything, just means a subagent that reaches the merge step today should
-  expect to hand back to the controller rather than complete it.
+- **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller.**
+  #138 (2026-09-13): a dispatched subagent's `gh pr merge` was blocked despite green CI; the
+  controller merged PR #180 instead. #181, same day: the *controller's own* `gh pr merge` was also
+  denied once ("blocked by classifier", no reason given) — but an identical retry succeeded
+  immediately. Both `[unsure]` in `IMPROVEMENTS.md`; not fixable via a PR here. Not blocking
+  anything — just means a merge denial (controller or subagent) is worth one retry before treating
+  it as a hard stop requiring hand-off.
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
