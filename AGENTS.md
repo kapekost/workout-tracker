@@ -109,6 +109,58 @@ they are not shared with the main checkout.
 The 3.14 above is the version the Dockerfile's base image (`python:3.14-slim`) and CI
 (`.github/workflows/backend-tests.yml`) both pin; keep all three in step.
 
+### Running the whole app locally
+
+To verify a complete flow end-to-end with the frontend talking to the backend, run both dev servers
+against a local throwaway database. **Port 8000 is not optional** — `frontend/vite.config.js` hardcodes
+`http://localhost:8000` as the proxy target for `/api/` calls (line 121).
+
+```bash
+# Terminal 1: Backend on port 8000 against /tmp/dev.db
+cd backend
+DATABASE_URL=/tmp/dev.db .venv/bin/python -m uvicorn main:app --port 8000
+
+# Terminal 2: Frontend on port 5173
+cd frontend
+npm run dev
+```
+
+Open http://localhost:5173 in your browser. The frontend will proxy all API calls to the backend.
+
+**Setting a password locally without Resend:** Before verifying any logged-in screen, set a password
+for the `kapekost` profile. The `scripts/bootstrap_owner.py` script refuses to run without
+`RESEND_API_KEY`/`MAIL_FROM` (correct for production, since the invite is a real email), but for
+local development, hand-write a password hash directly:
+
+```python
+import sys
+sys.path.insert(0, 'backend')
+import main
+
+# DATABASE_URL must match what the backend is using (e.g., /tmp/dev.db)
+with main.db() as conn:
+    password = "correct horse battery"  # min 12 chars
+    password_hash = main.hash_password(password)
+    conn.execute("UPDATE profiles SET password_hash = ? WHERE username = 'kapekost'",
+                 (password_hash,))
+    conn.commit()
+    print(f"Password set for kapekost")
+
+# Then log in via the frontend or curl:
+# curl -X POST http://localhost:8000/api/auth/login \
+#   -H "Content-Type: application/json" \
+#   -d '{"username":"kapekost","password":"correct horse battery"}'
+```
+
+Run this script from the repo root (so `sys.path.insert(0, 'backend')` finds `main.py`), or adjust
+the path to match your worktree's layout. From a fresh worktree, you may need to create a fresh venv
+and install `backend/requirements.txt` if running from a different checkout than the one where the
+backend server is running (since `.venv` is gitignored and not shared). The same applies to
+`frontend/node_modules`.
+
+**No `lint` script exists.** The frontend has no eslint/linter integration. `npm test` (vitest)
+is the only local gate before CI.
+
 ## Runbook
 
 The deploy shape is: **build** the image on a capable machine → **transfer**
