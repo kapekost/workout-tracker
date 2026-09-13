@@ -1,6 +1,7 @@
 """Accounts step 1 (#84): schema v6, password hashing, sessions, auth endpoints."""
 import re
 import sqlite3
+from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
@@ -596,7 +597,13 @@ def test_the_backup_posture_is_admin_only(mainmod, anon_client, client, write_ba
     should not publish how long it has been since the database was last copied
     off the box, or whether that copy failed — and after #27 puts this behind a
     tunnel, /api/health is public in earnest."""
-    write_backup_status({"local": {"status": "ok", "at": "2026-09-05T00:12:03Z"}})
+    # Relative to "now", not a hardcoded date: BACKUP_STALE_AFTER_S is 8 days,
+    # and a fixed past timestamp eventually crosses that threshold on its own
+    # as real time passes, turning "ok" into "stale" for reasons that have
+    # nothing to do with what the test is actually checking (seen for real,
+    # 2026-09-13 — a "2026-09-05" fixture aged out mid-flight).
+    recent = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write_backup_status({"local": {"status": "ok", "at": recent}})
     assert anon_client.get("/api/admin/backup-status").status_code == 401
     with mainmod.db() as conn:
         pid = conn.execute("INSERT INTO profiles (username, role) VALUES ('plain','member')").lastrowid

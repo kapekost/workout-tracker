@@ -12,6 +12,24 @@ actively driving feature requests into yet, doesn't need Issues, a ranked board,
 clarifying-question ceremony: just do the work directly. Turn this on once a product owner starts
 bringing feature requests you'd otherwise have to remember and sequence yourself.
 
+## Project board setup (one-time per repo)
+
+A GitHub Projects v2 board is where the owner ranks work (drag order = priority — see step 2)
+and, once created, gives a real Kanban view for free: run
+`scripts/create_board_view.sh <owner> <project-number>` once, after the Project itself exists
+(`gh project create`), and it adds a Board-layout view. No further configuration is needed — a
+freshly created Board-layout view groups by the `Status` single-select field automatically, with
+real Todo/In Progress/Done columns, even though the public GraphQL API has no way to *set* that
+grouping explicitly (`ProjectV2ViewConfigurationInput` only exposes `visibleFieldIds`; there is no
+group-by input). Verified empirically 2026-09-10, not assumed from docs. The script is idempotent
+— safe to re-run, it skips creating a duplicate if a board view already exists.
+
+Note what this does *not* solve on its own: the `Status` field's `Todo`/`Done` values already
+track `state:OPEN`/`state:CLOSED` via GitHub's own built-in automation, but nothing yet writes
+`In Progress` when a tick actually claims an Issue (see `STATE.md`'s `## In-flight` section for
+where that claim already lives) — so today the board shows two real columns and one empty one.
+Wiring that write is tracked separately; it needs its own design, not a same-file follow-on here.
+
 ## Feature intake (product owner → Issues)
 
 A high-level feature request from the product owner — in conversation, not yet an Issue — does not
@@ -50,7 +68,8 @@ go straight to code, and does not get invented scope on their behalf.
 
 ## Command variants (dispatch on the argument)
 - `/orchestrate` (no arg) — run the next tick.
-- `/orchestrate status` — reconstruct + report only. **No execution, no writes.** Cheapest path.
+- `/orchestrate status` — run `scripts/orchestrate_status.sh` and print its output verbatim.
+  **No execution, no writes.** Cheapest path. See "Status report" below for the exact format.
 - `/orchestrate approve <issue-number>` — **human-only**, never dispatched by an unattended tick (see
   GUARDRAILS "Approval is human-only"). When a human runs it: add the `approved` label to the given
   Issue, comment why, stop.
@@ -59,6 +78,42 @@ go straight to code, and does not get invented scope on their behalf.
 - `/orchestrate review-feedback` — run only step 8 below (feedback review), then stop. Also runs
   automatically at the end of any tick that logged a new `IMPROVEMENTS.md` entry.
 - `/orchestrate stop` — set `STATE.md` → Stop-condition to "owner stop", commit, stop.
+
+## Status report
+
+`scripts/orchestrate_status.sh` prints exactly this shape:
+```
+READY (3): #127, #138, #137
+IN PROGRESS (1): #125 — claimed 2026-09-10T03:54Z, paused (owner go-ahead pending)
+BLOCKED (0)
+NEEDS OWNER (2): #30/#32 spec skim; 2 [template] items open in agent-scaffold
+INTAKE (2): #152, #148
+IMPROVEMENTS: 25 logged, 5 [unsure] open (oldest: 11 days)
+```
+Every line is empty-safe — `BLOCKED (0)` prints plainly, absence of blocked work is itself
+useful information, not an omitted line.
+
+Every number and list comes from a source already kept accurate for other reasons, never from
+new stored state:
+- **READY** — `gh project item-list`, ranked (the Project's manual drag order — the same source
+  step 2/3 use to pick the next Issue; deliberately not `gh issue list`, which cannot sort by
+  that rank at all).
+- **IN PROGRESS** / **NEEDS OWNER** — the orchestration home branch's own `STATE.md`
+  `## In-flight` / `## Needs owner` sections, read via `git show origin/<home-branch>:...`, never
+  the working tree's copy (which is deliberately not kept current — see that file's own header).
+  A repo with no distinct home branch (`STATE.md`'s "Home branch" field left at its default)
+  reads the working tree directly instead.
+- **BLOCKED** / **INTAKE** — `gh issue list --label blocked`/`--label intake`, open only.
+- **IMPROVEMENTS** — parsed from the home branch's `IMPROVEMENTS.md`: total entries, how many
+  are `[unsure]`, and the oldest `[unsure]` entry's age in days.
+
+Requires `STATE.md`'s "Home branch"/"Project number" header fields to be filled in for the
+READY/IN PROGRESS/NEEDS OWNER/IMPROVEMENTS lines to resolve against the home branch — a fresh
+scaffold with neither set still runs, reporting `READY (unknown — no Project number set in
+STATE.md)` and reading the working tree for the rest (IMPROVEMENTS included — it follows the same
+home-branch switch as IN PROGRESS/NEEDS OWNER). A third field, `**Project owner:**`, defaults to
+`@me` (the authenticated `gh` user) if left at its placeholder — set it explicitly only when the
+Project belongs to a different login or an org.
 
 ## Triage / INVEST gate
 Before an Issue gets the `ready` label, it must pass a basic INVEST sanity check (Independent,
@@ -119,8 +174,14 @@ only because the owner happened to ask about it, not by anything in this file. H
    conflict exposed 28 commits `main` had never seen. Read them with
    `git show origin/claude/workout-tracker-backlog-bu9qnw:docs/orchestration/<file>`, or from a
    worktree checked out on that branch. Do not read source files yet.
-2. **Reconcile reality:** `git status`, `gh pr list`, `gh issue list --label ready --state open`
-   (sorted by the Project's manual rank). If reality diverged from `STATE.md`, correct `STATE.md` and
+2. **Reconcile reality:** `git status`, `gh pr list`, and `gh project item-list 3 --owner "@me"
+   --query "status:Todo label:ready"` for the ranked `ready` queue — **not** `gh issue list`, which
+   has no notion of the Project's manual rank at all (no such sort exists in its flags) and was
+   wrongly documented here as if it did. `gh project item-list`'s own item order already *is* the
+   board's manual rank — confirmed empirically: an item dragged to a new position in the Todo
+   column of a Board-layout view (see "Project board setup" above) moves in this same output,
+   immediately, because both read the one underlying position GitHub stores per item. If reality
+   diverged from `STATE.md`, correct `STATE.md` and
    continue. **Also sweep for open Issues carrying no state label at all** — e.g.
    `gh issue list --state open --json number,title,labels` filtered to those with none of `ready` /
    `intake` / `needs-clarification`. A label-filtered query cannot report what it never matches, so
@@ -214,6 +275,13 @@ only because the owner happened to ask about it, not by anything in this file. H
    when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
    decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
    this same write-back — a shipped or stopped tick must never leave a stale claim behind.
+   **Any direct edit to `PLAYBOOK.md` or `GUARDRAILS.md` made mid-tick to correct something
+   wrong** — not a new feature, an actual fix to a wrong instruction — **also gets an
+   `append_improvement.sh` entry in the same commit**, `[template]` if the template's own copy of
+   this file carries the same bug, `[local]` if it's specific to this repo's rendering of it. This
+   is the step that was skipped when `blocked-by` tracking was fixed locally in one repo and the
+   fix never reached the template — see `IMPROVEMENTS.md`'s log for the entry this rule would have
+   produced, had it existed then.
    **`STATE.md` keeps no Tick log.** Write this tick's narrative entry straight to `HISTORY.md`,
    **prepended at the top** (newest first), verbatim — do not add it to `STATE.md` and roll it
    later. If a Needs-owner item this tick resolved, move it to `HISTORY.md` the same way rather
