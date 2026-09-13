@@ -9,6 +9,33 @@
 
 ---
 
+## 2026-09-13 — Resolved In-flight: #125 shipped, merged, deployed
+
+Was: "#125 mid-execution, PAUSED for an owner-side laptop restart... Task 4's live end-to-end
+verification kept hitting a Chromium/Playwright service-worker lifecycle quirk in-session
+(`registration.update()` throwing 'invalid state' after the first call) — looked like test-harness
+flakiness, not an app defect, but wasn't fully run down."
+
+Resolved: resumed cleanly — the branch had survived intact. Real-browser verification (not
+Playwright) found the "quirk" was not harness flakiness: the update-ready reload genuinely never
+fired, root-caused to two compounding service-worker issues. (1) Without `clientsClaim`, the tab
+requesting an update was never "controlled," so no `controllerchange` event existed to reload
+from. (2) Even after adding `clientsClaim: true`, `vite-plugin-pwa`'s own built-in reload trigger
+still couldn't be trusted: its `isUpdate` flag is a one-time snapshot taken at page load of
+whether a worker already controlled the page then — permanently false for this app's primary use
+case (an installed PWA resumed from background, never re-navigated, per `main.jsx`'s own
+comment). Fixed with an explicit, tap-scoped `controllerchange` listener plus a no-op
+`onNeedReload` to stop `clientsClaim` from also reloading sibling tabs/devices mid-workout (a real
+second-order risk code review caught, since the naive fix alone would have reopened the exact
+mid-workout data-loss hole this feature exists to close). Also found and fixed a second
+tap-target-overlap bug on the ready-state button — same class as the already-shipped
+check-button fix, found via the same real hit-test method. Verified end-to-end in a real browser:
+full v1 → ready prompt → tap → reload → v2 round trip, and mid-workout suppression against a real
+logged-in session. PR #162 merged (squash), deployed via `scripts/deploy.sh`, live-verified on the
+Pi (`/api/health` and `/login` both read the new commit, `7e23ba4`).
+
+---
+
 ## 2026-09-10 — Resolved Needs-owner: #132's GUARDRAILS contradiction
 
 Was: "#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick. Its

@@ -16,47 +16,20 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#125 mid-execution, PAUSED for an owner-side laptop restart — this is a
-  deliberate checkpoint, not a crash.** Tasks 1-3 of the plan (`docs/superpowers/plans/
-  2026-09-09-125-deploy-reach-version-visibility.md`) are done and committed on branch
-  `claude/125-deploy-reach-version-visibility` (pushed to origin — safe even if the local worktree
-  is ever lost): the update-ready store in `swUpdate.js`, the `registerType: 'autoUpdate'` →
-  `'prompt'` switch (independently re-verified against a real build's `dist/sw.js` — message-gated
-  `skipWaiting`, zero `clientsClaim`), and `VersionBadge` mounted in `TopBar`. **A real UI bug was
-  found and fixed during Task 4's screenshot/review step, on the same branch**: the shared
-  `.tap-target` utility centers its invisible 44px hit-zone on the check button, which bled upward
-  into the title text directly above it in this tight header layout — a real hit-test showed
-  tapping the title triggered "check for update" instead. Fixed by anchoring the hit-zone's top
-  edge to the button's own top (still 44px, extends only downward) instead of centering it;
-  re-verified both that this fixed the overlap and that the button itself still works.
-- **What's NOT done yet:** Task 4's live end-to-end verification (rebuild `dist/`, trigger a real
-  SW update, confirm the reload round-trip) kept hitting a Chromium/Playwright service-worker
-  lifecycle quirk in-session (`registration.update()` throwing "invalid state" after the first
-  call) — looked like test-harness flakiness, not an app defect, but wasn't fully run down. Task 4's
-  mid-workout-suppression screenshot pass also wasn't completed. Then: code review (`superpowers:
-  requesting-code-review`), PR, CI, merge, deploy, and the real-phone verification per this repo's
-  "complete means deployed" convention — none of that has happened yet either.
-- **Resume from:** `claude/125-deploy-reach-version-visibility` (pushed, 4 commits ahead of
-  `main`). A local worktree may still exist at
-  `~/dev/workout-tracker/.claude/worktrees/agent-a8223e9aff0d079ae` with a running dev server on
-  :5173 from before the restart — don't assume it's still there; the pushed branch is the durable
-  copy. Next step: finish Task 4's live verification (or judge the build-artifact-level evidence
-  already gathered sufficient and move straight to review), then continue the plan's own "Review,
-  PR and deploy" section.
-- **Also this window:** **#132**'s GUARDRAILS contradiction is fixed (2026-09-10, see
-  `DECISIONS.md`) — it still needs a human to actually run the history rewrite + force-push, never
-  a tick, but nothing in the docs blocks picking it up and preparing it. Other `ready` work
-  untouched: #127, #138, #145, #157, #137, #141. `#152`/`#148`/other `intake` unchanged.
-- **Next action:** resume #125 per the above once the owner says go.
+- **Current focus:** #125 (deploy reach + running-version visibility) shipped 2026-09-13 — merged
+  (PR #162, squash), deployed, live-verified on the Pi (`/api/health` and `/login` both read
+  `7e23ba4`). Full resolution moved to `HISTORY.md` (2026-09-13 entry): two real service-worker
+  bugs were found during live verification, not the Playwright flakiness this file previously
+  suspected.
+- **Next action:** pick the next `ready` Issue by rank (`#127, #138, #145, #157, #137, #141` —
+  unchanged since 2026-09-10) or continue prepping #132 (still needs the owner to personally run
+  the history rewrite + force-push — see `DECISIONS.md` 2026-09-10, never a tick).
 
 ## Stop-condition
-(none — runner proceeds normally; #125's pause above is a manual checkpoint, not a stop-condition)
+(none — runner proceeds normally)
 
 ## In-flight
-- **#125** — claimed 2026-09-10T03:54:12Z, **paused** (owner-requested checkpoint for a laptop
-  restart, not abandoned — see Cursor above for exactly where to resume). Do not treat this as a
-  stale/crashed claim before checking with the owner first, even past the usual 2h staleness
-  window, since the owner explicitly said they'd say when to continue.
+(no branches in flight)
 
 ## Needs owner
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
