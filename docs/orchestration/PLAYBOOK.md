@@ -218,6 +218,19 @@ only because the owner happened to ask about it, not by anything in this file. H
    A comment sitting unanswered across a tick boundary is a bug in the loop, not something to defer.
    **Also check the live In-flight claim per "Claiming work" above** — this is a separate check from
    `gh pr list` and catches what that can't (work in progress that hasn't reached a PR yet).
+   **Also check that `PLAYBOOK.md` and `GUARDRAILS.md` haven't diverged from `main`** —
+   `diff <(git show origin/main:docs/orchestration/PLAYBOOK.md) docs/orchestration/PLAYBOOK.md`
+   (and the same for `GUARDRAILS.md`). Unlike `STATE.md`/`DECISIONS.md`, which only the orchestrator
+   edits, these two are general policy docs an ordinary feature PR or a `copier update` can
+   legitimately touch directly on `main` — so the usual "home branch is ahead, `main` lags"
+   direction can invert for just these two files, with nothing else here to catch it. Real case,
+   2026-09-13: PR #175 (the `create_issue.sh` mandate) and two `copier update`s added real policy —
+   the Project board setup section, the Status report section, the `create_issue.sh` mandate itself
+   — to `main`'s copies that never reached the home branch, so a tick reading these files as
+   canonical per step 1 was quietly working from the stale copy, in the direction step 1's own
+   rationale doesn't cover. If they've diverged, reconcile onto the home branch (adopt whatever
+   `main` has that the home branch lacks) before continuing — never silently pick one without
+   comparing.
 3. **Pick the next action.** Intake triage and `ready`-issue execution are independent, non-blocking
    tracks — an untriaged `intake` Issue does not block picking a `ready` Issue this tick
    (`DECISIONS.md` 2026-08-30 "Sequencing"). Pick the highest-ranked open Issue with the `ready`
@@ -225,6 +238,14 @@ only because the owner happened to ask about it, not by anything in this file. H
    resolve the highest-ranked one via the Feature intake flow above instead. **The moment an Issue
    is picked, push its claim per "Claiming work" above — before any of the branches below, before
    any execution.** Then:
+   - **Spot-check that the Issue's premise still holds against current `main`** — a cheap grep for
+     the file/behavior its own reproduction names, not a full re-investigation. An Issue can be
+     filed against a real bug and then have that exact bug fixed as a side effect of unrelated later
+     work, with nothing to un-ready it in the meantime. Real case, #127 (2026-09-13): filed against
+     a Dockerfile missing a `COPY` line, but that line had already merged the day before via an
+     unrelated PR — the Issue was simply never re-validated and sat `ready` for a week. If the
+     premise no longer holds, close the Issue with the evidence and move to the next one instead of
+     dispatching a subagent to redo already-shipped work.
    - If it is **destructive** (per GUARDRAILS) and is neither `approved` nor covered by a standing
      approval in `DECISIONS.md` → skip to the next ready Issue; if none, stop + notify. Check the
      "Always needs a fresh human approval" list in GUARDRAILS first — a standing approval never
