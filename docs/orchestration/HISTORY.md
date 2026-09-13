@@ -9,6 +9,40 @@
 
 ---
 
+## 2026-09-13 — Caught and fixed a regression in the same tick's PLAYBOOK/GUARDRAILS reconciliation
+
+Right after reporting the #127/reconciliation tick (below) as closed, the owner asked "do we know
+what the 'other things' were in case we removed wip?" — prompted by the summary's own phrase
+"among other things" describing what `main` had that the home branch lacked. That question forced a
+hunk-by-hunk re-diff rather than trusting the earlier skim, and it found a real mistake.
+
+The reconciliation had wholesale-copied `main`'s `PLAYBOOK.md`/`GUARDRAILS.md` over the home
+branch's, on the read that every diffed hunk showed `main` strictly ahead. True for `PLAYBOOK.md` —
+every hunk there really was `main` gaining content, net. **False for `GUARDRAILS.md`**: two spots
+(the force-push "never agent-executed" paragraph, and its twin Hard-stops bullet) had a *more*
+refined wording on the home branch — "or a standing approval" — added at some point after the
+2026-09-05 standing-approval decision, that `main` had never received (its own force-push fix,
+propagated via a `copier update` on 2026-09-10, predates that refinement). The wholesale copy
+silently reverted both spots to `main`'s older, pre-standing-approval phrasing — a real policy
+regression, not just a dropped citation.
+
+Verified precisely with a three-way diff (`main` pre-tick vs. home branch pre-reconciliation vs.
+the merged result) rather than re-skimming: confirmed exactly two regressed spots in
+`GUARDRAILS.md`, both fixed by restoring the home branch's original wording (`GUARDRAILS.md` was
+never touched by PR #181, so this fix is home-branch-only — no new PR needed against `main`, which
+never had this refinement to lose). Also found and restored one minor, genuinely lost citation in
+`PLAYBOOK.md` (a #141 real-case reference the create_issue.sh-era wording had dropped). Re-verified
+with a full diff against the pre-reconciliation home branch that nothing else in either file was
+lost — every remaining difference is either a legitimate gain from `main` or a same-substance
+reword.
+
+Logged as a `[template]` `IMPROVEMENTS.md` entry (improvements cursor now 31): the actual lesson is
+methodological — reconciling two diverged copies of a doc by adopting one branch's version wholesale
+on a skim of "which side looks ahead" is not sound; a file can be ahead in most hunks and behind in
+others simultaneously, so each hunk needs its own direction check.
+
+---
+
 ## 2026-09-13 — #127 closed with no code change; PLAYBOOK/GUARDRAILS reconciled onto `main` (PR #181)
 
 Claimed #127 (`bootstrap_owner.py` is not in the image) as the top-ranked `ready` Issue after #132

@@ -22,7 +22,13 @@
   `PLAYBOOK.md`/`GUARDRAILS.md` had fallen behind `main`'s (PR #175 + two `copier update`s added
   real policy directly to `main` that never reached the home branch). Reconciled home branch onto
   `main`'s content, added a step-3 premise-check and a step-2 main/home-branch divergence sweep,
-  propagated via PR #181 (merged, CI green). Full detail in `HISTORY.md` (2026-09-13 entries).
+  propagated via PR #181 (merged, CI green). **Caught and fixed a self-inflicted regression from
+  that same reconciliation**, prompted by the owner asking whether anything was lost: the wholesale
+  copy had reverted two spots in `GUARDRAILS.md` (the force-push hard-stop's "or a standing
+  approval" wording, added post-2026-09-05, that `main` never had) to `main`'s older phrasing.
+  Restored both, plus a minor dropped citation (#141) in `PLAYBOOK.md`, verified via a full re-diff
+  against the pre-reconciliation home branch that nothing else was lost. Full detail in `HISTORY.md`
+  (2026-09-13 entries).
 - **Next action:** pick the next `ready` Issue by rank (`#141, #145, #157, #176` — #132 stays
   next-in-rank but is owner-only, see below).
 

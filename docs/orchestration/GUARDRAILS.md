@@ -86,13 +86,14 @@ The genuinely irreversible, where being wrong cannot be fixed by a redeploy:
 - Anything that would write a real secret or credential into a tracked file.
 - Making a previously private deployment reachable from the public internet.
 
-**One category is never agent-executed, approval or not: anything requiring a force-push or a
-history rewrite.** The `approved` label on such an Issue means a human may now go run it themselves
-at a keyboard — it does not clear the agent to run it. See "Hard stops" below, which carries no
-unattended-execution exception for this, the same way "Approval is human-only" carries none for
-adding the label itself. The risk isn't abstract: more than one `/orchestrate` tick can be alive at
-once (a live session and a scheduled routine, say), and a force-push can silently destroy another
-tick's in-flight work with no warning.
+**One category is never agent-executed, approval or standing approval or not: anything requiring a
+force-push or a history rewrite.** The `approved` label (or a standing approval covering it) on
+such an Issue means a human may now go run it themselves at a keyboard — it does not clear the
+agent to run it. See "Hard stops" below, which carries no unattended-execution exception for this,
+the same way "Approval is human-only" carries none for adding the label itself. The risk isn't
+abstract: more than one `/orchestrate` tick can be alive at once (a live session and a scheduled
+routine, say — see "Claiming work"), and a force-push can silently destroy another tick's
+in-flight work with no warning.
 
 ### Approval is human-only
 - `/orchestrate approve <issue>` exists only to be typed by a human, at a
@@ -163,8 +164,9 @@ tick's in-flight work with no warning.
 - A merge conflict needs human judgment.
 - The per-tick token budget is exceeded.
 - A single task would change more than 40 files.
-- A force-push, or a direct push to `main`, is attempted (also forbidden by the branch
-  rules above) — **no exception, including an `approved` label**; see "Destructive operations" above.
+- A force-push, or a direct push to `main`, is attempted (also forbidden by the branch rules above)
+  — **no exception, including an `approved` label or a standing approval**; see "Destructive
+  operations" above.
 - Any secret/credential would be written to a tracked file.
 - The requirement is ambiguous or contradicts an Issue's description / `DECISIONS.md`.
 - A `copier update` produces a conflict — resolve manually, never auto-resolve.

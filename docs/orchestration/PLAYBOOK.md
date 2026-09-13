@@ -51,7 +51,8 @@ go straight to code, and does not get invented scope on their behalf.
    **`scripts/create_issue.sh` exists specifically to make two failure modes structurally impossible:**
    a bare `gh issue create` bypasses the ISSUE_TEMPLATE form's `intake` default (real case: a child
    created alongside three siblings landed with type/priority/effort but no state label at all,
-   invisible to both `gh issue list --label ready` and intake triage, unnoticed for three days) —
+   invisible to both `gh issue list --label ready` and intake triage, unnoticed for three days —
+   #141 hit the identical gap again on 2026-09-09, caught only by a tick's reconcile step) —
    the script's first argument is a required state label, so this can't happen. It also bypasses the
    Project board entirely (real case, 2026-09-13: 9 new `intake` Issues plus 7 pre-existing open ones
    — including 3 already `ready` — existed only as bare Issues, invisible to `/orchestrate`'s actual
