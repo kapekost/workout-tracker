@@ -9,6 +9,22 @@
 
 ---
 
+## 2026-09-13 — Resolved Needs-owner: photo-cull's missing remote is by design
+
+Was: "`photo-cull` has no git remote configured locally — found while propagating #137's model-
+tiering policy. Its `docs/orchestration/` matches the other three consumer repos, so it should have
+gotten the same PLAYBOOK.md edit, but there's no `origin` to push a branch/PR to... needs the owner
+to either add a remote or say where it actually lives before the edit can land there."
+
+Resolved: owner confirmed `photo-cull` stays private/local intentionally — no remote is coming.
+Its public counterpart is `photo-cull-public` (remote `git@github.com:kapekost/photocull.git`).
+Recorded in `DECISIONS.md` (2026-09-13, "photo-cull stays remote-less by design"). Checked:
+`photo-cull-public` has no `docs/orchestration/` of its own today, so #137's model-tiering edit has
+nothing to land into there right now — not a new blocker, just not applicable until that repo is
+separately onboarded to the propagation pattern, which wasn't asked for here.
+
+---
+
 ## 2026-09-13 — #137 shipped: model tiering for dispatched work, propagated to 3 of 4 repos + template
 
 Picked up as the top-ranked `ready` Issue this tick. Before picking any work, PLAYBOOK step 2's

@@ -33,11 +33,6 @@
 (no branches in flight)
 
 ## Needs owner
-- **`photo-cull` has no git remote configured locally** — found while propagating #137's model-
-  tiering policy. Its `docs/orchestration/` matches the other three consumer repos, so it should
-  have gotten the same PLAYBOOK.md edit, but there's no `origin` to push a branch/PR to (confirmed:
-  `git remote -v` empty, `.git/config` has no `[remote]` block). Not guessed at — needs the owner to
-  either add a remote or say where it actually lives before the edit can land there.
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on

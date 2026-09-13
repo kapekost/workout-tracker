@@ -3,6 +3,19 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-13 — photo-cull stays remote-less by design; photo-cull-public is its public counterpart
+
+Owner, asked directly after #137's propagation flagged `photo-cull` as missing a `git remote`:
+`photo-cull` (the local clone whose `docs/orchestration/` mirrors the other consumer repos) has no
+remote **on purpose** — it stays private and local. The repo that's actually pushed to a remote is
+`photo-cull-public` (`git@github.com:kapekost/photocull.git`). Any future cross-repo propagation
+that would otherwise target `photo-cull` should target `photo-cull-public` instead.
+
+**Not actionable for #137 itself:** `photo-cull-public` has no `docs/orchestration/` today — it was
+never onboarded to this template's propagation pattern, so there is nothing to land the
+model-tiering edit into there yet. Onboarding it (or deciding it shouldn't be) is a separate call,
+not made here.
+
 ## 2026-09-10 — Force-push is never agent-executed, approval or not
 
 `GUARDRAILS.md` contradicted itself: the destructive-ops section let an approved (or
