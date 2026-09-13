@@ -16,23 +16,28 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #137 (model tiering for dispatched work) shipped 2026-09-13 — merged to `main`
-  (PR #178), and propagated in the same pass to `kapekost-web` (#63), `dimkos` (#200) and the
-  `agent-scaffold` template (#5), all merged. Also cleared two owner comments that had sat
-  unanswered across a tick boundary (PLAYBOOK step 2 hard stop): #173's direction sharpened
-  (backdated PB entry ≠ today's workout-log entry; same-day entry always logs one) and #30's
-  off-topic "edit upcoming workouts + reset to recommended" ask split out to its own Issue, #177.
-  Full resolution moved to `HISTORY.md` (2026-09-13 entry).
-- **Next action:** pick the next `ready` Issue by rank (`#138, #127, #141, #145, #157, #176` —
-  #132 stays next-in-rank but is owner-only, see below) or continue prepping #132.
+- **Current focus:** #138 (document the local-dev runbook) shipped 2026-09-13 — merged to `main`
+  (PR #180), dispatched to the cheap model tier per the #137 policy. Verified end-to-end by the
+  subagent: backend+frontend run together locally, a dev-only password snippet, and documented
+  (not built) the lack of a lint script. 238 backend + 380 frontend tests green. Also resolved the
+  `photo-cull` Needs-owner item this tick: it's remote-less by design (private/local), its public
+  counterpart is `photo-cull-public` — see `DECISIONS.md` 2026-09-13. Full detail in `HISTORY.md`
+  (2026-09-13 entries).
+- **Next action:** pick the next `ready` Issue by rank (`#127, #141, #145, #157, #176` — #132 stays
+  next-in-rank but is owner-only, see below).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#138** — claimed 2026-09-13T09:01:58Z, live session.
+(no branches in flight)
 
 ## Needs owner
+- **A dispatched subagent's `gh pr merge` was blocked by the harness's own permission classifier**
+  on #138 (2026-09-13), even though it had verified everything and CI was green — the controller
+  merged PR #180 itself instead. Logged as `[unsure]` in `IMPROVEMENTS.md`; not fixable via a PR in
+  this repo. Not blocking anything, just means a subagent that reaches the merge step today should
+  expect to hand back to the controller rather than complete it.
 - **#30/#32 need a spec skim, not a decision** — grew today. `docs/superpowers/specs/
   2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
   into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
