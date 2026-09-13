@@ -103,6 +103,28 @@ export default defineConfig({
               networkTimeoutSeconds: 4,
               expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
+              // #145: NetworkFirst's cache fallback is invisible to the page —
+              // its fetch() still resolves 200 res.ok whether the response
+              // came from a live network hit or a failed one. This plugin is
+              // the only place that actually sees the underlying fetch
+              // reject, so it tells every open tab via postMessage;
+              // frontend/src/lib/networkStatus.js + main.jsx turn that into
+              // the badge networkStatus.test.js and VersionBadge.test.jsx
+              // cover. fetchDidSucceed must return its response unchanged —
+              // Workbox uses the return value as what actually gets served.
+              plugins: [
+                {
+                  fetchDidFail: async () => {
+                    const clients = await self.clients.matchAll({ type: 'window' })
+                    clients.forEach((c) => c.postMessage({ type: 'API_NETWORK_UNREACHABLE' }))
+                  },
+                  fetchDidSucceed: async ({ response }) => {
+                    const clients = await self.clients.matchAll({ type: 'window' })
+                    clients.forEach((c) => c.postMessage({ type: 'API_NETWORK_RECOVERED' }))
+                    return response
+                  },
+                },
+              ],
             },
           },
         ],

@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
 import { colors, type } from '../lib/theme'
 import { updateStore, shouldCheckForUpdate } from '../lib/swUpdate'
+import { networkStatusStore } from '../lib/networkStatus'
 
 // A brief, purely cosmetic tap-feedback flash. checkNow() (swUpdate.js)
 // doesn't hand back anything to await -- it fires registration.update() and
@@ -17,8 +18,9 @@ const CHECKING_FLASH_MS = 1500
 // never grows. shouldCheckForUpdate is the same pathname gate main.jsx uses
 // to decide whether to even run a check -- reused here as the DISPLAY gate,
 // so the two can never disagree about whether now is a safe moment.
-export default function VersionBadge({ store = updateStore }) {
+export default function VersionBadge({ store = updateStore, networkStore = networkStatusStore }) {
   const ready = useSyncExternalStore(store.subscribe, store.getSnapshot)
+  const stale = useSyncExternalStore(networkStore.subscribe, networkStore.getSnapshot)
   const { pathname } = useLocation()
   const [checking, setChecking] = useState(false)
 
@@ -67,6 +69,18 @@ export default function VersionBadge({ store = updateStore }) {
           width: 'max(100%, 44px)', height: 44,
         }} />
       </button>
+      {stale && (
+        // #145: the service worker just told networkStatus.js an /api/*
+        // fetch actually failed and it fell back to cache -- this is the
+        // only place that distinction is visible at all, since the page's
+        // own fetch() still resolves 200 res.ok either way. Same row as the
+        // version stamp, not a separate element, same reasoning VersionBadge
+        // itself already uses for the ready-update swap above.
+        <span role="status" title="Showing saved data — network unreachable"
+          style={{ color: colors.amber, fontSize: type.size.xs, lineHeight: 1 }}>
+          ⚠
+        </span>
+      )}
     </div>
   )
 }

@@ -3,12 +3,24 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import VersionBadge from './VersionBadge'
 
-function renderBadge(store, path = '/') {
+function renderBadge(store, path = '/', networkStore = makeNetworkStore()) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <VersionBadge store={store} />
+      <VersionBadge store={store} networkStore={networkStore} />
     </MemoryRouter>
   )
+}
+
+// Same hand-rolled-stub reasoning as makeStore() below: these tests care
+// about what VersionBadge renders for a given snapshot, not about
+// networkStatus.js's own subscribe/notify plumbing (networkStatus.test.js's
+// job).
+function makeNetworkStore(over = {}) {
+  return {
+    subscribe: () => () => {},
+    getSnapshot: () => false,
+    ...over,
+  }
 }
 
 // A hand-rolled stub rather than createUpdateStore() for most cases here:
@@ -72,5 +84,30 @@ describe('VersionBadge', () => {
   it('shows the ready prompt again once off the workout screen', () => {
     renderBadge(makeStore({ getSnapshot: () => true }), '/progress')
     expect(screen.getByText('New version — tap to reload')).toBeInTheDocument()
+  })
+
+  // #145: no indication today when the app is silently serving cached data
+  // because the network is actually unreachable (e.g. VPN off) -- the
+  // service worker's NetworkFirst fallback resolves 200 res.ok either way.
+  it('shows no stale-data indicator when the network store reports live', () => {
+    renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => false }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('shows a stale-data indicator appended to the version row when the network store reports stale', () => {
+    renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => true }))
+    expect(screen.getByRole('status')).toBeInTheDocument()
+  })
+
+  it('still shows the stale-data indicator alongside the version number, not instead of it', () => {
+    renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => true }))
+    expect(screen.getByText(/^v \S+$/)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+  })
+
+  it('suppresses the stale-data indicator once a real update is ready (the row swaps entirely)', () => {
+    renderBadge(makeStore({ getSnapshot: () => true }), '/', makeNetworkStore({ getSnapshot: () => true }))
+    expect(screen.getByText('New version — tap to reload')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
