@@ -147,7 +147,9 @@ only because the owner happened to ask about it, not by anything in this file. H
      effort label says.
    - Else → execute.
 4. **Execute** via `superpowers:subagent-driven-development`. Lean: dispatch one subagent per task; it
-   reads only the Issue + its plan doc + the named files, never the whole tree. If context bloats
+   reads only the Issue + its plan doc + the named files, never the whole tree. **Pick the dispatch
+   model per task per "Model tiering for dispatched work" below** — this is a per-dispatch decision,
+   not a default left to whatever the controller happens to be running. If context bloats
    mid-task per GUARDRAILS, checkpoint and hand off to a fresh subagent rather than pushing through.
    Dispatch with worktree isolation whenever the subagent does its own branch/commit work, and
    remember what a fresh worktree does *not* have: `backend/.venv` and `frontend/node_modules` are
@@ -311,6 +313,46 @@ should take it; say so in `STATE.md` rather than quietly overrunning. Two things
 mean: review is a **gate, not a budget line** — a review that finds something real costs whatever it
 costs, and 10% is a floor on frequency, not a ceiling on depth. And verification (running the tests,
 building the image) is part of implementation, not part of review.
+
+## Model tiering for dispatched work
+
+Owner's call, 2026-09-06: route dispatched work to a model tier — stronger for the expensive-to-
+get-wrong work, cheaper for mechanical work — rather than every subagent running on whatever the
+controller happens to be on. The `Agent` tool's per-dispatch `model` override (`opus`/`sonnet`/
+`haiku`/`fable`) already does this; this section is the policy for when to use which.
+
+**Stronger model:**
+- Planning (`superpowers:writing-plans`, spec writing) — a bad plan is paid for by every task
+  executed against it.
+- Anything GUARDRAILS classifies as **destructive** — auth, session, secret or token handling;
+  schema migrations.
+- **Code review** — the last gate before merge. This repo has direct evidence a weak one is worse
+  than none: on 2026-09-05 three defects shipped in the login path past a green suite *and* a code
+  review, all three obvious in the first screenshot.
+
+**Cheaper model:**
+- Executing an `effort:S` ticket that arrives with a scoped file list and named tests — low
+  ambiguity, cheap to redo if imperfect.
+
+**Precedence: destructive beats effort size, always.** An `effort:S` ticket that touches auth,
+sessions, secrets, tokens or a migration takes the stronger tier regardless of size — size is a
+proxy for ambiguity, not for stakes, and where the two disagree stakes win. (#127, `bootstrap_
+owner.py` missing from the image, is `effort:S` *and* sits on the account-creation path — the
+stronger tier, not the cheaper one.)
+
+**The dispatch default is pinned, not inherited** from whatever model the controller session
+happens to be running interactively. The controller's model is a personal editing preference; the
+dispatch default governs unattended, high-stakes work that can run on a schedule — coupling them
+means changing an editor setting silently changes what runs the auth work at 3am. This repo has
+been bitten twice by exactly that shape of implicit coupling: `docker compose up` resolving to
+`:latest` downgraded production for 11 days (#126), and PLAYBOOK step 1 read `main`'s stale
+orchestration docs for a while because it never named a branch. Explicit beats inherited: pin
+`sonnet` as the dispatch default for the stronger tier and `haiku` for the cheaper tier, and revisit
+against actual outcomes — if the cheap tier starts producing work the review gate catches, the tier
+boundary is wrong, not the review.
+
+**`model` is ignored for `subagent_type: "fork"`** — a fork always inherits the parent's model, so
+this tiering only applies to the worktree-isolated dispatches Execute already uses.
 
 ## Budget & checkpointing
 Track work against the GUARDRAILS per-tick token budget. When near the limit, finish the current
