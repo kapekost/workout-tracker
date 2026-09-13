@@ -58,15 +58,6 @@ orchestrator-level tasks, `STATE.md` has its `- [x] APPROVE <task-id>` box check
 by a standing approval below**. Unattended: covered → execute; not covered → queue + report;
 **never guess**.
 
-**One category is never agent-executed, approval or standing approval or not: anything requiring a
-force-push or a history rewrite.** The `approved` label (or a standing approval covering it) on
-such an Issue means a human may now go run it themselves at a keyboard — it does not clear the
-agent to run it. See "Hard stops" below, which carries no unattended-execution exception for this,
-the same way "Approval is human-only" carries none for adding the label itself. The risk isn't
-abstract: more than one `/orchestrate` tick can be alive at once (a live session and a scheduled
-routine, say — see "Claiming work"), and a force-push can silently destroy another tick's
-in-flight work with no warning.
-
 ### Standing approval for an owner-approved workstream
 
 When the owner has approved a **written design doc** that decomposes a feature into linked child
@@ -95,6 +86,14 @@ The genuinely irreversible, where being wrong cannot be fixed by a redeploy:
 - Anything that would write a real secret or credential into a tracked file.
 - Making a previously private deployment reachable from the public internet.
 
+**One category is never agent-executed, approval or not: anything requiring a force-push or a
+history rewrite.** The `approved` label on such an Issue means a human may now go run it themselves
+at a keyboard — it does not clear the agent to run it. See "Hard stops" below, which carries no
+unattended-execution exception for this, the same way "Approval is human-only" carries none for
+adding the label itself. The risk isn't abstract: more than one `/orchestrate` tick can be alive at
+once (a live session and a scheduled routine, say), and a force-push can silently destroy another
+tick's in-flight work with no warning.
+
 ### Approval is human-only
 - `/orchestrate approve <issue>` exists only to be typed by a human, at a
   keyboard, deciding right then to unblock one specific task. It is not a
@@ -119,6 +118,19 @@ The genuinely irreversible, where being wrong cannot be fixed by a redeploy:
 - If shaping it requires an answer only the owner has, that's the same
   **hard stop** as a failed INVEST gate: relabel `needs-clarification`,
   stop, do not guess.
+
+## Issue creation is always via `scripts/create_issue.sh`
+- **Never call `gh issue create` directly**, for a Feature intake capture, an intake split's child
+  Issues, or any other Issue this repo's `/orchestrate` is meant to see. Use
+  `scripts/create_issue.sh <intake|ready|needs-clarification> --title "..." --body-file <path>
+  [--label "..."]` instead.
+- This exists because a bare `gh issue create` has caused two distinct, real invisible-Issue bugs in
+  this repo: a missing state label (Issue lands with type/priority/effort but no `ready`/`intake`/
+  `needs-clarification`, invisible to every label-filtered query) and — discovered 2026-09-13 —
+  never being added to the Project board at all, invisible to `/orchestrate`'s actual picking query
+  (`gh project item-list`, not `gh issue list`). The script makes both structurally impossible: its
+  first argument is a required state label, and it adds every Issue it creates to the board with
+  Status `Todo` in the same call.
 
 ## Task sizing & context-budget decomposition
 - Before dispatch, any task labeled `effort:L` or `effort:XL` MUST be split into linked sub-Issues at
@@ -151,9 +163,8 @@ The genuinely irreversible, where being wrong cannot be fixed by a redeploy:
 - A merge conflict needs human judgment.
 - The per-tick token budget is exceeded.
 - A single task would change more than 40 files.
-- A force-push, or a direct push to `main`, is attempted (also forbidden by the branch rules above)
-  — **no exception, including an `approved` label or a standing approval**; see "Destructive
-  operations" above.
+- A force-push, or a direct push to `main`, is attempted (also forbidden by the branch
+  rules above) — **no exception, including an `approved` label**; see "Destructive operations" above.
 - Any secret/credential would be written to a tracked file.
 - The requirement is ambiguous or contradicts an Issue's description / `DECISIONS.md`.
 - A `copier update` produces a conflict — resolve manually, never auto-resolve.
