@@ -69,6 +69,15 @@ fails — too vague, too large for its stated effort, or not independently actio
 Feature intake starts labeled `intake`, not `needs-clarification` — see that section above for the
 distinction.
 
+**Cross-repo propagation scope is its own effort-size red flag**, separate from line/file count
+within this repo. An Issue whose scope names other repos (a template sync, a policy propagated to
+every consumer repo) can be genuinely `effort:S` only when the change itself is small and already
+fully worded — otherwise "propagate to N repos" silently multiplies a single-repo estimate by N
+PR/CI cycles. Real case, #137 (2026-09-13): landed `effort:S` and scoped to workout-tracker plus
+three consumer repos plus the `agent-scaffold` template; executed directly in one tick only because
+the actual edit was a small, already-worded markdown block, not because the label was right. Check
+this at triage time, not discovered mid-execution.
+
 Issue dependencies are tracked with the **`blocked` label**, and the blocking Issue is named in
 the blocked Issue's body. This file previously mandated GitHub's native issue-dependency
 relationship and explicitly forbade a label — that instruction never worked and was never followed:
