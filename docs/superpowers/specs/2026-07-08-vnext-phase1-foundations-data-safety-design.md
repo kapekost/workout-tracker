@@ -314,7 +314,7 @@ needed.
 
 Full pytest + Vitest green → `/code-review` → append progress report to
 `AGENTS.md` Status → build (Mac, arm64) → transfer to Pi → verify: `/api/health`
-ok, bundle hash matches, Home Assistant still healthy, and (after the one-time
+ok, bundle hash matches, the co-tenant service still healthy, and (after the one-time
 setup) `last_backup_at` within ~24h. One-time: run the rclone + crontab setup on
 the Pi host, add the export/restore runbook to `AGENTS.md`, and confirm the first
 nightly backup lands in Google Drive and emits a `backup_completed` event.

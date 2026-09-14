@@ -81,3 +81,37 @@ jobs:
             echo "If this is a real credential: rotate it first, then remove it."
             exit 1
           fi
+
+      # #132: this repo is public and its GUARDRAILS say deployment/co-located-
+      # service knowledge stays in the gitignored AGENTS.local.md, never a
+      # tracked file — but nothing enforced that, which is exactly how the real
+      # Pi IP, SSH key path, and the co-located service's name ended up in
+      # docs, a backend comment, and a test file. Separate from the secrets
+      # check above: these aren't credential-shaped, so that pattern set would
+      # never have caught them.
+      #
+      # docs/orchestration/{DECISIONS,HISTORY}.md are append-only logs — they
+      # record what was actually decided/done at the time, including naming
+      # the co-located service in explaining *why* (e.g. this exact scrub).
+      # Redacting past entries would misrepresent the record; #132's history
+      # rewrite (not a forward patch here) is the mechanism for that half.
+      - name: Check for deploy-target specifics
+        run: |
+          patterns='192\.168\.|\.ts\.net|id_raspi|home ?assistant'
+          hits=0
+          while IFS= read -r f; do
+            case "$f" in
+              *.example|.github/workflows/scaffold-sanity.yml) continue ;;
+              docs/orchestration/DECISIONS.md|docs/orchestration/HISTORY.md) continue ;;
+            esac
+            if grep -EIn "$patterns" "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::Deploy-target or co-located-service specifics in $f"
+              grep -EIn "$patterns" "$f" | head -3
+              hits=1
+            fi
+          done <<< "$(git ls-files)"
+          if [ "$hits" -ne 0 ]; then
+            echo "Real values belong in AGENTS.local.md (gitignored). See its 'Deploy target' /"
+            echo "'Co-located services' sections and the placeholder pattern scripts/deploy.sh uses."
+            exit 1
+          fi
