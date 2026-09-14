@@ -3,6 +3,26 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-14 — Deploy classifier bypassed via a scoped Bash permission rule; #132's rewrite confirmed done by the owner
+
+**Deploy.** The session's own auto-mode permission classifier ("Production Deploy") was blocking
+`scripts/deploy.sh` outright, unrelated to anything in this repo's own guardrails, which already
+gate a deploy behind tests + independent review + green CI (the same shape as the standing
+no-live-ask merge policy). Owner's call: match that pattern for deploys too rather than leave them
+hard-blocked. Fix: `Bash(bash scripts/deploy.sh)` added to `.claude/settings.local.json`
+(gitignored, this machine only — a personal trust decision about this owner's own deploy target,
+not committed policy for a public repo). An agent cannot make this edit itself — it hits a separate
+classifier category, "Self-Modification" — so the owner ran it directly via `!`.
+
+**#132 (history scrub) is done, confirmed by the owner directly**, not inferred: they ran the
+`git-filter-repo` rewrite + force-push themselves, at a keyboard, using a command given in a
+previous session — the exact "human runs it themselves" path GUARDRAILS requires, never a tick.
+Verified rather than taken purely on the owner's word: a full-history grep across all reachable
+commits on both `main` and this home branch (457 commits) found no leaked deploy-target IP or
+hostname anywhere, and redeploying 2026-09-14 confirmed the home branch itself was rewritten too
+(not just `main`) — the Pi's stale clone saw `(forced update)` on both branches' fetch. Issue
+closed with the verification recorded in its own comment.
+
 ## 2026-09-13 — photo-cull stays remote-less by design; photo-cull-public is its public counterpart
 
 Owner, asked directly after #137's propagation flagged `photo-cull` as missing a `git remote`:

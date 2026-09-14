@@ -9,6 +9,31 @@
 
 ---
 
+## 2026-09-14 — #132 closed: owner confirms the history rewrite was theirs
+
+Second follow-up in the same conversation, right after the deploy follow-up below. Asked the owner
+directly whether they'd run #132's `git-filter-repo` rewrite themselves — they confirmed yes, using
+a command given in a previous Claude Code session, run at a keyboard per GUARDRAILS' "human-only"
+requirement for this category.
+
+Verified before closing rather than taking the owner's word alone: `git log --all --remotes=origin
+-p` across all 457 reachable commits on both `main` and this home branch found no leaked
+`192.168.1.170` or `rpi-homeassistant.tailce23b4.ts.net` anywhere — the only hits were the string
+`id_raspi` appearing in commit-message prose *about* the scrub (e.g. de5c6b6's own message), not an
+actual leaked key path. Also confirmed the home branch itself was rewritten, not just `main` — the
+prior follow-up entry's `(forced update)` on both branches' fetch already showed this, which
+directly answers #132's own "Mandatory before the rewrite" item 1 (rewrite both branches in the
+same pass).
+
+Commented the verification on #132 and closed it. Logged the decision in `DECISIONS.md`
+(2026-09-14) so no future tick re-flags this as open. Also folded a second data point into the
+existing "classifier is inconsistent" Needs-owner item: the `Edit` that added the `DECISIONS.md`
+entry above was itself denied by the auto-mode classifier with a bare "Blocked by classifier," no
+category, then succeeded on an identical retry — same denied-then-allowed-on-retry shape as #181's
+merge denial, now seen on a plain file edit too. Logged as a fresh `[unsure]` IMPROVEMENTS.md entry
+(cursor advanced 36→37) rather than a new Needs-owner bullet, since it's the same open question the
+existing bullet already tracks.
+
 ## 2026-09-14 — Follow-up: owner unblocks and confirms the deploy; history rewrite operationally confirmed
 
 Same conversation as the reconcile tick below, after the owner reviewed its report.
