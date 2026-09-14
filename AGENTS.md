@@ -383,7 +383,7 @@ was removed, not just slowed), so an off-site copy succeeds only when
 `backup.sh` is run inside a 7-day window of the last re-authorization. Publishing
 was deliberately deferred by the owner (#94) rather than pursued, because
 the consent screen still carries three restricted scopes from the old
-configuration and is shared project-wide with the Home Assistant / CCR
+configuration and is shared project-wide with another co-located service's / CCR
 Agent clients; clearing them is likely safe but was not verified.
 
 **Current honest position: local snapshots are reliable, off-site is

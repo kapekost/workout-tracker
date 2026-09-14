@@ -263,8 +263,8 @@ def test_login_429s_after_ten_attempts_in_the_window(limited, anon_client):
     bad = {"username": "tester", "password": "wrong horse battery"}
     codes = [anon_client.post("/api/auth/login", json=bad).status_code for _ in range(10)]
     assert codes == [401] * 10
-    # Cost-12 hashing is 627 ms of CPU on a 4-core box that also runs Home
-    # Assistant. Unthrottled, this endpoint is a CPU amplifier.
+    # Cost-12 hashing is 627 ms of CPU on a 4-core box shared with another
+    # service. Unthrottled, this endpoint is a CPU amplifier.
     assert anon_client.post("/api/auth/login", json=bad).status_code == 429
 
 

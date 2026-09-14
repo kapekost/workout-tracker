@@ -18,8 +18,8 @@ Passwords are bcrypt at **cost 12** — 627 ms measured on this Pi, not assumed.
 A memory-hard KDF was rejected on hardware grounds rather than taste: OWASP's
 scrypt baseline wants 128 MiB against ~185 MiB free, and every concurrent
 memory-hard hash reserves its full working set, so a handful of parallel logins
-to an unauthenticated endpoint could OOM a container on a box that also runs
-Home Assistant. bcrypt uses ~4 KB per hash, so contention degrades service
+to an unauthenticated endpoint could OOM a container on a box shared with
+another service. bcrypt uses ~4 KB per hash, so contention degrades service
 instead of killing it. Length is capped at 72 **bytes**, not characters —
 bcrypt's own limit is bytes, and 30 four-byte emoji would otherwise be silently
 truncated.
