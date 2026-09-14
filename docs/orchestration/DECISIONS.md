@@ -3,6 +3,16 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-14 — UI review splits into a UI-expert pass and a UX-expert pass, plus a live browser check
+
+Owner, reviewing the visual-polish spec (#164/#152/#168): "verify visually on the browser and
+review with a UI and a UX expert" — two separate reviewers, not the combined "UI/UX review" the
+2026-09-06 decision named. `PLAYBOOK.md` step 5's UI gate now asks for both explicitly: a UI pass
+(visual design — hierarchy, spacing, color/icon consistency) and a UX pass (usability — affordance,
+flow, accessibility, one-handed phone use), each against the rendered screen, plus the existing
+"render it and look at it in a browser" requirement unchanged. Applies repo-wide, not just to this
+workstream — this is a refinement of the standing 2026-09-06 gate, not a one-off.
+
 ## 2026-09-14 — Visual-polish workstream: #164/#152/#168 bundle into one spec, full sweep
 
 Owner Q&A, live `/orchestrate` session, resolving #164's own flagged open questions (it explicitly

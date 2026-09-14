@@ -312,8 +312,14 @@ only because the owner happened to ask about it, not by anything in this file. H
      code review, and every one was obvious in the first screenshot: a header printing "Log in"
      twice, the app's bottom nav on an auth screen, and every client-side route 404ing — which had
      silently made the invite email unopenable since #85.
-   - **Get a UI/UX review** whose subject is the rendered screen, not the JSX: hierarchy, spacing,
-     affordance, copy, accessibility, one-handed phone use. Hand it the screenshots.
+   - **Get a UI-expert review and a UX-expert review — two separate passes, not one combined
+     "UI/UX" review** (owner's call, 2026-09-14, after a workstream got a spec asking for exactly
+     this split). Both take the rendered screen as their subject, not the JSX, and both get the
+     screenshots. They ask different questions and can disagree with each other:
+     - **UI (visual design):** hierarchy, spacing, alignment, typography, color/icon consistency —
+       does it look considered, not generic-default.
+     - **UX (usability):** affordance, flow, copy clarity, accessibility, one-handed phone use —
+       does it work, not just look right.
 
    Both gates carry the owner's second constraint with them: **efficient, not overengineered.**
    Reuse the existing tokens and CSS classes; a review that comes back recommending a component
