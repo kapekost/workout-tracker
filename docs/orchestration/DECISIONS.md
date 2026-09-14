@@ -3,6 +3,26 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-14 — Visual-polish workstream: #164/#152/#168 bundle into one spec, full sweep
+
+Owner Q&A, live `/orchestrate` session, resolving #164's own flagged open questions (it explicitly
+named this fork in its body). Two calls:
+
+**Scope of #164 (animation/transitions) is a full sweep**, not a first-pass subset — every modal
+and screen transition gets the same motion treatment, not just the most-used flows.
+
+**#164, #152 (icons/visual polish) and #168 (color/theme identity) bundle into one coordinated
+spec/workstream**, not three independent PRs. All three raised the same day or within a week of
+each other and each already flagged this exact possibility in its own "needs triage" section. A
+single spec covering icon system, color/theme identity and motion/animation lets one design pass
+answer all three rather than three uncoordinated visual changes landing separately.
+
+**Still gated by the standing "efficient, not overengineered" constraint** (`DECISIONS.md`
+2026-09-06): reuse existing tokens/CSS, no new component library or design-system layer, no new
+animation library, for a small personal app. All three Issues stay `intake` pending the spec (via
+`superpowers:brainstorming` → spec → plan, per PLAYBOOK's Feature intake "third outcome") — this is
+an owner-shaped direction, not yet something concrete enough to size or split.
+
 ## 2026-09-14 — Deploy classifier bypassed via a scoped Bash permission rule; #132's rewrite confirmed done by the owner
 
 **Deploy.** The session's own auto-mode permission classifier ("Production Deploy") was blocking
