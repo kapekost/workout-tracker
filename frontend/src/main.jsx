@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './index.css'
 import { shouldCheckForUpdate, updateStore } from './lib/swUpdate'
+import { networkStatusStore } from './lib/networkStatus'
 
 // An installed PWA resumed from the background never does a fresh navigation,
 // so the browser's own update check does not fire and a deploy stays invisible
@@ -59,6 +60,14 @@ updateStore.setAction(() => {
   navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true })
   updateServiceWorker()
 })
+
+// #145: the service worker's NetworkFirst plugin (vite.config.js) posts these
+// two message types whenever it actually sees an /api/* fetch fail or
+// succeed -- this is the only place that distinction exists at all, since a
+// cache fallback still resolves 200 res.ok to the page's own fetch() call.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', networkStatusStore.handleMessage)
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
