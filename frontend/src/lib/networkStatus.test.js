@@ -77,6 +77,32 @@ describe('createNetworkStatusStore', () => {
     expect(store.getSnapshot()).toBe(false)
   })
 
+  // Review finding: concurrent /api/* requests each report their own outcome
+  // independently, so a slower, older request can fail *after* a newer one
+  // already succeeded -- without a way to tell "older" from "newer", that
+  // stale failure would stick the badge on forever. The service worker plugin
+  // (vite.config.js) tags every message with a monotonically increasing seq.
+  it('a lower-seq message arriving after a higher-seq one is ignored', () => {
+    const store = createNetworkStatusStore()
+    store.handleMessage({ data: { type: 'API_NETWORK_RECOVERED', seq: 2 } })
+    store.handleMessage({ data: { type: 'API_NETWORK_UNREACHABLE', seq: 1 } })
+    expect(store.getSnapshot()).toBe(false)
+  })
+
+  it('a higher-seq message always applies, live or stale', () => {
+    const store = createNetworkStatusStore()
+    store.handleMessage({ data: { type: 'API_NETWORK_UNREACHABLE', seq: 1 } })
+    store.handleMessage({ data: { type: 'API_NETWORK_RECOVERED', seq: 2 } })
+    expect(store.getSnapshot()).toBe(false)
+  })
+
+  it('messages with no seq (e.g. a hand-authored test message) always apply', () => {
+    const store = createNetworkStatusStore()
+    store.handleMessage({ data: { type: 'API_NETWORK_UNREACHABLE', seq: 5 } })
+    store.handleMessage({ data: { type: 'API_NETWORK_RECOVERED' } })
+    expect(store.getSnapshot()).toBe(false)
+  })
+
   it('two createNetworkStatusStore() instances do not share state', () => {
     const storeA = createNetworkStatusStore()
     const storeB = createNetworkStatusStore()

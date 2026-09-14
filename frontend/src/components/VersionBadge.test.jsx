@@ -89,20 +89,27 @@ describe('VersionBadge', () => {
   // #145: no indication today when the app is silently serving cached data
   // because the network is actually unreachable (e.g. VPN off) -- the
   // service worker's NetworkFirst fallback resolves 200 res.ok either way.
+  //
+  // The live-region span stays mounted at rest regardless of stale/live --
+  // only its content toggles. Review finding: a screen reader keys an
+  // announcement off a *mutation inside* an already-present live region, not
+  // off one that appears fully-formed -- conditionally mounting the whole
+  // span would mean a network drop mid-session, the exact moment this exists
+  // to help, may announce nothing.
   it('shows no stale-data indicator when the network store reports live', () => {
     renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => false }))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('')
   })
 
   it('shows a stale-data indicator appended to the version row when the network store reports stale', () => {
     renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => true }))
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('⚠')
   })
 
   it('still shows the stale-data indicator alongside the version number, not instead of it', () => {
     renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => true }))
     expect(screen.getByText(/^v \S+$/)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('⚠')
   })
 
   it('suppresses the stale-data indicator once a real update is ready (the row swaps entirely)', () => {

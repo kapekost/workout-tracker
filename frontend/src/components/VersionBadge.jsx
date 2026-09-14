@@ -69,18 +69,27 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           width: 'max(100%, 44px)', height: 44,
         }} />
       </button>
-      {stale && (
-        // #145: the service worker just told networkStatus.js an /api/*
-        // fetch actually failed and it fell back to cache -- this is the
-        // only place that distinction is visible at all, since the page's
-        // own fetch() still resolves 200 res.ok either way. Same row as the
-        // version stamp, not a separate element, same reasoning VersionBadge
-        // itself already uses for the ready-update swap above.
-        <span role="status" title="Showing saved data — network unreachable"
-          style={{ color: colors.amber, fontSize: type.size.xs, lineHeight: 1 }}>
-          ⚠
-        </span>
-      )}
+      {/* #145: the service worker just told networkStatus.js an /api/*
+          fetch actually failed, or took as long as its own cache-fallback
+          timeout -- this is the only place that distinction is visible at
+          all, since the page's own fetch() still resolves 200 res.ok either
+          way. Same row as the version stamp, not a separate element, same
+          reasoning VersionBadge itself already uses for the ready-update
+          swap above.
+          Always mounted, content toggled rather than the element itself:
+          a screen reader announces a *mutation inside* an existing
+          role="status" region, not one that appears already-populated --
+          conditionally mounting this span would mean a network drop
+          mid-session, the exact moment it exists to help, might announce
+          nothing. "may be out of date" rather than "showing saved data":
+          on a cache miss (e.g. first-ever visit while offline) the fetch
+          still fails and this still shows, but there is no saved data to
+          actually be showing. */}
+      <span role="status"
+        title={stale ? 'Network unreachable — data shown may be out of date' : undefined}
+        style={{ color: colors.amber, fontSize: type.size.xs, lineHeight: 1 }}>
+        {stale ? '⚠' : ''}
+      </span>
     </div>
   )
 }

@@ -14,6 +14,7 @@
 // below is the one app-wide instance the real app wires up.
 export function createNetworkStatusStore() {
   let stale = false
+  let lastSeq = -Infinity
   const subscribers = new Set()
 
   function getSnapshot() {
@@ -42,7 +43,16 @@ export function createNetworkStatusStore() {
   }
 
   function handleMessage(event) {
-    const type = event?.data?.type
+    const { type, seq } = event?.data ?? {}
+    // Concurrent /api/* requests settle independently and can arrive out of
+    // order (an older, slower request failing after a newer one already
+    // succeeded) -- without this, that stale failure would stick the badge
+    // on forever. `seq` is optional so a hand-built message (tests, or a
+    // future caller) without one still always applies.
+    if (typeof seq === 'number') {
+      if (seq < lastSeq) return
+      lastSeq = seq
+    }
     if (type === 'API_NETWORK_UNREACHABLE') markStale()
     else if (type === 'API_NETWORK_RECOVERED') markLive()
   }
