@@ -34,7 +34,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#176** — claimed 2026-09-14T17:53:32Z, live session.
 
 ## Needs owner
 - **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller.**
