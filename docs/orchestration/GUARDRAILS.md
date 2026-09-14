@@ -125,13 +125,13 @@ in-flight work with no warning.
   Issues, or any other Issue this repo's `/orchestrate` is meant to see. Use
   `scripts/create_issue.sh <intake|ready|needs-clarification> --title "..." --body-file <path>
   [--label "..."]` instead.
-- This exists because a bare `gh issue create` has caused two distinct, real invisible-Issue bugs in
-  this repo: a missing state label (Issue lands with type/priority/effort but no `ready`/`intake`/
-  `needs-clarification`, invisible to every label-filtered query) and — discovered 2026-09-13 —
-  never being added to the Project board at all, invisible to `/orchestrate`'s actual picking query
-  (`gh project item-list`, not `gh issue list`). The script makes both structurally impossible: its
-  first argument is a required state label, and it adds every Issue it creates to the board with
-  Status `Todo` in the same call.
+- This exists because a bare `gh issue create` has caused two distinct, real invisible-Issue bugs:
+  a missing state label (Issue lands with type/priority/effort but no `ready`/`intake`/
+  `needs-clarification`, invisible to every label-filtered query) and never being added to the
+  Project board at all, invisible to `/orchestrate`'s actual picking query (`gh project item-list`,
+  not `gh issue list`). The script makes both structurally impossible: its first argument is a
+  required state label, and it adds every Issue it creates to the board with Status `Todo` in the
+  same call.
 
 ## Task sizing & context-budget decomposition
 - Before dispatch, any task labeled `effort:L` or `effort:XL` MUST be split into linked sub-Issues at
