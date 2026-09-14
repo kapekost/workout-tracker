@@ -16,46 +16,33 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Reconcile tick, 2026-09-14, plus an owner-confirmed follow-up deploy. Reality
-  had drifted on three fronts since the #141 tick: (1) **#145 had already shipped** (PR #185,
-  merged ~05:20 UTC same day) via a live session outside `/orchestrate` entirely — `STATE.md`'s
-  "next action" was stale, corrected. (2) **`PLAYBOOK.md`/`GUARDRAILS.md` had drifted from this
-  home branch again** (a `#141` citation, a force-push "or a standing approval" wording fix) —
-  reconciled onto `main` via PR #186, merged green. (3) **Production was stale** — deployed image
-  11 commits behind `main`. Picked **#176** (copier update from `agent-scaffold`, synced to the
-  template's actual current HEAD `104fb62`, past the Issue's cited `d60574e`) — dispatched,
-  independently reviewed (no dropped/weakened safety rules, no lost repo-specific citations,
-  `STATE.md`/`DECISIONS.md` untouched), merged via PR #187. 244 backend + 397 frontend tests
-  passing throughout.
+- **Current focus:** Live-session tick, 2026-09-14. `#157` is still the only `ready` Issue and
+  still unapproved (destructive, skipped again). Reconciled `PLAYBOOK.md`/`GUARDRAILS.md` drift
+  from the prior tick's `#176` copier update (PR #187 had refreshed `main` from the template,
+  diverging it from this home branch again) — hunk-by-hunk, both directions this time: two
+  `PLAYBOOK.md` hunks adopted `main`'s newer template wording (PR onto the home branch), one
+  `GUARDRAILS.md` hunk restored this home branch's more substantive repo-specific citation onto
+  `main` (PR #188). Logged as a `[template]` `IMPROVEMENTS.md` entry — third occurrence of an
+  already-diagnosed sync-direction gap; see Needs owner.
 
-  **Deploy, resolved same conversation.** `scripts/deploy.sh` was first refused outright by the
-  session's own permission classifier ("Production Deploy") — not by anything in this repo's
-  guardrails. Owner added `Bash(bash scripts/deploy.sh)` to `.claude/settings.local.json` (the
-  edit itself had to be owner-run via `!`, since an agent editing its own permission grants is a
-  separate classifier category, "Self-Modification") and confirmed "yes" to deploying. **The
-  history-rewrite evidence below is now operationally confirmed, not just inferred from hashes**:
-  the first deploy attempt got past the classifier and the build, then failed at `git pull
-  --ff-only` on the Pi with `(forced update)` on both `main` (`7e23ba4→84084d9`) and this home
-  branch, and `fatal: Not possible to fast-forward` — exactly what a downstream clone sees after
-  its upstream's history was rewritten out from under it. The Pi's clone had no local changes
-  (plain pull-only clone, nothing to lose), so `git fetch && git reset --hard origin/main` on the
-  Pi was the correct, non-destructive fix — re-synced a deploy target's clone to the current
-  authoritative `origin/main`, not a rewrite of shared history itself. Redeployed clean:
-  `/api/health` independently verified reporting `84084d9`. A stray untracked file
-  (`.claude/RESUME.md`, an unrelated Claude Code checkpoint note from 2026-08-16) also blocked the
-  first attempt via `deploy.sh`'s dirty-tree check — moved aside (not deleted) rather than
-  guessing it was disposable.
-
-  **#132 closed, same conversation.** Owner confirmed directly: they ran the history rewrite
-  themselves, at a keyboard, per GUARDRAILS. Verified rather than taken on trust — full-history
-  grep across all reachable commits on both `main` and this home branch (457 total) found no
-  leaked deploy-target IP/hostname anywhere, and the redeploy above confirmed the home branch was
-  rewritten too, not just `main`. See `DECISIONS.md` 2026-09-14.
-- **Next action:** ready queue is just `#157` (destructive — touches `forgot_password`'s
-  token-minting path, no `approved` label or covering standing approval, so an unattended tick
-  skips it). **No unattended-executable `ready` work is currently queued** — next tick should take
-  the intake track (18 `intake` Issues waiting, highest-ranked per the board) unless the owner has
-  acted on `#157` by then.
+  Took the intake track since `ready` was blocked. Skipped `#27` (highest-ranked `intake`) rather
+  than assume its 2026-08-30 P3 hold has cleared — flagged for the owner, see Needs owner. Next
+  highest, `#164` (animation), turned out to need real scope decisions its own body already
+  flagged (full sweep vs. first pass; bundle with `#152`/`#168` or not) — asked the owner live
+  rather than mark `needs-clarification` and stop, since this is an attended session. Owner chose
+  full sweep + bundle all three. Ran `superpowers:brainstorming` (architectural path, visual
+  companion) through to a written, owner-approved spec:
+  [`docs/superpowers/specs/2026-09-14-visual-polish-design.md`](https://github.com/kapekost/workout-tracker/blob/main/docs/superpowers/specs/2026-09-14-visual-polish-design.md)
+  (PR #189) — a "Mono + Volt" palette/type/surface token swap, a vendored + custom icon system
+  (full sweep, inventory table in the spec), and a motion system (bottom-sheet modal, route
+  crossfade). Spec self-review caught and corrected one real inconsistency before merge: an
+  initially-approved centered-dialog confirm pattern assumed a modal that doesn't exist — the app
+  actually uses an established tap-again-to-confirm button pattern for all destructive actions,
+  which this spec explicitly leaves untouched. `#164`/`#152`/`#168` stay `intake`, now
+  spec-linked via comments, pending a future split into `ready` children.
+- **Next action:** ready queue is still just `#157` (unapproved). Next tick: split
+  `#164`/`#152`/`#168` into `ready` children against the new spec (highest-ranked spec-backed
+  intake work), or check whether the owner acted on `#157`/`#27` first.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -64,6 +51,14 @@
 (no branches in flight)
 
 ## Needs owner
+- **#27 (public access) may be ready to leave its 2026-08-30 P3 hold.** That decision deferred it
+  explicitly until "the accounts system has been used for real, not just tested in CI" — #86/#87
+  (the gate + export/import) shipped 2026-09-06, over a week ago, and the app has since seen real
+  production deploys and login/gate enforcement in daily use. This tick skipped #27 (highest-ranked
+  `intake` Issue) rather than assume that bar is now cleared — "used for real enough" is the
+  owner's own judgment to make, not something visible in git/CI. If the owner confirms it, #27 is
+  next in line for a spec/brainstorm pass per its 2026-08-30 decision (Cloudflare Tunnel, Home
+  Assistant network-safety review required — real stakes, not a quick triage).
 - **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller —
   and not just merges.** #138 (2026-09-13): a dispatched subagent's `gh pr merge` was blocked
   despite green CI; the controller merged PR #180 instead. #181, same day: the *controller's own*
@@ -83,14 +78,22 @@
   dependency, **#171** (workout-science/nutrition domain agents), which should land before #32 is
   sequenced. Spec needs all of this (#33, #171 dependency, the sharpened ask) folded in before the
   skim means anything. Both stay `intake` until then.
-- **Two `[template]` improvements still genuinely open in `agent-scaffold`** (narrowed 2026-09-10 —
+- **Three `[template]` improvements still genuinely open in `agent-scaffold`** (narrowed 2026-09-10 —
   PR #2 merged with corrections, which covered a third): `/orchestrate approve`'s home-branch
   ambiguity (the #84 approval once landed on a stale `main` copy of `STATE.md`), and PLAYBOOK step 1
   not naming which branch to read docs from. Both only make sense once `agent-scaffold`'s own
   template has a "Claiming work"/home-branch concept — it doesn't yet, and propagating that is a
   larger, deliberately separate sync (per PR #2's own body). Dead-subagent recovery, the third
   original item, is done — landed in the template via PR #2 and mirrored directly into this repo's
-  own `PLAYBOOK.md` step 4, 2026-09-10.
+  own `PLAYBOOK.md` step 4, 2026-09-10. **New, 2026-09-14:** a copier update from the template
+  (#176/PR #187) overwrote a home-branch-only GUARDRAILS.md citation with generic template
+  wording — the third occurrence of the sync-direction gap `IMPROVEMENTS.md`'s 2026-09-13 entry
+  already diagnosed. This tick's step-2 sweep caught and reconciled it correctly (no wholesale-copy
+  mistake this time), but three incidents in three weeks is itself the case for that entry's
+  "automatic sync" fix candidate over continuing to rely on a tick noticing. None of these four
+  items has the named, explicit cross-repo credential GUARDRAILS requires before an agent may open
+  a PR against `agent-scaffold` — needs the owner to either provide one or make these fixes
+  directly.
 - **Six `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
   (2026-08-30) the `code-review` skill's forked execution silently reviewed the wrong attached repo
   with no explicit target given; (2026-08-31) the Agent tool without `isolation:'worktree'` shared

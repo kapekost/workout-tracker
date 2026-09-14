@@ -9,6 +9,64 @@
 
 ---
 
+## 2026-09-14 — PLAYBOOK/GUARDRAILS reconciled again (3rd time); visual-polish spec for #164/#152/#168
+
+Live-session tick. `#157` remains the only `ready` Issue and still lacks `approved` — skipped
+again per its own destructive flag (touches `forgot_password`'s token-minting path).
+
+**Doc drift, reconciled correctly this time.** The prior tick's `#176` copier update (PR #187)
+refreshed `main`'s `PLAYBOOK.md`/`GUARDRAILS.md` from the `agent-scaffold` template's current HEAD,
+diverging both files from this home branch again — the same failure class as 2026-09-13's two
+incidents (see that day's `IMPROVEMENTS.md` entries). This time the divergence went in *both*
+directions in the same pair of files simultaneously: `PLAYBOOK.md` had two hunks where `main`'s
+freshly-synced template wording was more substantive (a clearer `<project-number>` placeholder,
+and the "per repo in `DECISIONS.md`" override clause in the model-tiering section) — reconciled
+onto the home branch directly (commit `00ca648`). `GUARDRAILS.md` had one hunk where *this* home
+branch's wording was more substantive (a repo-specific citation, "in this repo... discovered
+2026-09-13", that the copier update had overwritten with generic template text) — reconciled onto
+`main` via PR #188, watched to green, merged. Verified the final state of both files against both
+starting versions before treating it as done, per the "diff the final reconciled file back against
+both starting versions" rule the 2026-09-13 incident (the wholesale-copy regression) added.
+Logged as a `[template]` `IMPROVEMENTS.md` entry (38th) — three incidents of this same
+sync-direction gap in three weeks is itself evidence for that entry's "automatic sync" fix
+candidate over continuing to rely on a tick noticing.
+
+**Intake track, since `ready` was blocked.** Skipped `#27` (highest-ranked `intake`) rather than
+assume its 2026-08-30 "wait until accounts has seen real use" hold has cleared on its own — that's
+the owner's judgment, not something derivable from git/CI, even though #86/#87 shipped over a week
+ago and the app has since seen real production use. Flagged in Needs owner instead of guessed.
+
+Next highest, `#164` (consistent enter/exit animation), had real open scope questions already
+named in its own body (full sweep vs. first pass; whether to bundle with `#152`/`#168`). Since
+this is a live, attended session, asked the owner directly rather than mark `needs-clarification`
+and stop — got two answers: full sweep, and bundle all three into one spec. Recorded in
+`DECISIONS.md` (2026-09-14) and commented on all three Issues.
+
+**Spec written via `superpowers:brainstorming`, architectural path, visual companion accepted.**
+Explored the current codebase first (`theme.js`/`index.css` token structure, the app's one real
+modal `ExerciseCuesModal`, plain `react-router-dom` with no transition wrapper, and the exact
+flagged 🔥 emoji — Lower B's day icon in `workoutPlan.js`). Used the browser companion for the
+genuinely-visual decisions: three palette/surface directions (owner picked "Mono + Volt" — true
+neutral grayscale + one sparing lime accent, deliberately not another mint-on-black default),
+type treatment (kept the existing self-hosted Inter/JetBrains Mono pairing, no new font asset),
+icon stroke style (Heroicons-outline, thin/sharp), and a *live, actually-interactive* CSS demo of
+modal and route-transition animation candidates the owner could click and watch play, not just
+read about (bottom-sheet + crossfade won). Presented the resulting design in three sections in
+chat, owner approved each, then wrote
+[`docs/superpowers/specs/2026-09-14-visual-polish-design.md`](https://github.com/kapekost/workout-tracker/blob/main/docs/superpowers/specs/2026-09-14-visual-polish-design.md).
+
+**Spec self-review caught a real inconsistency before it shipped**: the just-approved
+centered-dialog confirm-modal pattern assumed a "Delete this session?" modal that doesn't exist —
+`History.jsx`/`PersonalBests.jsx`/`Workout.jsx`'s `SetRow` all use an established tap-again-to-
+confirm button pattern for destructive actions instead, a deliberate prior choice documented in a
+code comment. Went back to the owner with the correction rather than quietly editing around it;
+owner chose to drop the centered-dialog pattern entirely rather than retrofit a modal onto an
+existing, working interaction. Fixed before commit.
+
+Merged via PR #189 (green CI, docs-only). Commented the spec link on `#164`/`#152`/`#168`, which
+stay `intake` pending a future split into `ready` children against it — see `STATE.md`'s Cursor
+and Needs owner for what's still open.
+
 ## 2026-09-14 — #132 closed: owner confirms the history rewrite was theirs
 
 Second follow-up in the same conversation, right after the deploy follow-up below. Asked the owner
