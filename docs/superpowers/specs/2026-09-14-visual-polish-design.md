@@ -183,12 +183,23 @@ All new transitions/animations get added to the existing `@media (prefers-reduce
 block in `index.css` (currently disables `.timer-bar.flash`, `.toast`, `.skeleton`, and the
 recovery-ring transition) — same block, not a parallel one.
 
-### Verification
+### Verification (applies to all three Issues, not just motion)
 
-This spec sets direction; it does not substitute for the standing UI/UX-review + "render it and
-look at it" gate (`DECISIONS.md` 2026-09-06) that applies to any UI-touching change at execution
-time. Given this workstream touches nearly every screen, the plan should budget for that review
-against real screenshots/recording of the actual motion, not a description of it.
+This spec sets direction; it does not substitute for the standing execution-time UI gate
+(`DECISIONS.md` 2026-09-06, refined 2026-09-14). Whichever Issue(s) this becomes, before merge:
+
+1. **Render it and look at it in an actual browser** — deploy or run the app, open the real
+   pages/screens, take screenshots (and for motion specifically, a recording — a static screenshot
+   can't show a transition). Reading the diff is not looking at it.
+2. **Get a UI-expert review and a UX-expert review — two separate passes**, both against those
+   screenshots/recordings, not the JSX: the UI pass judges visual design (hierarchy, spacing,
+   color/icon consistency, alignment, typography); the UX pass judges usability (affordance, flow,
+   copy clarity, accessibility, one-handed phone use). They can disagree with each other — that's
+   the point of keeping them separate.
+
+Given this workstream touches nearly every screen in the app, budget real time for this — it is
+not a formality on top of code review, it is where the actual defects have historically been found
+(`DECISIONS.md` 2026-09-06's three shipped-and-invisible-in-code-review examples).
 
 ---
 
