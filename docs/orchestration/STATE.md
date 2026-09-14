@@ -40,6 +40,12 @@
   actually uses an established tap-again-to-confirm button pattern for all destructive actions,
   which this spec explicitly leaves untouched. `#164`/`#152`/`#168` stay `intake`, now
   spec-linked via comments, pending a future split into `ready` children.
+
+  **Follow-up, same conversation, after the owner read the spec:** "verify visually on the browser
+  and review with a UI and a UX expert" — split the standing 2026-09-06 UI gate's single combined
+  "UI/UX review" into two separate expert passes, repo-wide (`PLAYBOOK.md` step 5, `DECISIONS.md`
+  2026-09-14). Cherry-picked onto `main` and spelled out explicitly in the spec's Verification
+  section (PR #190, merged green) since this workstream is what prompted it.
 - **Next action:** ready queue is still just `#157` (unapproved). Next tick: split
   `#164`/`#152`/`#168` into `ready` children against the new spec (highest-ranked spec-backed
   intake work), or check whether the owner acted on `#157`/`#27` first.
