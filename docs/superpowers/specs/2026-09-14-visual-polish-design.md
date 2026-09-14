@@ -71,7 +71,7 @@ the existing convention documented at the top of `theme.js`):
 | `card` | `#111120` | `#1a1a1a` | True neutral |
 | `border` | `#1e1e32` | `#2a2a2a` | True neutral |
 | `mint` (primary accent) | `#6ee7b7` | `#d4ff3f` | Renamed `accent` — see note below |
-| `amber` | `#fbbf24` | *(removed)* | Amber was a secondary accent; Mono+Volt uses one accent only |
+| `amber` | `#fbbf24` | *(removed, call sites remapped)* | See the `success`/no-color remap below the table |
 | `muted` | `#9ca3af` | `#999999` | |
 | `muted2` | `#7c8593` | *(recompute)* | Must re-run the WCAG contrast check `theme.test.js` already does — new `bg`/`card` are darker, so the existing `#7c8593` value may no longer clear 4.5:1. Recompute against the *new* `bg`/`card`, don't carry the old value forward unchecked. |
 | `text` | `#fff` | `#fff` | Unchanged |
@@ -91,6 +91,21 @@ job (marking PBs, positive deltas) doesn't disappear, it just stops being the sa
 primary accent. Add a small dedicated `colors.success` (`#4ade80`, confirmed live against the
 "Indigo Pulse" mockup) for exactly those call sites, so the lime accent isn't overloaded with two
 different meanings (CTA vs. "you got stronger").
+
+**`amber`'s removal needs an explicit landing spot for its 7 real call sites** — found during
+execution prep, not caught by the earlier self-review. `colors.amber` isn't purely decorative
+today; it's semantically split two ways:
+- **Achievement/confirmation (5 sites) → `colors.success`:** `.toast`'s default background
+  (`index.css`), `History.jsx`'s "best set" highlight, `Workout.jsx`'s "🎉 New PR" line,
+  `Progress.jsx`'s Personal Record stat, `PersonalBests.jsx`'s weight display. All five are
+  celebrating a result, the same job `success` already exists for — no new token needed, just
+  route them there instead of inventing a second green.
+- **Neutral attention, not achievement (2 sites) → no color, use weight/emphasis instead:**
+  `TimerBar.jsx`'s "paused" state and `VersionBadge.jsx`'s stale-version warning aren't
+  celebrating anything, and forcing them onto `success` would misuse it. Mono+Volt's one-accent
+  philosophy means these don't get a third semantic color — use `colors.text` (full white) with
+  bold weight to stand out instead, the same way the rest of the neutral-grayscale surfaces signal
+  emphasis without adding hue.
 
 ### Type
 
