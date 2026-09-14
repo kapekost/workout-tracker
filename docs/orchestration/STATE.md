@@ -54,7 +54,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#168** — claimed 2026-09-14T22:26:42Z, live session.
 
 ## Needs owner
 - **#27 (public access) may be ready to leave its 2026-08-30 P3 hold.** That decision deferred it
