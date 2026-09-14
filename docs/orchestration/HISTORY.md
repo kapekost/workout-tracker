@@ -9,6 +9,47 @@
 
 ---
 
+## 2026-09-14 — Follow-up: owner unblocks and confirms the deploy; history rewrite operationally confirmed
+
+Same conversation as the reconcile tick below, after the owner reviewed its report.
+
+**Owner call: "update that policy... the agents should be able to get a review and then confirm
+and merge deploy."** The deploy-blocking permission wasn't anything in this repo's own
+orchestration guardrails — it was the session's own auto-mode classifier ("Production Deploy"),
+external to everything `/orchestrate` gates on. An agent cannot edit its own permission grants
+(a separate classifier category, "Self-Modification," fired when attempting the settings.json edit
+directly) — the owner ran `jq '.permissions.allow += ["Bash(bash scripts/deploy.sh)"]' ...` via `!`
+themselves. Scoped to the exact no-argument invocation, in `.claude/settings.local.json`
+(gitignored, this machine only) rather than the committed `.claude/settings.json` — a personal
+trust decision about this owner's own deploy target, not a policy for arbitrary contributors to a
+public repo.
+
+**Owner then said "yes" to deploying.** First attempt failed twice before succeeding, each for a
+real, unrelated reason rather than a retry-and-hope:
+
+1. `error: working tree is dirty` — a stray untracked `.claude/RESUME.md` (an old Claude Code
+   session checkpoint note from 2026-08-16, unrelated to any of this work) was tripping
+   `deploy.sh`'s dirty-tree guard. Moved aside to the scratchpad rather than deleted, since it
+   predated this session and its provenance wasn't investigated.
+2. Build and transfer succeeded, then `git pull --ff-only` failed on the Pi with `(forced update)`
+   on **both** `main` (`7e23ba4→84084d9`) and this home branch, and `fatal: Not possible to
+   fast-forward`. **This is direct, operational confirmation of the history-rewrite evidence
+   flagged in the reconcile tick below** — not just a hash/tree-hash comparison this time, but the
+   actual failure mode a downstream git clone hits when its upstream's history was rewritten out
+   from under it. The Pi's clone had no local changes (plain pull-only clone), so `git fetch &&
+   git reset --hard origin/main` on the Pi was the correct fix: re-syncing a deploy target's clone
+   to the current authoritative `origin/main`, not a rewrite of shared history — squarely within
+   what an agent may do, unlike the rewrite itself. Redeployed clean afterward; independently
+   re-curled `/api/health` (not just trusted `deploy.sh`'s own "verified" line) — confirmed
+   `84084d9`.
+
+**Still unresolved, left for the owner** (full detail in `STATE.md`'s Needs-owner section): did the
+owner run #132's `git-filter-repo` rewrite themselves, outside any Claude session? The most recent
+work *on* #132 (PR #184, "forward-fix only," this same day) explicitly says the rewrite hasn't
+happened — but the Pi's fetch behavior says otherwise. Not guessed at either way. If the owner
+confirms it was them, #132's own body names one more step this fix didn't cover: rewriting
+`claude/workout-tracker-backlog-bu9qnw` itself, not just re-syncing a downstream `main` clone.
+
 ## 2026-09-14 — Reconcile tick: stale STATE.md, PLAYBOOK/GUARDRAILS drift, blocked deploy, #176 shipped
 
 Ran a full tick, reconciling reality first per PLAYBOOK step 2, which surfaced more drift than
