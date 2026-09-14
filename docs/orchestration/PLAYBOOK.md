@@ -205,7 +205,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    without this sweep a state-less Issue is invisible to every tick indefinitely. Give each one a
    state before continuing. **Also sweep for open Issues missing from the Project board entirely**
    — same failure class, different cause: `comm -23 <(gh issue list --state open --json number -q
-   '.[].number' | sort) <(gh project item-list <N> --owner <owner> --format json --limit 300 -q
+   '.[].number' | sort) <(gh project item-list <project-number> --owner <owner> --format json --limit 300 -q
    '.items[] | select(.content.number != null) | .content.number' | sort -u)` (both sides must use
    plain lexicographic `sort`, not `sort -n` — `comm` compares lines as text, and numeric sort order
    diverges from it once numbers have different digit counts). Real case, 2026-09-13: 7 open Issues,
@@ -493,9 +493,10 @@ means changing an editor setting silently changes what runs the auth work at 3am
 been bitten twice by exactly that shape of implicit coupling: `docker compose up` resolving to
 `:latest` downgraded production for 11 days (#126), and PLAYBOOK step 1 read `main`'s stale
 orchestration docs for a while because it never named a branch. Explicit beats inherited: pin
-`sonnet` as the dispatch default for the stronger tier and `haiku` for the cheaper tier, and revisit
-against actual outcomes — if the cheap tier starts producing work the review gate catches, the tier
-boundary is wrong, not the review.
+`sonnet` as the dispatch default for the stronger tier and `haiku` for the cheaper tier, per repo in
+`DECISIONS.md` if this repo's owner wants different defaults, and revisit against actual outcomes —
+if the cheap tier starts producing work the review gate catches, the tier boundary is wrong, not
+the review.
 
 **`model` is ignored for `subagent_type: "fork"`** — a fork always inherits the parent's model, so
 this tiering only applies to the worktree-isolated dispatches Execute already uses.
