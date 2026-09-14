@@ -9,6 +9,70 @@
 
 ---
 
+## 2026-09-14 — Reconcile tick: stale STATE.md, PLAYBOOK/GUARDRAILS drift, blocked deploy, #176 shipped
+
+Ran a full tick, reconciling reality first per PLAYBOOK step 2, which surfaced more drift than
+usual:
+
+**#145 had already shipped**, entirely outside `/orchestrate`: a separate live Claude Code session
+(different session ID) implemented and merged it as PR #185 (~05:20 UTC same day) — Workbox
+`fetchDidFail`/`fetchDidSucceed` hooks on the `api-reads` `NetworkFirst` handler, a new
+`networkStatus.js` store, and a small stale-data indicator on `VersionBadge`. 394 frontend tests
+passing at merge time. `STATE.md`'s "next action" still named it as next-in-queue — corrected.
+
+**`PLAYBOOK.md`/`GUARDRAILS.md` had drifted from this home branch again**, the same failure class
+as the 2026-09-13 incident logged just below: two hunks (a PLAYBOOK citation of #141's
+invisible-Issue-gap repeat, and GUARDRAILS' "or a standing approval" qualifier on the force-push
+hard-stop, per the 2026-09-10 DECISIONS entry) existed here but not on `main`. Diffed the
+reconciled file back against both starting versions per the lesson from that prior incident before
+committing — confirmed home was ahead in both hunks, no main-only content at risk of being
+dropped. Shipped as PR #186, merged green (`sanity`/`Backend tests`/`test` all pass).
+
+**Production is 11 commits behind `main`**, two of them real (#141's backend import-hardening,
+#145's frontend indicator), the rest orchestration docs/scripts. No schema/migration touched —
+safe per the 2026-09-08 "complete means deployed, default toward closing the gap" decision. Took a
+manual backup first (`ssh ... scripts/backup.sh`, exit 0), then ran `scripts/deploy.sh` — **the
+session's own permission classifier refused it outright** ("Production Deploy"), independent of
+anything in this repo's own guardrails. Did not attempt to route around it. Logged under Needs
+owner in `STATE.md` rather than guessing at a workaround.
+
+**While investigating the deployed commit, found evidence main's git history may already have been
+rewritten** (see `STATE.md`'s Needs-owner item for the full technical evidence: `7e23ba4`, PR
+#162's own merge commit, is not an ancestor of current `main`, and GitHub's compare API reports
+`main` and that commit have diverged by 340/352 commits — yet `main` contains a same-message,
+same-author, same-timestamp commit with a different tree hash). This is the exact signature #132's
+own Issue body predicts for its own history-rewrite request, but the most recent work on #132 (PR
+#184, "forward-fix only") explicitly says the real rewrite was not done. Did not guess which is
+true — flagged for the owner to confirm rather than acting either way; force-push/history-rewrite
+stays human-only regardless of what the evidence suggests.
+
+**Picked #176** (copier update from `agent-scaffold`) — the only unattended-executable `ready`
+work this tick (`#157` is destructive, touches the `forgot_password` token-minting path, no
+covering approval; `#132` is owner-only). Spot-checked the premise first: `.copier-answers.yml`
+still pinned at `9bd0712`, confirmed stale. Claimed on the home branch, dispatched a sonnet,
+worktree-isolated subagent. `copier` wasn't installed locally; `pipx run copier` worked as a
+drop-in. Synced to the template's actual current HEAD (`104fb62`, one commit past the Issue's
+cited `d60574e`) rather than the stale number in the Issue body. Conflicts resolved per the
+established pattern (keep this repo's incident-specific content, take the template's generic
+wording/structure) — explicitly verified the two just-reconciled PLAYBOOK/GUARDRAILS spots
+survived the merge. `STATE.md`/`DECISIONS.md` confirmed untouched (out of scope for a copier
+update). 244 backend + 397 frontend tests passing, plus the template's own
+`tests/test_copier_generate.sh` (run against a clone of the template, since that script isn't a
+rendered artifact — it lives only in the template repo, not here; the Issue body implied otherwise,
+logged as friction).
+
+**Independent review** (sonnet, no context from the implementation) confirmed: no dropped or
+weakened safety rule (force-push/history-rewrite human-only, `approved`-label human-only,
+destructive-ops list all byte-identical before/after), no lost repo-specific incident citations,
+file scope exactly the three intended files. Merged as PR #187, green
+(`sanity`/`Backend tests`/`test`).
+
+**Two friction items logged to `IMPROVEMENTS.md`** (both `[local]`, neither has an obvious PR-able
+fix so neither produced one): `copier` CLI missing from the dev machine's PATH (same flavor as the
+existing `gh`/homebrew PATH gap — `pipx run copier` is the workaround), and #176's own Issue body
+pointing at `tests/test_copier_generate.sh` as if it lived in this repo when it only exists in the
+template repo.
+
 ## 2026-09-13 — #141 (member import/export hardening): review gate caught a real regression in its own fix
 
 Ran a full tick, first reconciling reality (no drift since the prior tick — the claimed home-branch

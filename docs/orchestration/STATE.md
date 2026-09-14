@@ -16,27 +16,62 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** #141 (member import/export hardening) merged 2026-09-13 via PR #183 — 4
-  gaps parked during #87's review: merge-mode field validation against the write endpoints'
-  own pydantic models, a row-count cap sized from this app's real per-session usage, rejecting a
-  merge whose envelope names someone else's profile (the stolen-admin-backup case), and a 500→400
-  fix for a malformed `profiles` shape. **The step-5 review gate caught a real regression in the
-  first draft**: the new profile-match guard (fix 3) reintroduced the exact same 500-crash bug
-  fix 4 patches elsewhere, on a malformed `profiles` shape — ironic given the PR's own theme.
-  Review also pushed back on an undersized row cap (5000 would have rejected a genuinely active
-  user's own multi-year export within ~1-2 years); both fixed, re-verified independently by the
-  controller (read the diff, re-ran the full suite at the exact merged commit), then merged.
-  244 tests passing. Full detail in `HISTORY.md`.
-- **Next action:** pick the next `ready` Issue by rank (`#145, #157, #176` — `#132` stays
-  next-in-rank but is owner-only, see below).
+- **Current focus:** Reconcile tick, 2026-09-14. Reality had drifted on three fronts since the
+  #141 tick: (1) **#145 had already shipped** (PR #185, merged ~05:20 UTC same day) via a live
+  session outside `/orchestrate` entirely — `STATE.md`'s "next action" was stale, corrected. (2)
+  **`PLAYBOOK.md`/`GUARDRAILS.md` had drifted from this home branch again** (a `#141` citation, a
+  force-push "or a standing approval" wording fix) — reconciled onto `main` via PR #186, merged
+  green. (3) **Production is stale**: the deployed Pi image (`APP_COMMIT` reporting `7e23ba4`)
+  predates a git-history event on `main` (see the new Needs-owner item below) and sits 11 commits
+  behind `main`, 2 of them real runtime changes (#141's backend import-hardening, #145's frontend
+  network-status indicator) — no schema/migration risk, safe to deploy, **but the deploy attempt
+  (`scripts/deploy.sh`) was blocked outright by the session's own permission classifier
+  ("Production Deploy")**, not by anything in this repo's guardrails. Took a fresh backup
+  (`scripts/backup.sh`, succeeded) and stopped there rather than trying to route around the
+  block — flagged for the owner below. Then picked **#176** (copier update from `agent-scaffold`,
+  synced to the template's actual current HEAD `104fb62`, past the Issue's cited `d60574e`) —
+  dispatched, independently reviewed (no dropped/weakened safety rules, no lost repo-specific
+  citations, `STATE.md`/`DECISIONS.md` untouched), merged via PR #187. 244 backend + 397 frontend
+  tests passing throughout. Full detail in `HISTORY.md`.
+- **Next action:** ready queue is now just `#157` (destructive — touches `forgot_password`'s
+  token-minting path, no `approved` label or covering standing approval, so an unattended tick
+  skips it) and `#132` (owner-only, history rewrite). **No unattended-executable `ready` work is
+  currently queued** — next tick should take the intake track (18 `intake` Issues waiting,
+  highest-ranked per the board) unless the owner has acted on `#157`/`#132`/the deploy block above
+  by then.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#176** — claimed 2026-09-14T17:53:32Z, live session.
+(no branches in flight)
 
 ## Needs owner
+- **Deploy blocked by the session's own permission classifier, not by anything in this repo.**
+  2026-09-14: `scripts/deploy.sh` (no schema change, 11 commits behind, safe per existing
+  discipline) was refused outright — "Permission for this action was denied by the Claude Code
+  auto mode classifier. Reason: [Production Deploy]." A fresh backup was taken first and nothing
+  else was attempted around it. Production currently lacks #141's import-hardening and #145's
+  network-status indicator as a result. Either run `scripts/deploy.sh` yourself, or add a Bash
+  permission rule that allows it if you want future ticks to close this kind of gap unattended
+  (2026-09-08's "complete means deployed" decision assumed the runner *could* deploy — this is the
+  first time that assumption didn't hold).
+- **Evidence `main`'s git history no longer contains the commit the deployed Pi image was built
+  from — needs your confirmation of what actually happened, not a guess.** The Pi's `/api/health`
+  reports `APP_COMMIT=7e23ba4` (PR #162's merge commit, 2026-09-10). `git merge-base --is-ancestor
+  7e23ba4 origin/main` says no; GitHub's own compare API (`compare/main...7e23ba4`) reports
+  `"status":"diverged","ahead_by":340,"behind_by":352"` — main and that commit share almost no
+  history. `main` **does** contain a same-message, same-author, same-timestamp commit (`1a45571`)
+  with a *different* tree hash. This is the exact signature #132's own Issue body predicts for its
+  own history rewrite ("every commit SHA changes... the deployed tag names no commit that
+  exists") — but the most recent work on #132 (PR #184, forward-fix only, 2026-09-13/14) explicitly
+  says the actual `git-filter-repo` rewrite was **not** done and "stays queued for the owner." Did
+  you run it yourself outside any Claude session? If so, #132 should close (with the orchestration
+  home branch rewritten + re-pushed too, per its own body's "Mandatory before the rewrite" list,
+  and a redeploy from rewritten history) rather than sitting `ready`+`approved` on the board. If
+  not, something else produced this divergence and is worth understanding before the next deploy.
+  Not acted on — force-push/history-rewrite is human-only regardless of approval, and guessing
+  which of these it is would be exactly the kind of guess GUARDRAILS forbids.
 - **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller.**
   #138 (2026-09-13): a dispatched subagent's `gh pr merge` was blocked despite green CI; the
   controller merged PR #180 instead. #181, same day: the *controller's own* `gh pr merge` was also
