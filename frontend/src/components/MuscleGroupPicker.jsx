@@ -15,13 +15,13 @@ export const DISCLOSURE =
 // Freshness is a MAGNITUDE, so the ring is a sequential encoding: one hue,
 // dark to light, monotonic in lightness. Deliberately NOT red/amber/green —
 // "Recently trained" is a fact, not a warning, and must not look like one.
-// The vivid end is the app's existing mint accent, so the ring belongs to the
+// The vivid end is the app's existing accent, so the ring belongs to the
 // same system as everything else on the page.
 //
 // Both ends sit in the SAME hue family. A dim slate low end would make this a
 // two-hue ramp, which is a severity scale wearing a sequential costume.
-const RING_LOW = [45, 95, 80]      // dark emerald, recedes against the surface
-const RING_HIGH = [110, 231, 183]  // --mint, the app's one accent
+const RING_LOW = [45, 95, 80]      // dark lime, recedes against the surface
+const RING_HIGH = [212, 255, 63]   // --accent (#d4ff3f), the app's one accent
 
 // Distinct from the ramp so "never trained" is not confusable with "just
 // trained". Largely academic — an unknown ring renders fully empty anyway —
@@ -31,9 +31,9 @@ const RING_UNKNOWN = 'rgb(42, 42, 62)'
 // The unfilled track is a low-opacity step of the SAME ramp rather than an
 // unrelated neutral, so the meter reads as one object across its whole
 // circumference. It never varies with freshness — it is chrome, not data.
-// Byte-identical to colors.mintWash (this file's value was the survivor
+// Byte-identical to colors.accentWash (this file's value was the survivor
 // when that token was named — see the design-tokens spec §2.1).
-const RING_TRACK = colors.mintWash
+const RING_TRACK = colors.accentWash
 
 export function ringColor(freshness) {
   if (freshness === null || freshness === undefined) return RING_UNKNOWN

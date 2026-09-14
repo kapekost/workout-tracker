@@ -5,7 +5,7 @@ import { useSession } from '../lib/session'
 import { colors, type, space } from '../lib/theme'
 
 const linkButtonStyle = {
-  background: 'none', border: 'none', color: colors.mint, fontSize: type.size.lg,
+  background: 'none', border: 'none', color: colors.accent, fontSize: type.size.lg,
   fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0,
 }
 
@@ -78,7 +78,7 @@ export default function Login() {
 
   return (
     <div className="auth-shell">
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: space.xs }}>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: space.xs }}>
         Log in
       </h1>
       {/* Said in the reader's terms, not the app's -- and it has to be true.
@@ -147,7 +147,7 @@ export default function Login() {
             onChange={e => setEmail(e.target.value)}
             style={{ marginBottom: space.lg }} />
           {sent
-            ? <p style={{ color: colors.mint, fontSize: type.size.lg }}>{RESET_SENT}</p>
+            ? <p style={{ color: colors.accent, fontSize: type.size.lg }}>{RESET_SENT}</p>
             : (
               <button type="submit" className="btn-secondary" disabled={sending} style={{ width: '100%' }}>
                 {sending ? 'Sending…' : 'Send reset link'}

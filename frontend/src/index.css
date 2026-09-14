@@ -21,19 +21,25 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
 }
 
 :root {
-  --bg: #0a0a12;
-  --card: #111120;
-  --border: #1e1e32;
-  --mint: #6ee7b7;
-  --amber: #fbbf24;
-  --muted: #9ca3af;
-  /* Was #6b7280 (4.08:1 on --bg, 3.86:1 on --card — just under WCAG AA's
-     4.5:1 for normal text, and this is the standard page-subtitle colour).
-     Nudged one step lighter: 5.29:1 on --bg, 5.01:1 on --card. See
-     theme.js's copy of this token for the full note. */
-  --muted-2: #7c8593;
+  --bg: #0d0d0d;
+  --card: #1a1a1a;
+  --border: #2a2a2a;
+  --accent: #d4ff3f;
+  --success: #4ade80;
+  --muted: #999999;
+  /* Recomputed 2026-09-14 for Mono+Volt palette: the old #7c8593 was tuned
+     against the old darker-blue bg/card and was not guaranteed to clear AA
+     against the new true-neutral values. #999999 measures 6.82:1 on the new
+     bg (#0d0d0d) and 6.11:1 on the new card (#1a1a1a), clearing AA with
+     margin everywhere this token is used. See theme.js's copy of this token
+     for the full note. */
+  /* muted-2 is deliberately distinct from muted: #b3b3b3 is a lighter variant
+     used for specific contexts (e.g. page subtitles) that need to read distinctly
+     from the base muted text but still clear AA contrast. */
+  --muted-2: #b3b3b3;
   --danger: #ef4444;
   --danger-bg: #2a1a1a;
+  --accent-wash: rgba(212, 255, 63, 0.14);
   --content-max-width: 28rem;
   --page-gutter: 1rem;
   --navbar-height: 77px;
@@ -70,7 +76,7 @@ button:active { opacity: 0.7; }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
 .btn-primary {
-  background: var(--mint); color: #0a0a12; font-weight: 700; font-size: 1rem;
+  background: var(--accent); color: #0d0d0d; font-weight: 700; font-size: 1rem;
   padding: 14px 28px; border-radius: 12px; border: none; cursor: pointer;
   transition: opacity 0.15s; width: 100%;
 }
@@ -95,7 +101,7 @@ button:active { opacity: 0.7; }
    that has to be remembered and kept in sync. More specific rules below
    (.field, .field-toggle) still win where they intentionally differ. */
 button:focus-visible, a:focus-visible {
-  outline: 2px solid var(--mint); outline-offset: 2px;
+  outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
 /* Auth forms (Login, SetPassword). Both screens carried their own copy of
@@ -117,7 +123,7 @@ button:focus-visible, a:focus-visible {
   font-size: 1rem;
 }
 .field:focus {
-  outline: 2px solid var(--mint); outline-offset: 1px; border-color: var(--mint);
+  outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
 }
 /* A field that carries the show/hide password button. */
 .field-row { position: relative; }
@@ -125,9 +131,9 @@ button:focus-visible, a:focus-visible {
 .field-toggle {
   position: absolute; top: 0; right: 0; bottom: 0; min-width: 60px;
   background: none; border: none; border-radius: 8px; cursor: pointer;
-  color: var(--mint); font-family: inherit; font-size: 0.8rem; font-weight: 600;
+  color: var(--accent); font-family: inherit; font-size: 0.8rem; font-weight: 600;
 }
-.field-toggle:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; }
+.field-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* The full border, not just the left bar: --danger-bg is 1.12:1 against
    --card, so the fill alone is invisible and a 3px strip was the only thing
    saying "error" -- too little at arm's length in gym lighting. --danger is
@@ -178,7 +184,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 .toast {
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-  background: var(--amber); color: #0a0a12; font-weight: 700;
+  background: var(--success); color: #0d0d0d; font-weight: 700;
   padding: 12px 24px; border-radius: 100px; z-index: 100; width: max-content;
   max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
   animation: slideDown 0.3s ease;
@@ -193,13 +199,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom)); z-index: 40;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 16px; max-width: var(--content-max-width); margin: 0 auto;
-  background: #14142a; border-top: 1px solid #1e1e32;
+  background: #1f1f1f; border-top: 1px solid #2a2a2a;
   font-family: 'JetBrains Mono', monospace;
 }
 .timer-bar.flash { animation: timerflash 0.4s ease-in-out 3; }
-@keyframes timerflash { 50% { background: #234d34; } }
+@keyframes timerflash { 50% { background: #2a4d2a; } }
 .timer-bar .session-clock { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-.timer-bar .wake-chip { color: var(--mint); font-size: 0.6rem; font-weight: 700; margin-left: 8px; }
+.timer-bar .wake-chip { color: var(--accent); font-size: 0.6rem; font-weight: 700; margin-left: 8px; }
 .timer-controls { display: flex; align-items: center; gap: 8px; }
 .rest-block { text-align: center; min-width: 88px; }
 .rest-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; }

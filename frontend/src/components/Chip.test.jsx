@@ -25,7 +25,7 @@ describe('Chip', () => {
   // prop quietly starting to apply here unnoticed, or (the actual bug) a
   // caller passing it and expecting an effect it doesn't have.
   it('ignores an explicit color on the stateless label form (non-toggle branch always renders colors.muted)', () => {
-    render(<Chip color={colors.amber}>Chest</Chip>)
+    render(<Chip color={colors.success}>Chest</Chip>)
     const el = screen.getByText('Chest')
     expect(el.style.color).toBe(hexToRgb(colors.muted))
   })
@@ -51,10 +51,10 @@ describe('Chip', () => {
     expect(parseInt(btn.style.minWidth, 10)).toBeGreaterThanOrEqual(44)
   })
 
-  it('selected=true renders the color-tinted active treatment (defaults to mint)', () => {
+  it('selected=true renders the color-tinted active treatment (defaults to accent)', () => {
     render(<Chip onClick={() => {}} selected={true}>Bench Press</Chip>)
     const btn = screen.getByRole('button', { name: 'Bench Press' })
-    expect(btn.style.color).toBe(hexToRgb(colors.mint))
+    expect(btn.style.color).toBe(hexToRgb(colors.accent))
   })
 
   it('selected=false renders the distinct inactive treatment, not the stateless one', () => {
@@ -65,8 +65,8 @@ describe('Chip', () => {
   })
 
   it('an explicit color prop drives the selected treatment for a non-default accent', () => {
-    render(<Chip onClick={() => {}} selected={true} color={colors.amber}>Upper A</Chip>)
+    render(<Chip onClick={() => {}} selected={true} color={colors.success}>Upper A</Chip>)
     const btn = screen.getByRole('button', { name: 'Upper A' })
-    expect(btn.style.color).toBe(hexToRgb(colors.amber))
+    expect(btn.style.color).toBe(hexToRgb(colors.success))
   })
 })

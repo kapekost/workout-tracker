@@ -194,7 +194,7 @@ describe('TopBar on the auth screens', () => {
     renderTopBarAt('/')
 
     expect(await screen.findByRole('link', { name: 'Log in' }))
-      .toHaveStyle({ color: 'rgb(156, 163, 175)' })
+      .toHaveStyle({ color: 'rgb(153, 153, 153)' })  // colors.muted (#999999) from Mono+Volt palette
   })
 })
 

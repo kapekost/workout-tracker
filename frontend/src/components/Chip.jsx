@@ -19,7 +19,7 @@ import { colors, type, radius } from '../lib/theme'
 // passed. Two call sites used to pass color to a label chip anyway; it was
 // a silent no-op there (2026-09-06 UI review, item 18a), so both were
 // cleaned up rather than this branch quietly "honouring" an unused prop.
-export default function Chip({ children, color = colors.mint, selected, size = 'md', onClick, style }) {
+export default function Chip({ children, color = colors.accent, selected, size = 'md', onClick, style }) {
   const isToggle = selected !== undefined
   const base = {
     padding: '5px 14px',
@@ -30,7 +30,7 @@ export default function Chip({ children, color = colors.mint, selected, size = '
   const visual = !isToggle
     ? { background: colors.border, border: 'none', color: colors.muted }
     : selected
-      ? { background: colors.mintWash, border: `1px solid ${color}`, color }
+      ? { background: colors.accentWash, border: `1px solid ${color}`, color }
       : { background: colors.card, border: `1px solid ${colors.border}`, color: colors.muted }
 
   if (onClick) {

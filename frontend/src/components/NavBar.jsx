@@ -55,9 +55,9 @@ export default function NavBar() {
             >
               <span style={{
                 fontSize: '1.35rem', lineHeight: 1,
-                color: isActive ? colors.mint : colors.muted
+                color: isActive ? colors.accent : colors.muted
               }}>{tab.icon}</span>
-              <Eyebrow color={isActive ? colors.mint : colors.muted} style={{ fontWeight: type.weight.semibold }}>
+              <Eyebrow color={isActive ? colors.accent : colors.muted} style={{ fontWeight: type.weight.semibold }}>
                 {tab.label}
               </Eyebrow>
             </button>

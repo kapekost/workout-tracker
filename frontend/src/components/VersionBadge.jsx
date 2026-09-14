@@ -36,7 +36,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
       // button had (see below) — confirmed by the same kind of real hit-test,
       // clicking the title applied the update. Same top-anchored fix.
       <button type="button" onClick={store.applyUpdate} style={{
-        position: 'relative', fontSize: type.size.sm, fontWeight: type.weight.semibold, color: colors.mint,
+        position: 'relative', fontSize: type.size.sm, fontWeight: type.weight.semibold, color: colors.accent,
         background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
       }}>
         New version — tap to reload
@@ -87,7 +87,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           actually be showing. */}
       <span role="status"
         title={stale ? 'Network unreachable — data shown may be out of date' : undefined}
-        style={{ color: colors.amber, fontSize: type.size.xs, lineHeight: 1 }}>
+        style={{ color: colors.text, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1 }}>
         {stale ? '⚠' : ''}
       </span>
     </div>

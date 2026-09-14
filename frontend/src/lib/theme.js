@@ -9,28 +9,30 @@
 
 export const colors = {
   // Tier 1: unchanged from index.css :root
-  bg: '#0a0a12',
-  card: '#111120',
-  border: '#1e1e32',
-  mint: '#6ee7b7',
-  amber: '#fbbf24',
-  muted: '#9ca3af',
-  // Was #6b7280 (4.08:1 on bg, 3.86:1 on card — just under WCAG AA's 4.5:1
-  // for normal text; this is the standard page-subtitle colour, used at
-  // 0.875rem/type.size.lg, i.e. "normal" text, not "large text", so the
-  // stricter threshold applies). Nudged one step lighter, computed via the
-  // WCAG relative-luminance formula (see frontend/src/lib/theme.test.js and
-  // the 2026-09-06 UI review, item 11): #7c8593 measures 5.29:1 on bg and
-  // 5.01:1 on card, clearing AA everywhere this token is used with margin.
-  muted2: '#7c8593',
+  bg: '#0d0d0d',
+  card: '#1a1a1a',
+  border: '#2a2a2a',
+  accent: '#d4ff3f',
+  success: '#4ade80',
+  muted: '#999999',
+  // Recomputed 2026-09-14 for Mono+Volt palette: the old #7c8593 was tuned
+  // against the old darker-blue bg/card and was not guaranteed to clear AA
+  // against the new true-neutral values. #999999 measures 6.82:1 on the new
+  // bg (#0d0d0d) and 6.11:1 on the new card (#1a1a1a), clearing AA with
+  // margin everywhere this token is used. Computed via the WCAG
+  // relative-luminance formula (see frontend/src/lib/theme.test.js).
+  // muted2 is deliberately distinct from muted, not a duplicate: #b3b3b3 is a
+  // lighter variant used for specific contexts (e.g. page subtitles) that need
+  // to read distinctly from the base muted text but still clear AA contrast.
+  muted2: '#b3b3b3',
   text: '#fff',
   danger: '#ef4444',
 
   // Tier 2: deliberate near-duplicate merges (spec section 2.1)
-  textSecondary: '#e2e8f0',
-  surface1: '#14142a',
-  divider: '#1e1e32',
-  mintWash: 'rgba(110, 231, 183, 0.14)',
+  textSecondary: '#e5e5e5',
+  surface1: '#1f1f1f',
+  divider: '#2a2a2a',
+  accentWash: 'rgba(212, 255, 63, 0.14)',
   dangerBg: '#2a1a1a',
 }
 
@@ -56,6 +58,9 @@ export const type = {
     regular: 400,
     semibold: 600,
     bold: 700,
+  },
+  letterSpacing: {
+    tight: '-0.01em',
   },
   labelTracking: '0.08em',
 }

@@ -23,9 +23,9 @@ describe('Eyebrow', () => {
   })
 
   it('applies explicit color/size overrides instead of silently using the default', () => {
-    render(<Eyebrow color={colors.mint} size={type.size.base}>In progress</Eyebrow>)
+    render(<Eyebrow color={colors.accent} size={type.size.base}>In progress</Eyebrow>)
     const el = screen.getByText('In progress')
-    expect(el.style.color).toBe(hexToRgb(colors.mint))
+    expect(el.style.color).toBe(hexToRgb(colors.accent))
     expect(el.style.fontSize).toBe(type.size.base)
   })
 

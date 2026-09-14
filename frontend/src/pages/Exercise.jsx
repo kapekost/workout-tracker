@@ -12,7 +12,7 @@ export default function Exercise() {
 
   if (!ex) return (
     <div style={{ padding: 24 }}>
-      <button className="tap-target" onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: colors.mint, cursor: 'pointer', fontSize: '1rem', marginBottom: 16 }}>
+      <button className="tap-target" onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: colors.accent, cursor: 'pointer', fontSize: '1rem', marginBottom: 16 }}>
         ← Back
       </button>
       <p style={{ color: colors.danger }}>Exercise not found.</p>
@@ -29,7 +29,7 @@ export default function Exercise() {
       </button>
 
       {/* Title */}
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>{ex.name}</h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>{ex.name}</h1>
       {ex.alt && <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>{ex.alt}</p>}
 
       <ExerciseDetails ex={ex} color={color} />

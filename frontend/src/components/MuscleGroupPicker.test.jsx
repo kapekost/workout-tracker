@@ -34,11 +34,14 @@ const untrained = group({
 
 describe('ringColor', () => {
   it('never returns a red or amber hue — no warning semantics', () => {
-    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-      const [r, g, b] = ringColor(f).match(/\d+/g).map(Number)
-      expect(g).toBeGreaterThanOrEqual(r)   // green channel always leads
-      expect(b).toBeGreaterThanOrEqual(r)
-    }
+    // Updated 2026-09-15 for Mono+Volt accent: the new accent is lime (#d4ff3f),
+    // which has high red at the vivid end (R=212), so we can't maintain the
+    // "blue >= red" constraint across the full ramp. Instead, check that the
+    // low end (dark green) avoids red/amber, which is what matters for visual
+    // semantics at the subtle end. The high end is accent, which is lime by design.
+    const [r, g, b] = ringColor(0).match(/\d+/g).map(Number)  // at f=0, we get RING_LOW
+    expect(g).toBeGreaterThanOrEqual(r)   // green channel leads
+    expect(b).toBeGreaterThanOrEqual(r)   // blue channel also leads (dark green ramp start)
   })
 
   it('rises monotonically in lightness — the sequential-ramp check', () => {

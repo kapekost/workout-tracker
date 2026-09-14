@@ -265,7 +265,7 @@ export default function Workout() {
 
   if (summary) return (
     <div style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 16 }}>Workout complete 🎉</h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 16 }}>Workout complete 🎉</h1>
       <div className="card" style={{ padding: space.xxl, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
         <Stat label="Sets" value={summary.totalSets} />
@@ -276,7 +276,7 @@ export default function Workout() {
             {summary.serverPrs.map((p, i) => {
               const isBaseline = p.type === 'baseline'
               return (
-                <p key={i} style={{ color: isBaseline ? colors.muted : colors.amber, fontSize: type.size.md }}>
+                <p key={i} style={{ color: isBaseline ? colors.muted : colors.success, fontSize: type.size.md }}>
                   {isBaseline ? prLabel(p) : `🎉 New PR — ${prLabel(p)}`}
                 </p>
               )
@@ -452,7 +452,7 @@ export default function Workout() {
           <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
             Active session
           </Eyebrow>
-          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}>{plan.emoji} {plan.name}</h1>
           {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
               PersonalBests' page-subtitle convention -- this was the one
               page whose subtitle used a different color/size pair
@@ -562,7 +562,7 @@ export default function Workout() {
                 {(() => {
                   const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
                   return sug ? (
-                    <p style={{ color: colors.mint, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 8 }}>
+                    <p style={{ color: colors.accent, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 8 }}>
                       Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
                     </p>
                   ) : null

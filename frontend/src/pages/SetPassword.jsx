@@ -53,7 +53,7 @@ export default function SetPassword() {
 
   return (
     <div className="auth-shell">
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: space.xs }}>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: space.xs }}>
         Set your password
       </h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: space.xxl }}>
@@ -63,7 +63,7 @@ export default function SetPassword() {
       {!token ? (
         <div className="card" style={{ padding: space.xl }}>
           <Alert>This link is missing its token, so it can't be used. Ask for a fresh one from the login screen.</Alert>
-          <Link to="/login" style={{ color: colors.mint, fontWeight: type.weight.semibold }}>
+          <Link to="/login" style={{ color: colors.accent, fontWeight: type.weight.semibold }}>
             Go to log in
           </Link>
         </div>
@@ -109,7 +109,7 @@ export default function SetPassword() {
 
           {error && (
             <p style={{ marginTop: space.lg, fontSize: type.size.lg }}>
-              <Link to="/login" style={{ color: colors.mint, fontWeight: type.weight.semibold }}>
+              <Link to="/login" style={{ color: colors.accent, fontWeight: type.weight.semibold }}>
                 Go to log in
               </Link>
               {' — you can send yourself a fresh link from there.'}

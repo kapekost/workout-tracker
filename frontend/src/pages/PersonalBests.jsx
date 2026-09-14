@@ -83,11 +83,11 @@ export default function PersonalBests() {
     <div style={{ paddingTop: 16 }}>
       <Toast toast={toast} />
       <button className="tap-target" onClick={() => nav('/progress')}
-        style={{ background: 'none', border: 'none', color: colors.mint, fontSize: type.size.md,
+        style={{ background: 'none', border: 'none', color: colors.accent, fontSize: type.size.md,
           fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0, marginBottom: 12 }}>
         ← Progress
       </button>
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>Personal Bests</h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Personal Bests</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>
         Historical PBs from before you started logging here
       </p>
@@ -105,7 +105,7 @@ export default function PersonalBests() {
             const armed = confirmId === r.id
             return (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
-                <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.amber }}>{r.weight_kg}kg × {r.reps}</span>
+                <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg}kg × {r.reps}</span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}
                   aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
@@ -122,7 +122,7 @@ export default function PersonalBests() {
         isOpen={addOpen}
         onToggle={() => setAddOpen(o => !o)}
         style={{ marginTop: 14 }}
-        header={<Eyebrow color={colors.mint}>+ Add</Eyebrow>}
+        header={<Eyebrow color={colors.accent}>+ Add</Eyebrow>}
       >
         <form onSubmit={submit} className="personal-bests-form">
           <label style={labelStyle}>Exercise</label>
