@@ -234,6 +234,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 @media (prefers-reduced-motion: reduce) {
   .timer-bar.flash, .toast, .skeleton, .route-fade { animation: none; }
   .recovery-ring circle { transition: none !important; }
+  .cues-overlay, .cues-sheet { transition: none !important; }
 }
 .skeleton {
   background: linear-gradient(90deg,#1a1a2e 25%,#23233a 37%,#1a1a2e 63%);
