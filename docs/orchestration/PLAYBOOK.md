@@ -285,6 +285,17 @@ only because the owner happened to ask about it, not by anything in this file. H
    gitignored and are not shared with the main checkout (`AGENTS.md` says so under Setup). Hand the
    subagent the main checkout's absolute interpreter path, or tell it to install first — otherwise
    its verification commands fail for reasons that have nothing to do with the change it made.
+   **This isolation risk isn't limited to dispatches that intend to write** — a review-only
+   subagent given Bash access to the shared main checkout (no `isolation:'worktree'`, since it was
+   only meant to read) can still run a `git checkout <branch>` to inspect another branch's content,
+   which switches or overwrites the *shared* working tree out from under the controller and any
+   other concurrent work. Real case, 2026-09-15: a review dispatch did exactly this while diffing
+   two branches (`git diff branch1 branch2 -- paths` needs no checkout at all) and briefly
+   overwrote ~22 tracked files before self-correcting; no damage landed, only because the
+   controller independently verified `git status`/HEAD afterward rather than trusting the
+   self-correction claim. Tell any subagent given the shared checkout to use `git show`/`git diff`
+   between refs only, never `git checkout`/`switch` there — or give it `isolation:'worktree'`
+   regardless of whether its task is read-only.
    **Friction goes in the subagent's final report, not into `IMPROVEMENTS.md` directly** (this
    overrides the template default of having the subagent run
    `scripts/append_improvement.sh` inline — deliberately, not an oversight: see below). The
@@ -304,6 +315,15 @@ only because the owner happened to ask about it, not by anything in this file. H
    duplicate (2026-09-07) before either cost more than one item's worth of rework.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
+   **A subagent's own "verified clean" claim on a grep/search sweep needs spot-checking, not just
+   trusting** — especially when it distinguishes "real code" from "test fixture" for you. Real case,
+   2026-09-15 (#168): a subagent reported zero remaining old-color references, correctly noting
+   several `#6ee7b7` hits as test fixtures — but missed that one more hit
+   (`workoutPlan.js`'s `DAY_COLORS.upper_a`) was live production code, not a fixture, still
+   rendering a real button in the deleted color. Caught only because the controller rendered the
+   app in a browser and re-read the grep hits personally. A claim that a search came back clean is
+   itself a finding to verify, the same way a green CI run needs its head commit confirmed before
+   trusting it (see the #124/PR#147 precedent above).
 
    **If the change touches the UI, two extra gates apply** (owner's call 2026-09-06, see
    `DECISIONS.md`):
