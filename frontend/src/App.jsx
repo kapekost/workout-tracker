@@ -69,6 +69,7 @@ function Shell() {
   // when api.js reports a session that ended mid-use -- swaps the tables and
   // lands on the login screen without anyone calling navigate().
   const { ready, profile } = useSession()
+  const location = useLocation()
   const headerRef = useRef(null)
   const [headerHeight, setHeaderHeight] = useState(0)
 
@@ -107,7 +108,9 @@ function Shell() {
           {/* --header-height lets a page size itself against the space the
               fixed header actually leaves it (index.css's .auth-shell). */}
           <div className="page-shell" style={{ paddingTop: headerHeight, '--header-height': `${headerHeight}px` }}>
-            {profile ? <AppRoutes /> : <PublicRoutes />}
+            <div key={location.pathname} className="route-fade">
+              {profile ? <AppRoutes /> : <PublicRoutes />}
+            </div>
           </div>
           <NavBar />
         </>
