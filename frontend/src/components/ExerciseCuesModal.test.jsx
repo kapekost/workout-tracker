@@ -13,19 +13,35 @@ const ex = {
 
 const MODAL_EXIT_MS = 250 // must match the constant in ExerciseCuesModal.jsx
 
+// vi.useFakeTimers() does not fake requestAnimationFrame/cancelAnimationFrame
+// by default in Vitest 4, but the component's mount effect now uses a double
+// rAF (instead of setTimeout(fn, 0)) to guarantee a real paint of the
+// entering styles before flipping to 'open'. Explicitly include rAF in the
+// faked set so tests can deterministically advance past it.
+const FAKE_TIMERS_CONFIG = { toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] }
+const ONE_FRAME_MS = 16 // Vitest's faked requestAnimationFrame ticks in ~16ms frame steps
+const ENTER_ANIMATION_MS = ONE_FRAME_MS * 2 // two rAF frames' worth -- enough to flush the double-rAF entering -> open transition
+
+const realMatchMedia = window.matchMedia
+
 beforeEach(() => vi.clearAllMocks())
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => {
+  vi.useRealTimers()
+  window.matchMedia = realMatchMedia
+})
 
 // Fake timers never auto-advance: right after render(), `phase` is still
-// 'entering' (the mount's setTimeout(fn, 0) that flips it to 'open' hasn't
-// fired yet), and requestClose()'s guard ignores close requests until
-// phase === 'open'. Every test below must advance past that first before
-// simulating a close — otherwise the guard silently swallows the close
-// request and the test would pass for the wrong reason (or fail confusingly
-// with onClose never called even after advancing MODAL_EXIT_MS).
+// 'entering' (the mount effect's double requestAnimationFrame -- needed so
+// the browser actually paints the entering styles before flipping to 'open'
+// -- hasn't resolved yet), and requestClose()'s guard ignores close requests
+// until phase === 'open'. Every test below must advance past that first
+// before simulating a close — otherwise the guard silently swallows the
+// close request and the test would pass for the wrong reason (or fail
+// confusingly with onClose never called even after advancing MODAL_EXIT_MS).
 function renderOpen(onClose) {
+  vi.useFakeTimers(FAKE_TIMERS_CONFIG)
   render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={onClose} />)
-  act(() => { vi.advanceTimersByTime(0) })
+  act(() => { vi.advanceTimersByTime(ENTER_ANIMATION_MS) })
 }
 
 describe('ExerciseCuesModal', () => {
@@ -49,9 +65,21 @@ describe('ExerciseCuesModal', () => {
   })
 
   it('Escape defers onClose until the exit animation finishes', () => {
-    vi.useFakeTimers()
+    // Inlined (rather than using renderOpen) so the 'entering' -> 'open'
+    // transform can be asserted mid-transition, not just before/after. A
+    // single animation frame is deliberately not enough here (still
+    // translateY(100%) at ONE_FRAME_MS): that's what proves the double rAF
+    // in the mount effect is doing real work, rather than a single
+    // setTimeout/rAF tick that would already have flipped to 'open' by now.
+    vi.useFakeTimers(FAKE_TIMERS_CONFIG)
     const onClose = vi.fn()
-    renderOpen(onClose)
+    const { container } = render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={onClose} />)
+    const sheet = container.querySelector('.cues-sheet')
+    act(() => { vi.advanceTimersByTime(ONE_FRAME_MS) }) // one frame -- not enough to flip yet
+    expect(sheet.style.transform).toBe('translateY(100%)')
+    act(() => { vi.advanceTimersByTime(ONE_FRAME_MS) }) // second frame -- now open
+    expect(sheet.style.transform).toBe('translateY(0)')
+
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(MODAL_EXIT_MS) })
@@ -90,13 +118,11 @@ describe('ExerciseCuesModal', () => {
 
   it('reduced motion closes immediately, with no animation delay', () => {
     vi.useFakeTimers()
-    const original = window.matchMedia
     window.matchMedia = vi.fn().mockReturnValue({ matches: true })
     const onClose = vi.fn()
     renderOpen(onClose)
     fireEvent.click(screen.getByRole('button', { name: 'close' }))
     act(() => { vi.advanceTimersByTime(0) }) // the reduced-motion exit still goes through setTimeout(fn, 0), not a synchronous call
     expect(onClose).toHaveBeenCalledTimes(1)
-    window.matchMedia = original
   })
 })

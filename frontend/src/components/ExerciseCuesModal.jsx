@@ -12,8 +12,13 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
   const exitTimer = useRef(null)
 
   useEffect(() => {
-    const id = setTimeout(() => setPhase('open'), 0)
-    return () => clearTimeout(id)
+    // setTimeout(fn, 0) is not a paint boundary -- the browser can resolve
+    // styles once and never see the "before" state, so the sheet would
+    // appear instantly instead of sliding in. A double rAF guarantees a
+    // frame has actually been painted with the entering styles first.
+    let inner
+    const outer = requestAnimationFrame(() => { inner = requestAnimationFrame(() => setPhase('open')) })
+    return () => { cancelAnimationFrame(outer); cancelAnimationFrame(inner) }
   }, [])
 
   function requestClose() {
@@ -40,7 +45,7 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        opacity: visible ? 1 : 0, transition: 'opacity 250ms ease',
+        opacity: visible ? 1 : 0, transition: `opacity ${MODAL_EXIT_MS}ms ease`,
       }}
       className="cues-overlay">
       <div onClick={e => e.stopPropagation()}
@@ -50,7 +55,7 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
           width: '100%', maxWidth: 'var(--content-max-width)', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto',
           padding: '20px 16px calc(24px + env(safe-area-inset-bottom))',
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 250ms cubic-bezier(.32,.72,0,1)',
+          transition: `transform ${MODAL_EXIT_MS}ms cubic-bezier(.32,.72,0,1)`,
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
           <h2 style={{ fontSize: '1.3rem', fontWeight: type.weight.bold }}>{ex.name}</h2>
