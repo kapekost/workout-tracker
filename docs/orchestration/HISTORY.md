@@ -9,6 +9,49 @@
 
 ---
 
+## 2026-09-15 — #164 planned: motion system, resolving the spec's open route-transition question
+
+Same live session, continuing after `#168` shipped (previous entry below). `#157` still the only
+`ready` Issue, still unapproved. `#152` and `#164` came out of `#168`'s completion equally
+`ready` and unblocked — picked `#164` per raw board rank (it ranked above `#152`; no remaining
+technical dependency between the two, unlike their shared prior dependency on `#168`).
+
+**Gated on decomposition, not effort size** (`PLAYBOOK`'s plan-gate rule): the spec's Motion
+section explicitly left one decision open — "Implementation approach is an open call for the plan
+to make: either the browser's native View Transitions API... or a manual CSS-transition wrapper."
+That's exactly the kind of gap the plan-gate exists to catch before execution, not during it.
+
+**Resolved the decision by verifying, not assuming.** Used `WebSearch`/`WebFetch` to check
+react-router-dom v7's actual `viewTransition` support: it requires **Data mode**
+(`createBrowserRouter` + `RouterProvider`) or Framework mode — explicitly listed as **not
+available** in Declarative mode, which is what `App.jsx` actually uses (`<BrowserRouter>` wrapping
+plain `<Routes>`/`<Route>`). Migrating the whole app's routing API just to get one motion feature
+would be a large, unrelated refactor, so decided against it. Calling `document.startViewTransition`
+manually (without that integration) needs `flushSync`-synchronized DOM snapshots and would risk
+briefly double-mounting page trees that have real side effects on mount (`Workout.jsx`'s rest
+timer, `TimerBar`'s wake-lock, active-session polling) — a concrete, codebase-specific reason to
+avoid it, not just "it's more code." **Decision: a manual CSS-transition wrapper, keyed on
+`location.pathname`**, single-mount fade-in rather than a literal overlapping dual-render
+crossfade.
+
+Wrote the full plan: `docs/superpowers/plans/2026-09-15-motion-system.md` (PR #194) — two tasks
+(route crossfade in `App.jsx`; a 3-phase `entering`/`open`/`closing` state machine in
+`ExerciseCuesModal.jsx` that defers `onClose` until the exit transition finishes, a real behavior
+change to 4 existing tests, resolved explicitly in the plan rather than left implicit).
+
+**Plan self-review caught a real bug in its own test design before it shipped**: the drafted tests
+used `vi.useFakeTimers()`, which never auto-advance — right after `render()`, the modal's `phase`
+would still be `'entering'` (the mount's `setTimeout(fn, 0)` that flips it to `'open'` hadn't fired
+yet), so the `requestClose()` guard (`if (phase !== 'open') return`) would have silently swallowed
+every simulated close in the test suite, making the new tests pass for the wrong reason or fail
+confusingly. Fixed by adding a `renderOpen()` test helper that advances past the entering phase
+before simulating any close interaction, with the reasoning documented inline so a future reader
+doesn't hit the same trap.
+
+Linked the plan to `#164`'s Issue body (`**Plan:**` line, matching the same convention already
+used for `**Spec:**` links) and commented; the stale `Blocked by #168` line was struck through and
+marked resolved. Per the plan-gate rule ("plan it, then stop"), execution is next tick's work.
+
 ## 2026-09-15 — #168 shipped: Mono + Volt color tokens, two real bugs caught by independent review
 
 Continuation of the same live session that wrote the visual-polish spec. `#157` still the only

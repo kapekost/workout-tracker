@@ -16,25 +16,28 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Same live session, continued into 2026-09-15: wrote and shipped the
-  visual-polish spec's first Issue. **#168 (Mono + Volt color tokens) merged (PR #192)** —
-  full palette/type token swap, `amber`'s 7 call sites correctly remapped, two real bugs caught
-  by independent review and fixed before merge (a weakened test, a stale `DAY_COLORS.upper_a`
-  literal). Both UI-expert and UX-expert passes (the newly-split gate) returned "ship it." Full
-  narrative in `HISTORY.md`, same date. `#152`/`#164` unblocked, ready for a future tick.
-  `PLAYBOOK.md` gained two fixes from this tick's review findings (PR #193): worktree-isolation
-  guidance now covers review-only dispatches too, and a note that a subagent's "verified clean"
-  claim needs spot-checking.
-- **Next action:** ready queue is still just `#157` (unapproved). Next tick: split `#152`
-  (icons) or `#164` (motion) into `ready` execution against the spec — `#152` first per the
-  spec's recommended sequencing — or check whether the owner acted on `#157`/`#27`/the new
-  `DAY_COLORS` follow-up first (see Needs owner).
+- **Current focus:** Same live session, continued further into 2026-09-15. After `#168` shipped
+  (previous entry, see `HISTORY.md`), picked `#164` next — board rank, both `#152`/`#164` unblocked
+  and equally `ready`. Gated on decomposition, not effort size: the spec explicitly left the
+  route-transition mechanism as "an open call for the plan to make," so this wasn't decomposed
+  enough to execute directly. Wrote a plan
+  ([`docs/superpowers/plans/2026-09-15-motion-system.md`](https://github.com/kapekost/workout-tracker/blob/main/docs/superpowers/plans/2026-09-15-motion-system.md),
+  PR #194) that resolves it: verified (not assumed) that react-router-dom's `viewTransition`
+  integration needs the data-router API, which this app's declarative `<BrowserRouter>` doesn't
+  use, so picked a manual CSS-transition wrapper instead — also avoids double-mounting page trees
+  that carry real side effects (timers, wake-lock, polling), which a true overlapping crossfade
+  would require. Plan self-review caught and fixed a real bug in its own test design (a
+  fake-timers ordering issue) before it landed. Linked to `#164`'s Issue body and commented.
+  Per the plan-gate rule ("plan it, then stop"), execution is next tick's work, not this one's.
+- **Next action:** ready queue is still just `#157` (unapproved). Next tick: execute `#164`
+  against its new plan, or pick up `#152` (icons) instead — or check whether the owner acted on
+  `#157`/`#27`/the `DAY_COLORS` follow-up first (see Needs owner).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#164** — claimed 2026-09-15T00:24:18Z, live session (planning).
+(no branches in flight)
 
 ## Needs owner
 - **`workoutPlan.js`'s per-day categorical colors (`lower_a` blue, `upper_b` pink, `lower_b`
