@@ -16,47 +16,35 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Live-session tick, 2026-09-14. `#157` is still the only `ready` Issue and
-  still unapproved (destructive, skipped again). Reconciled `PLAYBOOK.md`/`GUARDRAILS.md` drift
-  from the prior tick's `#176` copier update (PR #187 had refreshed `main` from the template,
-  diverging it from this home branch again) — hunk-by-hunk, both directions this time: two
-  `PLAYBOOK.md` hunks adopted `main`'s newer template wording (PR onto the home branch), one
-  `GUARDRAILS.md` hunk restored this home branch's more substantive repo-specific citation onto
-  `main` (PR #188). Logged as a `[template]` `IMPROVEMENTS.md` entry — third occurrence of an
-  already-diagnosed sync-direction gap; see Needs owner.
-
-  Took the intake track since `ready` was blocked. Skipped `#27` (highest-ranked `intake`) rather
-  than assume its 2026-08-30 P3 hold has cleared — flagged for the owner, see Needs owner. Next
-  highest, `#164` (animation), turned out to need real scope decisions its own body already
-  flagged (full sweep vs. first pass; bundle with `#152`/`#168` or not) — asked the owner live
-  rather than mark `needs-clarification` and stop, since this is an attended session. Owner chose
-  full sweep + bundle all three. Ran `superpowers:brainstorming` (architectural path, visual
-  companion) through to a written, owner-approved spec:
-  [`docs/superpowers/specs/2026-09-14-visual-polish-design.md`](https://github.com/kapekost/workout-tracker/blob/main/docs/superpowers/specs/2026-09-14-visual-polish-design.md)
-  (PR #189) — a "Mono + Volt" palette/type/surface token swap, a vendored + custom icon system
-  (full sweep, inventory table in the spec), and a motion system (bottom-sheet modal, route
-  crossfade). Spec self-review caught and corrected one real inconsistency before merge: an
-  initially-approved centered-dialog confirm pattern assumed a modal that doesn't exist — the app
-  actually uses an established tap-again-to-confirm button pattern for all destructive actions,
-  which this spec explicitly leaves untouched. `#164`/`#152`/`#168` stay `intake`, now
-  spec-linked via comments, pending a future split into `ready` children.
-
-  **Follow-up, same conversation, after the owner read the spec:** "verify visually on the browser
-  and review with a UI and a UX expert" — split the standing 2026-09-06 UI gate's single combined
-  "UI/UX review" into two separate expert passes, repo-wide (`PLAYBOOK.md` step 5, `DECISIONS.md`
-  2026-09-14). Cherry-picked onto `main` and spelled out explicitly in the spec's Verification
-  section (PR #190, merged green) since this workstream is what prompted it.
-- **Next action:** ready queue is still just `#157` (unapproved). Next tick: split
-  `#164`/`#152`/`#168` into `ready` children against the new spec (highest-ranked spec-backed
-  intake work), or check whether the owner acted on `#157`/`#27` first.
+- **Current focus:** Same live session, continued into 2026-09-15: wrote and shipped the
+  visual-polish spec's first Issue. **#168 (Mono + Volt color tokens) merged (PR #192)** —
+  full palette/type token swap, `amber`'s 7 call sites correctly remapped, two real bugs caught
+  by independent review and fixed before merge (a weakened test, a stale `DAY_COLORS.upper_a`
+  literal). Both UI-expert and UX-expert passes (the newly-split gate) returned "ship it." Full
+  narrative in `HISTORY.md`, same date. `#152`/`#164` unblocked, ready for a future tick.
+  `PLAYBOOK.md` gained two fixes from this tick's review findings (PR #193): worktree-isolation
+  guidance now covers review-only dispatches too, and a note that a subagent's "verified clean"
+  claim needs spot-checking.
+- **Next action:** ready queue is still just `#157` (unapproved). Next tick: split `#152`
+  (icons) or `#164` (motion) into `ready` execution against the spec — `#152` first per the
+  spec's recommended sequencing — or check whether the owner acted on `#157`/`#27`/the new
+  `DAY_COLORS` follow-up first (see Needs owner).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#168** — claimed 2026-09-14T22:26:42Z, live session.
+(no branches in flight)
 
 ## Needs owner
+- **`workoutPlan.js`'s per-day categorical colors (`lower_a` blue, `upper_b` pink, `lower_b`
+  orange) now sit against the new true-neutral Mono+Volt surfaces** (only `upper_a` was fixed to
+  the new accent, since its old value was byte-identical to the deleted brand color — see
+  `HISTORY.md` 2026-09-15). Rendered all four days locally to check: these three read distinctly
+  more vivid/saturated against pure neutral gray than they did against the old slightly-blue-black
+  background. This is a pre-existing categorical system `#168`'s spec never touched (not a defect
+  it introduced), so it wasn't changed — but worth a look: fine as an intentional "day identity"
+  exception to the one-accent principle, or worth its own follow-up Issue?
 - **#27 (public access) may be ready to leave its 2026-08-30 P3 hold.** That decision deferred it
   explicitly until "the accounts system has been used for real, not just tested in CI" — #86/#87
   (the gate + export/import) shipped 2026-09-06, over a week ago, and the app has since seen real

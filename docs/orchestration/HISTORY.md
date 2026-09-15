@@ -9,6 +9,59 @@
 
 ---
 
+## 2026-09-15 — #168 shipped: Mono + Volt color tokens, two real bugs caught by independent review
+
+Continuation of the same live session that wrote the visual-polish spec. `#157` still the only
+`ready` Issue, still unapproved — skipped again. Picked `#168` (the color/token identity swap,
+first in the spec's recommended `#168 → #152 → #164` sequencing) and relabeled all three Issues
+`ready`, with `#152`/`#164` marked `blocked` on `#168` per the spec's own dependency (icons/motion
+should build against the new tokens, not the old mint theme) — this repo's `blocked`-label
+convention, not a board-rank change.
+
+**Execution: two dead-subagent recoveries, no work lost.** The first dispatch (haiku tier,
+worktree-isolated) stalled after 600s mid-task with 14 files already correctly modified but
+nothing committed. Per PLAYBOOK step 4, inspected the worktree before re-dispatching rather than
+starting over — found the salvaged work was high quality (spot-checked several files) and
+continued it in the *same* worktree with a second dispatch (no `isolation:'worktree'`, pointed at
+the exact existing path) rather than discarding it. That second dispatch finished: 397 tests
+passing, PR #192 opened.
+
+**Gate found two real bugs the subagent's own verification missed, both fixed before merge:**
+1. **Spec self-review had already caught one gap before execution** — the spec said "remove
+   `amber`" without accounting for its 7 real call sites (toast, PB highlights, a paused-timer
+   indicator, a stale-version warning); fixed in the spec itself (PR #191) before dispatch, so the
+   executor had a clear answer rather than having to guess.
+2. **Code review caught a weakened test**: the executor fixed a broken hue-based invariant test
+   (the new lime accent broke an old raw-channel heuristic) by narrowing it to check only the
+   untouched low end of a 5-point ramp, silently dropping coverage for the actual point that
+   changed. Rewrote it as a proper HSL hue-angle check across the whole ramp instead (verified by
+   hand: lime ~73°, dark-emerald low end ~162°, both clear of the 0-45° warning-hue band with
+   margin) — commit `f71a5e0`.
+3. **Independent UI-expert review caught a real, uncommitted bug**: `workoutPlan.js`'s
+   `DAY_COLORS.upper_a` was byte-identical to the OLD deleted accent (`#6ee7b7`) and had been
+   patched locally but never committed — the "Start Upper A" button was still rendering the deleted
+   mint color. Fixed (reference `colors.accent` instead of a duplicated literal, matching
+   `DAY_COLOR_FALLBACK`'s existing pattern) and verified live in a browser across all four workout
+   days — confirmed the other three `DAY_COLORS` entries (blue/pink/orange) are a separate,
+   pre-existing per-day categorical system never in `#168`'s scope, not a defect — commit `60139ba`.
+   Also confirmed via independent UX-expert review: `muted2`'s recomputed contrast (9.27:1/8.30:1)
+   genuinely clears AA with margin, not just claimed.
+
+**One operational incident during review, no lasting damage**: the UX-review dispatch ran
+`git checkout <branch> -- .` in the shared main checkout while diffing branches (unnecessary — a
+plain `git diff` needs no checkout), briefly overwriting ~22 tracked files before self-correcting.
+Verified independently afterward (`git status` clean, HEAD matched, zero diff vs `origin/main`) —
+no work was lost, but this is the same shared-checkout risk the 2026-08-31 `IMPROVEMENTS.md` entry
+already flagged for execution dispatches, now confirmed for review-only ones too. Fixed in
+`PLAYBOOK.md` (PR #193): review dispatches given the shared checkout must use `git show`/`git
+diff` only, never `checkout`/`switch`. A second `PLAYBOOK.md` addition from the same PR: a
+subagent's own "verified clean" grep claim needs the controller spot-checking the actual hit
+lines, not just trusting the summary — directly motivated by the `DAY_COLORS.upper_a` miss above.
+
+Both review passes (UI-expert, UX-expert — the split gate from this session's earlier follow-up)
+came back "ship it" once the `DAY_COLORS.upper_a` fix landed. PR #192 merged green; `#168` closed.
+`#152`/`#164` unblocked (comment posted on both) and ready for a future tick to pick up.
+
 ## 2026-09-14 — PLAYBOOK/GUARDRAILS reconciled again (3rd time); visual-polish spec for #164/#152/#168
 
 Live-session tick. `#157` remains the only `ready` Issue and still lacks `approved` — skipped
