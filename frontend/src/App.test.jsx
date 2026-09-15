@@ -141,6 +141,25 @@ describe('the app with a session', () => {
     expect(window.location.pathname).toBe('/history')
   })
 
+  it('wraps routed content in a keyed fade wrapper that changes per screen', async () => {
+    authenticated()
+    render(<App />)
+    await screen.findByText(/Next up/i)
+
+    const homeWrapper = document.querySelector('.route-fade')
+    expect(homeWrapper).toBeInTheDocument()
+    const homeWrapperNode = homeWrapper
+
+    fireEvent.click(screen.getByRole('button', { name: /History/i }))
+    await screen.findByRole('heading', { name: 'History' })
+
+    const historyWrapper = document.querySelector('.route-fade')
+    expect(historyWrapper).toBeInTheDocument()
+    // A new DOM node, not the same one re-used -- this is what actually
+    // retriggers the CSS animation on navigation.
+    expect(historyWrapper).not.toBe(homeWrapperNode)
+  })
+
   it('serves a deep link straight, with no detour through the door', async () => {
     authenticated()
     window.history.pushState({}, '', '/history')
