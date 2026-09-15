@@ -34,7 +34,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#164** — claimed 2026-09-15T00:24:18Z, live session (planning).
 
 ## Needs owner
 - **`workoutPlan.js`'s per-day categorical colors (`lower_a` blue, `upper_b` pink, `lower_b`
