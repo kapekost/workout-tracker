@@ -16,30 +16,48 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Same live session, continued further into 2026-09-15. After `#168` shipped
-  (previous entry, see `HISTORY.md`), picked `#164` next — board rank, both `#152`/`#164` unblocked
-  and equally `ready`. Gated on decomposition, not effort size: the spec explicitly left the
-  route-transition mechanism as "an open call for the plan to make," so this wasn't decomposed
-  enough to execute directly. Wrote a plan
-  ([`docs/superpowers/plans/2026-09-15-motion-system.md`](https://github.com/kapekost/workout-tracker/blob/main/docs/superpowers/plans/2026-09-15-motion-system.md),
-  PR #194) that resolves it: verified (not assumed) that react-router-dom's `viewTransition`
-  integration needs the data-router API, which this app's declarative `<BrowserRouter>` doesn't
-  use, so picked a manual CSS-transition wrapper instead — also avoids double-mounting page trees
-  that carry real side effects (timers, wake-lock, polling), which a true overlapping crossfade
-  would require. Plan self-review caught and fixed a real bug in its own test design (a
-  fake-timers ordering issue) before it landed. Linked to `#164`'s Issue body and commented.
-  Per the plan-gate rule ("plan it, then stop"), execution is next tick's work, not this one's.
-- **Next action:** ready queue is still just `#157` (unapproved). Next tick: execute `#164`
-  against its new plan, or pick up `#152` (icons) instead — or check whether the owner acted on
-  `#157`/`#27`/the `DAY_COLORS` follow-up first (see Needs owner).
+- **Current focus:** Same live session, continued further into 2026-09-15. `#164` (motion system)
+  executed against its plan and shipped: PR #195, squash-merged, `#164` closed. Route crossfade +
+  `ExerciseCuesModal` bottom-sheet animation, via `superpowers:subagent-driven-development`
+  (2 tasks, both task reviews clean or fixed same-round). The final whole-branch review (opus)
+  caught a real bug the task reviews missed: the modal's `setTimeout(0)` mount effect is not a
+  paint boundary, so the enter animation never actually played in a real browser — verified
+  empirically in Chromium, fixed with a double-`requestAnimationFrame`, re-reviewed clean.
+  Controller then drove the real app in a browser (per the standing 2026-09-06 "look at it
+  rendered" gate) and got separate UI-expert and UX-expert passes against real screenshots (per
+  the 2026-09-14 split-review decision) — UX flagged a real, in-scope finding (backdrop
+  `pointer-events` stayed `auto` through the full close animation, swallowing any tap anywhere on
+  screen for 250ms, not just near the ×; fixed to match the existing `TimerBar.jsx` idiom) and
+  two out-of-scope-but-real findings (both confirmed via `git diff` to be about
+  `frontend/src/components/ExerciseDetails.jsx`, untouched by this branch, pre-existing and shared
+  with the standalone exercise page) filed as **#196**; a UX suggestion for a bottom-reachable
+  dismiss affordance (new UI, not a fix) filed as **#197**. 400/400 tests passing throughout, six
+  commits, no scope creep accepted into the PR beyond what #164 itself introduced.
+- **Environment note, not fixed by this tick:** this machine's system `git` (`/usr/bin/git`)
+  started failing mid-tick with "Xcode license agreements not accepted" (exit 69) — affected the
+  controller and every dispatched subagent that touched git. Workaround used throughout:
+  `PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH" git ...`. Not a repo/harness bug, needs
+  the owner to run `sudo xcodebuild -license` at a keyboard — see Needs owner.
+- **Next action:** ready queue: `#152` (icons/visual polish) is next by rank — same visual-polish
+  workstream as `#164`/`#168`, spec already covers it (`docs/superpowers/specs/
+  2026-09-14-visual-polish-design.md`). `#157` still sits `ready` but unapproved (destructive:
+  touches auth-adjacent timing behavior). `#196`/`#197` are freshly filed `intake`, untriaged.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#164** — claimed 2026-09-15T06:58:09Z, live session.
+(no branches in flight)
 
 ## Needs owner
+- **This machine's system `git` needs the Xcode license re-accepted.** Started failing 2026-09-15
+  mid-tick with `fatal: You have not agreed to the Xcode license agreements. Please run 'sudo
+  xcodebuild -license' from within a Terminal window...` (exit 69) on every `git`/`gh` invocation
+  that shells out to `/usr/bin/git`. Affects this session and any other Claude Code session on this
+  machine using plain `git`. Not something an agent can fix (needs interactive `sudo` at a
+  keyboard). Workaround in place meanwhile: prefix `PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH"`
+  before `git`/`gh` calls (that binary isn't gated the same way). Low urgency since the workaround
+  holds, but worth a minute at a real keyboard.
 - **`workoutPlan.js`'s per-day categorical colors (`lower_a` blue, `upper_b` pink, `lower_b`
   orange) now sit against the new true-neutral Mono+Volt surfaces** (only `upper_a` was fixed to
   the new accent, since its old value was byte-identical to the deleted brand color — see

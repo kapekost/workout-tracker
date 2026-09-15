@@ -9,6 +9,64 @@
 
 ---
 
+## 2026-09-15 — #164 shipped: motion system, execution + two review gates catch real bugs
+
+Same live session, continuing straight after the previous entry (#164 planned, PR #194 merged).
+Picked #164 as the top-ranked `ready` Issue, claimed it, executed via
+`superpowers:subagent-driven-development` against the plan.
+
+**Two tasks, dispatched sequentially in one worktree/branch** (`claude/164-motion-system`, off
+`main`): Task 1 (route crossfade, `App.jsx`/`App.test.jsx`/`index.css`, haiku — the plan handed
+near-complete code, close to transcription) reviewed clean, zero findings. Task 2
+(`ExerciseCuesModal`'s bottom-sheet phase state machine, sonnet — more timing-subtle) had one
+Important plan-mandated finding in its task review (a test that no longer effectively guarded
+`stopPropagation` once the phase-gate existed — fixed same round, re-review clean).
+
+**The final whole-branch review (opus) earned its stronger tier**: it found a real bug neither
+task review caught — `ExerciseCuesModal`'s mount effect used `setTimeout(fn, 0)` to trigger the
+`entering`→`open` phase transition, and `setTimeout(0)` is not a paint boundary. The reviewer
+verified this empirically in real Chromium (three variants tested, only double-`requestAnimationFrame`
+actually triggered a `transitionrun` event) — meaning the modal's *enter* animation never actually
+played in a real browser; only the exit animated. Since "enter/exit animation" was the Issue's
+headline ask, this silently shipped half the feature past 400 passing jsdom tests, because jsdom
+cannot observe real CSS transition timing at all. Fixed (double-rAF + a test-helper change to fake
+`requestAnimationFrame`), re-reviewed clean — the re-reviewer independently confirmed by reverting
+the fix in an isolated scratch copy and watching the new test fail exactly as claimed, not just
+trusting the implementer's report.
+
+**Controller then did the "render it and look at it" gate itself** (standing 2026-09-06 decision,
+`docs/context/feedback_test-flows-in-browser.md`-style practice): started a throwaway
+backend+frontend locally in the worktree, drove the real app in a browser (Claude in Chrome),
+caught the modal's enter animation genuinely mid-slide in a screenshot (visual proof the rAF fix
+worked, not just the passing test), confirmed the route crossfade and modal close both work
+cleanly. Saved screenshots for the next gate rather than describing them.
+
+**Separate UI-expert and UX-expert passes** (2026-09-14 decision: two reviewers, not one combined
+review), both against the real screenshots. UI-expert: "ready with fixes" — two Important findings
+(TARGET card label convention inverted from the rest of the app; volt accent used on two
+unrelated things in one sheet). Scope-checked both against `git diff`: **both are about
+`ExerciseDetails.jsx`, completely untouched by this branch** — pre-existing, shared with the
+standalone exercise page, not #164's scope. Filed as **#196** rather than expanding the PR.
+UX-expert: "ready with fixes" — one Important finding accepted and fixed (the backdrop kept
+`pointer-events: auto` for the full 250ms close animation, so any tap anywhere on screen was
+swallowed during close, not just near the ×; fixed to match `TimerBar.jsx`'s existing
+`pointerEvents: resting ? 'auto' : 'none'` idiom, with explicit reasoning about why fall-through is
+safe here — nothing destructive ever sits under this modal) and one Important finding filed as a
+follow-up (**#197**, a bottom-reachable dismiss affordance — new UI, not a fix, out of scope for a
+motion-system PR). One trivial `aria-label` casing fix bundled in.
+
+**Result:** PR #195, six commits, 400/400 tests, CI green (sanity + Backend tests + frontend
+test-including-e2e), squash-merged, `#164` closed. Two follow-up Issues filed (#196, #197), both
+`intake`, untriaged.
+
+**Real environment friction, not fixed this tick:** partway through, this machine's system `git`
+started failing with an Xcode-license error (exit 69) — affected the controller and every
+dispatched subagent doing git work. Worked around throughout by prefixing
+`PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH"`. Flagged under Needs owner — needs a
+human at a keyboard (`sudo xcodebuild -license`), not fixable by an agent.
+
+---
+
 ## 2026-09-15 — #164 planned: motion system, resolving the spec's open route-transition question
 
 Same live session, continuing after `#168` shipped (previous entry below). `#157` still the only
