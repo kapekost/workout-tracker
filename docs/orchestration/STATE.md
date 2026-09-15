@@ -33,11 +33,26 @@
   with the standalone exercise page) filed as **#196**; a UX suggestion for a bottom-reachable
   dismiss affordance (new UI, not a fix) filed as **#197**. 400/400 tests passing throughout, six
   commits, no scope creep accepted into the PR beyond what #164 itself introduced.
+- **Deployed the same tick, at the owner's request** (2026-09-08 decision: "complete" means
+  deployed, not just merged). On-LAN, real deploy via `scripts/deploy.sh` — blocked once on the
+  `~/.ssh/id_raspi` passphrase (this sandboxed session has no `/dev/tty`/GUI for the macOS Keychain
+  prompt; verified with `ssh -v` before escalating, not guessed), owner ran `ssh-add
+  --apple-use-keychain ~/.ssh/id_raspi` themselves, deploy succeeded. Independently verified after
+  (not just the script's own assertion): `/api/health` version, `docker compose ps`, `homeassistant`
+  still `healthy`, and a real-browser load against the Pi's own IP showing the `v 799c912` footer.
+  No schema change in #164, so no pre-deploy snapshot needed. **`AGENTS.local.md`'s "Current
+  status" section had drifted badly** — it still named a deploy from 2026-08-31 as current while
+  `/api/health` showed one from 2026-09-14 was actually running, and the Pi carries 17 distinct
+  image tags built since then with no record of what most of them shipped. Updated to the
+  verifiable facts only (current `799c912`, previous known-good `84084d9`) rather than
+  reconstructing a false history — flagged under Needs owner as worth tightening the deploy habit
+  going forward, not fixed structurally this tick.
 - **Environment note, not fixed by this tick:** this machine's system `git` (`/usr/bin/git`)
   started failing mid-tick with "Xcode license agreements not accepted" (exit 69) — affected the
   controller and every dispatched subagent that touched git. Workaround used throughout:
   `PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH" git ...`. Not a repo/harness bug, needs
-  the owner to run `sudo xcodebuild -license` at a keyboard — see Needs owner.
+  the owner to run `sudo xcodebuild -license` at a keyboard — see Needs owner (unchanged, still
+  open at end of tick — the `ssh-add` fix above was for a separate, unrelated passphrase issue).
 - **Next action:** ready queue: `#152` (icons/visual polish) is next by rank — same visual-polish
   workstream as `#164`/`#168`, spec already covers it (`docs/superpowers/specs/
   2026-09-14-visual-polish-design.md`). `#157` still sits `ready` but unapproved (destructive:
@@ -50,6 +65,12 @@
 (no branches in flight)
 
 ## Needs owner
+- **`AGENTS.local.md`'s "Current status" deploy note had drifted for ~17 deploys before this
+  tick's catch-up correction** (see Cursor above) — it isn't wired to anything automatic, so it
+  only stays accurate when whoever deploys remembers to update it. Not urgent (the file itself says
+  as much, and this tick fixed the immediate drift), but worth a standing habit or a light script
+  check if it keeps happening — owner's call whether that's worth the effort for a file only agents
+  and the occasional manual deploy touch.
 - **This machine's system `git` needs the Xcode license re-accepted.** Started failing 2026-09-15
   mid-tick with `fatal: You have not agreed to the Xcode license agreements. Please run 'sudo
   xcodebuild -license' from within a Terminal window...` (exit 69) on every `git`/`gh` invocation
