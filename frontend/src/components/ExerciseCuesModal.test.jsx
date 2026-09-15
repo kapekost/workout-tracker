@@ -37,8 +37,13 @@ describe('ExerciseCuesModal', () => {
   })
 
   it('clicking inside the sheet does not call onClose', () => {
+    // Advance past 'entering' -> 'open' first so this exercises stopPropagation
+    // on the sheet's onClick, not just requestClose's phase guard (which would
+    // silently swallow any bubbled click while phase is still 'entering' and
+    // make this pass for the wrong reason).
+    vi.useFakeTimers()
     const onClose = vi.fn()
-    render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={onClose} />)
+    renderOpen(onClose)
     fireEvent.click(screen.getByText('Bench Press'))
     expect(onClose).not.toHaveBeenCalled()
   })
