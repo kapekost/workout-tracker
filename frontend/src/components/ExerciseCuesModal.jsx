@@ -46,6 +46,7 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         opacity: visible ? 1 : 0, transition: `opacity ${MODAL_EXIT_MS}ms ease`,
+        pointerEvents: phase === 'open' ? 'auto' : 'none',
       }}
       className="cues-overlay">
       <div onClick={e => e.stopPropagation()}
@@ -59,7 +60,7 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
           <h2 style={{ fontSize: '1.3rem', fontWeight: type.weight.bold }}>{ex.name}</h2>
-          <button className="btn-icon tap-target" aria-label="close" onClick={requestClose}>×</button>
+          <button className="btn-icon tap-target" aria-label="Close" onClick={requestClose}>×</button>
         </div>
         {ex.alt && <p style={{ color: colors.muted2, fontSize: type.size.md, marginBottom: 16 }}>{ex.alt}</p>}
 

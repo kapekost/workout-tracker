@@ -100,7 +100,7 @@ describe('ExerciseCuesModal', () => {
     vi.useFakeTimers()
     const onClose = vi.fn()
     renderOpen(onClose)
-    fireEvent.click(screen.getByRole('button', { name: 'close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).not.toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(MODAL_EXIT_MS) })
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -121,7 +121,7 @@ describe('ExerciseCuesModal', () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true })
     const onClose = vi.fn()
     renderOpen(onClose)
-    fireEvent.click(screen.getByRole('button', { name: 'close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     act(() => { vi.advanceTimersByTime(0) }) // the reduced-motion exit still goes through setTimeout(fn, 0), not a synchronous call
     expect(onClose).toHaveBeenCalledTimes(1)
   })
