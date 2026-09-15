@@ -13,7 +13,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 14px' }}>
       <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 4 }}>{label}</p>
-      <p style={{ color: colors.mint, fontFamily: 'JetBrains Mono, monospace', fontWeight: type.weight.bold, fontSize: '1rem' }}>
+      <p style={{ color: colors.accent, fontFamily: 'JetBrains Mono, monospace', fontWeight: type.weight.bold, fontSize: '1rem' }}>
         {payload[0].value} kg
       </p>
     </div>
@@ -54,11 +54,11 @@ export default function Progress() {
     <div style={{ paddingTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>Progress</h1>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Progress</h1>
           <p style={{ color: colors.muted2, fontSize: type.size.lg }}>Max weight per session</p>
         </div>
         <button className="tap-target" onClick={() => nav('/personal-bests')}
-          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.mint,
+          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.accent,
             fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap' }}>
           🏆 PBs
         </button>
@@ -78,7 +78,7 @@ export default function Progress() {
             <div>
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <StatPair label="Personal Record" value={`🏆 ${pr} kg`} valueColor={colors.amber} />
+                  <StatPair label="Personal Record" value={`🏆 ${pr} kg`} valueColor={colors.success} />
                   <StatPair label="Sessions" value={data.length} align="right" />
                 </div>
               )}
@@ -98,9 +98,9 @@ export default function Progress() {
                       <XAxis dataKey="date" tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
                       <YAxis tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="weight" stroke={colors.mint} strokeWidth={2.5}
-                        dot={{ fill: colors.mint, r: 4, stroke: colors.card, strokeWidth: 2 }}
-                        activeDot={{ r: 6, fill: colors.mint, stroke: colors.card, strokeWidth: 2 }} />
+                      <Line type="monotone" dataKey="weight" stroke={colors.accent} strokeWidth={2.5}
+                        dot={{ fill: colors.accent, r: 4, stroke: colors.card, strokeWidth: 2 }}
+                        activeDot={{ r: 6, fill: colors.accent, stroke: colors.card, strokeWidth: 2 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}

@@ -109,10 +109,10 @@ export default function Home() {
       <Toast toast={toast} />
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <Eyebrow color={colors.mint} size={type.size.base} style={{ marginBottom: 4 }}>
+        <Eyebrow color={colors.accent} size={type.size.base} style={{ marginBottom: 4 }}>
           {active ? 'In progress' : 'Next up'}
         </Eyebrow>
-        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
           {next.emoji} {next.name}
         </h1>
         <p style={{ color: colors.muted2, marginTop: 6, fontSize: type.size.lg }}>{next.tag}</p>

@@ -33,11 +33,34 @@ const untrained = group({
 })
 
 describe('ringColor', () => {
+  // HSL hue angle, degrees. Reused instead of the old raw-channel comparison
+  // (g >= r, b >= r) because that check assumed a blue-leaning accent: the
+  // Mono+Volt accent is lime (#d4ff3f, hue ~73°), whose red channel (212) is
+  // second-highest, not lowest, so the old per-channel check fails even
+  // though lime is nowhere near a warning hue. Hue angle is what the design
+  // intent ("must not look like a red/amber warning") actually means.
+  function hue([r, g, b]) {
+    const [rn, gn, bn] = [r, g, b].map(c => c / 255)
+    const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn), d = max - min
+    if (d === 0) return 0
+    let h
+    if (max === rn) h = ((gn - bn) / d) % 6
+    else if (max === gn) h = (bn - rn) / d + 2
+    else h = (rn - gn) / d + 4
+    h *= 60
+    return h < 0 ? h + 360 : h
+  }
+
   it('never returns a red or amber hue — no warning semantics', () => {
+    // Checked across the whole ramp, not just one endpoint: RING_LOW (dark
+    // emerald, ~162°) and RING_HIGH (lime accent, ~73°) sit at different
+    // hues, and linear RGB interpolation between them doesn't guarantee the
+    // midpoints stay in between — verify every step, not just the ends.
+    // Red/amber/orange warning hues sit in roughly 0-45°; requiring >50°
+    // keeps clear of that band with margin while still allowing lime's ~73°.
     for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-      const [r, g, b] = ringColor(f).match(/\d+/g).map(Number)
-      expect(g).toBeGreaterThanOrEqual(r)   // green channel always leads
-      expect(b).toBeGreaterThanOrEqual(r)
+      const rgb = ringColor(f).match(/\d+/g).map(Number)
+      expect(hue(rgb)).toBeGreaterThan(50)
     }
   })
 

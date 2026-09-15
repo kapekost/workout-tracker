@@ -423,7 +423,7 @@ describe('Workout page', () => {
     const check = title.parentElement.querySelector('span:last-child')
     expect(check).toHaveTextContent('✓')
     expect(check.style.color).toBe(hexToRgb('#fb923c'))
-    expect(check.style.color).not.toBe(hexToRgb(colors.mint))
+    expect(check.style.color).not.toBe(hexToRgb(colors.accent))
   })
 
   // 2026-09-06 UI review, item 18c: this was the only page whose subtitle

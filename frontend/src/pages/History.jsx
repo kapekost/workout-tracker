@@ -51,7 +51,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                 <span style={{ color: colors.muted, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.base }}>Set {st.set_number}</span>
                 <span className="font-mono" style={{
                   fontSize: type.size.lg, fontWeight: type.weight.bold,
-                  color: st.weight_kg === best ? colors.amber : colors.textSecondary
+                  color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
                   {st.weight_kg === best && ' 🏆'}
@@ -122,7 +122,7 @@ export default function History() {
   return (
     <div style={{ paddingTop: 16 }}>
       <Toast toast={toast} />
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>History</h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>History</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 28 }}>
         {sessions.length} session{sessions.length !== 1 ? 's' : ''} logged
       </p>

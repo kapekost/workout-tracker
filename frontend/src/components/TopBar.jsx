@@ -101,7 +101,7 @@ export default function TopBar() {
                     Log in
                   </Link>
                 )}
-              {label && <Eyebrow color={colors.mint} size={type.size.sm}>{label}</Eyebrow>}
+              {label && <Eyebrow color={colors.accent} size={type.size.sm}>{label}</Eyebrow>}
             </>
           )}
         </div>

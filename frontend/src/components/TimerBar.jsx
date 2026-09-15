@@ -55,7 +55,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
       }}>
         <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => { track('rest_adjust', { delta: -30 }); onAddRest(-30) }}>−30</button>
         <div className="rest-block">
-          <div className="rest-label" style={{ color: !resting ? colors.muted2 : rem === 0 ? colors.mint : paused ? colors.amber : colors.muted }}>
+          <div className="rest-label" style={{ color: !resting ? colors.muted2 : rem === 0 ? colors.accent : paused ? colors.text : colors.muted, fontWeight: paused ? type.weight.bold : undefined }}>
             {showIdleHint ? 'LOG A SET' : !resting ? 'READY' : paused ? 'PAUSED' : rem === 0 ? 'GO' : 'REST'}
           </div>
           <div className="rest-clock">
