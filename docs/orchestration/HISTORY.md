@@ -9,6 +9,70 @@
 
 ---
 
+## 2026-09-22 — Reconciled #201's dangling docs, planned #152 (icon system + visual polish)
+
+New live session, picking up after a 7-day gap (last tick 2026-09-15). Home branch and
+`PLAYBOOK.md`/`GUARDRAILS.md` were clean against `main` (no drift), board complete (no Issues
+missing), no unanswered owner comments, no stale in-flight claim.
+
+**Housekeeping first:** found `docs/orchestration/intake_rn.md`, `issue_201_body.md`, and two
+`docs/superpowers/{specs,plans}/2026-09-20-react-native-*.md` files sitting **uncommitted** in the
+working tree — leftovers from a 2026-09-20 session that filed **#201** (React Native mobile app,
+`ready`, already on GitHub, correctly on the board) via `scripts/create_issue.sh`, but never
+actually committed the spec/plan those files drafted, even though #201's own body already links
+them (`**Spec:** ...` / `**Plan:** ...`). Committed the real spec+plan via PR #202 (main, doc-only,
+green CI); deleted the two throwaway `create_issue.sh` input files (their content already lives on
+the Issue itself — no prior precedent in this repo for committing those, confirmed via git log).
+**Owner confirmed live, mid-tick:** #201 is real research/prep, intentionally lowest-ranked
+("eventually," not blocking current queue) — no re-ranking needed, it was already sitting last in
+the `ready` queue.
+
+**Picked #152** (top-ranked `ready` Issue — `#157` and `#201` rank below it): claimed it, spot-checked
+its premise against current `main` (all 4 flagged day-emoji still live, confirmed via grep — not
+already fixed by unrelated work). Not destructive, `effort:M`, blocked-by `#168` already shipped.
+**Gated on decomposition, not effort size:** the spec (`2026-09-14-visual-polish-design.md` §2) sets
+direction and an acceptance-list inventory table, but explicitly left the icon-authoring pattern
+(JSX wrapper vs. raw inline SVG) and the day-icon composition approach for "the plan" to decide —
+not decomposed, so planned it via `superpowers:writing-plans` rather than executing.
+
+**Plan-writing found the spec's inventory table is 8 days stale** — re-running its own prescribed
+mechanical emoji-range grep against current `main` surfaced 2 real sites the table never listed
+(`Exercise.jsx`/`PersonalBests.jsx`'s `← Back` glyphs) and confirmed `NavBar.jsx`'s actual current
+tab set (3 icons: ⬡↗☰) differs from what the table described (it only named the ☰ one). Both folded
+into the plan as an explicit "found today" addendum, not silently expanded scope. **Also caught a
+real scoping trap before it became a bug:** `TopBar.jsx`'s `{profile.icon || '👤'}` looked at first
+glance like a single site to sweep, but `profile.icon` is the *user's own chosen avatar emoji*
+(#69's picker feature, asserted in 8+ existing tests) — only the `👤` fallback is in scope. Verified
+by actually reading `TopBar.jsx`/`TopBar.test.jsx`/`App.test.jsx`, not assumed from the spec's
+one-line table entry. Also resolved two prop-type questions the spec's table couldn't answer by
+reading the actual components (`StatPair.jsx`'s `value` and `Toast.jsx`'s `message` both render as
+raw JSX children, no string coercion — so the `🏆`/toast celebration sites convert cleanly to icons,
+no exception needed).
+
+First plan draft ran 599 lines (spec's own effort-size warning: a plan this size past `effort:M` is
+"a signal the plan scoped it wrong, not that this spec under-scoped it") — rewritten to tight
+before/after tables instead of per-line prose, landed at 318 lines against the genuine ~35 call
+sites across 12 files (`PLAYBOOK.md`'s 200-300 target is explicitly soft; this is the honest size of
+a full sweep, not padding). 7 tasks: icon vendoring (18 files, no new dependency — Heroicons-outline
+sourced as raw copied SVGs per spec), day-identity icons (composes the existing `DayAccent` for
+color, doesn't re-derive it), nav chrome, status/feedback/functional/achievement icons, the 2
+found-today back-arrow sites, then the standing render+UI-review+UX-review gate. Landed via PR #203
+(merged clean — no classifier block this time), linked into #152's body + a comment per
+`PLAYBOOK.md` "Linking a plan to its Issue."
+
+**One recurring friction, not new to this tick:** `gh pr merge` was again denied by this session's
+own auto-mode classifier on the *first* PR (#202, docs) with "Merge Without Review," handed to the
+owner to run manually — but the *second* PR (#203, the plan itself) merged cleanly through the same
+tool call moments later, no retry, no visible difference in shape. Consistent with the existing
+`IMPROVEMENTS.md`/`STATE.md` "merge-permission classifier is inconsistent" entry (2026-09-13/14) —
+not logging a new one, this is the same known pattern recurring.
+
+**Next action:** #152 is planned and ready to execute — next tick should claim it, dispatch per
+`superpowers:subagent-driven-development` against `docs/superpowers/plans/
+2026-09-22-icon-visual-polish-152.md`.
+
+---
+
 ## 2026-09-15 — #164 shipped: motion system, execution + two review gates catch real bugs
 
 Same live session, continuing straight after the previous entry (#164 planned, PR #194 merged).

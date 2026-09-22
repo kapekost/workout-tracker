@@ -16,53 +16,33 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Same live session, continued further into 2026-09-15. `#164` (motion system)
-  executed against its plan and shipped: PR #195, squash-merged, `#164` closed. Route crossfade +
-  `ExerciseCuesModal` bottom-sheet animation, via `superpowers:subagent-driven-development`
-  (2 tasks, both task reviews clean or fixed same-round). The final whole-branch review (opus)
-  caught a real bug the task reviews missed: the modal's `setTimeout(0)` mount effect is not a
-  paint boundary, so the enter animation never actually played in a real browser — verified
-  empirically in Chromium, fixed with a double-`requestAnimationFrame`, re-reviewed clean.
-  Controller then drove the real app in a browser (per the standing 2026-09-06 "look at it
-  rendered" gate) and got separate UI-expert and UX-expert passes against real screenshots (per
-  the 2026-09-14 split-review decision) — UX flagged a real, in-scope finding (backdrop
-  `pointer-events` stayed `auto` through the full close animation, swallowing any tap anywhere on
-  screen for 250ms, not just near the ×; fixed to match the existing `TimerBar.jsx` idiom) and
-  two out-of-scope-but-real findings (both confirmed via `git diff` to be about
-  `frontend/src/components/ExerciseDetails.jsx`, untouched by this branch, pre-existing and shared
-  with the standalone exercise page) filed as **#196**; a UX suggestion for a bottom-reachable
-  dismiss affordance (new UI, not a fix) filed as **#197**. 400/400 tests passing throughout, six
-  commits, no scope creep accepted into the PR beyond what #164 itself introduced.
-- **Deployed the same tick, at the owner's request** (2026-09-08 decision: "complete" means
-  deployed, not just merged). On-LAN, real deploy via `scripts/deploy.sh` — blocked once on the
-  `~/.ssh/id_raspi` passphrase (this sandboxed session has no `/dev/tty`/GUI for the macOS Keychain
-  prompt; verified with `ssh -v` before escalating, not guessed), owner ran `ssh-add
-  --apple-use-keychain ~/.ssh/id_raspi` themselves, deploy succeeded. Independently verified after
-  (not just the script's own assertion): `/api/health` version, `docker compose ps`, `homeassistant`
-  still `healthy`, and a real-browser load against the Pi's own IP showing the `v 799c912` footer.
-  No schema change in #164, so no pre-deploy snapshot needed. **`AGENTS.local.md`'s "Current
-  status" section had drifted badly** — it still named a deploy from 2026-08-31 as current while
-  `/api/health` showed one from 2026-09-14 was actually running, and the Pi carries 17 distinct
-  image tags built since then with no record of what most of them shipped. Updated to the
-  verifiable facts only (current `799c912`, previous known-good `84084d9`) rather than
-  reconstructing a false history — flagged under Needs owner as worth tightening the deploy habit
-  going forward, not fixed structurally this tick.
-- **Environment note, not fixed by this tick:** this machine's system `git` (`/usr/bin/git`)
-  started failing mid-tick with "Xcode license agreements not accepted" (exit 69) — affected the
-  controller and every dispatched subagent that touched git. Workaround used throughout:
-  `PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH" git ...`. Not a repo/harness bug, needs
-  the owner to run `sudo xcodebuild -license` at a keyboard — see Needs owner (unchanged, still
-  open at end of tick — the `ssh-add` fix above was for a separate, unrelated passphrase issue).
-- **Next action:** ready queue: `#152` (icons/visual polish) is next by rank — same visual-polish
-  workstream as `#164`/`#168`, spec already covers it (`docs/superpowers/specs/
-  2026-09-14-visual-polish-design.md`). `#157` still sits `ready` but unapproved (destructive:
-  touches auth-adjacent timing behavior). `#196`/`#197` are freshly filed `intake`, untriaged.
+- **Current focus:** New live session, 2026-09-22, after a 7-day gap (last tick 2026-09-15).
+  Reconciled dangling uncommitted docs from a 2026-09-20 session (#201's spec+plan, drafted but
+  never committed despite the Issue already linking them) via PR #202; deleted two throwaway
+  `create_issue.sh` input files. Owner confirmed live: #201 (React Native mobile app) is real
+  research/prep to work toward eventually, correctly lowest-ranked in the `ready` queue, not
+  blocking current work. Picked **#152** (top-ranked `ready`), spot-checked its premise still holds
+  against `main`, planned it via `superpowers:writing-plans` (gated on decomposition — the spec left
+  the icon-authoring pattern and day-icon composition open). Plan-writing found the spec's
+  inventory table 8 days stale (2 real sites missing, re-grep-confirmed) and caught a real scoping
+  trap before it shipped as a bug: `profile.icon` (the user's own avatar-emoji picker, #69) is
+  **not** in scope, only its `👤` fallback. Plan landed via PR #203 (318 lines, 7 tasks) at
+  `docs/superpowers/plans/2026-09-22-icon-visual-polish-152.md`, linked into #152's body. Full
+  detail in `HISTORY.md`.
+- **Next action:** execute #152 against its now-landed plan via
+  `superpowers:subagent-driven-development`.
+- **Ready queue unchanged otherwise:** `#157` still sits `ready` but unapproved (destructive:
+  touches auth-adjacent timing behavior). `#201` ready, lowest ranked, owner-confirmed intentional.
+  `#196`/`#197` still `intake`, untriaged (no new owner comment on either this tick).
+- **Not investigated this tick** (out of scope for a plan-only tick): the 2026-09-15 Needs-owner
+  items below (Xcode license, `AGENTS.local.md` deploy-drift habit, day-color saturation,
+  #27/#30/#32/#171 spec dependencies) — carried forward unchanged, still open.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#152** — claimed 2026-09-22T23:35:18Z, live session.
+(no branches in flight)
 
 ## Needs owner
 - **`AGENTS.local.md`'s "Current status" deploy note had drifted for ~17 deploys before this
