@@ -62,7 +62,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+- **#152** — claimed 2026-09-22T23:35:18Z, live session.
 
 ## Needs owner
 - **`AGENTS.local.md`'s "Current status" deploy note had drifted for ~17 deploys before this
