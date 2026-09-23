@@ -9,7 +9,7 @@ import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
-import { IconCheck, IconTrash } from '../icons'
+import { IconCheck, IconTrash, IconArrowLeft } from '../icons'
 
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
@@ -85,8 +85,9 @@ export default function PersonalBests() {
       <Toast toast={toast} />
       <button className="tap-target" onClick={() => nav('/progress')}
         style={{ background: 'none', border: 'none', color: colors.accent, fontSize: type.size.md,
-          fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0, marginBottom: 12 }}>
-        ← Progress
+          fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0, marginBottom: 12,
+          display: 'flex', alignItems: 'center', gap: 4 }}>
+        <IconArrowLeft size={16} /> Progress
       </button>
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Personal Bests</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>
