@@ -193,7 +193,10 @@ describe('Workout page', () => {
     fireEvent.click(screen.getByRole('button', { name: /increase weight/i }))
     await waitFor(() => expect(screen.getByDisplayValue('102.5')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /log set/i }))
-    await waitFor(() => expect(screen.getByText(/🏆 PR! 102.5kg/)).toBeInTheDocument())
+    // The trophy is now an aria-hidden IconTrophy SVG and the message text is split
+    // across multiple JSX text nodes ("PR! ", "102.5", "kg on ", name), so match on
+    // the toast's full textContent rather than a single contiguous text node.
+    await waitFor(() => expect(document.querySelector('.toast')).toHaveTextContent('PR! 102.5kg on Bench Press'))
   })
 
   it('a quick tap on a stepper bumps by exactly one step', async () => {
@@ -420,10 +423,13 @@ describe('Workout page', () => {
     })
     renderWorkout()
     const title = await screen.findByText('Deadlift')
-    const check = title.parentElement.querySelector('span:last-child')
-    expect(check).toHaveTextContent('✓')
-    expect(check.style.color).toBe(hexToRgb('#fb923c'))
-    expect(check.style.color).not.toBe(hexToRgb(colors.accent))
+    // The checkmark is now an IconCheck SVG (not a <span>text</span>); the day
+    // colour is passed straight through as its `stroke` attribute rather than
+    // a CSS style, so read that attribute directly instead of style.color.
+    const check = title.parentElement.querySelector('svg')
+    expect(check).toBeInTheDocument()
+    expect(check.getAttribute('stroke')).toBe('#fb923c')
+    expect(check.getAttribute('stroke')).not.toBe(colors.accent)
   })
 
   // 2026-09-06 UI review, item 18c: this was the only page whose subtitle

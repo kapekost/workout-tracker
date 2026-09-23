@@ -10,6 +10,7 @@ import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
 import { colors, type, space } from '../lib/theme'
+import { IconTrophy, IconClock } from '../icons'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -55,7 +56,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                   color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
-                  {st.weight_kg === best && ' 🏆'}
+                  {st.weight_kg === best && <IconTrophy size={12} />}
                 </span>
               </div>
             ))}
@@ -147,7 +148,7 @@ export default function History() {
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
                     {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
-                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
+                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={12} /> {sessionDuration(s)}</span></> : ''}
                   </p>
                 </div>
               </>

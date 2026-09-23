@@ -5,6 +5,7 @@ import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import DayAccent from './DayAccent'
 import DayIcon from './DayIcon'
 import { colors, type } from '../lib/theme'
+import { IconCheck, IconXMark, IconTrash } from '../icons'
 
 export default function ResumeBanner() {
   const { active, discard } = useActiveSession()
@@ -41,13 +42,13 @@ export default function ResumeBanner() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ color: colors.muted, fontSize: type.size.sm }}>Discard?</span>
             <button aria-label="confirm discard" className="tap-target" onClick={() => discard(active.id)}
-              style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: '1rem' }}>✓</button>
+              style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: '1rem' }}><IconCheck size={16} color={colors.danger} /></button>
             <button aria-label="cancel discard" className="tap-target" onClick={() => setConfirming(false)}
-              style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: '1rem' }}>✗</button>
+              style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: '1rem' }}><IconXMark size={16} color={colors.muted} /></button>
           </div>
         ) : (
           <button aria-label="discard session" className="tap-target" onClick={() => setConfirming(true)}
-            style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: type.size.strong, padding: '0 4px' }}>×</button>
+            style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: type.size.strong, padding: '0 4px' }}><IconTrash size={16} /></button>
         )}
       </div>
     </div>

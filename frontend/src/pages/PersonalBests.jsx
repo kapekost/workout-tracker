@@ -9,6 +9,7 @@ import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
+import { IconCheck, IconTrash } from '../icons'
 
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
@@ -110,7 +111,7 @@ export default function PersonalBests() {
                 <button className="tap-target" onClick={() => remove(r.id)}
                   aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
                   style={{ background: 'none', border: 'none', color: armed ? colors.danger : colors.muted, cursor: 'pointer', fontSize: armed ? type.size.base : '1rem', fontWeight: armed ? type.weight.bold : type.weight.regular }}>
-                  {armed ? '✓?' : '×'}
+                  {armed ? <IconCheck size={18} /> : <IconTrash size={18} />}
                 </button>
               </div>
             )
