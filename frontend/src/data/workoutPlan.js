@@ -4,7 +4,7 @@ export const CYCLE = ['upper_a', 'lower_a', 'upper_b', 'lower_b']
 
 export const PLAN = {
   upper_a: {
-    id: 'upper_a', name: 'Upper A', emoji: '💪',
+    id: 'upper_a', name: 'Upper A', icon: 'upper',
     tag: 'Chest · Back Horizontal · Arms',
     exercises: [
       {
@@ -89,7 +89,7 @@ export const PLAN = {
   },
 
   lower_a: {
-    id: 'lower_a', name: 'Lower A', emoji: '🦵',
+    id: 'lower_a', name: 'Lower A', icon: 'lower',
     tag: 'Quad · Hamstring · Calves',
     exercises: [
       {
@@ -161,7 +161,7 @@ export const PLAN = {
   },
 
   upper_b: {
-    id: 'upper_b', name: 'Upper B', emoji: '🏋️',
+    id: 'upper_b', name: 'Upper B', icon: 'upper',
     tag: 'Upper Chest · Vertical Pull · Shoulders',
     exercises: [
       {
@@ -246,7 +246,7 @@ export const PLAN = {
   },
 
   lower_b: {
-    id: 'lower_b', name: 'Lower B', emoji: '🔥',
+    id: 'lower_b', name: 'Lower B', icon: 'lower',
     tag: 'Posterior Chain · Glutes · Power',
     exercises: [
       {
