@@ -12,14 +12,14 @@ import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 // tokenized; no 4-value token exists). Rather than introduce a new
 // hardcoded literal to hit 4 exactly, this uses the token the spec names,
 // which very slightly rounds the bar's end corners more than today.
-export default function DayAccent({ day, shape = 'dot', size = space.sm }) {
+export default function DayAccent({ day, shape = 'dot', size = space.sm, ...props }) {
   const color = DAY_COLORS[day] ?? DAY_COLOR_FALLBACK
   if (shape === 'bar') {
     return (
-      <div style={{ width: size, height: 36, borderRadius: radius.sm, background: color, flexShrink: 0 }} />
+      <div {...props} style={{ width: size, height: 36, borderRadius: radius.sm, background: color, flexShrink: 0 }} />
     )
   }
   return (
-    <div style={{ width: size, height: size, borderRadius: radius.circle, background: color, flexShrink: 0 }} />
+    <div {...props} style={{ width: size, height: size, borderRadius: radius.circle, background: color, flexShrink: 0 }} />
   )
 }
