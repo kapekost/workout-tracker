@@ -5,6 +5,7 @@ import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
 import DayAccent from '../components/DayAccent'
+import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
@@ -142,7 +143,7 @@ export default function History() {
                 <DayAccent day={s.workout_day} shape="bar" />
                 <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
-                    {plan?.emoji} {plan?.name ?? s.workout_day}
+                    {plan && <DayIcon day={s.workout_day} />} {plan?.name ?? s.workout_day}
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
                     {s.date} {s.completed ? '· ✓ completed' : '· in progress'}

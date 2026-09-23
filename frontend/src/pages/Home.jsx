@@ -12,9 +12,10 @@ import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
+import DayIcon from '../components/DayIcon'
 
 export function planForDay(workoutDay) {
-  return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
+  return PLAN[workoutDay] || { icon: 'upper', name: 'Workout', tag: '', exercises: [] }
 }
 
 // Most recent COMPLETED session date per plan day. Feeds bestDayForMuscle's
@@ -113,7 +114,7 @@ export default function Home() {
           {active ? 'In progress' : 'Next up'}
         </Eyebrow>
         <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
-          {next.emoji} {next.name}
+          <DayIcon day={next.id} /> {next.name}
         </h1>
         <p style={{ color: colors.muted2, marginTop: 6, fontSize: type.size.lg }}>{next.tag}</p>
         <p style={{ color: colors.muted, marginTop: 6, fontSize: type.size.md }}>
@@ -184,7 +185,7 @@ export default function Home() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <div>
-                <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
+                <p style={{ fontWeight: type.weight.semibold }}><DayIcon day={lastPlan.id} /> {lastPlan.name}</p>
                 <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
               </div>
               <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>

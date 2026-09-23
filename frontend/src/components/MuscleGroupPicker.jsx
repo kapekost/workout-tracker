@@ -3,6 +3,7 @@ import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { bestDayForMuscle } from '../lib/muscles'
 import { colors, type, space } from '../lib/theme'
 import Eyebrow from './Eyebrow'
+import DayIcon from './DayIcon'
 
 // Shown at the point of display, never in settings and never behind an icon.
 // The blind spot it discloses is one-directional: unlogged training can only
@@ -140,7 +141,7 @@ export default function MuscleGroupPicker({
           {bestDay && (
             <>
               <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 12 }}>
-                Best day for {expanded.label} → {bestDay.emoji} {bestDay.name}
+                Best day for {expanded.label} → <DayIcon day={bestDay.id} size={16} /> {bestDay.name}
               </p>
               {activeSession ? (
                 <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 8 }}>

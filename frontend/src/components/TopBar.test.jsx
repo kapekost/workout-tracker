@@ -49,13 +49,15 @@ describe('TopBar', () => {
     signedInAs({ id: 2, username: 'other', role: 'member', icon: null })
     renderTopBar()
     await waitFor(() => expect(screen.getByText('other')).toBeInTheDocument())
-    expect(screen.getByText('👤')).toBeInTheDocument()
+    // profile.icon is unset, so TopBar renders the IconUser SVG fallback
+    // instead of the '👤' text glyph the old emoji version used.
+    expect(screen.getByText('other').parentElement.querySelector('svg')).toBeInTheDocument()
   })
 
   it('renders the app name even if the session lookup fails', async () => {
     auth.me.mockRejectedValue(new Error('network'))
     renderTopBar()
-    await screen.findByText('🏋 Gym Tracker')
+    await screen.findByText('Gym Tracker')
     expect(screen.queryByText('kapekost')).not.toBeInTheDocument()
   })
 
@@ -84,7 +86,10 @@ describe('TopBar', () => {
     signedInAs({ id: 3, username: 'alexandra_thompson', role: 'member', icon: '🔥' })
     renderTopBar()
     const username = await screen.findByText('alexandra_thompson')
-    const title = screen.getByText('🏋 Gym Tracker')
+    // getByText resolves to the inner icon+label flex row (the direct text
+    // node's own parent); the nowrap/flexShrink anti-wrap styling this test
+    // guards now lives one level up, on the outer title span that wraps it.
+    const title = screen.getByText('Gym Tracker').parentElement
     expect(title).toHaveStyle({ whiteSpace: 'nowrap', flexShrink: '0' })
     expect(username).toHaveStyle({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
   })
@@ -133,7 +138,7 @@ describe('TopBar on the auth screens', () => {
     signedOut()
     renderTopBarAt('/login')
 
-    await screen.findByText('🏋 Gym Tracker')
+    await screen.findByText('Gym Tracker')
     // Covers both offenders at once: the eyebrow is uppercased in CSS, so its
     // DOM text is the same string the link carried.
     expect(screen.queryByText('Log in')).not.toBeInTheDocument()
@@ -144,7 +149,7 @@ describe('TopBar on the auth screens', () => {
     signedOut()
     renderTopBarAt('/set-password')
 
-    await screen.findByText('🏋 Gym Tracker')
+    await screen.findByText('Gym Tracker')
     expect(screen.queryByText('Password')).not.toBeInTheDocument()
     expect(screen.queryByText('Log in')).not.toBeInTheDocument()
   })
@@ -165,7 +170,7 @@ describe('TopBar on the auth screens', () => {
     signedOut()
     renderTopBarAt('/login')
 
-    await screen.findByText('🏋 Gym Tracker')
+    await screen.findByText('Gym Tracker')
     expect(screen.queryByRole('link', { name: 'Back to workouts' })).not.toBeInTheDocument()
   })
 
@@ -209,7 +214,7 @@ describe('TopBar page label — item 15', () => {
     async (path) => {
       signedOut()
       renderTopBarAt(path)
-      await screen.findByText('🏋 Gym Tracker')
+      await screen.findByText('Gym Tracker')
       expect(screen.queryByText('Home')).not.toBeInTheDocument()
       expect(screen.queryByText('Progress')).not.toBeInTheDocument()
       expect(screen.queryByText('History')).not.toBeInTheDocument()

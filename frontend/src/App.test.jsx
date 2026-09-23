@@ -110,7 +110,7 @@ describe('while the session lookup is still in flight', () => {
 
     expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
     expect(screen.queryByText(/Next up/i)).not.toBeInTheDocument()
-    expect(screen.queryByText('🏋 Gym Tracker')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gym Tracker')).not.toBeInTheDocument()
     expect(window.location.pathname).toBe('/')
 
     await act(async () => { answer(PROFILE) })
@@ -263,7 +263,7 @@ describe('logging in', () => {
     expect(await screen.findByText('In progress')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Resume Upper A' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Start/ })).not.toBeInTheDocument()
-    expect(screen.getByText('💪 Upper A in progress')).toBeInTheDocument()
+    expect(screen.getByText('Upper A in progress')).toBeInTheDocument()
   })
 
   // The redirect loop this whole design exists to avoid: a wrong password is

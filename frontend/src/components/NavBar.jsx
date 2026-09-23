@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
 import { colors, type } from '../lib/theme'
+import { IconHome, IconArrowTrendingUp, IconClipboardList } from '../icons'
 
 const tabs = [
-  { path: '/', label: 'Home', icon: '⬡' },
-  { path: '/progress', label: 'Progress', icon: '↗' },
-  { path: '/history', label: 'History', icon: '☰' },
+  { path: '/', label: 'Home', Icon: IconHome },
+  { path: '/progress', label: 'Progress', Icon: IconArrowTrendingUp },
+  { path: '/history', label: 'History', Icon: IconClipboardList },
 ]
 
 export default function NavBar() {
@@ -53,10 +54,7 @@ export default function NavBar() {
                 cursor: 'pointer', padding: '4px 0', minHeight: 48
               }}
             >
-              <span style={{
-                fontSize: '1.35rem', lineHeight: 1,
-                color: isActive ? colors.accent : colors.muted
-              }}>{tab.icon}</span>
+              <tab.Icon size={22} color={isActive ? colors.accent : colors.muted} />
               <Eyebrow color={isActive ? colors.accent : colors.muted} style={{ fontWeight: type.weight.semibold }}>
                 {tab.label}
               </Eyebrow>

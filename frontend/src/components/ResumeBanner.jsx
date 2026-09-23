@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useActiveSession } from '../lib/activeSession'
 import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import DayAccent from './DayAccent'
+import DayIcon from './DayIcon'
 import { colors, type } from '../lib/theme'
 
 export default function ResumeBanner() {
@@ -18,7 +19,7 @@ export default function ResumeBanner() {
 
   const plan = PLAN[active.workout_day]
   const color = DAY_COLORS[active.workout_day] || DAY_COLOR_FALLBACK
-  const label = plan ? `${plan.emoji} ${plan.name}` : 'Workout'
+  const dayName = plan ? plan.name : 'Workout'
 
   return (
     <div style={{ background: colors.card, borderTop: `1px solid ${colors.border}`, borderBottom: `1px solid ${colors.border}` }}>
@@ -31,7 +32,9 @@ export default function ResumeBanner() {
           background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
         }}>
           <DayAccent day={active.workout_day} />
-          <span style={{ color: colors.textSecondary, fontSize: type.size.md, fontWeight: type.weight.semibold }}>{label} in progress</span>
+          <span style={{ color: colors.textSecondary, fontSize: type.size.md, fontWeight: type.weight.semibold, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {plan && <DayIcon day={active.workout_day} size={16} />}{dayName} in progress
+          </span>
           <span style={{ color, fontSize: type.size.md, fontWeight: type.weight.bold, marginLeft: 'auto' }}>Resume ›</span>
         </button>
         {confirming ? (

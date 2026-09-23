@@ -17,6 +17,7 @@ import { track } from '../lib/analytics'
 import Eyebrow from '../components/Eyebrow'
 import Chip from '../components/Chip'
 import DayAccent from '../components/DayAccent'
+import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import Toast from '../components/Toast'
 import { useToast } from '../lib/useToast'
@@ -452,7 +453,7 @@ export default function Workout() {
           <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
             Active session
           </Eyebrow>
-          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}>{plan.emoji} {plan.name}</h1>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}><DayIcon day={session.workout_day} size={24} /> {plan.name}</h1>
           {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
               PersonalBests' page-subtitle convention -- this was the one
               page whose subtitle used a different color/size pair
