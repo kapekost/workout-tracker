@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { getDemoFrames } from '../lib/demos'
+import { useEffect } from 'react'
+import ExerciseDemo from './ExerciseDemo'
 import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
 import Chip from './Chip'
@@ -8,21 +8,6 @@ import { colors, type, space } from '../lib/theme'
 // Target / cues / demo body shared by the standalone Exercise page and the
 // in-workout cues modal, so both stay in sync and only track views once.
 export default function ExerciseDetails({ ex, color }) {
-  const [demoFailed, setDemoFailed] = useState(false)
-  const [frameIdx, setFrameIdx] = useState(0)
-  const frames = getDemoFrames(ex.id)
-
-  // Alternate the start/end frames to animate the movement.
-  useEffect(() => {
-    setFrameIdx(0)
-    setDemoFailed(false)
-    if (frames) track('demo_view', { exercise_id: ex.id })
-    if (!frames || frames.length < 2) return
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    const id = setInterval(() => setFrameIdx(i => (i + 1) % frames.length), 900)
-    return () => clearInterval(id)
-  }, [ex.id, frames])
-
   // Form cues render statically (no distinct "open" interaction) — track on mount/exercise change.
   useEffect(() => {
     track('cues_open', { exercise_id: ex.id })
@@ -75,21 +60,9 @@ export default function ExerciseDetails({ ex, color }) {
       </div>
 
       {/* Demo */}
-      {frames && !demoFailed ? (
-        <div className="card" style={{ padding: space.md, marginBottom: space.md }}>
-          <Eyebrow style={{ marginBottom: 10 }}>Demo</Eyebrow>
-          {/* crossOrigin makes the SW see a real CORS response (jsDelivr sends
-              ACAO:*) instead of an opaque one — opaque entries can't be cached
-              safely (quota-padded ~7MB each, hide errors). */}
-          <img src={frames[frameIdx % frames.length]} alt={`${ex.name} demonstration`} loading="lazy"
-            crossOrigin="anonymous" onError={() => setDemoFailed(true)}
-            style={{ width: '100%', borderRadius: 10, display: 'block', background: colors.border }} />
-          <p style={{ color: colors.muted, fontSize: type.size.xs, textAlign: 'center', marginTop: 8 }}>
-            Animated form demo · free-exercise-db (CC0)
-          </p>
-        </div>
-      ) : (
-        <>
+      <ExerciseDemo ex={ex} color={color} style={{ marginBottom: space.md }}>
+        {/* YouTube Fallback (if demo fails or is missing, component returns children) */}
+        <div style={{ marginTop: space.md }}>
           <a href={ex.ytUrl} target="_blank" rel="noopener noreferrer"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
@@ -103,8 +76,8 @@ export default function ExerciseDetails({ ex, color }) {
           <p style={{ color: colors.muted, fontSize: type.size.sm, textAlign: 'center', marginTop: 10 }}>
             Opens a YouTube search — pick a video from Jeff Nippard or Alan Thrall for evidence-based technique
           </p>
-        </>
-      )}
+        </div>
+      </ExerciseDemo>
     </>
   )
 }
