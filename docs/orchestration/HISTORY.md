@@ -9,6 +9,90 @@
 
 ---
 
+## 2026-09-26/27 — #152 shipped and deployed; rescued a stray local commit found along the way
+
+Same live session as the 2026-09-22 planning tick, resumed after a real-world gap. Claimed #152 for
+execution (already planned, ledgered pre-flight scan clean) and ran it via
+`superpowers:subagent-driven-development` against `docs/superpowers/plans/
+2026-09-22-icon-visual-polish-152.md`, in its own worktree/branch (`claude/152-icon-visual-polish`,
+off `main`).
+
+**6 tasks, 7 commits, dispatched sequentially** (icon vendoring → day-identity icons → nav chrome →
+status/feedback/functional/achievement icons → a small back-arrow sweep found by re-running the
+spec's own grep → a final verification fix). Every task got a fresh implementer + a fresh task
+reviewer; one Important finding (Task 2 duplicated a color-resolution expression because the plan's
+own given code didn't account for `DayAccent` not forwarding props) was fixed properly — `DayAccent`
+now forwards `...props` — rather than parked, since the fix was cheap and closed a real drift risk.
+Task 6's mechanical grep step found 2 real misses beyond the plan's own inventory (`History.jsx`'s
+`✓ completed` status text, fixed same tick; a `💪` in Home's empty-state copy, ruled to leave as
+decorative voice, not chrome).
+
+**The standing UI-expert + UX-expert review gate ran against 8 real screenshots**, captured by
+actually logging in and using the live app (two real workout sessions, a real PR toast, History,
+Personal Bests, an active-session banner). Both reviews came back with real-sounding Critical
+findings — but every one collapsed on verification against source: the UI reviewer's "un-replaced
+emoji" hit was `profile.icon` (a different, deliberately-out-of-scope feature, #69's avatar picker);
+its "solid-fill day icons" claim was contradicted by the actual SVG source (`fill="none"`, no
+override); the UX reviewer's "dropped-`?` weakens the delete-confirm signal" claim rested on a
+"pixel-identical icon" premise that's also false against source (`IconTrash`↔`IconCheck` is a full
+shape change) and, for the highest-stakes example (session discard), directly contradicted by an
+explicit "Discard? ✓ ✗" text the controller had watched render live in the browser moments earlier.
+Lesson banked here, not just for this Issue: **a subagent's confident severity verdict from
+JPEG-based visual inference is exactly the kind of claim GUARDRAILS/PLAYBOOK already say needs
+checking against source, the same as a "grep came back clean" claim does** — treated it that way,
+adjudicated every finding against the actual code, found nothing that needed a fix.
+
+**Final whole-branch review** (dispatched twice — the first attempt, on the strongest available
+model, was killed mid-review by an account-wide weekly rate limit with no report produced;
+redispatched clean on the next tier down) came back "ready to merge, with fixes recommended as
+fast-follow." It found 5 real icon-shaped glyphs the plan's own Unicode-range grep couldn't see
+(fall outside those specific ranges, or are plain ASCII) — `TimerBar`'s pause/resume, a video-play
+glyph, `VersionBadge`'s refresh glyph, two "+Add" text buttons — plus a `DayIcon` test that only
+asserts color, never shape. None break anything (correct `aria-label`s throughout, independently
+re-verified). Filed as **#209** rather than expanding the reviewed diff. PR #207 merged clean —
+CI green, head commit confirmed matching before merge, no classifier block this time.
+
+**Found a real stray commit while cleaning up the worktree**: `git worktree remove` surfaced a
+commit on the home branch's *local* checkout, authored under the owner's own git identity
+(`kapekost@Mac.mynet`, dated 2026-09-25) — real work (an `ExerciseDemo` extraction + fallback-logic
+fix for `ExerciseDetails.jsx`, with its own tests) that had landed directly on this machine's
+checkout while it happened to have the orchestration home branch checked out, never pushed anywhere.
+Confirmed it was never on `origin`'s copy of the home branch (so no collision, no risk to any other
+tick), then rescued it onto its own branch off `main` (`git worktree add` off `origin/main`,
+`git cherry-pick` preserving the original authorship) rather than discarding or force-resetting
+anything — a `git reset --hard` to clear it off the local home-branch checkout was attempted first
+and correctly blocked by this session's own auto-mode classifier as irreversible local destruction;
+worked around by simply never touching that checkout for anything that needed pushing, using a
+fresh worktree off `origin/claude/workout-tracker-backlog-bu9qnw` for every write-back instead. One
+merge conflict (the rescued commit predated a `space.md` token-convention change already on `main`)
+resolved by hand, keeping the token convention; 412/412 tests passing (407 existing + 5 new), build
+succeeds. Merged as PR #208.
+
+**Deployed both PRs to production at the owner's request**, after a mid-review question from the
+owner about the rescued commit ("not sure we like to have video playback there") — clarified first
+(the PR was a pure refactor; both the animated-frame demo and the YouTube-link fallback already
+existed before it, neither is new) and got an explicit "keep it, do a test deployment, decide later"
+before deploying. `scripts/deploy.sh` (Docker Desktop needed a manual start first — `open -a Docker`,
+no classifier block this time) built, transferred, and restarted cleanly; independently verified
+after (not just the script's own assertion) via a direct `curl /api/health` and `docker ps` on the
+host — `version: 98614fa`, container `Up`. No schema change, so no pre-deploy snapshot needed.
+Updated `AGENTS.local.md`'s "Current status" (previous drift-prone section, last touched 2026-09-15)
+to `98614fa`/previous-known-good `799c912`, and cleaned up a duplicated paragraph left over from that
+same 2026-09-15 fix while touching the section anyway.
+
+**Environment note, not fixed this tick:** `claude-in-chrome`'s browser extension disconnected
+mid-session (after the manual UI walkthrough that fed the UI/UX review screenshots) and did not
+reconnect after 2 retries, both before and after the deploy — a live-browser visual confirmation of
+the deployed app was not obtained this tick; verification relied on API-level checks
+(`/api/health`, `docker ps`) instead, which is why the write-back above is explicit about that being
+the evidence used, not a hedge.
+
+**Next action:** ready queue re-ranks to `#157` (still `ready`, unapproved — destructive, touches
+auth-adjacent timing behavior) and `#201` (React Native, owner-confirmed intentional lowest rank).
+`#196`/`#197`/`#209` sit untriaged/`ready`-but-not-yet-picked. No new owner comments outstanding.
+
+---
+
 ## 2026-09-22 — Reconciled #201's dangling docs, planned #152 (icon system + visual polish)
 
 New live session, picking up after a 7-day gap (last tick 2026-09-15). Home branch and

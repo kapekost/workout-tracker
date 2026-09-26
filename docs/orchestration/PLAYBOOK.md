@@ -341,6 +341,22 @@ only because the owner happened to ask about it, not by anything in this file. H
      - **UX (usability):** affordance, flow, copy clarity, accessibility, one-handed phone use —
        does it work, not just look right.
 
+   **A UI/UX reviewer's severity verdict is itself a claim to verify, not a finding to act on
+   directly** — the same "a claim of clean needs spot-checking" principle step 5 already applies to
+   a subagent's grep-search claim (the #168 precedent above) applies here too, since both reviews
+   work from screenshots, not source. Real case, #152 (2026-09-27): a UI-expert review's Critical
+   finding ("un-replaced emoji in the top bar") was actually a different, deliberately out-of-scope
+   feature (a user's own chosen avatar emoji); its "solid-fill day icons" claim was contradicted by
+   the actual SVG source (no fill override, genuinely stroke-only); a UX-expert review's Critical
+   finding ("dropped-`?` weakens a delete-confirm signal") rested on a "pixel-identical icon" premise
+   that was also false against source (the icon's whole shape changes, trash-can to checkmark) and,
+   for its highest-stakes example, was directly contradicted by an explicit confirm-state text label
+   the controller had watched render live in the browser minutes earlier. Both reviews were
+   thorough and well-reasoned from what they could see — screenshots alone just can't show source,
+   an armed/confirm state a screenshot didn't happen to capture, or which feature a glyph belongs to.
+   Adjudicate every UI/UX finding against the actual code (and a fresh screenshot of any state the
+   first pass didn't capture) before treating it as real; ledger the adjudication either way.
+
    Both gates carry the owner's second constraint with them: **efficient, not overengineered.**
    Reuse the existing tokens and CSS classes; a review that comes back recommending a component
    library or a design-system layer for this app has answered the wrong question.

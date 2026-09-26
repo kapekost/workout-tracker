@@ -16,35 +16,61 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** New live session, 2026-09-22, after a 7-day gap (last tick 2026-09-15).
-  Reconciled dangling uncommitted docs from a 2026-09-20 session (#201's spec+plan, drafted but
-  never committed despite the Issue already linking them) via PR #202; deleted two throwaway
-  `create_issue.sh` input files. Owner confirmed live: #201 (React Native mobile app) is real
-  research/prep to work toward eventually, correctly lowest-ranked in the `ready` queue, not
-  blocking current work. Picked **#152** (top-ranked `ready`), spot-checked its premise still holds
-  against `main`, planned it via `superpowers:writing-plans` (gated on decomposition — the spec left
-  the icon-authoring pattern and day-icon composition open). Plan-writing found the spec's
-  inventory table 8 days stale (2 real sites missing, re-grep-confirmed) and caught a real scoping
-  trap before it shipped as a bug: `profile.icon` (the user's own avatar-emoji picker, #69) is
-  **not** in scope, only its `👤` fallback. Plan landed via PR #203 (318 lines, 7 tasks) at
-  `docs/superpowers/plans/2026-09-22-icon-visual-polish-152.md`, linked into #152's body. Full
-  detail in `HISTORY.md`.
-- **Next action:** execute #152 against its now-landed plan via
-  `superpowers:subagent-driven-development`.
-- **Ready queue unchanged otherwise:** `#157` still sits `ready` but unapproved (destructive:
-  touches auth-adjacent timing behavior). `#201` ready, lowest ranked, owner-confirmed intentional.
-  `#196`/`#197` still `intake`, untriaged (no new owner comment on either this tick).
-- **Not investigated this tick** (out of scope for a plan-only tick): the 2026-09-15 Needs-owner
-  items below (Xcode license, `AGENTS.local.md` deploy-drift habit, day-color saturation,
-  #27/#30/#32/#171 spec dependencies) — carried forward unchanged, still open.
+- **Current focus:** Same live session as 2026-09-22's planning tick, resumed 2026-09-26/27 after a
+  real-world gap. **#152 shipped**: executed the landed plan via
+  `superpowers:subagent-driven-development` (6 tasks, 7 commits, each with a fresh implementer +
+  fresh task review; one Important finding fixed properly — `DayAccent` now forwards `...props`
+  instead of `DayIcon` duplicating its color logic). The standing UI-expert/UX-expert screenshot
+  gate ran against 8 real logged-in screenshots; both reviews raised Critical-sounding findings that
+  fully collapsed on verification against source (a different feature mistaken for a miss, a
+  "solid-fill"/"pixel-identical" claim both contradicted by the actual SVGs) — banked as a PLAYBOOK
+  addition (see below) rather than acted on. Final whole-branch review (redispatched once after the
+  first attempt hit an account-wide weekly rate limit mid-review) came back ready-to-merge with 5
+  real but out-of-spec sites filed separately as **#209** rather than expanding the diff. PR #207
+  merged clean, no classifier block.
+- **Found and rescued a stray commit** while cleaning up: real work (an `ExerciseDemo` extraction,
+  owner's own git identity, dated 2 days into the session gap) had landed directly on this machine's
+  local home-branch checkout, never pushed. Cherry-picked onto its own branch off `main` (one
+  conflict resolved by hand), merged as PR #208 — 412/412 tests passing.
+  **`git reset --hard` to clear the stray commit off the local checkout was attempted and correctly
+  blocked by this session's own classifier** as irreversible local destruction; worked around by
+  using fresh worktrees off `origin/...` for every write-back instead of ever touching that checkout.
+- **Deployed both PRs to production at the owner's request** (a mid-review question about the
+  rescued commit — "not sure we like video playback there" — was clarified first: pure refactor, no
+  new feature; owner said keep it, deploy, decide later). `scripts/deploy.sh` succeeded (Docker
+  Desktop needed a manual start first); independently verified via `curl /api/health` + `docker ps`
+  on the host directly (`version: 98614fa`), not just the script's own assertion. `AGENTS.local.md`
+  updated to the new stamp; also cleaned up a duplicated paragraph left over from the 2026-09-15 fix
+  to that same section, found while touching it.
+- **Two `IMPROVEMENTS.md` entries logged** (`last-reviewed-count` now 42): the UI/UX-review
+  trust-but-verify lesson above was fixed directly in this tick (`PLAYBOOK.md`'s "Look at it
+  rendered" gate now names it); the stray-commit risk is logged but not fixed — no clear
+  PLAYBOOK/GUARDRAILS line to edit, and a real fix (pre-commit hook or a checkout banner) is new
+  tooling work outside this tick's remit. See Needs owner.
+- **Environment note:** `claude-in-chrome`'s browser extension disconnected mid-session and did not
+  reconnect after 2 retries (both before and after the deploy) — no live-browser confirmation of the
+  deployed app this tick; API-level checks stood in.
+- **Next action:** ready queue re-ranks to `#157` (still `ready`, unapproved — destructive) and
+  `#201` (React Native, owner-confirmed intentional lowest rank). `#196`/`#197`/`#209` are `ready` or
+  `intake`, untriaged/unpicked.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#152** — claimed 2026-09-22T23:47:04Z, live session (execution).
+(no branches in flight)
 
 ## Needs owner
+- **Nothing stops a stray commit landing on the orchestration home branch's local checkout.**
+  2026-09-27: found a real commit (owner's own git identity, `kapekost@Mac.mynet`) sitting on this
+  machine's local `claude/workout-tracker-backlog-bu9qnw` tip, never pushed — landed there because
+  the primary checkout happened to have the home branch checked out when work was done directly in
+  it rather than through `/orchestrate`. Rescued onto its own branch off `main`, no data lost, but a
+  bare `git status` gives no hint this branch is special before it happens again. Fix candidates:
+  a pre-commit hook refusing a commit whose parent branch matches `STATE.md`'s "Home branch" field
+  unless run through `/orchestrate`, or just a loud README/banner. `IMPROVEMENTS.md` 2026-09-27,
+  not fixed this tick (new tooling work, outside `/orchestrate`'s own docs-only remit) — owner's call
+  whether it's worth building.
 - **`AGENTS.local.md`'s "Current status" deploy note had drifted for ~17 deploys before this
   tick's catch-up correction** (see Cursor above) — it isn't wired to anything automatic, so it
   only stays accurate when whoever deploys remembers to update it. Not urgent (the file itself says
