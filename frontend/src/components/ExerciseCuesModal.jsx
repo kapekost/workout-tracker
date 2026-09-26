@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import ExerciseDetails from './ExerciseDetails'
 import { colors, type } from '../lib/theme'
+import { IconXMark } from '../icons'
 
 const MODAL_EXIT_MS = 250
 
@@ -60,7 +61,7 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
           <h2 style={{ fontSize: '1.3rem', fontWeight: type.weight.bold }}>{ex.name}</h2>
-          <button className="btn-icon tap-target" aria-label="Close" onClick={requestClose}>×</button>
+          <button className="btn-icon tap-target" aria-label="Close" onClick={requestClose}><IconXMark size={18} /></button>
         </div>
         {ex.alt && <p style={{ color: colors.muted2, fontSize: type.size.md, marginBottom: 16 }}>{ex.alt}</p>}
 

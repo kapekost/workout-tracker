@@ -7,6 +7,7 @@ import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
 import StatPair from '../components/StatPair'
 import { colors, type, space } from '../lib/theme'
+import { IconTrophy } from '../icons'
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -59,8 +60,9 @@ export default function Progress() {
         </div>
         <button className="tap-target" onClick={() => nav('/personal-bests')}
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.accent,
-            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap' }}>
-          🏆 PBs
+            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IconTrophy size={14} /> PBs
         </button>
       </div>
 
@@ -78,7 +80,7 @@ export default function Progress() {
             <div>
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <StatPair label="Personal Record" value={`🏆 ${pr} kg`} valueColor={colors.success} />
+                  <StatPair label="Personal Record" value={<><IconTrophy size={14} /> {pr} kg</>} valueColor={colors.success} />
                   <StatPair label="Sessions" value={data.length} align="right" />
                 </div>
               )}
