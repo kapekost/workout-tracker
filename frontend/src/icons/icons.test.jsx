@@ -44,5 +44,16 @@ describe('icon components', () => {
       const img = render(<IconClock className="my-class" />).container.querySelector('img')
       expect(img.getAttribute('class')).toBe('my-class')
     })
+    // Regression: a plain `display: 'block'` img generates its own block
+    // formatting box, so when it sits next to inline text in a container
+    // that isn't itself flex (TimerBar's .session-clock, History.jsx's
+    // session-duration span), the sibling text drops onto its own line
+    // instead of following inline -- caught by a Codex review comment on
+    // PR #213 after merge, missed by a zoomed-screenshot check that only
+    // verified the icon looked legible, not where it sat relative to text.
+    it('is inline-level so it sits beside adjacent text without a flex wrapper', () => {
+      const img = render(<IconClock />).container.querySelector('img')
+      expect(img.style.display).toBe('inline-block')
+    })
   })
 })
