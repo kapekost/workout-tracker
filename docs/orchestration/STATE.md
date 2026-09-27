@@ -16,49 +16,40 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Same live session as 2026-09-22's planning tick, resumed 2026-09-26/27 after a
-  real-world gap. **#152 shipped**: executed the landed plan via
-  `superpowers:subagent-driven-development` (6 tasks, 7 commits, each with a fresh implementer +
-  fresh task review; one Important finding fixed properly — `DayAccent` now forwards `...props`
-  instead of `DayIcon` duplicating its color logic). The standing UI-expert/UX-expert screenshot
-  gate ran against 8 real logged-in screenshots; both reviews raised Critical-sounding findings that
-  fully collapsed on verification against source (a different feature mistaken for a miss, a
-  "solid-fill"/"pixel-identical" claim both contradicted by the actual SVGs) — banked as a PLAYBOOK
-  addition (see below) rather than acted on. Final whole-branch review (redispatched once after the
-  first attempt hit an account-wide weekly rate limit mid-review) came back ready-to-merge with 5
-  real but out-of-spec sites filed separately as **#209** rather than expanding the diff. PR #207
-  merged clean, no classifier block.
-- **Found and rescued a stray commit** while cleaning up: real work (an `ExerciseDemo` extraction,
-  owner's own git identity, dated 2 days into the session gap) had landed directly on this machine's
-  local home-branch checkout, never pushed. Cherry-picked onto its own branch off `main` (one
-  conflict resolved by hand), merged as PR #208 — 412/412 tests passing.
-  **`git reset --hard` to clear the stray commit off the local checkout was attempted and correctly
-  blocked by this session's own classifier** as irreversible local destruction; worked around by
-  using fresh worktrees off `origin/...` for every write-back instead of ever touching that checkout.
-- **Deployed both PRs to production at the owner's request** (a mid-review question about the
-  rescued commit — "not sure we like video playback there" — was clarified first: pure refactor, no
-  new feature; owner said keep it, deploy, decide later). `scripts/deploy.sh` succeeded (Docker
-  Desktop needed a manual start first); independently verified via `curl /api/health` + `docker ps`
-  on the host directly (`version: 98614fa`), not just the script's own assertion. `AGENTS.local.md`
-  updated to the new stamp; also cleaned up a duplicated paragraph left over from the 2026-09-15 fix
-  to that same section, found while touching it.
-- **Two `IMPROVEMENTS.md` entries logged** (`last-reviewed-count` now 42): the UI/UX-review
-  trust-but-verify lesson above was fixed directly in this tick (`PLAYBOOK.md`'s "Look at it
-  rendered" gate now names it); the stray-commit risk is logged but not fixed — no clear
-  PLAYBOOK/GUARDRAILS line to edit, and a real fix (pre-commit hook or a checkout banner) is new
-  tooling work outside this tick's remit. See Needs owner.
-- **Environment note:** `claude-in-chrome`'s browser extension disconnected mid-session and did not
-  reconnect after 2 retries (both before and after the deploy) — no live-browser confirmation of the
-  deployed app this tick; API-level checks stood in.
-- **Next action:** ready queue re-ranks to `#157` (still `ready`, unapproved — destructive) and
-  `#201` (React Native, owner-confirmed intentional lowest rank). `#196`/`#197`/`#209` are `ready` or
-  `intake`, untriaged/unpicked.
+- **Current focus:** New tick, same day as the #152/#207/#208/#210/#212/#213/#214 icon-system work
+  archived in `HISTORY.md` below. Direct owner dispatch (not a queued Issue): a mobile icon
+  alignment/sizing audit of the 7 PNG-backed icons. Found and fixed a real, reproduced problem — 3 of
+  the 7 icons read visibly smaller/weaker than same-size comparators due to `object-fit: contain`
+  letterboxing a wide source image — via a paint-only `transform: scale()` correction, scoped to only
+  the 3 confirmed-bad instances. 420/420 tests, clean build, independent code review (`sonnet`)
+  verdict: ship. Full writeup below in `HISTORY.md`.
+- **PR #217 is open, CI green, blocked on a human merge**: `gh pr merge 217 --squash --delete-branch`
+  was denied by the auto-mode classifier ("Merge Without Review") — same pattern as #202/#212/#213.
+  **Owner action needed:** run `gh pr merge 217 --squash --delete-branch` (branch
+  `claude/icon-mobile-audit`, commit `b0b48c7`). No Codex review is coming — its own bot comment on
+  the PR states its review quota is exhausted for this PR. Deploy and this file's next write-back are
+  waiting on that merge.
+- **Also found, reported to the owner directly, not yet actioned:** a stray unmerged remote branch
+  `claude/210-icon-redesign` survives on GitHub despite an earlier tick recording it as deleted — see
+  `HISTORY.md` for detail. `git push origin --delete claude/210-icon-redesign` is the cleanup command
+  if the owner wants it gone; left alone per GUARDRAILS (remote branch deletion needs fresh human
+  approval).
+- **Next action:** once #217 is merged and deployed, pick up **#209** (ready, `effort:S`, already
+  triaged, premise spot-checked against current `main` and confirmed still valid) — the next
+  ready-queue item after `#157` (still destructive/unapproved — no standing approval covers it,
+  confirmed against `DECISIONS.md`'s only standing-approval record, which names only #105/#86/#87)
+  and `#201` (React Native, owner-confirmed intentional lowest rank, correctly skipped again). Note
+  for whoever executes #209: its body says the 3 new icons should come "from Heroicons" — that's
+  stale, predating this same day's #212 icon-system rewrite off Heroicons onto a custom flat-fill
+  style (see `IconPlus`/`IconCheck`/`IconXMark`). Author the 3 new icons (play/pause/refresh) in that
+  current house style instead, not literal Heroicons paths.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+(no Issue-numbered branches in flight — #217 is a direct owner dispatch, not a claimed ready-queue
+Issue, so it doesn't use the `## In-flight` claim mechanism; see Cursor above for its live status)
 
 ## Needs owner
 - **Nothing stops a stray commit landing on the orchestration home branch's local checkout.**

@@ -9,6 +9,67 @@
 
 ---
 
+## 2026-09-27 — Mobile icon audit: 3 letterboxed PNG icons fixed (PR #217), merge blocked on human
+
+Direct owner dispatch, not a queued Issue: a prior (now-ended) session had asked to "consider any
+improvements on how the images are aligned where used and how small they are for mobile" for the 7
+PNG-backed icons shipped in #211/#213/#214. Did a live-browser audit via `claude-in-chrome` at real
+call-site sizes (12-24px, logged-in screens, a fresh worktree/branch `claude/icon-mobile-audit` off
+`origin/main`) rather than reasoning about the aspect-ratio math abstractly.
+
+**Found a real, reproduced problem**, not just a theoretical one: 3 of the 7 icons —
+`IconArrowTrendingUp` (progress.png), `IconClipboardList` (history.png), `IconDayUpper`
+(upperbody.png) — have a source PNG wider than tall, so `object-fit: contain` in a `size×size` box
+shorts their rendered height to `size/aspect`. Zoomed screenshots confirmed Progress/History read
+visibly smaller/thinner than `IconHome` (an SVG that fills its full square) in `NavBar.jsx`'s bottom
+tab bar, in both inactive and active states; `IconDayUpper` read visibly smaller than `IconDayLower`
+when both appeared stacked in the same `History` list (logged two real workout sessions, one Upper
+one Lower, specifically to get a direct side-by-side). Alignment itself (vertical centering next to
+adjacent text) was checked at every call site and found correct everywhere — the real defect was
+size/weight, not alignment.
+
+**Fixed with a paint-only `transform: scale(ASPECT)`** on the 3 affected components — restores full
+rendered height by scaling the already-correctly-proportioned `object-fit: contain` output up
+uniformly (zero distortion), leaving `width`/`height` HTML attributes, DOM shape, and every consuming
+layout untouched. Verified live via `getBoundingClientRect()` that the post-transform box is exactly
+`size*ASPECT` square and nothing clips the resulting overflow.
+
+**Deliberately left 4 other PNG icons uncorrected** (`IconClock`, `IconBarbell`,
+`IconClipboardDocumentList`, `IconDayLower`) — same aspect>1 mechanism in 2 of the 3, but checked live
+at their own real call sites (TopBar logo, TimerBar/History duration, Workout's "Form cues + demo"
+button) and found to read fine as-is: no adjacent same-size full-height comparator forces the same
+stark contrast, and/or the shape idiom (a flat barbell) tolerates it. Per this project's own
+"efficient, not overengineered" constraint and the #211 precedent of scoping to only what's confirmed
+broken. Added a one-line "audited, left as-is" comment to each of those 3 files.
+
+**Independent code review** dispatched to a fresh subagent on `sonnet` (this repo's documented
+stronger-tier default for code review, not opus) — verdict: ship, no blockers. It re-derived the
+aspect-ratio math against the actual PNG dimensions, checked every call site for overflow/clipping
+risk (flagged one worth a live check: icon bleed touching adjacent label text at `DayIcon`'s inline
+call sites), ran tests+build independently, and suggested the audited-icon comments folded in above.
+The one flagged risk was checked live afterward (Home header, ResumeBanner, History rows) and
+confirmed clean — no overlap anywhere.
+
+420/420 tests passing (4 new: 3 guard the fixed components' unchanged width/height attrs + correct
+`transform` value, 1 guards `IconDayLower` stays deliberately uncorrected), clean build. PR #217
+opened, CI green (Backend tests/test/sanity all SUCCESS, head commit confirmed matching before every
+check), no Codex review landed — its own bot comment on the PR states its review-quota is exhausted
+for this PR, not a substantive finding, so there was nothing to adjudicate before merging.
+**`gh pr merge 217 --squash --delete-branch` was denied by the auto-mode classifier** ("Merge Without
+Review"), the same pattern that blocked #202/#212/#213 earlier this session — not fought, handed to
+the owner as-is: **`gh pr merge 217 --squash --delete-branch`** is the exact command needed. Deploy
+and this file's write-back are pending that merge.
+
+**Also found and reported to the owner directly, not yet actioned**: a stray, unmerged remote branch
+`claude/210-icon-redesign` (2 commits, no open PR) survives on GitHub despite this same day's earlier
+entry below recording it as deleted during #210's cleanup — confirmed via `git log`/`git show` it's
+exactly that abandoned hand-simplified redesign, fully superseded by the later PNG-icon work that did
+ship, nothing of value at risk. Left alone per GUARDRAILS (remote branch deletion always needs a
+fresh human approval); `git push origin --delete claude/210-icon-redesign` is the cleanup command if
+the owner wants it gone.
+
+---
+
 ## 2026-09-26/27 — #152 shipped and deployed; rescued a stray local commit found along the way
 
 Same live session as the 2026-09-22 planning tick, resumed after a real-world gap. Claimed #152 for
