@@ -4,7 +4,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets, hashlib, time, urllib.request, urllib.error
+import sqlite3, os, json, glob, secrets, hashlib, time, math, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone
 
@@ -1012,6 +1012,82 @@ def put_note(exercise_id: str, n: NoteIn, profile_id: int = Depends(acting_profi
 
 def epley(weight, reps):
     return round(weight * (1 + reps / 30) * 2) / 2
+
+def round_to_step(x, step=2.5):
+    # Round-half-up to the nearest step (not Python's banker's rounding), so
+    # e.g. 41.25 -> 42.5 deterministically. Floored at 0 (never suggest a
+    # negative weight).
+    return max(0.0, math.floor(x / step + 0.5) * step)
+
+def suggest_progression(last_sets, reps_low, reps_high, days_since,
+                        increment=2.5, bodyweight=False):
+    # See docs/superpowers/specs/2026-09-27-dynamic-progression-design.md §2.1-2.4.
+    if days_since is None:
+        return {
+            "weight_kg": 0 if bodyweight else 20,
+            "reps": reps_low,
+            "warmup": None,
+            "hit_status": None,
+            "layoff_band": "none",
+        }
+
+    # §2.1 hit status, checked against all logged sets (not just the last one).
+    if all(s["reps"] >= reps_high for s in last_sets):
+        hit_status = "clean"
+    elif any(s["reps"] < reps_low for s in last_sets):
+        hit_status = "missed"
+    else:
+        hit_status = "partial"
+
+    # §2.2 layoff band.
+    if days_since <= 13:
+        layoff_band = "recent"
+    elif days_since <= 27:
+        layoff_band = "short"
+    elif days_since <= 56:
+        layoff_band = "moderate"
+    else:
+        layoff_band = "long"
+
+    top_weight = max(s["weight_kg"] for s in last_sets)
+
+    # §2.3 combine hit status x layoff band.
+    if layoff_band == "recent":
+        if hit_status == "clean":
+            weight_kg = round_to_step(top_weight + increment)
+            reps = reps_low
+        elif hit_status == "partial":
+            weight_kg = top_weight
+            reps = reps_high
+        else:  # missed
+            weight_kg = top_weight
+            reps = reps_low
+    elif layoff_band == "short":
+        weight_kg = top_weight  # held flat, no increment even on a clean hit
+        reps = reps_low if hit_status == "missed" else reps_high
+    elif layoff_band == "moderate":
+        weight_kg = round_to_step(top_weight * 0.9)
+        reps = reps_low
+    else:  # long
+        weight_kg = round_to_step(top_weight * 0.8)
+        reps = reps_low
+
+    # §2.4 warm-up, computed from the post-adjustment working weight.
+    if weight_kg <= 0:
+        warmup = None
+    else:
+        warmup = {
+            "weight_kg": round_to_step(weight_kg * 0.5),
+            "reps": min(reps_high + 2, 15),
+        }
+
+    return {
+        "weight_kg": weight_kg,
+        "reps": reps,
+        "warmup": warmup,
+        "hit_status": hit_status,
+        "layoff_band": layoff_band,
+    }
 
 @app.get("/api/exercises/{exercise_id}/last")
 def last_performance(exercise_id: str, exclude_session: int | None = None,
