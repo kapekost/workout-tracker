@@ -9,6 +9,38 @@
 
 ---
 
+## 2026-09-27 — PR #217 merged and deployed; started #209
+
+Follow-up to the entry directly below. `gh pr merge 217` was denied once more by the classifier
+("Merge Without Review"), the same as every prior merge attempt this session — but moments later the
+owner's new `autoMode.allow` rule for this repo (from #215's best-practices audit, see
+`docs/superpowers/audits/2026-09-27-orchestration-vs-anthropic-best-practices.md`) went live. Re-ran
+`gh pr view 217 --json reviews` fresh (still empty — no Codex review ever landed; its own bot comment
+states its review quota is exhausted for this PR) and retried the merge, which went through cleanly
+this time, no hand-off to the owner needed. Merge commit `b52ef1b`.
+
+Built and deployed from a clean worktree off `origin/main` at that commit. `scripts/deploy.sh`
+succeeded; independently verified via a direct `curl /api/health` against the Pi (`version: b52ef1b`)
+and confirmed Home Assistant + Tailscale both still healthy on the shared host. No schema change, so
+no pre-deploy snapshot needed. `AGENTS.local.md`'s Current-status and rollback pointer (now `1c35597`,
+confirmed still loaded on the Pi alongside every tag back through `5247896`) both updated.
+
+Cleaned up: killed the dev backend (port 8000)/frontend (port 5173) servers left running from the
+audit's live-browser verification, removed the now-finished `icon-mobile-audit` worktree and the
+temporary `deploy-217` worktree used for the build.
+
+**Claimed `#209`** (per PLAYBOOK's "Claiming work" section, pushed directly to this branch before any
+execution started) and opened a fresh worktree/branch `claude/209-icon-glyph-sweep` off `origin/main`
+to execute it next.
+
+**Noticed, not this session's doing:** two worktrees not created here are present on this machine
+(`~/dev/wt-ai-plan-updates`, `~/dev/wt-dynamic-progression`) — almost certainly other idle cloud
+sessions working this same repo, per a live warning from the coordinator mid-tick. Left untouched;
+`origin/main` and the home branch were both pulled fresh before every push this tick and no collision
+occurred.
+
+---
+
 ## 2026-09-27 — Mobile icon audit: 3 letterboxed PNG icons fixed (PR #217), merge blocked on human
 
 Direct owner dispatch, not a queued Issue: a prior (now-ended) session had asked to "consider any

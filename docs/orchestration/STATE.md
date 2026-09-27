@@ -23,26 +23,30 @@
   letterboxing a wide source image — via a paint-only `transform: scale()` correction, scoped to only
   the 3 confirmed-bad instances. 420/420 tests, clean build, independent code review (`sonnet`)
   verdict: ship. Full writeup below in `HISTORY.md`.
-- **PR #217 is open, CI green, blocked on a human merge**: `gh pr merge 217 --squash --delete-branch`
-  was denied by the auto-mode classifier ("Merge Without Review") — same pattern as #202/#212/#213.
-  **Owner action needed:** run `gh pr merge 217 --squash --delete-branch` (branch
-  `claude/icon-mobile-audit`, commit `b0b48c7`). No Codex review is coming — its own bot comment on
-  the PR states its review quota is exhausted for this PR. Deploy and this file's next write-back are
-  waiting on that merge.
+- **PR #217 merged and deployed.** First `gh pr merge` attempt was denied by the classifier ("Merge
+  Without Review", same pattern as #202/#212/#213); the owner's new `autoMode.allow` rule for this
+  repo (from #215's best-practices audit) went live moments later and a fresh reviews-check + retry
+  went through cleanly — no fight, no workaround needed this time. No Codex review ever landed (its
+  own bot comment states its review quota is exhausted for this PR). Deployed `b52ef1b`, verified two
+  ways (`scripts/deploy.sh`'s own check + an independent direct `curl /api/health`), Home Assistant
+  and Tailscale confirmed still healthy on the shared Pi. `AGENTS.local.md` Current-status updated.
 - **Also found, reported to the owner directly, not yet actioned:** a stray unmerged remote branch
   `claude/210-icon-redesign` survives on GitHub despite an earlier tick recording it as deleted — see
   `HISTORY.md` for detail. `git push origin --delete claude/210-icon-redesign` is the cleanup command
   if the owner wants it gone; left alone per GUARDRAILS (remote branch deletion needs fresh human
   approval).
-- **Next action:** once #217 is merged and deployed, pick up **#209** (ready, `effort:S`, already
-  triaged, premise spot-checked against current `main` and confirmed still valid) — the next
-  ready-queue item after `#157` (still destructive/unapproved — no standing approval covers it,
-  confirmed against `DECISIONS.md`'s only standing-approval record, which names only #105/#86/#87)
-  and `#201` (React Native, owner-confirmed intentional lowest rank, correctly skipped again). Note
-  for whoever executes #209: its body says the 3 new icons should come "from Heroicons" — that's
-  stale, predating this same day's #212 icon-system rewrite off Heroicons onto a custom flat-fill
-  style (see `IconPlus`/`IconCheck`/`IconXMark`). Author the 3 new icons (play/pause/refresh) in that
-  current house style instead, not literal Heroicons paths.
+- **Now executing #209** (claimed below) — ready, `effort:S`, already triaged, premise spot-checked
+  against current `main` and confirmed still valid. `#157` stays skipped (destructive/unapproved — no
+  standing approval covers it, confirmed against `DECISIONS.md`'s only standing-approval record, which
+  names only #105/#86/#87) and `#201` stays skipped (React Native, owner-confirmed intentional lowest
+  rank). Note: #209's body says the 3 new icons should come "from Heroicons" — that's stale, predating
+  this same day's #212 icon-system rewrite off Heroicons onto a custom flat-fill style (see
+  `IconPlus`/`IconCheck`/`IconXMark`); authoring the 3 new icons (play/pause/refresh) in that current
+  house style instead, not literal Heroicons paths.
+- **Environment note:** two worktrees not created by this session are present on this machine
+  (`~/dev/wt-ai-plan-updates` branch `claude/ai-plan-updates`, `~/dev/wt-dynamic-progression` branch
+  `claude/dynamic-progression`) — likely from other idle cloud sessions on this same repo. Not touched;
+  noted here so a future tick doesn't mistake them for its own stray state.
 
 ## Stop-condition
 (none — runner proceeds normally)
