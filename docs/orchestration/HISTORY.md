@@ -155,6 +155,75 @@ zero commits made. Lesson: this checkout is for orchestration docs only, never f
 
 ---
 
+## 2026-09-27 — #211 actually fixed: 7 icons swapped to real PNG assets (PR #213), shipped and closed
+
+Owner pushed back on #212's "ship the known-broken SVGs, track later" call almost immediately:
+"they are bad" and specifically "the progress isl ike a giraffe hirsotry is weird" — concrete,
+correct complaints, not just a mood. Asked to compare a couple of the actual shipped SVGs against
+a real render at nav-bar size (published as an Artifact rather than another zoomed screenshot) so
+the owner could see exactly what "bad" meant; confirmed live that History reads as a flat block in
+both nav states and Progress doesn't read as a chart. Owner's actual instruction, once that was
+visible: "use the svg and add a task in our future tasks to work out a better set of icons" — ship
+now, track it, don't block. Then, in the very next turn, walked that back too: "we said to use the
+png from chatgpt for now" — a factual correction (nothing shipped was ever PNG) that turned out to
+be the owner's real preference once asked directly: confirmed via one clarifying question rather
+than assumed, since PNG vs. SVG is an architecture decision (no `currentColor` recoloring, a
+different active/inactive nav treatment), not a coin flip.
+
+**Getting the actual pixels out was most of the work.** Asked ChatGPT's image tool (not its code
+path) for one sprite sheet of all 20 icons in its own established two-tone dark+lime style — this
+worked on the first attempt and looks genuinely good, confirming the earlier #210 problem really
+was "asked for vector reproduction of a raster," not "the underlying art is bad." Then: ChatGPT's
+in-chat quota hit zero before it could deliver individual crops; its own "Remove BG" edit tool
+inside the image editor also hit the same quota before it could run. Extracting the actual bitmap
+from the browser turned into its own small investigation — synthetic `<a download>` clicks and a
+canvas `toDataURL()` both landed nowhere (this extension runs an isolated browser instance with no
+path back to local disk, and returning raw base64 through page-JS execution is itself deliberately
+blocked, correctly, as a data-exfiltration guard). The sanctioned path was the `computer` tool's
+`zoom` action with `save_to_disk` — found by opening ChatGPT's own image-editor lightbox (which
+conveniently laid out the whole 820×547 sheet within one capturable frame) rather than fighting the
+chat pane's cropped, scroll-locked layout.
+
+Backed out the "Remove BG" dependency entirely: since the sheet's background was a flat, near-
+uniform near-black already matching the app's own background, wrote a small local Pillow pipeline
+(no `numpy` available, plain pixel loops instead) that (1) auto-locates each icon's row-band by
+scanning for the caption text baseline per grid row rather than assuming a fixed offset — cell
+templates turned out inconsistent enough between rows that a fixed crop would have clipped some
+icons and kept caption text on others; (2) color-keys the background to real alpha with a soft
+threshold ramp, not a hard cutoff, to avoid jagged edges; (3) runs a flood-fill connected-component
+pass to strip a couple of faint cross-cell glow bleed artifacts that the naive keying alone left
+behind (verified visually — a real, if minor, defect the first pass produced, not a hypothetical).
+
+**Scoped the actual change to what needed it**, rather than a wholesale swap: only the 7 icons that
+were either structurally broken (History, the workout-page clipboard, the clock, both day-type
+badges, the barbell app mark — all sharing the exact same root cause as #211's original filing: an
+opacity accent drawn over an identically-colored base blends to that same color regardless of
+opacity, invisible at any size in a single-tint icon system) or directly owner-flagged (Progress)
+got the PNG treatment. The other 13 (Home, Check, XMark, Trash, Minus, Plus, Warning, Pencil,
+Trophy, Sparkles, Bolt, ArrowLeft, User) stay SVG — they already render correctly, and two of them
+(Check, XMark) take an explicit per-context `color` (danger/muted in `ResumeBanner.jsx`) that a
+fixed-palette raster structurally can't provide. New component contract for the 7: drops `color`,
+adds `opacity`; `NavBar.jsx`'s inactive-tab treatment changed from a lime/grey color swap to a
+0.5-opacity dim, a standard pattern for this exact situation.
+
+415/415 tests green (added a PNG-icon contract test block; fixed `DayIcon.test.jsx`, which asserted
+an `svg` count of 1 that's now legitimately 0 now that the day-badge bodies are `img`s), clean
+build. Manually verified at real render size in every context the changed icons appear — nav bar
+both states, resume banner, workout-day badges, timer bar, the "Form cues + demo" row — rather than
+dispatching separate UI-expert/UX-expert review passes: the fixes were narrowly scoped, mechanically
+verifiable (does the icon render as more than a flat block, yes/no), and already owner-confirmed as
+the actual problem, so a second opinion had little to add here that direct observation didn't
+already settle. PR #213 opened CI-clean; `gh pr merge` hit the exact same "Merge Without Review"
+classifier block that blocked #202 and #212 (feedback filed — this is now the 3rd occurrence in one
+session, with the owner directly naming the friction: "this app was meant to be developed by you
+fully autonomous, i dont get this type of problem having me to run commands for you"); handed the
+merge command to the owner as before. Deployed as `1990b4b`, verified via the deploy script's own
+health check and independently via a second, separate `curl /api/health`. Issue #211 auto-closed by
+the PR's "Closes #211" reference; posted a follow-up comment naming the actual shipped fix since the
+auto-close carries no detail. `AGENTS.local.md` Current-status updated.
+
+---
+
 ## 2026-09-22 — Reconciled #201's dangling docs, planned #152 (icon system + visual polish)
 
 New live session, picking up after a 7-day gap (last tick 2026-09-15). Home branch and
