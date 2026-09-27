@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { colors, type } from '../lib/theme'
 import { updateStore, shouldCheckForUpdate } from '../lib/swUpdate'
 import { networkStatusStore } from '../lib/networkStatus'
-import { IconExclamationTriangle } from '../icons'
+import { IconExclamationTriangle, IconRefresh } from '../icons'
 
 // A brief, purely cosmetic tap-feedback flash. checkNow() (swUpdate.js)
 // doesn't hand back anything to await -- it fires registration.update() and
@@ -64,7 +64,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           position: 'relative', background: 'none', border: 'none', color: colors.muted2,
           cursor: 'pointer', fontSize: type.size.xs, padding: 0, lineHeight: 1,
         }}>
-        {checking ? 'Checking…' : '⟳'}
+        {checking ? 'Checking…' : <IconRefresh size={12} />}
         <span aria-hidden="true" style={{
           position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
           width: 'max(100%, 44px)', height: 44,

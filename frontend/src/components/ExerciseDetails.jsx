@@ -4,6 +4,7 @@ import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
 import Chip from './Chip'
 import { colors, type, space } from '../lib/theme'
+import { IconPlay } from '../icons'
 
 // Target / cues / demo body shared by the standalone Exercise page and the
 // in-workout cues modal, so both stay in sync and only track views once.
@@ -70,7 +71,7 @@ export default function ExerciseDetails({ ex, color }) {
               borderRadius: 12, padding: '16px 20px', color,
               textDecoration: 'none', fontWeight: type.weight.bold, fontSize: type.size.body
             }}>
-            <span style={{ fontSize: '1.4rem' }}>▶</span>
+            <IconPlay size={22} />
             Watch form demo on YouTube
           </a>
           <p style={{ color: colors.muted, fontSize: type.size.sm, textAlign: 'center', marginTop: 10 }}>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower } from './index'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh } from './index'
 
 describe('icon components', () => {
   it('renders an svg at the default 20px size, colored via currentColor', () => {
@@ -96,6 +96,29 @@ describe('icon components', () => {
     it('IconDayLower is left uncorrected -- its source already fills full height', () => {
       const img = render(<IconDayLower size={20} />).container.querySelector('img')
       expect(img.style.transform).toBe('')
+    })
+  })
+
+  // #209: TimerBar's pause/resume, ExerciseDetails' video-play glyph, and
+  // VersionBadge's refresh glyph were plain Unicode characters (outside
+  // #152's own emoji-range grep, so missed by that sweep) instead of
+  // vendored icons. Authored in the current fill/stroke house style
+  // (IconPlus/IconCheck's double-layer look), not Heroicons -- #209's body
+  // named Heroicons, but that predates the #212 rewrite off Heroicons onto
+  // this custom style.
+  describe('new icons (#209)', () => {
+    it('IconPlay and IconPause render fill-based svgs at the requested size', () => {
+      const play = render(<IconPlay size={14} />).container.querySelector('svg')
+      const pause = render(<IconPause size={14} />).container.querySelector('svg')
+      expect(play.getAttribute('width')).toBe('14')
+      expect(pause.getAttribute('width')).toBe('14')
+      expect(play.outerHTML).toContain('currentColor')
+      expect(pause.outerHTML).toContain('currentColor')
+    })
+    it('IconRefresh renders a stroke-based svg at the requested size', () => {
+      const svg = render(<IconRefresh size={12} />).container.querySelector('svg')
+      expect(svg.getAttribute('width')).toBe('12')
+      expect(svg.getAttribute('stroke')).toBe('currentColor')
     })
   })
 })
