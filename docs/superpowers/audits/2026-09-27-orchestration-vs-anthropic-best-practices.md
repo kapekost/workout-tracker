@@ -7,6 +7,21 @@ most recent `HISTORY.md` entries (2026-09-15 through 2026-09-27), and the
 point against Anthropic's own published guidance, fetched fresh rather than recalled from
 training data. No code changed; this is a documents-only audit.
 
+**A note on sourcing, because it matters for how to verify anything cited below.**
+`docs/orchestration/{STATE,HISTORY,IMPROVEMENTS,DECISIONS}.md` were read from the live
+orchestration home branch, `claude/workout-tracker-backlog-bu9qnw` — not from this repository's
+`main`, and not from this PR's own branch. This is not incidental: it is the exact rule
+`PLAYBOOK.md` step 1 states for every tick ("`main`'s copies of these files are a partial,
+hand-cherry-picked subset that silently lags... Read them with `git show origin/
+claude/workout-tracker-backlog-bu9qnw:docs/orchestration/<file>`"), and it is true today by a wide
+margin: at the time of this audit, `main`'s copy of `IMPROVEMENTS.md` is 43 lines and ends at
+2026-09-13; the home branch's is 158 lines and runs through 2026-09-27. `main`'s `DECISIONS.md`
+has no 2026-09-14 entries at all. Any specific incident cited below by Issue/PR number should be
+checked against the home branch, e.g. `git show origin/claude/workout-tracker-backlog-bu9qnw:
+docs/orchestration/HISTORY.md`, not against what this file's own neighbors on `main` currently
+show — those neighbors are stale by this project's own design, for reasons `PLAYBOOK.md` itself
+documents at length.
+
 ---
 
 ## Verdict
@@ -27,12 +42,16 @@ claim against source before acting on it.
 **The one clear, concrete, currently-mis-diagnosed gap**: this project's standing "PRs merge once
 CI is green, no further live approval" policy runs directly against Claude Code's own auto-mode
 classifier, which specifically and by design blocks a merge with no human approval under the
-category `[Merge Without Review]`. The project has hit this at least eight separate times across
-its history (#138, #180/181, a `DECISIONS.md` `Edit` block, #202, #212, #213, and others) and has
-logged every occurrence as an `[unsure]`, "harness-level, not fixable via a PR here" mystery, with
-"retry the identical command" as the standing workaround. It is not a mystery: Anthropic's own docs
-name the exact, supported configuration fix, and this project has already discovered and applied
-the identical fix for a structurally identical block (`[Production Deploy]`, via
+category `[Merge Without Review]`. The project has hit a `gh pr merge` classifier denial at least
+five separate times (#138, PR #181, PR #202, PR #212, PR #213 — see §5 for exact sourcing), plus at
+least one denial of a plain `Edit` tool call by the same classifier mechanism on a doc-only,
+non-destructive change (`DECISIONS.md`, 2026-09-14) — and other merges in the same window went
+through with no block at all (#203, #207, #208, #214), consistent with a probabilistic classifier
+rather than a hard rule. Every merge-denial occurrence has been logged as an `[unsure]`,
+"harness-level, not fixable via a PR here" mystery, with "retry the identical command" or "hand the
+merge to the owner" as the standing workaround. It is not a mystery: Anthropic's own docs name the
+exact, supported configuration fix, and this project has already discovered and applied the
+identical fix for a structurally identical block (`[Production Deploy]`, via
 `Bash(bash scripts/deploy.sh)` in `.claude/settings.local.json`) — it was just never generalized to
 `gh pr merge`. See §5 and the first recommended follow-up below.
 
@@ -215,20 +234,37 @@ says plainly: "Repeated blocks usually mean the classifier is missing context ab
 infrastructure. Use `/feedback` to report false positives, or have an administrator configure
 trusted infrastructure" — not "retry it."
 
-This project has hit exactly this block at least eight times (`IMPROVEMENTS.md` 2026-09-13/2026-09-
-14 entries; `HISTORY.md` entries for #138, #180/181, #202, #212, #213) and every single time has
-logged it as `[unsure]`, "harness-level... not fixable via a PR here," concluding the fix is
-"retry the identical command" or "hand the merge command to the owner." That conclusion is stale:
-Anthropic's docs describe a supported, permanent fix, and — notably — this project has *already
-found and applied* the identical class of fix for a different recurring block. `DECISIONS.md`
-2026-09-14 records exactly this: the deploy classifier ("Production Deploy") was silenced by adding
-`Bash(bash scripts/deploy.sh)` to `.claude/settings.local.json`'s `permissions.allow` list — a
-narrow Bash allow-rule, which [Configure auto mode](https://code.claude.com/docs/en/auto-mode-config)
-confirms "stay[s] in effect in auto mode" and is "resolved before the classifier runs." The same
-mechanism (`Bash(gh pr merge *)` in the same gitignored, machine-local file) would very likely
-close the merge block the same way, but it was never tried — the deploy fix and the first `gh pr
-merge` block sit one paragraph apart in the same `DECISIONS.md` entry, and the connection was never
-made.
+Precise sourcing for the count above (all on the home branch — see the note at the top of this
+report): a dispatched subagent's `gh pr merge` for #138 was blocked outright, forcing the
+controller to merge PR #180 itself instead (`IMPROVEMENTS.md` line 38); the controller's own
+`gh pr merge` on PR #181 was denied once with a bare "blocked by classifier," then succeeded on an
+identical retry (`IMPROVEMENTS.md` line 41, `HISTORY.md` ~848-856); the first PR opened in the
+2026-09-22 tick (#202, docs-only) was denied under "Merge Without Review" and handed to the owner,
+while the very next PR (#203) merged clean through the identical call moments later (`HISTORY.md`
+~319-327); PR #212 hit the same "Merge Without Review" denial and the owner merged it personally
+(`HISTORY.md` ~140-143); PR #213 hit "the exact same 'Merge Without Review' classifier block that
+blocked #202 and #212" — the project's own tick log calls it "the 3rd occurrence in one session"
+and records the owner naming the friction directly: "this app was meant to be developed by you
+fully autonomous, i dont get this type of problem having me to run commands for you" (`HISTORY.md`
+~216-220). A structurally identical block on a plain `Edit` to `DECISIONS.md` (2026-09-14,
+`IMPROVEMENTS.md` line 47) shows the same classifier mechanism firing on a non-merge, non-
+destructive action too. None of these were permanent failures — each was worked around in the
+moment, by retry or owner hand-off, which is exactly why the underlying, fixable cause was never
+addressed: the cost showed up as small recurring friction, never as a hard blocker worth stopping
+to diagnose.
+
+Every occurrence above has been logged as `[unsure]`, "harness-level... not fixable via a PR here,"
+concluding the fix is "retry the identical command" or "hand the merge command to the owner." That
+conclusion is stale: Anthropic's docs describe a supported, permanent fix, and — notably — this
+project has *already found and applied* the identical class of fix for a different recurring block.
+`DECISIONS.md` 2026-09-14 records exactly this: the deploy classifier ("Production Deploy") was
+silenced by adding `Bash(bash scripts/deploy.sh)` to `.claude/settings.local.json`'s
+`permissions.allow` list — a narrow Bash allow-rule, which
+[Configure auto mode](https://code.claude.com/docs/en/auto-mode-config) confirms "stay[s] in effect
+in auto mode" and is "resolved before the classifier runs." The same mechanism
+(`Bash(gh pr merge *)` in the same gitignored, machine-local file) would very likely close the
+merge block the same way, but it was never tried — the deploy fix and the #138/#181 merge blocks
+were logged within a day of each other, and the connection was never made.
 
 **Verdict: this is a real, currently-misdiagnosed gap, not a deliberate divergence.** The project's
 merge-without-live-approval *policy* is reasonable and well-reasoned for a single-owner project
@@ -326,7 +362,8 @@ small enough to be its own single task.
    `"Bash(gh pr merge *)"` to `permissions.allow` in `.claude/settings.local.json` (the same
    gitignored, machine-local file, same mechanism already proven for
    `Bash(bash scripts/deploy.sh)` per `DECISIONS.md` 2026-09-14). This is the single most-repeated
-   piece of process friction in the project's entire history (at least 8 logged occurrences) and
+   piece of process friction in the project's entire history (at least 5 merge denials plus a
+   6th on a plain `Edit` by the same mechanism — see §5 for exact citations on the home branch) and
    has a documented, supported fix — see [Configure auto mode](https://code.claude.com/docs/en/auto-mode-config#add-a-human-checkpoint)
    and [Choose a permission mode](https://code.claude.com/docs/en/permission-modes#when-auto-mode-falls-back).
    If a narrow Bash rule turns out not to fully suppress the classifier for this command shape,
