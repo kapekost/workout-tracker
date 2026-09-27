@@ -7,6 +7,7 @@ from contextlib import contextmanager
 import sqlite3, os, json, glob, secrets, hashlib, time, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone
+import plan_seed
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"]
@@ -79,6 +80,30 @@ def db():
 
 def _column_exists(conn, table, col):
     return col in [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+def _seed_plan_for_profile(conn, profile_id):
+    """Insert plan_seed.DEFAULT_PLAN's days+exercises for profile_id.
+
+    Shared by the v6->v7 migration's one-time backfill (every profile that
+    had zero plan_days rows at migration time) and create_profile (every
+    profile created from here on) — one insert loop, not two copies of it
+    (spec §1.3 / plan Task 1a Step 3).
+    """
+    for day_pos, day in enumerate(plan_seed.DEFAULT_PLAN):
+        day_id = conn.execute(
+            "INSERT INTO plan_days (profile_id, day_key, name, tag, icon, sort_order) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (profile_id, day["day_key"], day["name"], day["tag"], day["icon"], day_pos)
+        ).lastrowid
+        for ex_pos, ex in enumerate(day["exercises"]):
+            conn.execute(
+                "INSERT INTO plan_exercises (plan_day_id, exercise_id, name, alt, sets, "
+                "reps_low, reps_high, bodyweight, muscles_json, yt_url, cues_json, sort_order) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (day_id, ex["exercise_id"], ex["name"], ex["alt"], ex["sets"],
+                 ex["reps_low"], ex["reps_high"], int(ex["bodyweight"]),
+                 json.dumps(ex["muscles"]), ex["yt_url"], json.dumps(ex["cues"]), ex_pos)
+            )
 
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -219,6 +244,57 @@ def _migrate(conn):
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile ON auth_sessions(profile_id)")
         conn.execute("PRAGMA user_version = 6")
+    # --- v6 -> v7: per-profile plan (AI plan updates Phase 1) ---
+    # plan_days/plan_exercises deliberately do NOT join TABLES/TABLE_INTRODUCED_AT
+    # this phase — see spec §1.1: a plan is now real user data worth backing up,
+    # a real gap, but deliberately deferred to Phase 4's own review, the same way
+    # auth_tokens/auth_sessions opted out at v6 for their own stated reason.
+    if v < 7:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_days (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id  INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                day_key     TEXT NOT NULL,
+                name        TEXT NOT NULL,
+                tag         TEXT,
+                icon        TEXT,
+                sort_order  INTEGER NOT NULL,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(profile_id, day_key)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_exercises (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_day_id   INTEGER NOT NULL REFERENCES plan_days(id) ON DELETE CASCADE,
+                exercise_id   TEXT NOT NULL,
+                name          TEXT NOT NULL,
+                alt           TEXT,
+                sets          INTEGER NOT NULL,
+                reps_low      INTEGER NOT NULL,
+                reps_high     INTEGER NOT NULL,
+                bodyweight    INTEGER NOT NULL DEFAULT 0,
+                muscles_json  TEXT NOT NULL DEFAULT '[]',
+                yt_url        TEXT,
+                cues_json     TEXT NOT NULL DEFAULT '[]',
+                sort_order    INTEGER NOT NULL,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(plan_day_id, exercise_id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_plan_exercises_day ON plan_exercises(plan_day_id)")
+        # Backfill DEFAULT_PLAN for every profile that has zero plan_days rows
+        # yet (today: just the seeded kapekost profile) — computed before any
+        # insert in this run, so re-running init() against an already-migrated
+        # DB is a no-op, matching every other _migrate block's idempotency.
+        unseeded = conn.execute(
+            "SELECT id FROM profiles WHERE id NOT IN (SELECT DISTINCT profile_id FROM plan_days)"
+        ).fetchall()
+        for row in unseeded:
+            _seed_plan_for_profile(conn, row["id"])
+        conn.execute("PRAGMA user_version = 7")
 
 def init():
     with db() as conn:
@@ -254,10 +330,12 @@ init()
 
 # --- Models ---
 class SessionIn(BaseModel):
-    # Must match the PLAN/CYCLE keys in frontend/src/data/workoutPlan.js —
-    # adding or renaming a day there requires updating this Literal in the
-    # same deploy, or Start Workout 422s.
-    workout_day: Literal["upper_a", "lower_a", "upper_b", "lower_b"]
+    # Was a hardcoded Literal["upper_a", "lower_a", "upper_b", "lower_b"] —
+    # capping every profile at the same 4 day keys forever now that the plan
+    # is per-profile DB data (AI plan updates Phase 1, spec §1.5). Validated
+    # in create_session against the acting profile's own plan_days.day_key
+    # set instead (400, not a Pydantic 422, on an unknown key).
+    workout_day: str = Field(max_length=64)
 
 class SetIn(BaseModel):
     exercise_id: str = Field(max_length=64)
@@ -772,6 +850,10 @@ def create_profile(body: ProfileIn, admin: dict = Depends(require_admin)):
         profile_id = conn.execute(
             "INSERT INTO profiles (username, email, role) VALUES (?, ?, 'member')",
             (body.username, body.email)).lastrowid
+        # Real, immediately usable starter plan — not an empty one — so it can
+        # be customized (by hand today; later, by pasting an AI update) rather
+        # than built from scratch (spec §1.3).
+        _seed_plan_for_profile(conn, profile_id)
         raw = mint_token(conn, profile_id, "invite")
         conn.commit()
     # Sent inline, not in the background: this caller is an authenticated admin
@@ -832,9 +914,56 @@ def get_current_profile(profile: dict = Depends(current_profile)):
     # of them is a frontend change first.
     return {k: profile[k] for k in ("id", "username", "role", "icon")}
 
+@app.get("/api/plan")
+def get_plan(profile_id: int = Depends(acting_profile_id)):
+    """The acting profile's plan, shaped to match workoutPlan.js's existing
+    PLAN/CYCLE objects almost exactly (spec §1.5) — a deliberate compatibility
+    shape, so the frontend usePlan() hook (Task 1b) is a thin reshape, not a
+    rewrite of every consumer's own logic. Note the wire field for an exercise's
+    id is "id", not "exercise_id" — matching workoutPlan.js's own exercise
+    objects.
+    """
+    with db() as conn:
+        days = conn.execute(
+            "SELECT * FROM plan_days WHERE profile_id = ? ORDER BY sort_order",
+            (profile_id,)).fetchall()
+        plan = {}
+        cycle = []
+        for day in days:
+            exercises = conn.execute(
+                "SELECT * FROM plan_exercises WHERE plan_day_id = ? ORDER BY sort_order",
+                (day["id"],)).fetchall()
+            plan[day["day_key"]] = {
+                "id": day["day_key"],
+                "name": day["name"],
+                "tag": day["tag"],
+                "icon": day["icon"],
+                "exercises": [
+                    {
+                        "id": ex["exercise_id"],
+                        "name": ex["name"],
+                        "alt": ex["alt"],
+                        "sets": ex["sets"],
+                        "repsLow": ex["reps_low"],
+                        "repsHigh": ex["reps_high"],
+                        "bodyweight": bool(ex["bodyweight"]),
+                        "muscles": json.loads(ex["muscles_json"]),
+                        "ytUrl": ex["yt_url"],
+                        "cues": json.loads(ex["cues_json"]),
+                    }
+                    for ex in exercises
+                ],
+            }
+            cycle.append(day["day_key"])
+        return {"plan": plan, "cycle": cycle}
+
 @app.post("/api/sessions")
 def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
+        if not conn.execute(
+            "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
+            (profile_id, s.workout_day)).fetchone():
+            raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
         cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
                            (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()
@@ -1346,6 +1475,14 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
             if not set(row.keys()) <= valid_sessions:
                 raise ValueError("unknown column in sessions row")
             SessionIn.model_validate(row)  # #141 fix 1
+            # workout_day is a validated str, not a Literal, since AI plan
+            # updates Phase 1 (spec §1.5) — model_validate above no longer
+            # rejects an unknown day key on its own, so check it here the same
+            # way create_session does, against the caller's own plan_days.
+            if not conn.execute(
+                "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
+                (profile_id, row.get("workout_day"))).fetchone():
+                raise ValueError(f"unknown workout day '{row.get('workout_day')}'")
             old_id = row.get("id")
             new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
             new_row["profile_id"] = profile_id
