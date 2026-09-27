@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { IconHome, IconCheck, IconTrash, IconPencil, IconClock } from './index'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower } from './index'
 
 describe('icon components', () => {
   it('renders an svg at the default 20px size, colored via currentColor', () => {
@@ -54,6 +54,48 @@ describe('icon components', () => {
     it('is inline-level so it sits beside adjacent text without a flex wrapper', () => {
       const img = render(<IconClock />).container.querySelector('img')
       expect(img.style.display).toBe('inline-block')
+    })
+  })
+
+  // 2026-09-27 mobile icon audit: a source PNG wider than it is tall (aspect
+  // ratio > 1) loses height under object-fit: contain in a size x size box --
+  // the box's own height is capped to whatever's left after the wide image
+  // fills the width. Next to a same-size SVG (which fills its full square)
+  // or a taller-than-wide PNG (which already renders at full box height),
+  // that reads as visibly smaller/weaker at the identical size prop. Real
+  // instances found live: IconArrowTrendingUp/IconClipboardList next to
+  // IconHome in NavBar.jsx, and IconDayUpper next to IconDayLower in
+  // DayIcon.jsx's History-list rows. Fixed with a paint-only
+  // `transform: scale()` that restores full height without changing the
+  // element's own width/height attributes or its layout footprint anywhere
+  // it's used -- these three assertions guard that fix.
+  describe('aspect-corrected wide PNG icons', () => {
+    it('IconArrowTrendingUp keeps its size x size box but scales its content up to full height', () => {
+      const img = render(<IconArrowTrendingUp size={22} />).container.querySelector('img')
+      expect(img.getAttribute('width')).toBe('22')
+      expect(img.getAttribute('height')).toBe('22')
+      expect(img.style.transform).toBe(`scale(${164 / 114})`)
+    })
+    it('IconClipboardList keeps its size x size box but scales its content up to full height', () => {
+      const img = render(<IconClipboardList size={22} />).container.querySelector('img')
+      expect(img.getAttribute('width')).toBe('22')
+      expect(img.getAttribute('height')).toBe('22')
+      expect(img.style.transform).toBe(`scale(${164 / 106})`)
+    })
+    it('IconDayUpper keeps its size x size box but scales its content up to full height', () => {
+      const img = render(<IconDayUpper size={20} />).container.querySelector('img')
+      expect(img.getAttribute('width')).toBe('20')
+      expect(img.getAttribute('height')).toBe('20')
+      expect(img.style.transform).toBe(`scale(${105 / 80})`)
+    })
+    // IconDayLower's source is taller than wide (71x81) so it already fills
+    // its full box height under plain object-fit: contain -- no correction
+    // needed or applied. This guards against a future edit accidentally
+    // adding one, which would overflow it past IconDayUpper's now-matched
+    // height instead of keeping the two visually level.
+    it('IconDayLower is left uncorrected -- its source already fills full height', () => {
+      const img = render(<IconDayLower size={20} />).container.querySelector('img')
+      expect(img.style.transform).toBe('')
     })
   })
 })
