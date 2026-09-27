@@ -54,7 +54,10 @@ export default function NavBar() {
                 cursor: 'pointer', padding: '4px 0', minHeight: 48
               }}
             >
-              <tab.Icon size={22} color={isActive ? colors.accent : colors.muted} />
+              {/* color drives the SVG icons (Home); opacity dims the PNG icons
+                  (Progress, History) for the inactive state, since a baked
+                  raster can't be recolored via currentColor -- see #211. */}
+              <tab.Icon size={22} color={isActive ? colors.accent : colors.muted} opacity={isActive ? 1 : 0.5} />
               <Eyebrow color={isActive ? colors.accent : colors.muted} style={{ fontWeight: type.weight.semibold }}>
                 {tab.label}
               </Eyebrow>

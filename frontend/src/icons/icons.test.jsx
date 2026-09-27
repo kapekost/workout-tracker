@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { IconHome, IconCheck, IconTrash, IconBarbell } from './index'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock } from './index'
 
 describe('icon components', () => {
   it('renders an svg at the default 20px size, colored via currentColor', () => {
@@ -21,6 +21,28 @@ describe('icon components', () => {
     expect(svg.getAttribute('width')).toBe('16')
   })
   it('spreads extra props onto the root svg', () => {
-    expect(render(<IconBarbell className="my-class" />).container.querySelector('svg').getAttribute('class')).toBe('my-class')
+    expect(render(<IconPencil className="my-class" />).container.querySelector('svg').getAttribute('class')).toBe('my-class')
+  })
+
+  // A handful of icons (Clock, History/Clipboard, day badges, the barbell app
+  // mark) are baked PNGs instead of SVGs -- see #211: their opacity-accent
+  // layers were invisible when drawn over an identically-colored base, a bug
+  // that only a real two-tone raster (not a single-currentColor glyph) fixes.
+  describe('PNG-backed icons', () => {
+    it('renders an img at the requested size, aria-hidden, non-recolorable via currentColor', () => {
+      const { container } = render(<IconClock size={24} />)
+      const img = container.querySelector('img')
+      expect(img.getAttribute('width')).toBe('24')
+      expect(img.getAttribute('height')).toBe('24')
+      expect(img.getAttribute('aria-hidden')).toBe('true')
+    })
+    it('uses opacity, not color, for its dimmed/inactive state', () => {
+      const img = render(<IconClock opacity={0.5} />).container.querySelector('img')
+      expect(img.style.opacity).toBe('0.5')
+    })
+    it('spreads extra props onto the root img', () => {
+      const img = render(<IconClock className="my-class" />).container.querySelector('img')
+      expect(img.getAttribute('class')).toBe('my-class')
+    })
   })
 })
