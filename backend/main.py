@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from contextlib import contextmanager
 import sqlite3, os, json, glob, secrets, hashlib, time, math, urllib.request, urllib.error
 import bcrypt
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"]
@@ -1091,6 +1091,8 @@ def suggest_progression(last_sets, reps_low, reps_high, days_since,
 
 @app.get("/api/exercises/{exercise_id}/last")
 def last_performance(exercise_id: str, exclude_session: int | None = None,
+                     reps_low: int | None = None, reps_high: int | None = None,
+                     bodyweight: bool = False,
                      profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         row = conn.execute(
@@ -1105,7 +1107,15 @@ def last_performance(exercise_id: str, exclude_session: int | None = None,
         sets = conn.execute(
             "SELECT set_number, weight_kg, reps FROM sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number",
             (row["id"], exercise_id)).fetchall()
-        return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
+        result = {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
+        # Optional enrichment (spec §3.2): only when the caller sends both
+        # reps bounds. Omitting them (an old cached frontend, a rolling
+        # deploy) leaves the response exactly as it was before this feature.
+        if reps_low is not None and reps_high is not None:
+            days_since = (date.today() - date.fromisoformat(row["date"])).days
+            result["suggestion"] = suggest_progression(
+                result["sets"], reps_low, reps_high, days_since, bodyweight=bodyweight)
+        return result
 
 @app.get("/api/exercises/recency")
 def exercises_recency(profile_id: int = Depends(acting_profile_id)):

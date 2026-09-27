@@ -6,7 +6,31 @@ No DB needed for any of these — they exercise plain function calls on `main`.
 The `mainmod` fixture (from conftest.py) is used only because importing `main`
 directly runs `init()` against DB_PATH at module load time; it gives every
 test its own throwaway temp database so that import is safe.
+
+Task 2 adds endpoint-level tests below for GET /api/exercises/{id}/last, which
+do need the DB/TestClient — they reuse the `_session` helper from
+test_recency.py, copied here rather than imported (this suite's own documented
+precedent for small per-file test helpers; see plan Task 2).
 """
+
+from datetime import date, timedelta
+
+
+def _session(client, mainmod, day, exercises, completed=True, on_date=None):
+    """exercises: list of (exercise_id, exercise_name, n_sets, weight, reps)"""
+    sid = client.post("/api/sessions", json={"workout_day": day}).json()["id"]
+    for ex_id, ex_name, n, w, reps in exercises:
+        for i in range(n):
+            client.post(f"/api/sessions/{sid}/sets", json={
+                "exercise_id": ex_id, "exercise_name": ex_name,
+                "set_number": i + 1, "reps": reps, "weight_kg": w})
+    if completed:
+        client.patch(f"/api/sessions/{sid}", json={"completed": True})
+    if on_date:
+        with mainmod.db() as conn:
+            conn.execute("UPDATE sessions SET date = ? WHERE id = ?", (on_date, sid))
+            conn.commit()
+    return sid
 
 
 def _sets(weight, reps_list):
@@ -106,3 +130,48 @@ def test_warmup_reps_capped_at_fifteen(mainmod):
     result = mainmod.suggest_progression(
         last_sets, reps_low=10, reps_high=15, days_since=3)
     assert result["warmup"]["reps"] == 15
+
+
+# --- Task 2: GET /api/exercises/{exercise_id}/last enrichment ---
+# spec §3.2; plan Task 2 Step 2.
+
+def test_last_endpoint_includes_suggestion_when_reps_params_given(client, mainmod):
+    on_date = (date.today() - timedelta(days=3)).isoformat()
+    _session(client, mainmod, "upper_a",
+             [("bench_press", "Bench Press", 3, 80.0, 8)], on_date=on_date)
+
+    body = client.get("/api/exercises/bench_press/last",
+                       params={"reps_low": 6, "reps_high": 8}).json()
+
+    # 80kg x [8,8,8], reps_low=6/reps_high=8, days_since=3 -> clean + recent,
+    # same math as test_recent_clean_hit_progresses above.
+    assert body["suggestion"] == {
+        "weight_kg": 82.5,
+        "reps": 6,
+        "warmup": {"weight_kg": 42.5, "reps": 10},
+        "hit_status": "clean",
+        "layoff_band": "recent",
+    }
+
+
+def test_last_endpoint_omits_suggestion_when_reps_params_absent(client, mainmod):
+    on_date = (date.today() - timedelta(days=3)).isoformat()
+    sid = _session(client, mainmod, "upper_a",
+                   [("bench_press", "Bench Press", 3, 80.0, 8)], on_date=on_date)
+
+    body = client.get("/api/exercises/bench_press/last").json()
+
+    # Backward-compat: omitting reps_low/reps_high means no `suggestion` key
+    # at all, and the response is byte-for-byte what today's endpoint returns.
+    assert set(body.keys()) == {"session_id", "date", "sets"}
+    assert body["session_id"] == sid
+    assert body["date"] == on_date
+    assert body["sets"] == [
+        {"set_number": i + 1, "weight_kg": 80.0, "reps": 8} for i in range(3)
+    ]
+
+
+def test_last_endpoint_returns_null_unchanged_with_no_history(client):
+    resp = client.get("/api/exercises/bench_press/last",
+                       params={"reps_low": 6, "reps_high": 8})
+    assert resp.json() is None
