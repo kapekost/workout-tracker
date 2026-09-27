@@ -8,7 +8,7 @@ export default function IconClipboardDocumentList({ size = 20, opacity = 1, colo
       height={size}
       alt=""
       aria-hidden="true"
-      style={{ opacity, objectFit: 'contain', display: 'block', ...style }}
+      style={{ opacity, objectFit: 'contain', display: 'inline-block', ...style }}
       {...props}
     />
   )
