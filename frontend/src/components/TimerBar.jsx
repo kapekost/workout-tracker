@@ -3,7 +3,7 @@ import { remainingSeconds, elapsedSeconds, formatClock } from '../lib/timer'
 import { playBeep } from '../lib/sound'
 import { track } from '../lib/analytics'
 import { colors, type } from '../lib/theme'
-import { IconClock, IconBolt, IconMinus, IconPlus } from '../icons'
+import { IconClock, IconBolt, IconMinus, IconPlus, IconPlay, IconPause } from '../icons'
 
 export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld, paused, pausedRem, onTogglePause, hasLoggedSets = true }) {
   const [now, setNow] = useState(Date.now())
@@ -64,7 +64,7 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
           </div>
         </div>
         <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => { track('rest_adjust', { delta: 30 }); onAddRest(30) }}><IconPlus size={14} />30</button>
-        <button className="btn-secondary timer-pill" disabled={!resting} aria-label={paused ? 'resume rest timer' : 'pause rest timer'} onClick={onTogglePause}>{paused ? '▶' : '⏸'}</button>
+        <button className="btn-secondary timer-pill" disabled={!resting} aria-label={paused ? 'resume rest timer' : 'pause rest timer'} onClick={onTogglePause}>{paused ? <IconPlay size={14} /> : <IconPause size={14} />}</button>
         <button className="btn-secondary timer-pill" disabled={!resting} aria-label="skip rest" onClick={() => { track('rest_skip'); onSkipRest() }}>Skip</button>
       </div>
     </div>

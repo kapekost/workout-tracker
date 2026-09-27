@@ -9,7 +9,7 @@ import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
-import { IconCheck, IconTrash, IconArrowLeft } from '../icons'
+import { IconCheck, IconTrash, IconArrowLeft, IconPlus } from '../icons'
 
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
@@ -124,7 +124,7 @@ export default function PersonalBests() {
         isOpen={addOpen}
         onToggle={() => setAddOpen(o => !o)}
         style={{ marginTop: 14 }}
-        header={<Eyebrow color={colors.accent}>+ Add</Eyebrow>}
+        header={<Eyebrow color={colors.accent}><IconPlus size={10} /> Add</Eyebrow>}
       >
         <form onSubmit={submit} className="personal-bests-form">
           <label style={labelStyle}>Exercise</label>
@@ -158,7 +158,7 @@ export default function PersonalBests() {
           <input type="text" value={note} onChange={e => setNote(e.target.value)}
             placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : '+ Add Personal Best'}
+            {saving ? 'Saving…' : <><IconPlus size={16} /> Add Personal Best</>}
           </button>
         </form>
       </DisclosureRow>

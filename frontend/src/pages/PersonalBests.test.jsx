@@ -40,8 +40,8 @@ describe('PersonalBests page', () => {
     })
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    // The form lives behind the "+ Add" disclosure (item 19) — open it first.
-    fireEvent.click(screen.getByRole('button', { name: /^\+ Add(?! Personal)/ }))
+    // The form lives behind the "Add" disclosure (item 19) — open it first.
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     // Verify the full six-field form-to-payload mapping, not just "was called" —
     // the default form state (first exercise alphabetically, 20kg, 1 rep,
@@ -91,7 +91,7 @@ describe('PersonalBests page', () => {
     api.post.mockRejectedValue(new Error('API POST /personal-bests → 409'))
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    fireEvent.click(screen.getByRole('button', { name: /^\+ Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     await screen.findByText(/already logged this exact PB/i)
   })
@@ -101,7 +101,7 @@ describe('PersonalBests page', () => {
     api.post.mockRejectedValue(new Error('API POST /personal-bests → 500'))
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    fireEvent.click(screen.getByRole('button', { name: /^\+ Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     await screen.findByText(/failed to save — check the values/i)
   })
@@ -110,7 +110,7 @@ describe('PersonalBests page', () => {
 // 2026-09-06 UI review, item 19: the add form used to sit above the list,
 // competing with it for attention on every visit even though this page is
 // visited to read PBs far more often than to add one. It now lives behind a
-// "+ Add" disclosure, closed by default, reusing DisclosureRow.
+// "Add" disclosure, closed by default, reusing DisclosureRow.
 describe('PersonalBests add-form disclosure — item 19', () => {
   it('starts closed, with the list visible and the form hidden', async () => {
     api.get.mockResolvedValue([
@@ -119,7 +119,7 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     ])
     renderPage()
     await screen.findByText('Bench Press')
-    const toggle = screen.getByRole('button', { name: /^\+ Add(?! Personal)/ })
+    const toggle = screen.getByRole('button', { name: /^Add(?! Personal)/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     // The body (including the "Exercise" field label) only renders while open.
     expect(screen.queryByText('Exercise')).not.toBeInTheDocument()
@@ -132,8 +132,8 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     ])
     renderPage()
     await screen.findByText('Bench Press')
-    fireEvent.click(screen.getByRole('button', { name: /^\+ Add(?! Personal)/ }))
-    expect(screen.getByRole('button', { name: /^\+ Add(?! Personal)/ })).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    expect(screen.getByRole('button', { name: /^Add(?! Personal)/ })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: /add personal best/i })).toBeInTheDocument()
     // The list is still rendered and precedes the disclosure in document
     // order. "Bench Press" now matches twice once the form is open (the
@@ -148,6 +148,6 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     api.get.mockResolvedValue([])
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    expect(screen.getByRole('button', { name: /^\+ Add(?! Personal)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Add(?! Personal)/ })).toBeInTheDocument()
   })
 })
