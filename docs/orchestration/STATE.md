@@ -16,45 +16,55 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** New tick, same day as the #152/#207/#208/#210/#212/#213/#214 icon-system work
-  archived in `HISTORY.md` below. Direct owner dispatch (not a queued Issue): a mobile icon
-  alignment/sizing audit of the 7 PNG-backed icons. Found and fixed a real, reproduced problem — 3 of
-  the 7 icons read visibly smaller/weaker than same-size comparators due to `object-fit: contain`
-  letterboxing a wide source image — via a paint-only `transform: scale()` correction, scoped to only
-  the 3 confirmed-bad instances. 420/420 tests, clean build, independent code review (`sonnet`)
-  verdict: ship. Full writeup below in `HISTORY.md`.
-- **PR #217 merged and deployed.** First `gh pr merge` attempt was denied by the classifier ("Merge
-  Without Review", same pattern as #202/#212/#213); the owner's new `autoMode.allow` rule for this
-  repo (from #215's best-practices audit) went live moments later and a fresh reviews-check + retry
-  went through cleanly — no fight, no workaround needed this time. No Codex review ever landed (its
-  own bot comment states its review quota is exhausted for this PR). Deployed `b52ef1b`, verified two
-  ways (`scripts/deploy.sh`'s own check + an independent direct `curl /api/health`), Home Assistant
-  and Tailscale confirmed still healthy on the shared Pi. `AGENTS.local.md` Current-status updated.
+- **Current focus:** Same-day session continuing the #152/#207/#208/#210/#212/#213/#214 icon-system
+  work archived in `HISTORY.md`. Two things shipped and deployed this tick, full writeups below:
+  1. **Mobile icon audit** (direct owner dispatch, not a queued Issue) — 3 of 7 PNG icons were
+     letterboxed by `object-fit: contain`, fixed with a paint-only `transform: scale()`. PR #217.
+  2. **#209** (icon glyph sweep) — 3 new icons authored in the current house style (not Heroicons,
+     despite the Issue's stale text — confirmed via git history the style moved on in #212) plus 5
+     call-site swaps and a real test-coverage fix. PR #226.
+- **A real production incident happened deploying #209, found and fixed same tick**: `main` had also
+  picked up an unrelated concurrent PR (#224, a schema migration, v6→v7) from another session sharing
+  this Claude-Session identity. Deploying both together crash-looped the container — #224 added
+  `import plan_seed` to `main.py` but never updated the Dockerfile's explicit `COPY` list (repeat of
+  the historical #127 failure shape; CI never builds the Dockerfile). Confirmed real downtime (`curl`
+  timeout), rolled back immediately to `b52ef1b` (~1-2 min total downtime), confirmed via
+  `PRAGMA user_version` the migration never ran so the DB was untouched, fixed the Dockerfile, verified
+  the fix for real (built + ran the image locally before shipping), shipped as its own PR (#227),
+  redeployed with a fresh pre-deploy backup snapshot taken first. **Production is now `8f293b7`**,
+  verified three ways including `PRAGMA integrity_check` directly on the Pi. Full timeline in
+  `HISTORY.md` and `AGENTS.local.md`'s Current-status / dated action items.
 - **Also found, reported to the owner directly, not yet actioned:** a stray unmerged remote branch
   `claude/210-icon-redesign` survives on GitHub despite an earlier tick recording it as deleted — see
   `HISTORY.md` for detail. `git push origin --delete claude/210-icon-redesign` is the cleanup command
   if the owner wants it gone; left alone per GUARDRAILS (remote branch deletion needs fresh human
   approval).
-- **Now executing #209** (claimed below) — ready, `effort:S`, already triaged, premise spot-checked
-  against current `main` and confirmed still valid. `#157` stays skipped (destructive/unapproved — no
-  standing approval covers it, confirmed against `DECISIONS.md`'s only standing-approval record, which
-  names only #105/#86/#87) and `#201` stays skipped (React Native, owner-confirmed intentional lowest
-  rank). Note: #209's body says the 3 new icons should come "from Heroicons" — that's stale, predating
-  this same day's #212 icon-system rewrite off Heroicons onto a custom flat-fill style (see
-  `IconPlus`/`IconCheck`/`IconXMark`); authoring the 3 new icons (play/pause/refresh) in that current
-  house style instead, not literal Heroicons paths.
+- **`#157`/`#201` stay skipped** (destructive/unapproved — confirmed no standing approval covers
+  #157 against `DECISIONS.md`'s only record, which names just #105/#86/#87; #201 is React Native,
+  owner-confirmed intentional lowest rank). Ready queue is otherwise clear of same-day work — next
+  tick should re-run the full reconcile (step 2) fresh rather than trust this line, since #196/#197
+  (`intake`) and whatever #224's own session leaves behind haven't been re-checked since this tick
+  started.
 - **Environment note:** two worktrees not created by this session are present on this machine
-  (`~/dev/wt-ai-plan-updates` branch `claude/ai-plan-updates`, `~/dev/wt-dynamic-progression` branch
-  `claude/dynamic-progression`) — likely from other idle cloud sessions on this same repo. Not touched;
-  noted here so a future tick doesn't mistake them for its own stray state.
+  (`~/dev/wt-ai-plan-updates`, `~/dev/wt-dynamic-progression`) — other concurrent sessions on this
+  same repo, confirmed real (one of them shipped #224 mid-tick). Not touched; noted so a future tick
+  doesn't mistake them for its own stray state, and doesn't assume this repo is single-session.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#209** — claimed 2026-09-27T14:19:49Z, live session.
+(no branches in flight — #209 shipped and deployed this tick, claim cleared)
 
 ## Needs owner
+- **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
+  twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
+  CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.
+  Fixed the specific instance (PR #227) and logged an `IMPROVEMENTS.md` `[local]` entry with a fix
+  candidate (a CI step that actually builds the Dockerfile, or a static check that every top-level
+  `import` in `main.py` resolves to a file the `COPY` lines include). Not built this tick — new CI
+  tooling, outside this tick's remit — owner's call whether it's worth building before a third
+  incident.
 - **Nothing stops a stray commit landing on the orchestration home branch's local checkout.**
   2026-09-27: found a real commit (owner's own git identity, `kapekost@Mac.mynet`) sitting on this
   machine's local `claude/workout-tracker-backlog-bu9qnw` tip, never pushed — landed there because

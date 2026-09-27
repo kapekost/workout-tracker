@@ -9,6 +9,76 @@
 
 ---
 
+## 2026-09-27 — #209 shipped; deploy crash-looped in production, rolled back, root-caused and fixed
+
+**#209 (icon glyph sweep) shipped clean.** Authored 3 new icon components in this repo's *current*
+house style (fill + opacity-overlay like `IconPlus`; stroke duotone like `IconCheck`) rather than
+Heroicons as the Issue's own text says — confirmed via `git log` that instruction predates PR #212's
+rewrite off Heroicons onto this custom style before making the call. `IconPlay`/`IconPause` replace
+`TimerBar.jsx`'s pause/resume glyphs and `ExerciseDetails.jsx`'s video-play glyph; `IconRefresh`
+replaces `VersionBadge.jsx`'s check-for-update glyph; existing `IconPlus` replaces the remaining
+plain-ASCII `+`/`＋` sites in `Workout.jsx` and `PersonalBests.jsx`. Also closed the `DayIcon.test.jsx`
+coverage gap #209 named (the lower-body test only ever asserted the accent-dot color, never the
+actual body-shape asset — added a real regression guard, verified against `workoutPlan.js`'s `PLAN`
+data that `upper_a`/`lower_a` genuinely resolve to different icons). `PersonalBests.test.jsx` needed 7
+regex updates since a toggle button's accessible name no longer starts with a literal `+`. 423/423
+tests, clean build, verified live in-browser at all 5 call sites. Independent code review (`sonnet`)
+hand-verified the 3 new icons' SVG path geometry by solving the arc-center equations for
+`IconRefresh` (no rasterizer available in its sandbox) and confirmed a symmetric, deliberate two-arc
+glyph — verdict: ship as-is, no follow-ups. PR #226 merged clean (CI green, no Codex review — its own
+bot comment stated its quota is exhausted for this PR — `autoMode.allow` let the merge through with
+no classifier block).
+
+**Deploying it crash-looped production.** `main` had also picked up an unrelated concurrent PR (#224,
+a per-profile DB-backed workout-plan schema migration, v6→v7, `plan_days`/`plan_exercises` tables) —
+not this session's work, landed by another session sharing this same Claude-Session identity while
+this tick was in progress (see the "environment note" in the prior entry below about other worktrees
+on this machine not created here). Deploying `main` HEAD (both PRs together) crashed the container in
+a restart loop: `docker logs` showed `ModuleNotFoundError: No module named 'plan_seed'`. #224 added
+`import plan_seed` to `main.py` but never updated the Dockerfile's explicit (deliberately
+non-wildcard) `COPY` list — the exact same failure shape as the historical #127 incident
+(`bootstrap_owner.py` missing from the image). CI never builds the Dockerfile, so this only ever
+surfaces as a real deploy crash, never a red check.
+
+**Confirmed the outage was real before doing anything else**: `docker ps` showed the container stuck
+in a short-lived restart loop, and a direct `curl` to the site timed out (not just a slow health
+check). **Rolled back immediately** to the last known-good image (`b52ef1b`, already loaded on the
+Pi) to restore service — verified `/api/health` green again within about a minute. Then, not before,
+diagnosed further: confirmed via `PRAGMA user_version` inside the (now-rolled-back) container that
+the v6→v7 migration never actually ran — the crash happens at bare Python import time, before any DB
+code executes — so the rollback's database was untouched, no restore-from-snapshot needed.
+
+**Fixed the actual bug** (`COPY backend/main.py backend/plan_seed.py .`) and, per this project's own
+standing lesson about trusting a diff without running it, verified the fix for real rather than just
+reviewing it: built the image locally, ran the container, confirmed clean startup, and confirmed the
+v6→v7 migration completes correctly once the container can actually start (`plan_days`/
+`plan_exercises` created, `user_version` → 7). 254/254 backend tests passing. Shipped as its own PR
+(#227, CI green, no review landing, merged clean via `autoMode.allow`) rather than folding into #209's
+already-merged PR — keeps the incident's own history reviewable on its own terms.
+
+**Redeployed with the fix.** Took a fresh `scripts/backup.sh` snapshot on the Pi first, since this
+second deploy *did* carry the schema migration this time (`workout-20260927-194832.db`, local +
+off-site both `ok`). Verified three ways: `scripts/deploy.sh`'s own health check (`version: 8f293b7`),
+a separate direct `curl /api/health`, and `PRAGMA integrity_check` + a `plan_days` row count (4, correct
+backfill) run directly inside the container on the Pi. Opened the real production login page in a
+browser afterward as a final sanity check that the app itself renders, not just the health endpoint —
+did not log in (no real credentials on hand, and GUARDRAILS forbids entering them). Home Assistant and
+Tailscale both confirmed still healthy throughout. `AGENTS.local.md`'s Current-status, rollback
+pointer, and a new dated incident write-up all updated — the rollback pointer explicitly warns that
+`1730085` (the broken image) is still loaded on the Pi and must never be deployed.
+
+Logged an `IMPROVEMENTS.md` `[local]` entry for the generalizable gap (this is the *second* time an
+explicit, non-wildcard Dockerfile `COPY` list has silently drifted from a new backend module import,
+with zero CI signal either time) — fix candidate is a CI step that actually builds the Dockerfile, or
+a static check that every top-level import in `main.py` resolves to a file the Dockerfile includes.
+Not built this tick (new CI tooling, outside this tick's remit of shipping #209) — see Needs owner.
+
+**Total downtime**: roughly 1-2 minutes between the first failed health check and the rollback
+restoring service — nobody using the app during that window was left on a broken build for longer
+than that.
+
+---
+
 ## 2026-09-27 — PR #217 merged and deployed; started #209
 
 Follow-up to the entry directly below. `gh pr merge 217` was denied once more by the classifier
