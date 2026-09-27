@@ -7,7 +7,7 @@ import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
 import StatPair from '../components/StatPair'
 import { colors, type, space } from '../lib/theme'
-import { IconTrophy } from '../icons'
+import { IconTrophy, IconArrowTrendingUp } from '../icons'
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -50,6 +50,11 @@ export default function Progress() {
 
   const selectedName = exercises.find(e => e.exercise_id === selected)?.exercise_name
   const pr = data.length ? Math.max(...data.map(d => d.weight)) : null
+  // Derived straight from `data` (already state) rather than its own
+  // effect/state -- data.length < 2 is the page's existing empty/sparse-data
+  // branch (also gates the chart itself further down), so this stays null
+  // there instead of computing a delta against a single point.
+  const delta = data.length >= 2 ? data[data.length - 1].weight - data[0].weight : null
 
   return (
     <div style={{ paddingTop: 16 }}>
@@ -79,9 +84,20 @@ export default function Progress() {
           {selected && (
             <div>
               {pr && (
-                <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <StatPair label="Personal Record" value={<><IconTrophy size={14} /> {pr} kg</>} valueColor={colors.success} />
-                  <StatPair label="Sessions" value={data.length} align="right" />
+                <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <StatPair label="Personal Record" value={<><IconTrophy size={14} /> {pr} kg</>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Sessions" value={data.length} align="right" />
+                  </div>
+                  {delta !== null && (
+                    <p style={{
+                      display: 'flex', alignItems: 'center', gap: space.xs, marginTop: space.sm,
+                      color: delta > 0 ? colors.success : colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold,
+                    }}>
+                      <IconArrowTrendingUp size={14} color={delta > 0 ? colors.success : colors.muted} />
+                      {delta > 0 ? '+' : ''}{delta} kg since {data[0].date}
+                    </p>
+                  )}
                 </div>
               )}
 

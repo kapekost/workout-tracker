@@ -1,6 +1,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Progress from './Progress'
+import { type } from '../lib/theme'
 
 vi.mock('../api', () => ({
   api: { get: vi.fn() },
@@ -12,15 +13,17 @@ const exercises = [
   { exercise_id: 'back_squat', exercise_name: 'Back Squat' },
 ]
 
-function mockExercises(list = exercises) {
+function mockExercises(list = exercises, progressData = [{ date: '2026-07-01', max_weight: 60 }]) {
   api.get.mockImplementation(async (path) => {
     if (path === '/progress') return list
-    // A single point deliberately keeps this under the 2-session-minimum
-    // branch, which renders the "log at least 2 sessions" copy instead of
-    // recharts' <ResponsiveContainer> — jsdom doesn't lay out real pixel
-    // sizes, so asserting the auto-select behavior this way avoids coupling
-    // this test to recharts' measurement internals.
-    if (path.startsWith('/progress/')) return [{ date: '2026-07-01', max_weight: 60 }]
+    // Default is a single point, deliberately keeping this under the
+    // 2-session-minimum branch, which renders the "log at least 2 sessions"
+    // copy instead of recharts' <ResponsiveContainer> — jsdom doesn't lay
+    // out real pixel sizes, so asserting the auto-select behavior this way
+    // avoids coupling this test to recharts' measurement internals.
+    // Callers that need 2+ sessions (PR emphasis / trend delta tests) pass
+    // their own progressData.
+    if (path.startsWith('/progress/')) return progressData
     throw new Error(`unmocked GET ${path}`)
   })
 }
@@ -71,5 +74,41 @@ describe('Progress page', () => {
     const chip = await screen.findByRole('button', { name: 'Bench Press' })
     const row = chip.parentElement
     expect(row.style.gap).toBe('10px')
+  })
+
+  it('renders the Personal Record value larger than the Sessions value next to it', async () => {
+    mockExercises(exercises, [
+      { date: '2026-07-01', max_weight: 60 },
+      { date: '2026-07-08', max_weight: 70 },
+    ])
+    renderProgress()
+    await screen.findByRole('button', { name: 'Bench Press' })
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
+
+    const prValue = screen.getByText('Personal Record').nextElementSibling
+    const sessionsValue = screen.getByText('Sessions').nextElementSibling
+    expect(prValue.style.fontSize).toBe(type.size.display)
+    expect(sessionsValue.style.fontSize).toBe('1.5rem')
+  })
+
+  it('renders a trend delta once 2+ sessions are loaded', async () => {
+    mockExercises(exercises, [
+      { date: '2026-07-01', max_weight: 60 },
+      { date: '2026-07-08', max_weight: 70 },
+    ])
+    renderProgress()
+    await screen.findByRole('button', { name: 'Bench Press' })
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
+
+    expect(await screen.findByText('+10 kg since 07-01')).toBeInTheDocument()
+  })
+
+  it('renders no delta (and does not crash) when only one session is logged', async () => {
+    mockExercises()
+    renderProgress()
+    await screen.findByRole('button', { name: 'Bench Press' })
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
+
+    expect(screen.queryByText(/kg since/)).not.toBeInTheDocument()
   })
 })
