@@ -9,9 +9,11 @@ function hexToRgb(hex) {
 }
 
 describe('DayIcon', () => {
-  it('renders one svg with an accent dot in the resolved day color', () => {
+  it('renders one body icon with an accent dot in the resolved day color', () => {
     const { container } = render(<DayIcon day="upper_a" />)
-    expect(container.querySelectorAll('svg').length).toBe(1)
+    // Day-type bodies are PNG-backed (#211: a same-color opacity accent is
+    // invisible on a plain SVG glyph), so this is an img, not an svg.
+    expect(container.querySelectorAll('img').length).toBe(1)
     expect(container.querySelector('[data-testid="day-icon-dot"]').style.background).toBe(hexToRgb(DAY_COLORS.upper_a))
   })
   it('renders the lower-body shape for a lower day', () => {
