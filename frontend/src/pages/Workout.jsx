@@ -563,9 +563,23 @@ export default function Workout() {
                 {/* The suggested load is the app's best differentiator — none of
                     Strong/Hevy/Fitbod tell you what to lift next from your own log —
                     so it renders above the raw history it supersedes, at a size that
-                    actually outranks it (was 0.75rem, smaller than the history below it). */}
+                    actually outranks it (was 0.75rem, smaller than the history below it).
+                    Labeled "Up next" (Eyebrow, same colors.muted token "Last workout"
+                    already uses below) so this forward-looking block reads as its own
+                    scoped section instead of floating unlabeled above the "Last workout"
+                    caption -- Task 4 UI review, item 2: that caption otherwise ends up
+                    scoping only the raw history rows, not the suggestion pair sitting
+                    above it, which was the main "looks bolted on" tell. Warm-up itself
+                    stays on colors.muted rather than accent (Task 4 UI/UX review, item 1
+                    from both passes): it's a preparatory cue, not the actionable target --
+                    Suggested is the one number that also drives the weight/reps steppers
+                    below, so it alone keeps the accent color and should visually outrank
+                    Warm-up, not tie with it. */}
+                {(lastPerf[ex.id].suggestion?.warmup || lastPerf[ex.id].suggestion) && (
+                  <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Up next</Eyebrow>
+                )}
                 {lastPerf[ex.id].suggestion?.warmup && (
-                  <p style={{ color: colors.accent, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 4 }}>
+                  <p style={{ color: colors.muted, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 4 }}>
                     Warm-up: <strong>{lastPerf[ex.id].suggestion.warmup.weight_kg}kg</strong> × {lastPerf[ex.id].suggestion.warmup.reps}
                   </p>
                 )}
@@ -580,7 +594,7 @@ export default function Workout() {
                   if (suggestion) {
                     return (
                       <p style={{ color: colors.accent, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 8 }}>
-                        Suggested <strong>{suggestion.weight_kg}kg</strong> × <strong>{suggestion.reps}</strong>
+                        Suggested: <strong>{suggestion.weight_kg}kg</strong> × <strong>{suggestion.reps}</strong>
                       </p>
                     )
                   }
