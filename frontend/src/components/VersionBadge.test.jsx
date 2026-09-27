@@ -103,13 +103,13 @@ describe('VersionBadge', () => {
 
   it('shows a stale-data indicator appended to the version row when the network store reports stale', () => {
     renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => true }))
-    expect(screen.getByRole('status')).toHaveTextContent('⚠')
+    expect(screen.getByRole('status').querySelector('svg')).toBeInTheDocument()
   })
 
   it('still shows the stale-data indicator alongside the version number, not instead of it', () => {
     renderBadge(makeStore(), '/', makeNetworkStore({ getSnapshot: () => true }))
     expect(screen.getByText(/^v \S+$/)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('⚠')
+    expect(screen.getByRole('status').querySelector('svg')).toBeInTheDocument()
   })
 
   it('suppresses the stale-data indicator once a real update is ready (the row swaps entirely)', () => {

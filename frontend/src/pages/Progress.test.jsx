@@ -60,8 +60,9 @@ describe('Progress page', () => {
     mockExercises([])
     renderProgress()
     expect(await screen.findByText('No data yet.')).toBeInTheDocument()
-    // Only the unconditional "🏆 PBs" nav pill — no exercise chips with no data.
-    expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual(['🏆 PBs'])
+    // Only the unconditional trophy "PBs" nav pill — no exercise chips with no data.
+    // The trophy is now an aria-hidden IconTrophy SVG, which contributes no textContent.
+    expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual([' PBs'])
   })
 
   it('gives the exercise chips a 10px row gap, wide enough that real (non-overlay) 44px boxes do not visually collide', async () => {

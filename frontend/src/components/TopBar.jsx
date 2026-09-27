@@ -3,6 +3,7 @@ import Eyebrow from './Eyebrow'
 import VersionBadge from './VersionBadge'
 import { colors, type } from '../lib/theme'
 import { useSession } from '../lib/session'
+import { IconBarbell, IconUser } from '../icons'
 
 // Home/Progress/History are reachable from NavBar's own tabs, which already
 // render a mint label for the active one at the bottom of the same screen
@@ -60,7 +61,7 @@ export default function TopBar() {
             fontWeight: type.weight.bold, fontSize: type.size.body, color: colors.text,
             letterSpacing: type.labelTracking, whiteSpace: 'nowrap', flexShrink: 0
           }}>
-            🏋 Gym Tracker
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconBarbell size={16} />Gym Tracker</span>
           </span>
           <VersionBadge />
         </div>
@@ -84,7 +85,7 @@ export default function TopBar() {
                   display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem',
                   color: colors.text, minWidth: 0, overflow: 'hidden'
                 }}>
-                  <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || '👤'}</span>
+                  <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || <IconUser size={16} />}</span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {profile.username}
                   </span>

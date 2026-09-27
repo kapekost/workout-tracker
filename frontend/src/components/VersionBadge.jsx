@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { colors, type } from '../lib/theme'
 import { updateStore, shouldCheckForUpdate } from '../lib/swUpdate'
 import { networkStatusStore } from '../lib/networkStatus'
+import { IconExclamationTriangle } from '../icons'
 
 // A brief, purely cosmetic tap-feedback flash. checkNow() (swUpdate.js)
 // doesn't hand back anything to await -- it fires registration.update() and
@@ -88,7 +89,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
       <span role="status"
         title={stale ? 'Network unreachable — data shown may be out of date' : undefined}
         style={{ color: colors.text, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1 }}>
-        {stale ? '⚠' : ''}
+        {stale ? <IconExclamationTriangle size={12} /> : null}
       </span>
     </div>
   )
