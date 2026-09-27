@@ -50,10 +50,13 @@ through with no block at all (#203, #207, #208, #214), consistent with a probabi
 rather than a hard rule. Every merge-denial occurrence has been logged as an `[unsure]`,
 "harness-level, not fixable via a PR here" mystery, with "retry the identical command" or "hand the
 merge to the owner" as the standing workaround. It is not a mystery: Anthropic's own docs name the
-exact, supported configuration fix, and this project has already discovered and applied the
-identical fix for a structurally identical block (`[Production Deploy]`, via
-`Bash(bash scripts/deploy.sh)` in `.claude/settings.local.json`) — it was just never generalized to
-`gh pr merge`. See §5 and the first recommended follow-up below.
+exact, supported configuration mechanism for silencing a recurring classifier block, and this
+project has already discovered and applied that same mechanism, in narrower form, for a different
+recurring block (`[Production Deploy]`, via `Bash(bash scripts/deploy.sh)` in
+`.claude/settings.local.json`) — it just was never extended to `gh pr merge`, which needs the
+classifier-level `autoMode.allow` route rather than a copy-paste of the deploy fix's shape (see §5
+for why a naive `Bash(gh pr merge *)` rule would overreach). See §5 and the first recommended
+follow-up below.
 
 Everything else is either a faithful match to published guidance, a reasonable and explicitly
 reasoned adaptation to a single-owner personal project (vs. the team/org context most of
@@ -256,15 +259,25 @@ to diagnose.
 Every occurrence above has been logged as `[unsure]`, "harness-level... not fixable via a PR here,"
 concluding the fix is "retry the identical command" or "hand the merge command to the owner." That
 conclusion is stale: Anthropic's docs describe a supported, permanent fix, and — notably — this
-project has *already found and applied* the identical class of fix for a different recurring block.
+project has *already found and applied* the same class of fix for a different recurring block.
 `DECISIONS.md` 2026-09-14 records exactly this: the deploy classifier ("Production Deploy") was
 silenced by adding `Bash(bash scripts/deploy.sh)` to `.claude/settings.local.json`'s
 `permissions.allow` list — a narrow Bash allow-rule, which
 [Configure auto mode](https://code.claude.com/docs/en/auto-mode-config) confirms "stay[s] in effect
-in auto mode" and is "resolved before the classifier runs." The same mechanism
-(`Bash(gh pr merge *)` in the same gitignored, machine-local file) would very likely close the
-merge block the same way, but it was never tried — the deploy fix and the #138/#181 merge blocks
-were logged within a day of each other, and the connection was never made.
+in auto mode" and is "resolved before the classifier runs."
+
+**That deploy fix works precisely because it names one exact, argument-free command with no
+wildcard** — there's nothing for a wildcard to hide behind. `gh pr merge` doesn't have that luxury
+(the PR number varies), so the naive generalization — `Bash(gh pr merge *)` — is not the same class
+of fix and should not be used: the installed `gh` CLI's own `--admin` flag ("Use administrator
+privileges to merge a pull request that does not meet requirements") and `-R`/`--repo` flag
+(targets an arbitrary other repository) both match that wildcard too, so the rule would silently
+also allow-list bypassing the CI hard-stop and merging PRs outside this repository — a materially
+larger exception than the one this project's own standing policy actually grants (merge *this
+repo's* PR *once CI is green*, per `PLAYBOOK.md` step 6's `gh pr merge <PR> --squash
+--delete-branch`). The right mechanism for a policy this specific is the classifier-level one,
+`autoMode.allow`, which reads prose with judgment rather than matching a shell prefix blindly. See
+follow-up #1 for the exact rule text.
 
 **Verdict: this is a real, currently-misdiagnosed gap, not a deliberate divergence.** The project's
 merge-without-live-approval *policy* is reasonable and well-reasoned for a single-owner project
@@ -358,20 +371,39 @@ policy-doc layer.
 Audit-only — nothing below was implemented as part of this pass. Ordered by priority; each is
 small enough to be its own single task.
 
-1. **P0 — Register the standing merge policy with the auto-mode classifier.** Add
-   `"Bash(gh pr merge *)"` to `permissions.allow` in `.claude/settings.local.json` (the same
-   gitignored, machine-local file, same mechanism already proven for
-   `Bash(bash scripts/deploy.sh)` per `DECISIONS.md` 2026-09-14). This is the single most-repeated
-   piece of process friction in the project's entire history (at least 5 merge denials plus a
-   6th on a plain `Edit` by the same mechanism — see §5 for exact citations on the home branch) and
-   has a documented, supported fix — see [Configure auto mode](https://code.claude.com/docs/en/auto-mode-config#add-a-human-checkpoint)
+1. **P0 — Register the standing merge policy with the auto-mode classifier, narrowly.** Do **not**
+   use a wildcard `Bash(gh pr merge *)` permissions rule — as this audit's own first draft
+   recommended, and as a Codex review on this PR correctly caught (see the PR's review thread):
+   `gh pr merge`'s own `--admin` flag ("merge a pull request that does not meet requirements") and
+   `-R`/`--repo` flag (targets another repository) both match that wildcard, so it would silently
+   grant a much bigger exception than the policy it's meant to encode. Instead, add an
+   `autoMode.allow` prose entry — evaluated by the classifier with judgment, not shell-prefix
+   matching — to **`~/.claude/settings.json`** (user-scope; the docs are explicit that `autoMode`
+   blocks in project-level `.claude/settings.local.json` are not read), narrowly scoped, e.g.:
+   ```json
+   {
+     "autoMode": {
+       "allow": [
+         "$defaults",
+         "Merging this repository's (kapekost/workout-tracker) own pull requests via `gh pr merge <PR> --squash --delete-branch` is allowed once `gh pr checks <PR>` reports every check passing — standing owner policy, DECISIONS.md 2026-08-30/2026-09-13. Does not cover --admin, a merge with failing or pending checks, or any other repository."
+       ]
+     }
+   }
+   ```
+   This is the single most-repeated piece of process friction in the project's entire history (at
+   least 5 merge denials plus a 6th on a plain `Edit` by the same mechanism — see §5 for exact
+   citations on the home branch) and has a documented, supported fix — see
+   [Configure auto mode](https://code.claude.com/docs/en/auto-mode-config#override-the-block-and-allow-rules)
    and [Choose a permission mode](https://code.claude.com/docs/en/permission-modes#when-auto-mode-falls-back).
-   If a narrow Bash rule turns out not to fully suppress the classifier for this command shape,
-   fall back to an `autoMode.allow` prose entry in `~/.claude/settings.json` (user-scope only —
-   the docs are explicit that `autoMode` blocks in project-level `.claude/settings.local.json` are
-   not read). Either way, retire the "[unsure] harness-level, not fixable" framing in
-   `IMPROVEMENTS.md`/`STATE.md`'s Needs-owner section for this specific item once verified against
-   a real merge.
+   Retire the "[unsure] harness-level, not fixable" framing in `IMPROVEMENTS.md`/`STATE.md`'s
+   Needs-owner section for this specific item once verified against a real merge. Separately: while
+   touching settings, note that `.claude/settings.local.json` (which already holds the working
+   `Bash(bash scripts/deploy.sh)` exception) is *not* excluded by this repository's own `.gitignore`
+   — it currently reads as untracked only because of this machine's personal global
+   `~/.config/git/ignore`, confirmed by re-checking with that global config disabled. A clone on any
+   other machine would see it as a plain committable file. Worth adding
+   `.claude/settings.local.json` to the repo's own `.gitignore` while making this change, so a
+   future `git add -A` can't accidentally commit machine-local permission grants.
 
 2. **P1 — Reconcile `PLAYBOOK.md`'s binary model-tiering with Superpowers' three-tier guidance.**
    `subagent-driven-development`'s "Turn count beats token price" warning (cheapest-tier models can
