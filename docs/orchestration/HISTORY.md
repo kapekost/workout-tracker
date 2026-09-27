@@ -92,6 +92,7 @@ auth-adjacent timing behavior) and `#201` (React Native, owner-confirmed intenti
 `#196`/`#197`/`#209` sit untriaged/`ready`-but-not-yet-picked. No new owner comments outstanding.
 
 ---
+
 ## 2026-09-27 — #210 icon-redesign attempt abandoned, #212 shipped instead (icon swap + #211 filed)
 
 Same live session continuing straight from #152's shipment above. #201 (React Native) separately
