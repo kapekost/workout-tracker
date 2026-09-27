@@ -224,6 +224,50 @@ auto-close carries no detail. `AGENTS.local.md` Current-status updated.
 
 ---
 
+## 2026-09-27 — A missed review, found and fixed: #214, plus a real process gap closed in PLAYBOOK.md
+
+Owner flagged it directly, same session: "seems we merged and there was a pr review we ignored,
+let's make sure this wont happen again, find out how it happened." Investigated rather than assumed
+— `gh pr view 213 --json reviews,comments,mergedAt,createdAt` showed Codex's review submitted
+**04:19:21Z**, PR merged **08:50:28Z**: a 4.5-hour real-time gap. The `reviews: []` check reported
+to the owner right after CI went green was accurate *at that moment* — the review genuinely hadn't
+posted yet (or the query raced its submission by seconds) — but nothing re-checked in the hours
+between that check and the owner actually running the merge command, so a real finding sat unread
+through the entire merge.
+
+**Verified the finding itself before trusting it**, per this project's own standing rule (the #168/
+#152 precedent: a bot's or subagent's claim gets checked against source, not acted on or dismissed
+on its word alone). Codex's inline comment on `IconClock.jsx` claimed `display: 'block'` breaks the
+icon's inline layout next to text in `TimerBar.jsx`/`History.jsx`. Built a minimal standalone HTML
+repro using the *actual* `.session-clock` CSS rule (confirmed via `grep` that class has no `flex`)
+rather than reasoning abstractly about CSS cascade — the repro showed the icon and text genuinely
+stacking, confirming the claim. Then checked the other 6 converted icons' real call sites for the
+same exposure: only `IconClock`'s two usages lacked a flex wrapper (`IconClipboardDocumentList`'s
+button, `IconBarbell`'s span, and `DayIcon.jsx`'s wrapper around both day-badge icons are all
+explicitly flex already) — narrowing the fix to what was actually broken rather than guessing.
+
+**Fixed as PR #214**: `display: 'block'` → `'inline-block'` on all 7 PNG icons (only Clock's two call
+sites were exposed today, but the same latent bug exists in any of them without a flex parent, so
+fixed uniformly rather than fixing only the reported instance). Added a regression test asserting
+the inline-level display so this can't silently regress. 416/416 tests green, clean build, verified
+live in-browser both before (reproduced the break) and after (confirmed side-by-side) in both real
+call sites.
+
+**This time, actually closed the process gap before merging**: ran a `Monitor` loop that waited for
+CI green, then held for a 90-second grace period specifically watching for a review to land, then
+re-ran `gh pr view --json reviews` fresh, immediately before asking the owner to merge — not reusing
+any earlier snapshot. Zero reviews, checked live, not stale. Also fixed the gap itself, not just this
+one instance of it: added a new paragraph to `PLAYBOOK.md` step 6 naming the #213 incident and
+requiring this same re-check-immediately-before-merge pattern for every future PR, logged as a
+`[template]` `IMPROVEMENTS.md` entry since this applies to any project using this orchestration
+template, not just this repo. PR #214 merged clean (no review landed even after merge), deployed as
+`1c35597`, verified via the deploy script's own check and a second independent `curl /api/health`.
+Replied on the original Codex comment thread on PR #213 confirming the fix and naming the process
+fix, so the loop is visibly closed on GitHub, not just in this file. `AGENTS.local.md` Current-status
+updated.
+
+---
+
 ## 2026-09-22 — Reconciled #201's dangling docs, planned #152 (icon system + visual polish)
 
 New live session, picking up after a 7-day gap (last tick 2026-09-15). Home branch and

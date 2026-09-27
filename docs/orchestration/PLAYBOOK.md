@@ -382,6 +382,22 @@ only because the owner happened to ask about it, not by anything in this file. H
    If the base branch moved since the PR opened and it now conflicts, resolve by hand — read both
    sides' intent, never blindly take one side or force through — then re-run local verification before
    pushing the merge commit.
+
+   **CI green is not the same as reviewed.** This repo has a bot code reviewer (Codex) wired to
+   PRs; its comment can land minutes after CI goes green, or hours after if merge doesn't happen
+   right away. Checking `reviews` once, right after CI finishes, and then treating that as
+   permanent clearance is a real gap: PR #213 (2026-09-27) was checked (`reviews: []`, correctly,
+   at that moment) immediately after CI went green, but didn't actually merge until ~4.5 real-time
+   hours later — Codex's review had landed in that gap (with a genuine finding: a same-color
+   opacity accent invisible on a flat SVG, later confirmed and reflected in the fix) and nothing
+   re-checked before merging, so it went unread and unaddressed for a full tick. Right before
+   running `gh pr merge`, re-run `gh pr view <PR> --json reviews` regardless of how long ago CI was
+   confirmed green or how confident an earlier check felt — a stale "no reviews yet" from minutes
+   or hours ago is not evidence of "no reviews." If Codex has posted, read both the review body and
+   its inline comments (`gh api repos/<owner>/<repo>/pulls/<PR>/comments`) before merging — the
+   substantive finding is usually in the inline comment, not the review's own generic wrapper text.
+   Verify each finding against source the same way a UI/UX subagent's finding gets verified (step 5
+   above) before deciding whether it blocks the merge or can ship as a tracked follow-up.
 7. **Write state back:** comment progress on the Issue; update `STATE.md`'s cursor/next-action only
    when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
    decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
