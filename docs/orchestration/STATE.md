@@ -48,8 +48,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no Issue-numbered branches in flight — #217 is a direct owner dispatch, not a claimed ready-queue
-Issue, so it doesn't use the `## In-flight` claim mechanism; see Cursor above for its live status)
+- **#209** — claimed 2026-09-27T14:19:49Z, live session.
 
 ## Needs owner
 - **Nothing stops a stray commit landing on the orchestration home branch's local checkout.**
