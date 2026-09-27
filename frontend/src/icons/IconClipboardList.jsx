@@ -1,18 +1,13 @@
 export default function IconClipboardList({ size = 20, color = 'currentColor', ...props }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true" {...props}>
+      <rect x="4" y="3.2" width="16" height="17.6" rx="3" />
+      <circle cx="7.6" cy="8" r="1.05" opacity=".45" />
+      <rect x="10" y="7.1" width="6.7" height="1.8" rx=".9" opacity=".72" />
+      <circle cx="7.6" cy="12" r="1.05" opacity=".45" />
+      <rect x="10" y="11.1" width="6.7" height="1.8" rx=".9" opacity=".72" />
+      <circle cx="7.6" cy="16" r="1.05" opacity=".45" />
+      <rect x="10" y="15.1" width="5.2" height="1.8" rx=".9" opacity=".72" />
     </svg>
   )
 }

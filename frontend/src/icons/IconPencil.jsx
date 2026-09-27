@@ -1,18 +1,9 @@
 export default function IconPencil({ size = 20, color = 'currentColor', ...props }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true" {...props}>
+      <path d="m14.8 4.1 5.1 5.1-10.9 10.9-5.8.7.7-5.8L14.8 4.1Z" />
+      <path d="m13.2 5.7 5.1 5.1" fill="none" stroke={color} strokeWidth="1.5" opacity=".3" />
+      <path d="m3.9 20.1 1.3-4.5 3.2 3.2-4.5 1.3Z" opacity=".45" />
     </svg>
   )
 }

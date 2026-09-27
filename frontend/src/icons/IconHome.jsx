@@ -1,18 +1,8 @@
 export default function IconHome({ size = 20, color = 'currentColor', ...props }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true" {...props}>
+      <path d="M3.2 10.7 12 3.2l8.8 7.5-1.7 2V20a1 1 0 0 1-1 1h-4.4v-5.3h-3.4V21H5.9a1 1 0 0 1-1-1v-7.3l-1.7-2Z" />
+      <path d="m12 5.8-6.3 5.4h1.6v7.8h2.9v-5.3h3.6V19h2.9v-7.8h1.6L12 5.8Z" opacity=".28" />
     </svg>
   )
 }
