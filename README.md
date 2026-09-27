@@ -94,3 +94,15 @@ reviewable diff). Tasks are tracked as GitHub Issues (`type`/`priority`/`effort`
 the `/orchestrate` Claude Code command; rules and current state live in `docs/orchestration/`. See
 [AGENTS.md](AGENTS.md#orchestration) for the pointer, and `docs/orchestration/GUARDRAILS.md` for
 the hard rules — independent of, and secondary to, the deploy hard rules elsewhere in AGENTS.md.
+
+### Shared agent context
+
+[`AGENTS.md`](AGENTS.md) is the committed source of truth for every coding agent:
+architecture, conventions, test and deploy commands, safety rules, and links to the live
+orchestration records. Codex loads it automatically. Gemini CLI is configured in
+`.gemini/settings.json` to load it too; use `/memory show` in Gemini to confirm the active
+context after starting a session. Do not duplicate these instructions in agent-specific files.
+
+For orchestration work, read the linked `PLAYBOOK.md`, `GUARDRAILS.md`, `STATE.md`, and
+`DECISIONS.md` before changing code. For a scoped change, load only the documents relevant to the
+task rather than the full history.
