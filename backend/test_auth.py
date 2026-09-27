@@ -42,7 +42,10 @@ def _as_session(client, session_id):
 
 def test_migration_v6_adds_email_column_and_auth_tables(mainmod):
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        # A fresh init() migrates all the way to the current terminal version
+        # (v7, AI plan updates Phase 1) — the v6 shape asserted below is
+        # unaffected by that later migration.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
         assert cols == {"id", "username", "password_hash", "role", "created_at", "icon", "email"}
         tok = {r[1] for r in conn.execute("PRAGMA table_info(auth_tokens)").fetchall()}
@@ -88,7 +91,8 @@ def test_migration_v5_to_v6_preserves_a_populated_database(mainmod):
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        # Migrates all the way to the current terminal version (v7).
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM sets").fetchone()[0] == 1
         row = conn.execute("SELECT username, role, email FROM profiles WHERE id = ?", (pid,)).fetchone()
@@ -98,7 +102,7 @@ def test_migration_v5_to_v6_preserves_a_populated_database(mainmod):
 def test_migration_v6_is_idempotent(mainmod):
     mainmod.init(); mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         assert conn.execute("SELECT COUNT(*) FROM profiles").fetchone()[0] == 1
 
 
@@ -108,7 +112,7 @@ def test_auth_tables_stay_out_of_the_export_envelope(mainmod, client):
     assert "auth_tokens" not in mainmod.TABLE_INTRODUCED_AT
     assert "auth_sessions" not in mainmod.TABLE_INTRODUCED_AT
     env = client.get("/api/export").json()
-    assert env["schema_version"] == 6
+    assert env["schema_version"] == 7
     assert set(env["tables"]) == set(mainmod.TABLES)
 
 
@@ -473,6 +477,8 @@ GATED = [
                                "envelope": {"schema_version": 6, "tables": {}}}),
     ("GET",    "/api/profile/me", None),
     ("GET",    "/api/auth/me", None),
+    # AI plan updates Phase 1 — the acting profile's own DB-backed plan.
+    ("GET",    "/api/plan", None),
     ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
     ("GET",    "/api/sessions", None),
     ("GET",    "/api/sessions/{sid}", None),
@@ -804,6 +810,11 @@ def test_profiles_cannot_see_or_modify_each_others_data(mainmod, client, acting_
         a_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('iso_a', 'member')").lastrowid
         b_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('iso_b', 'member')").lastrowid
         c_id = conn.execute("INSERT INTO profiles (username, role) VALUES ('iso_c', 'member')").lastrowid
+        # A real create_profile call seeds DEFAULT_PLAN for the new profile
+        # (AI plan updates Phase 1) — mirrored here so each of these raw-insert
+        # profiles can Start Workout the same as a real one.
+        for pid in (a_id, b_id, c_id):
+            mainmod._seed_plan_for_profile(conn, pid)
         conn.commit()
 
     def seed(profile_id, tag, weight):
