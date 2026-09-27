@@ -143,5 +143,30 @@ describe('icon components', () => {
       expect(arrow.querySelector('svg').getAttribute('class')).toBe('my-class')
       expect(arrow.querySelector('img')).toBeNull()
     })
+
+    // Task 1 review fix: the 3 list-line shapes were originally separate
+    // <rect> elements at opacity .3/.55 with no fill of their own, so they
+    // inherited fill={color} from the root svg -- painting the exact same
+    // color as the opaque clipboard body beneath them. Alpha-compositing a
+    // color over an identically-colored base is a no-op (0.3*C + 0.7*C = C),
+    // so the lines were structurally invisible in every color, not just a
+    // contrast problem -- the same "opacity accent over identical base"
+    // class of bug as #211/#212. Fixed by folding the list-lines into the
+    // body path itself as fillRule="evenodd" cutouts (real transparency)
+    // instead of an alpha-blended overlay. This guards against a regression
+    // back to same-color opacity rects for the list lines.
+    it('IconClipboardList draws its list lines as evenodd cutouts, not same-color opacity rects', () => {
+      const svg = render(<IconClipboardList />).container.querySelector('svg')
+      // No opacity-only <rect> list-lines left to silently blend into the body.
+      expect(svg.querySelectorAll('rect').length).toBe(0)
+      const evenoddPath = Array.from(svg.querySelectorAll('path')).find(
+        (p) => p.getAttribute('fill-rule') === 'evenodd'
+      )
+      expect(evenoddPath).toBeTruthy()
+      // The cutouts must actually be present in that path's data, not lost.
+      expect(evenoddPath.getAttribute('d')).toContain('M8 9h8v1.8H8')
+      expect(evenoddPath.getAttribute('d')).toContain('M8 13h8v1.8H8')
+      expect(evenoddPath.getAttribute('d')).toContain('M8 17h5.5v1.8H8')
+    })
   })
 })
