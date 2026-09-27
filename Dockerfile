@@ -32,7 +32,7 @@ ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY backend/main.py .
+COPY backend/main.py backend/plan_seed.py .
 # One-off operator scripts run with `docker exec`, so they have to be in the
 # image. Named explicitly rather than COPY scripts/ — the rest of that directory
 # is host tooling (deploy, backup) that has no business in the container.
