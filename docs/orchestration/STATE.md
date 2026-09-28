@@ -46,9 +46,6 @@
 (no branches in flight — this tick's icon claim cleared; #225 merged + deployed)
 
 ## Needs owner
-- **One design call left from #228:** should the Progress trend anchor read relative ("since last
-  week" / "vs. last session") instead of a date ("since 08-04")? (Trophy question answered 2026-09-28
-  → #231.)
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
   CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.

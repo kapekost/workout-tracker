@@ -3,6 +3,12 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-28 — Progress trend anchor stays a date
+
+The Progress trend line keeps its date anchor ("since 08-04") rather than relative wording
+("since last week" / "vs. last session"). Owner: "Date". No change needed; closes the last open
+design call from #228.
+
 ## 2026-09-28 — Bodyweight progression keeps +2.5 kg; trophy = best single (real or estimated 1RM), records only
 
 (1) A clean hit on a bodyweight exercise (e.g. pull-ups at 0 kg) keeps suggesting +2.5 kg added
