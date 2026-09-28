@@ -15,12 +15,24 @@ export function prefillFor(exerciseId, sets, progressMaxByExercise = {}, lastSet
     const last = exSets[exSets.length - 1]
     return { weight: last.weight_kg, reps: last.reps }
   }
-  if (Array.isArray(lastSets) && lastSets.length) {
+  // lastSets is the full /last response object ({ sets, suggestion? }) at the
+  // real call sites, but existing tests (and some callers) still pass the
+  // raw sets array directly -- both shapes are honored here. A backend
+  // suggestion wins outright when present; an array has no `.suggestion` of
+  // its own, so it always falls through to the raw-sets branch below.
+  const suggestion = lastSets && lastSets.suggestion
+  if (suggestion && suggestion.weight_kg != null && suggestion.reps != null) {
+    return { weight: suggestion.weight_kg, reps: suggestion.reps }
+  }
+  const rawSets = Array.isArray(lastSets)
+    ? lastSets
+    : (lastSets && Array.isArray(lastSets.sets) ? lastSets.sets : null)
+  if (rawSets && rawSets.length) {
     // Match the "Suggested Xkg" progressive-overload hint shown next to last
     // workout's sets. Starting the input at last time's raw weight instead
     // made the prefill silently ignore the plan's own progression.
-    const sug = repsHigh != null ? overloadSuggestion(lastSets, repsHigh) : null
-    return { weight: sug ? sug.weight : lastSets[0].weight_kg, reps: lastSets[0].reps }
+    const sug = repsHigh != null ? overloadSuggestion(rawSets, repsHigh) : null
+    return { weight: sug ? sug.weight : rawSets[0].weight_kg, reps: rawSets[0].reps }
   }
   const pm = progressMaxByExercise[exerciseId]
   if (pm != null) return { weight: pm.weight, reps: pm.reps ?? 8 }

@@ -61,6 +61,19 @@ describe('prefillFor progressive overload', () => {
   })
 })
 
+describe('prefillFor backend suggestion', () => {
+  it('prefillFor uses the backend suggestion when present', () => {
+    const last = { sets: [{ weight_kg: 80, reps: 8 }], suggestion: { weight_kg: 82.5, reps: 6 } }
+    expect(prefillFor('a', [], {}, last, { repsHigh: 8 })).toEqual({ weight: 82.5, reps: 6 })
+  })
+  it('prefillFor falls back to overloadSuggestion when suggestion is absent', () => {
+    // Same 80/8-hits-target-8 math as overload.test.js's first case: all sets
+    // hit repsHigh (8), so overloadSuggestion bumps by the default +2.5.
+    const last = { sets: [{ weight_kg: 80, reps: 8 }] }
+    expect(prefillFor('a', [], {}, last, { repsHigh: 8 })).toEqual({ weight: 82.5, reps: 8 })
+  })
+})
+
 describe('prefillFor bodyweight default', () => {
   it('defaults to 0kg instead of 20kg when nothing is known', () => {
     expect(prefillFor('a', [], {}, null, { bodyweight: true })).toEqual({ weight: 0, reps: 8 })
