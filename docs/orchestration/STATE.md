@@ -35,8 +35,8 @@
   §9). Never PR it, and delete it once #229 ships.
 - **Reconciled:** #210 closed (already shipped as #212). #219 unblocked (#218 closed). The
   PLAYBOOK main-vs-home divergence is main lagging, the normal direction; home is a strict superset.
-- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). #219 (AI plan
-  updates 1b) is now the next pickable `ready` after #229. Its predecessor spec/plan sit uncommitted
+- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). #231 (trophy =
+  best single, `effort:S`) and #219 (AI plan updates 1b) are the next pickable `ready` after #229. Its predecessor spec/plan sit uncommitted
   in `~/dev/wt-ai-plan-updates` (another session's worktree; not touched).
 
 ## Stop-condition
@@ -46,13 +46,9 @@
 (no branches in flight — this tick's icon claim cleared; #225 merged + deployed)
 
 ## Needs owner
-- **#225 follow-up (product call, not a bug):** a clean hit on a bodyweight exercise (pull-ups at
-  0 kg) suggests +2.5 kg added load. That is the pre-existing `overloadSuggestion` behaviour, which
-  #225 preserved, and standard weighted-pull-up progression. Should it suggest +reps instead until
-  the owner opts into added load?
-- **Two design calls from the #228 redesign (live now, `404610f`):** (1) keep or cut the Personal
-  Bests trophy mark; (2) should the Progress trend anchor read relative ("since last week" /
-  "vs. last session") instead of a date ("since 08-04")?
+- **One design call left from #228:** should the Progress trend anchor read relative ("since last
+  week" / "vs. last session") instead of a date ("since 08-04")? (Trophy question answered 2026-09-28
+  → #231.)
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
   CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.

@@ -3,6 +3,14 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-28 — Bodyweight progression keeps +2.5 kg; trophy = best single (real or estimated 1RM), records only
+
+(1) A clean hit on a bodyweight exercise (e.g. pull-ups at 0 kg) keeps suggesting +2.5 kg added
+load, as `overloadSuggestion` and #225 already do. Owner: "yes". (2) The trophy marks only a
+**best single**: a real 1-rep lift, or the Epley-estimated one-rep max when the best set had more
+reps. It applies to records only (Progress's Personal Record and the Personal Bests list). History
+drops its per-session trophy; the "PR!" toast keeps its trophy. Tracked as #231.
+
 ## 2026-09-28 — #229 design system: tokens, not per-item sizes; colored nav; timer bar relayout; live preview
 
 Owner rejected per-item icon bumps ("plan a proper design system and apply, get professional ux UI
