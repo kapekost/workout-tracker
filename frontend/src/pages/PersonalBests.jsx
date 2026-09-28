@@ -87,7 +87,7 @@ export default function PersonalBests() {
         style={{ background: 'none', border: 'none', color: colors.accent, fontSize: type.size.md,
           fontWeight: type.weight.semibold, cursor: 'pointer', padding: 0, marginBottom: 12,
           display: 'flex', alignItems: 'center', gap: 4 }}>
-        <IconArrowLeft size={16} /> Progress
+        <IconArrowLeft size={20} /> Progress
       </button>
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Personal Bests</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>
@@ -108,14 +108,14 @@ export default function PersonalBests() {
             return (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: space.xs }}>
-                  <IconTrophy size={14} color={colors.success} />
+                  <IconTrophy size={18} color={colors.success} />
                   <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg}kg × {r.reps}</span>
                 </span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}
                   aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
                   style={{ background: 'none', border: 'none', color: armed ? colors.danger : colors.muted, cursor: 'pointer', fontSize: armed ? type.size.base : '1rem', fontWeight: armed ? type.weight.bold : type.weight.regular }}>
-                  {armed ? <IconCheck size={18} /> : <IconTrash size={18} />}
+                  {armed ? <IconCheck size={22} /> : <IconTrash size={22} />}
                 </button>
               </div>
             )
@@ -127,7 +127,7 @@ export default function PersonalBests() {
         isOpen={addOpen}
         onToggle={() => setAddOpen(o => !o)}
         style={{ marginTop: 14 }}
-        header={<Eyebrow color={colors.accent}><IconPlus size={10} /> Add</Eyebrow>}
+        header={<Eyebrow color={colors.accent}><IconPlus size={14} /> Add</Eyebrow>}
       >
         <form onSubmit={submit} className="personal-bests-form">
           <label style={labelStyle}>Exercise</label>
@@ -161,7 +161,7 @@ export default function PersonalBests() {
           <input type="text" value={note} onChange={e => setNote(e.target.value)}
             placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : <><IconPlus size={16} /> Add Personal Best</>}
+            {saving ? 'Saving…' : <><IconPlus size={20} /> Add Personal Best</>}
           </button>
         </form>
       </DisclosureRow>

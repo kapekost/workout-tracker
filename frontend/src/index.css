@@ -42,7 +42,7 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
   --accent-wash: rgba(212, 255, 63, 0.14);
   --content-max-width: 28rem;
   --page-gutter: 1rem;
-  --navbar-height: 77px;
+  --navbar-height: 79px;
 }
 
 * { -webkit-tap-highlight-color: transparent; }

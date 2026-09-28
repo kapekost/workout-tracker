@@ -1,11 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
 import { colors, type } from '../lib/theme'
-import { IconHome, IconArrowTrendingUp, IconClipboardList } from '../icons'
+import { IconHome, IconProgressChart, IconClipboardList } from '../icons'
 
 const tabs = [
   { path: '/', label: 'Home', Icon: IconHome },
-  { path: '/progress', label: 'Progress', Icon: IconArrowTrendingUp },
+  { path: '/progress', label: 'Progress', Icon: IconProgressChart },
   { path: '/history', label: 'History', Icon: IconClipboardList },
 ]
 
@@ -61,11 +61,10 @@ export default function NavBar() {
                 cursor: 'pointer', padding: '4px 0', minHeight: 48
               }}
             >
-              {/* All 3 tabs are plain SVGs now (Progress/History were redrawn
-                  from PNG "sticker" icons 2026-09-27 -- see IconArrowTrendingUp
-                  /IconClipboardList), so color alone drives the active/inactive
-                  state via currentColor, same mechanism as Home always used. */}
-              <tab.Icon size={22} color={isActive ? colors.accent : colors.muted} />
+              {/* Home/History are SVGs colored via currentColor. Progress is the
+                  owner's preferred bar-chart PNG (restored 2026-09-28), which can't be
+                  recolored, so opacity dims it when inactive -- same as before #228. */}
+              <tab.Icon size={28} color={isActive ? colors.accent : colors.muted} opacity={tab.Icon === IconProgressChart && !isActive ? 0.5 : undefined} />
               <Eyebrow color={isActive ? colors.accent : colors.muted} style={{ fontWeight: type.weight.semibold }}>
                 {tab.label}
               </Eyebrow>

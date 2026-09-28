@@ -71,7 +71,7 @@ export default function ExerciseDetails({ ex, color }) {
               borderRadius: 12, padding: '16px 20px', color,
               textDecoration: 'none', fontWeight: type.weight.bold, fontSize: type.size.body
             }}>
-            <IconPlay size={22} />
+            <IconPlay size={26} />
             Watch form demo on YouTube
           </a>
           <p style={{ color: colors.muted, fontSize: type.size.sm, textAlign: 'center', marginTop: 10 }}>

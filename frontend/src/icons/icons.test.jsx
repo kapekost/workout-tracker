@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh } from './index'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh, IconBarbell, IconProgressChart } from './index'
 
 describe('icon components', () => {
   it('renders an svg at the default 20px size, colored via currentColor', () => {
@@ -29,12 +29,25 @@ describe('icon components', () => {
   // layers were invisible when drawn over an identically-colored base, a bug
   // that only a real two-tone raster (not a single-currentColor glyph) fixes.
   describe('PNG-backed icons', () => {
-    it('renders an img at the requested size, aria-hidden, non-recolorable via currentColor', () => {
+    // Wide source PNGs (appmark 108x64; clock and progress cropped to content) are
+    // sized by height: `size` is the rendered height and the width follows
+    // the aspect. Letterboxed into a size x size square they painted only
+    // ~60-65% of `size` tall -- the owner's "icons look small" (2026-09-28).
+    it('renders a wide PNG at the requested height, width following its aspect, aria-hidden', () => {
       const { container } = render(<IconClock size={24} />)
       const img = container.querySelector('img')
-      expect(img.getAttribute('width')).toBe('24')
       expect(img.getAttribute('height')).toBe('24')
+      expect(img.getAttribute('width')).toBe(String(Math.round(24 * 80 / 80)))
       expect(img.getAttribute('aria-hidden')).toBe('true')
+    })
+    it.each([
+      ['IconBarbell', IconBarbell, 108 / 64],
+      ['IconProgressChart', IconProgressChart, 67 / 79],
+    ])('%s is sized by height, not letterboxed', (_, Icon, aspect) => {
+      const img = render(<Icon size={24} />).container.querySelector('img')
+      expect(img.getAttribute('height')).toBe('24')
+      expect(img.getAttribute('width')).toBe(String(Math.round(24 * aspect)))
+      expect(img.style.objectFit).toBe('')
     })
     it('uses opacity, not color, for its dimmed/inactive state', () => {
       const img = render(<IconClock opacity={0.5} />).container.querySelector('img')

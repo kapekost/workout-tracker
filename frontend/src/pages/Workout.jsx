@@ -57,7 +57,7 @@ function SetRow({ s, armed, onRequestDelete }) {
             color: armed ? colors.danger : colors.muted,
             fontSize: armed ? type.size.base : type.size.strong, fontWeight: armed ? type.weight.bold : type.weight.regular,
             width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {armed ? <IconCheck size={18} /> : <IconTrash size={18} />}
+          {armed ? <IconCheck size={22} /> : <IconTrash size={22} />}
         </button>
       </div>
     </div>
@@ -72,7 +72,7 @@ const HOLD_REPEAT_MS = 90
 
 // This page is the only one with both TimerBar and NavBar fixed at the
 // bottom simultaneously. .page-shell's own 96px trailing pad (App.jsx) is
-// already sized to clear NavBar (a measured, constant 77px across every
+// already sized to clear NavBar (a measured, constant 79px across every
 // viewport width) plus a small margin - the same clearance every other
 // page gets. On top of that this page also needs TimerBar's own rendered
 // height so the last card never ends up hidden behind it: TimerBar measures
@@ -127,7 +127,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <button className="btn-icon" aria-label={`decrease ${label}`}
         onPointerDown={() => startHold(-1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
-        onClick={() => handleClick(-1)}><IconMinus size={16} /></button>
+        onClick={() => handleClick(-1)}><IconMinus size={20} /></button>
       {/* The type-a-number escape hatch is the *fast path* (type "60" instead of
           16 stepper taps), so it being the smallest target on screen was backwards.
           minHeight brings it to the same 44px floor every button on this page holds;
@@ -141,7 +141,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
           color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
       <button className="btn-icon" aria-label={`increase ${label}`}
         onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
-        onClick={() => handleClick(1)}><IconPlus size={16} /></button>
+        onClick={() => handleClick(1)}><IconPlus size={20} /></button>
     </div>
   )
 }
@@ -267,7 +267,7 @@ export default function Workout() {
 
   if (summary) return (
     <div style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 16 }}>Workout complete <IconSparkles size={20} style={{ verticalAlign: 'middle' }} /></h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 16 }}>Workout complete <IconSparkles size={24} style={{ verticalAlign: 'middle' }} /></h1>
       <div className="card" style={{ padding: space.xxl, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
         <Stat label="Sets" value={summary.totalSets} />
@@ -279,7 +279,7 @@ export default function Workout() {
               const isBaseline = p.type === 'baseline'
               return (
                 <p key={i} style={{ color: isBaseline ? colors.muted : colors.success, fontSize: type.size.md }}>
-                  {isBaseline ? prLabel(p) : <><IconSparkles size={14} /> New PR — {prLabel(p)}</>}
+                  {isBaseline ? prLabel(p) : <><IconSparkles size={18} /> New PR — {prLabel(p)}</>}
                 </p>
               )
             })}
@@ -321,7 +321,7 @@ export default function Workout() {
       if (prevMax == null || weight > prevMax) {
         setPrs(prev => ({ ...prev, [ex.id]: { weight, reps } }))
         if (prevMax != null) { // Only show if there was a previous record
-          showToast(<><IconTrophy size={14} /> PR! {weight}kg on {ex.name}</>)
+          showToast(<><IconTrophy size={18} /> PR! {weight}kg on {ex.name}</>)
         }
       }
       setRestStartMs(Date.now())
@@ -454,7 +454,7 @@ export default function Workout() {
           <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
             Active session
           </Eyebrow>
-          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}><DayIcon day={session.workout_day} size={24} /> {plan.name}</h1>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}><DayIcon day={session.workout_day} size={28} /> {plan.name}</h1>
           {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
               PersonalBests' page-subtitle convention -- this was the one
               page whose subtitle used a different color/size pair
@@ -466,7 +466,7 @@ export default function Workout() {
             fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer',
             padding: '7px 14px', whiteSpace: 'nowrap', opacity: finishing ? 0.55 : 1, flexShrink: 0,
             display: 'flex', alignItems: 'center', gap: 4 }}>
-          {finishing ? 'Saving…' : <><IconCheck size={16} /> Finish Workout</>}
+          {finishing ? 'Saving…' : <><IconCheck size={20} /> Finish Workout</>}
         </button>
       </div>
 
@@ -513,7 +513,7 @@ export default function Workout() {
                         here was a second "done" colour in the same row — on
                         Lower B, a mint tick next to orange dots (2026-09-06 UI
                         review, item 18b). One colour, one meaning. */}
-                    {complete && <IconCheck size={14} color={color} />}
+                    {complete && <IconCheck size={18} color={color} />}
                   </div>
                   <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
                     {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
@@ -538,7 +538,7 @@ export default function Workout() {
               onClick={() => setCuesEx(ex)}
               style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.base,
                 fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <IconClipboardDocumentList size={16} /> Form cues + demo
+              <IconClipboardDocumentList size={20} /> Form cues + demo
             </button>
 
             {/* Per-exercise note */}
@@ -547,9 +547,9 @@ export default function Workout() {
                 onBlur={e => saveNote(ex.id, e.target.value.trim())}
                 style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
             ) : notes[ex.id] ? (
-              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}><IconPencil size={14} /> {notes[ex.id]}</p>
+              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}><IconPencil size={18} /> {notes[ex.id]}</p>
             ) : (
-              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
+              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={16} /> Add note</button>
             )}
 
             {/* Last workout + overload hint */}

@@ -141,7 +141,7 @@ export default function MuscleGroupPicker({
           {bestDay && (
             <>
               <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 12 }}>
-                Best day for {expanded.label} → <DayIcon day={bestDay.id} size={16} /> {bestDay.name}
+                Best day for {expanded.label} → <DayIcon day={bestDay.id} size={20} /> {bestDay.name}
               </p>
               {activeSession ? (
                 <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 8 }}>

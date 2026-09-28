@@ -64,7 +64,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           position: 'relative', background: 'none', border: 'none', color: colors.muted2,
           cursor: 'pointer', fontSize: type.size.xs, padding: 0, lineHeight: 1,
         }}>
-        {checking ? 'Checking…' : <IconRefresh size={12} />}
+        {checking ? 'Checking…' : <IconRefresh size={16} />}
         <span aria-hidden="true" style={{
           position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
           width: 'max(100%, 44px)', height: 44,
@@ -89,7 +89,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
       <span role="status"
         title={stale ? 'Network unreachable — data shown may be out of date' : undefined}
         style={{ color: colors.text, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1 }}>
-        {stale ? <IconExclamationTriangle size={12} /> : null}
+        {stale ? <IconExclamationTriangle size={16} /> : null}
       </span>
     </div>
   )

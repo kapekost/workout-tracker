@@ -14,7 +14,7 @@ export default function Exercise() {
   if (!ex) return (
     <div style={{ padding: 24 }}>
       <button className="tap-target" onClick={() => nav(-1)} style={{ background: 'none', border: 'none', color: colors.accent, cursor: 'pointer', fontSize: '1rem', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 4 }}>
-        <IconArrowLeft size={16} /> Back
+        <IconArrowLeft size={20} /> Back
       </button>
       <p style={{ color: colors.danger }}>Exercise not found.</p>
     </div>
@@ -26,7 +26,7 @@ export default function Exercise() {
       <button className="tap-target" onClick={() => nav(-1)}
         style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: type.size.body,
           fontWeight: type.weight.semibold, padding: 0, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
-        <IconArrowLeft size={16} /> Back to workout
+        <IconArrowLeft size={20} /> Back to workout
       </button>
 
       {/* Title */}

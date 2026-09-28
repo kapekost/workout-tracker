@@ -1,21 +1,20 @@
 import src from '../assets/icons/appmark.png'
 
-// appmark.png is 108x64 (aspect 1.688, the widest of the 7 PNG icons) so
-// it's letterboxed under object-fit: contain more than any icon that did
-// get corrected, but its one call site (TopBar's "Gym Tracker" logo, 16px)
-// has no adjacent same-size full-height comparator, and a flat, wide
-// double-dumbbell silhouette is the idiomatically correct shape for a
-// barbell mark, not a distortion of it -- checked live (2026-09-27 mobile
-// icon audit) and it read fine as-is. Deliberately left uncorrected.
+// appmark.png is 108x64. Sized by height (`size` = rendered height, width
+// follows the aspect) rather than letterboxed into a size x size square: in a
+// square it painted only ~60% of `size` tall, which is why the TopBar logo read
+// as tiny (owner, 2026-09-28).
+const ASPECT = 108 / 64
+
 export default function IconBarbell({ size = 20, opacity = 1, color, style, ...props }) {
   return (
     <img
       src={src}
-      width={size}
+      width={Math.round(size * ASPECT)}
       height={size}
       alt=""
       aria-hidden="true"
-      style={{ opacity, objectFit: 'contain', display: 'inline-block', ...style }}
+      style={{ opacity, display: 'inline-block', ...style }}
       {...props}
     />
   )

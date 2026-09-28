@@ -61,16 +61,20 @@ describe('NavBar', () => {
     expect(labelColor('Home')).toBe(hexToRgb(colors.muted))
   })
 
-  // The other half of #211/2026-09-27's fix: Progress and History used to be
-  // PNG "sticker" icons whose `color` prop was silently dropped (opacity was
-  // the only lever that worked on them), so tapping them dimmed/undimmed a
-  // fixed-tint raster instead of actually recoloring like Home. Now that
-  // they're real SVGs sharing IconHome's color mechanism, both must actually
-  // repaint between the active/inactive tokens.
-  it('recolors the Progress and History icons themselves (not just their labels) between tabs', () => {
-    renderAt('/progress')
-    expect(iconPaintAttr('Progress', 'stroke')).toBe(colors.accent)
-    expect(iconPaintAttr('History', 'fill')).toBe(colors.muted)
+  // Home and History are SVGs recolored via currentColor. Progress is the
+  // owner's preferred bar-chart PNG (restored 2026-09-28), which a baked
+  // raster can't be recolored, so opacity carries its inactive state instead.
+  it('recolors Home/History icons and dims the Progress PNG when inactive', () => {
+    renderAt('/history')
+    expect(iconPaintAttr('History', 'fill')).toBe(colors.accent)
     expect(iconPaintAttr('Home', 'fill')).toBe(colors.muted)
+    const progressImg = screen.getByText('Progress').closest('button').querySelector('img')
+    expect(progressImg.style.opacity).toBe('0.5')
+  })
+
+  it('shows the Progress PNG at full opacity when active', () => {
+    renderAt('/progress')
+    const progressImg = screen.getByText('Progress').closest('button').querySelector('img')
+    expect(progressImg.style.opacity).toBe('1')
   })
 })

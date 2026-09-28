@@ -34,7 +34,7 @@ export default function ResumeBanner() {
         }}>
           <DayAccent day={active.workout_day} />
           <span style={{ color: colors.textSecondary, fontSize: type.size.md, fontWeight: type.weight.semibold, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {plan && <DayIcon day={active.workout_day} size={16} />}{dayName} in progress
+            {plan && <DayIcon day={active.workout_day} size={20} />}{dayName} in progress
           </span>
           <span style={{ color, fontSize: type.size.md, fontWeight: type.weight.bold, marginLeft: 'auto' }}>Resume ›</span>
         </button>
@@ -42,13 +42,13 @@ export default function ResumeBanner() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ color: colors.muted, fontSize: type.size.sm }}>Discard?</span>
             <button aria-label="confirm discard" className="tap-target" onClick={() => discard(active.id)}
-              style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: '1rem' }}><IconCheck size={16} color={colors.danger} /></button>
+              style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: '1rem' }}><IconCheck size={20} color={colors.danger} /></button>
             <button aria-label="cancel discard" className="tap-target" onClick={() => setConfirming(false)}
-              style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: '1rem' }}><IconXMark size={16} color={colors.muted} /></button>
+              style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: '1rem' }}><IconXMark size={20} color={colors.muted} /></button>
           </div>
         ) : (
           <button aria-label="discard session" className="tap-target" onClick={() => setConfirming(true)}
-            style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: type.size.strong, padding: '0 4px' }}><IconTrash size={16} /></button>
+            style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer', fontSize: type.size.strong, padding: '0 4px' }}><IconTrash size={20} /></button>
         )}
       </div>
     </div>

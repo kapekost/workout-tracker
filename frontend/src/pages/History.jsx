@@ -56,7 +56,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                   color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
-                  {st.weight_kg === best && <IconTrophy size={12} />}
+                  {st.weight_kg === best && <IconTrophy size={16} />}
                 </span>
               </div>
             ))}
@@ -147,8 +147,8 @@ export default function History() {
                     {plan && <DayIcon day={s.workout_day} />} {plan?.name ?? s.workout_day}
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
-                    {s.date} · {s.completed ? <><IconCheck size={12} /> completed</> : 'in progress'}
-                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={12} /> {sessionDuration(s)}</span></> : ''}
+                    {s.date} · {s.completed ? <><IconCheck size={16} /> completed</> : 'in progress'}
+                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={16} /> {sessionDuration(s)}</span></> : ''}
                   </p>
                 </div>
               </>

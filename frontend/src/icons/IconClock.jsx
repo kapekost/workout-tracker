@@ -1,21 +1,20 @@
 import src from '../assets/icons/clock.png'
 
-// clock.png is 159x104 (aspect 1.529, wider than tall) so it's letterboxed
-// under object-fit: contain the same way other wide source PNGs are, but its
-// real call sites (TimerBar's session clock, History's session
-// duration) sit small and un-flexed next to monospace/small text with no
-// same-size full-height comparator beside them -- checked live at 12-16px
-// (2026-09-27 mobile icon audit) and it read fine as-is. Deliberately left
-// uncorrected; not a miss.
+// clock.png is 80x80 (cropped 2026-09-28 from a 159x104 canvas where the dial
+// sat in the left half -- the main reason it read small). Sized by height (`size` = rendered height, width
+// follows the aspect) rather than letterboxed into a size x size square, where
+// it painted only ~65% of `size` tall (owner found icons too small, 2026-09-28).
+const ASPECT = 80 / 80
+
 export default function IconClock({ size = 20, opacity = 1, color, style, ...props }) {
   return (
     <img
       src={src}
-      width={size}
+      width={Math.round(size * ASPECT)}
       height={size}
       alt=""
       aria-hidden="true"
-      style={{ opacity, objectFit: 'contain', display: 'inline-block', ...style }}
+      style={{ opacity, display: 'inline-block', ...style }}
       {...props}
     />
   )
