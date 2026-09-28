@@ -58,6 +58,21 @@ describe('PersonalBests page', () => {
     await screen.findByText('120kg × 1')
   })
 
+  it('trophy-marks each record row (2026-09-27 records redesign)', async () => {
+    api.get.mockResolvedValue([
+      { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
+        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+    ])
+    renderPage()
+    const value = await screen.findByText('100kg × 3')
+    // Scoped to a sibling immediately preceding the value text specifically
+    // (not just "any svg in the row"), since the row's own delete button
+    // also renders an svg (IconTrash/IconCheck) elsewhere in the same row.
+    const trophy = value.previousElementSibling
+    expect(trophy?.tagName).toBe('svg')
+    expect(trophy).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('a single tap arms the confirm state but does not delete', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',

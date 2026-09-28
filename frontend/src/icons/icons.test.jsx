@@ -62,26 +62,16 @@ describe('icon components', () => {
   // the box's own height is capped to whatever's left after the wide image
   // fills the width. Next to a same-size SVG (which fills its full square)
   // or a taller-than-wide PNG (which already renders at full box height),
-  // that reads as visibly smaller/weaker at the identical size prop. Real
-  // instances found live: IconArrowTrendingUp/IconClipboardList next to
-  // IconHome in NavBar.jsx, and IconDayUpper next to IconDayLower in
-  // DayIcon.jsx's History-list rows. Fixed with a paint-only
-  // `transform: scale()` that restores full height without changing the
-  // element's own width/height attributes or its layout footprint anywhere
-  // it's used -- these three assertions guard that fix.
+  // that reads as visibly smaller/weaker at the identical size prop. A real
+  // instance still here: IconDayUpper next to IconDayLower in DayIcon.jsx's
+  // History-list rows. (IconArrowTrendingUp and IconClipboardList had the
+  // same symptom, but as of the 2026-09-27 nav icon redesign they're flat
+  // SVGs, not PNGs, so the aspect-scale hack no longer applies to them --
+  // see the 'nav icon SVG redesign' describe block below instead.) Fixed
+  // with a paint-only `transform: scale()` that restores full height
+  // without changing the element's own width/height attributes or its
+  // layout footprint anywhere it's used -- this assertion guards that fix.
   describe('aspect-corrected wide PNG icons', () => {
-    it('IconArrowTrendingUp keeps its size x size box but scales its content up to full height', () => {
-      const img = render(<IconArrowTrendingUp size={22} />).container.querySelector('img')
-      expect(img.getAttribute('width')).toBe('22')
-      expect(img.getAttribute('height')).toBe('22')
-      expect(img.style.transform).toBe(`scale(${164 / 114})`)
-    })
-    it('IconClipboardList keeps its size x size box but scales its content up to full height', () => {
-      const img = render(<IconClipboardList size={22} />).container.querySelector('img')
-      expect(img.getAttribute('width')).toBe('22')
-      expect(img.getAttribute('height')).toBe('22')
-      expect(img.style.transform).toBe(`scale(${164 / 106})`)
-    })
     it('IconDayUpper keeps its size x size box but scales its content up to full height', () => {
       const img = render(<IconDayUpper size={20} />).container.querySelector('img')
       expect(img.getAttribute('width')).toBe('20')
@@ -119,6 +109,64 @@ describe('icon components', () => {
       const svg = render(<IconRefresh size={12} />).container.querySelector('svg')
       expect(svg.getAttribute('width')).toBe('12')
       expect(svg.getAttribute('stroke')).toBe('currentColor')
+    })
+  })
+
+  // 2026-09-27 nav icon redesign: IconArrowTrendingUp and IconClipboardList
+  // used to be PNG "sticker" icons (see the removed cases in the
+  // 'aspect-corrected wide PNG icons' block above) with baked-in padding and
+  // no real recolor -- their `color` prop was silently dropped, so
+  // NavBar.jsx's active/inactive color swap was a no-op on them (fixed
+  // alongside NavBar.test.jsx). Redrawn as plain SVGs in the same house
+  // style as the rest of the set: IconClipboardList is fill-based like
+  // IconHome/IconTrophy, IconArrowTrendingUp is stroke-based like IconCheck.
+  describe('nav icon SVG redesign (2026-09-27)', () => {
+    it('IconClipboardList renders a fill-based svg at the requested size, aria-hidden', () => {
+      const svg = render(<IconClipboardList size={22} />).container.querySelector('svg')
+      expect(svg.getAttribute('width')).toBe('22')
+      expect(svg.getAttribute('height')).toBe('22')
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
+      expect(svg.outerHTML).toContain('currentColor')
+    })
+    it('IconArrowTrendingUp renders a stroke-based svg at the requested size, aria-hidden', () => {
+      const svg = render(<IconArrowTrendingUp size={22} />).container.querySelector('svg')
+      expect(svg.getAttribute('width')).toBe('22')
+      expect(svg.getAttribute('height')).toBe('22')
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
+      expect(svg.getAttribute('stroke')).toBe('currentColor')
+    })
+    it('both spread extra props onto the root svg, no <img> in sight', () => {
+      const clipboard = render(<IconClipboardList className="my-class" />).container
+      const arrow = render(<IconArrowTrendingUp className="my-class" />).container
+      expect(clipboard.querySelector('svg').getAttribute('class')).toBe('my-class')
+      expect(clipboard.querySelector('img')).toBeNull()
+      expect(arrow.querySelector('svg').getAttribute('class')).toBe('my-class')
+      expect(arrow.querySelector('img')).toBeNull()
+    })
+
+    // Task 1 review fix: the 3 list-line shapes were originally separate
+    // <rect> elements at opacity .3/.55 with no fill of their own, so they
+    // inherited fill={color} from the root svg -- painting the exact same
+    // color as the opaque clipboard body beneath them. Alpha-compositing a
+    // color over an identically-colored base is a no-op (0.3*C + 0.7*C = C),
+    // so the lines were structurally invisible in every color, not just a
+    // contrast problem -- the same "opacity accent over identical base"
+    // class of bug as #211/#212. Fixed by folding the list-lines into the
+    // body path itself as fillRule="evenodd" cutouts (real transparency)
+    // instead of an alpha-blended overlay. This guards against a regression
+    // back to same-color opacity rects for the list lines.
+    it('IconClipboardList draws its list lines as evenodd cutouts, not same-color opacity rects', () => {
+      const svg = render(<IconClipboardList />).container.querySelector('svg')
+      // No opacity-only <rect> list-lines left to silently blend into the body.
+      expect(svg.querySelectorAll('rect').length).toBe(0)
+      const evenoddPath = Array.from(svg.querySelectorAll('path')).find(
+        (p) => p.getAttribute('fill-rule') === 'evenodd'
+      )
+      expect(evenoddPath).toBeTruthy()
+      // The cutouts must actually be present in that path's data, not lost.
+      expect(evenoddPath.getAttribute('d')).toContain('M8 9h8v1.8H8')
+      expect(evenoddPath.getAttribute('d')).toContain('M8 13h8v1.8H8')
+      expect(evenoddPath.getAttribute('d')).toContain('M8 17h5.5v1.8H8')
     })
   })
 })
