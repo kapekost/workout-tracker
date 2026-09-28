@@ -29,12 +29,11 @@
   opacity-over-same-color icon detail — the exact #211/#212 failure class) was caught by the
   controller live-rendering the fix, not by reading the diff, and fixed before shipping. **PR #228
   merged clean, `main` is now `404610f`.** Full writeup in `HISTORY.md`.
-- **Deploy is blocked, not done.** `scripts/deploy.sh` built and tagged the image locally
-  (`kapekost/workout-tracker:404610f`) but the SSH transfer failed — `~/.ssh/id_raspi` needs a
-  passphrase this automated session's shell can't supply via Keychain. Stopped after one retry per
-  this repo's own standing SSH-lockout caution rather than hammering it. **Production is still
-  healthy and untouched at `8f293b7`** (verified via `curl /api/health` after the failed attempt).
-  See Needs owner below for the exact command.
+- **Deployed 2026-09-28: `404610f` is live** (`scripts/deploy.sh` from a clean `origin/main`
+  worktree; `/api/health` verified `version=404610f`, both backup legs `ok`). The 2026-09-27 SSH
+  block cleared on its own: ssh now authenticates via the agent/default key. Note that
+  `DEPLOY_SSH_OPTS` in `AGENTS.local.md` points at `~/.ssh/id_raspi`, which **does not exist** on
+  this machine (ssh warns and falls through), so that config line is stale.
 - **`#157`/`#201` stay skipped** (destructive/unapproved — confirmed no standing approval covers
   #157 against `DECISIONS.md`'s only record, which names just #105/#86/#87; #201 is React Native,
   owner-confirmed intentional lowest rank). Ready queue otherwise unexamined this tick (this was a
@@ -49,24 +48,21 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight — PR #228 shipped and merged this tick, claim cleared)
+- **PR #225** (`claude/dynamic-progression`, worktree `~/dev/wt-dynamic-progression`): time-aware
+  weight/rep/warm-up suggestions. It had **never run CI**: it conflicted with `main` (a
+  `backend/main.py` import line vs. #227's `plan_seed`), and GitHub doesn't run `pull_request`
+  workflows on a conflicting PR, so the "nudge CI" commit couldn't help. Merged `main` in
+  (`9d578b0`, both imports kept): locally 268 backend + 437 frontend tests green; CI re-running.
+  Backend change is `main.py` only, so no Dockerfile `COPY` drift. Next step: green CI →
+  content review → watch-then-merge → deploy.
+- **AI plan-updates** (`~/dev/wt-ai-plan-updates`, branch `claude/ai-plan-updates-1b`): an
+  **uncommitted** spec + plan only (`2026-09-27-ai-plan-updates-design.md`,
+  `2026-09-27-plan-data-model.md`), with no commits and no remote branch. Not touched.
 
 ## Needs owner
-- **PR #228 (nav icon + Progress/PBs redesign) is merged to `main` (`404610f`) but NOT deployed.**
-  `scripts/deploy.sh` built and tagged the image locally (`kapekost/workout-tracker:404610f`,
-  confirmed via `docker images`) but the SSH transfer to the Pi failed with
-  `Permission denied (publickey)` — `~/.ssh/id_raspi` is passphrase-protected and this session's
-  shell has no path to the macOS Keychain that normally supplies it (`ssh-add -l` showed no loaded
-  identities; a direct manual `ssh` retry with the same key failed identically). Stopped after that
-  one retry, not hammered further, per this repo's own standing caution about tripping OpenSSH
-  `PerSourcePenalties` and locking out the owner's own session too. **Production confirmed still
-  healthy and untouched at `8f293b7`** via `curl /api/health` immediately after the failed attempt
-  — no partial/broken state. **To finish this**: run `bash scripts/deploy.sh` from a real terminal
-  with Keychain access — either this machine's normal interactive session, or a fresh
-  `git worktree add <path> origin/main` with `AGENTS.local.md` copied in. The image is already
-  built and cached locally on this machine, so it should be a fast rebuild (Docker layer cache) +
-  transfer, not a from-scratch build. Verify after with a direct `curl /api/health` (expect
-  `version: 404610f`), not just the script's own assertion.
+- **Two design calls from the #228 redesign (live now, `404610f`):** (1) keep or cut the Personal
+  Bests trophy mark; (2) should the Progress trend anchor read relative ("since last week" /
+  "vs. last session") instead of a date ("since 08-04")?
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
   CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.
