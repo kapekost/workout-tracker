@@ -16,53 +16,40 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Direct owner dispatch (not a queued Issue), same pattern as #217: after #217
-  deployed, owner said "icons are still small... redesign the screen with the records and
-  progress." Verified first (production confirmed live at `8f293b7`, no caching issue), root-caused
-  via real screenshots + a two-pass `sonnet` UI/UX review with every finding checked against
-  source: the real problem was 2 nav icons still being raster PNG "stickers" with a broken color
-  contract (equal box height, from #217, was never going to fix a different rendering technique), a
-  real NavBar routing bug (`/personal-bests` lit up "Home"), an under-emphasized Progress-page PR
-  stat with no trend indicator, and a generic-looking Personal Bests list. Fixed via
-  `superpowers:subagent-driven-development` (3 tasks, plan at
-  `docs/superpowers/plans/2026-09-27-progress-pb-nav-redesign.md`); a real bug (an invisible
-  opacity-over-same-color icon detail — the exact #211/#212 failure class) was caught by the
-  controller live-rendering the fix, not by reading the diff, and fixed before shipping. **PR #228
-  merged clean, `main` is now `404610f`.** Full writeup in `HISTORY.md`.
-- **Deployed 2026-09-28: `404610f` is live** (`scripts/deploy.sh` from a clean `origin/main`
-  worktree; `/api/health` verified `version=404610f`, both backup legs `ok`). The 2026-09-27 SSH
-  block cleared on its own: ssh now authenticates via the agent/default key. Note that
-  `DEPLOY_SSH_OPTS` in `AGENTS.local.md` points at `~/.ssh/id_raspi`, which **does not exist** on
-  this machine (ssh warns and falls through), so that config line is stale.
-- **`#157`/`#201` stay skipped** (destructive/unapproved — confirmed no standing approval covers
-  #157 against `DECISIONS.md`'s only record, which names just #105/#86/#87; #201 is React Native,
-  owner-confirmed intentional lowest rank). Ready queue otherwise unexamined this tick (this was a
-  direct dispatch, not a full `/orchestrate` reconcile) — next real tick should run the full step-2
-  reconcile fresh.
-- **Environment note:** two worktrees not created by this session were present on this machine
-  during this tick (`~/dev/wt-ai-plan-updates`, `~/dev/wt-dynamic-progression`) — other concurrent
-  sessions on this same repo. Not touched. This tick's own temporary worktrees
-  (`~/dev/wt-progress-redesign`, `~/dev/wt-deploy-228`) were both cleaned up before finishing.
+- **Current focus:** **#229, the icon design system** (`ready`, `effort:M`, P2). The owner rejected
+  per-item icon bumps on 2026-09-28 ("plan a proper design system and apply, get professional ux UI
+  engineer review"). Independent UI-expert and UX-expert audits ran and were adjudicated against
+  source (summary comment on #229). Owner Q&A is recorded in `DECISIONS.md` 2026-09-28: colored
+  nav (active full-colour, inactive greyscale, two-tone SVG), timer bar relayout in scope, and
+  sign-off by live preview. Spec merged (#230):
+  `docs/superpowers/specs/2026-09-28-icon-design-system-design.md`, linked in the Issue body.
+- **Next action:** pick #229 and plan only the decisions the spec left open (the spec already has
+  an ordered sequence and named guard tests, so per the plan gate this should be short or skipped).
+  Execute spec §7 steps 1-4 on one preview branch, **publish the before/after preview for the
+  owner, and do not merge before their sign-off** (spec §7.5-6).
+- **Shipped this tick:** PR #225 (dynamic progression) merged as `e786276` and **deployed +
+  verified live** (the suggestion rendered correctly locally first). #228's `404610f` deployed
+  earlier the same day (see HISTORY).
+- **Rejected reference branch:** `claude/icons-scale-up` (29471aa, worktree `~/dev/wt-icons-scale-up`)
+  is the per-item attempt the owner turned down. Keep it only for its measured PNG crop boxes (spec
+  §9). Never PR it, and delete it once #229 ships.
+- **Reconciled:** #210 closed (already shipped as #212). #219 unblocked (#218 closed). The
+  PLAYBOOK main-vs-home divergence is main lagging, the normal direction; home is a strict superset.
+- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). #219 (AI plan
+  updates 1b) is now the next pickable `ready` after #229. Its predecessor spec/plan sit uncommitted
+  in `~/dev/wt-ai-plan-updates` (another session's worktree; not touched).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **Owner dispatch: icon scale-up** (branch `claude/icons-scale-up`, worktree `~/dev/wt-icons-scale-up`)
-  — claimed 2026-09-28T09:30Z, live session. Owner, 2026-09-28: icons still small everywhere, not only
-  the nav; wants the old Progress bar-chart PNG back, scaled up, and a bigger header logo.
-- **PR #225** (`claude/dynamic-progression`, worktree `~/dev/wt-dynamic-progression`): time-aware
-  weight/rep/warm-up suggestions. It had **never run CI**: it conflicted with `main` (a
-  `backend/main.py` import line vs. #227's `plan_seed`), and GitHub doesn't run `pull_request`
-  workflows on a conflicting PR, so the "nudge CI" commit couldn't help. Merged `main` in
-  (`9d578b0`, both imports kept): locally 268 backend + 437 frontend tests green; CI re-running.
-  Backend change is `main.py` only, so no Dockerfile `COPY` drift. Next step: green CI →
-  content review → watch-then-merge → deploy.
-- **AI plan-updates** (`~/dev/wt-ai-plan-updates`, branch `claude/ai-plan-updates-1b`): an
-  **uncommitted** spec + plan only (`2026-09-27-ai-plan-updates-design.md`,
-  `2026-09-27-plan-data-model.md`), with no commits and no remote branch. Not touched.
+(no branches in flight — this tick's icon claim cleared; #225 merged + deployed)
 
 ## Needs owner
+- **#225 follow-up (product call, not a bug):** a clean hit on a bodyweight exercise (pull-ups at
+  0 kg) suggests +2.5 kg added load. That is the pre-existing `overloadSuggestion` behaviour, which
+  #225 preserved, and standard weighted-pull-up progression. Should it suggest +reps instead until
+  the owner opts into added load?
 - **Two design calls from the #228 redesign (live now, `404610f`):** (1) keep or cut the Personal
   Bests trophy mark; (2) should the Progress trend anchor read relative ("since last week" /
   "vs. last session") instead of a date ("since 08-04")?
@@ -146,7 +133,8 @@
   already diagnosed. This tick's step-2 sweep caught and reconciled it correctly (no wholesale-copy
   mistake this time), but three incidents in three weeks is itself the case for that entry's
   "automatic sync" fix candidate over continuing to rely on a tick noticing. None of these four
-  items has the named, explicit cross-repo credential GUARDRAILS requires before an agent may open
+  items (plus a fifth, 2026-09-28: PLAYBOOK step 6 should check `mergeable` when a PR shows no
+  checks, since conflicting PRs never run `pull_request` CI) has the named, explicit cross-repo credential GUARDRAILS requires before an agent may open
   a PR against `agent-scaffold` — needs the owner to either provide one or make these fixes
   directly.
 - **Six `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**

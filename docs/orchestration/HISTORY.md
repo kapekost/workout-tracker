@@ -9,6 +9,50 @@
 
 ---
 
+## 2026-09-28 — Tick: #228 + #225 deployed, per-item icon work rejected → #229 design-system spec
+
+**Deploys.** `404610f` (#228) deployed from a clean `origin/main` worktree once SSH came back (it
+authenticates via the agent/default key; `AGENTS.local.md`'s `DEPLOY_SSH_OPTS` names
+`~/.ssh/id_raspi`, which does not exist on this machine, so that config line is stale). Later in
+the same tick, `e786276` (#225) deployed. Both were verified via `/api/health`, with both backup
+legs `ok`.
+
+**PR #225 (dynamic progression).** It had never run CI. It conflicted with `main` (a
+`backend/main.py` import line vs. #227's `plan_seed`), and GitHub runs no `pull_request` workflows
+on a conflicting PR, so the previous tick's "nudge CI" commit couldn't help. Merged `main` in
+(`9d578b0`, both imports kept): 268 backend + 437 frontend tests green locally, then in CI. Content
+review found that the `bodyweight` flag doesn't affect the clean-hit +2.5 kg branch. Adjudicated as
+not a regression: `main`'s `overloadSuggestion` already did the same, and weighted pull-ups are
+standard progression. Filed as an owner product question. Rendered it locally on the real backend
+(throwaway DB): 20 kg × 8 last time in a 6-10 range → "Suggested 20 kg × 10", warm-up 10 kg × 12,
+inputs prefilled. Correct per spec §2.3. No Codex review (usage limit hit). Merged on green.
+
+**Icons.** The owner said icons were still small everywhere, preferred the old bar-chart Progress
+icon, and found the logo tiny. An exploratory per-item branch (`claude/icons-scale-up`, 29471aa)
+found a real root cause: progress.png's bars fill ~40% of their canvas, clock.png's dial sits in
+the left half, and the logo is letterboxed to ~9.5px. The owner then redirected: "plan a proper
+design system and apply, get professional ux UI engineer review". Captured as #229 (intake).
+Dispatched independent UI-expert and UX-expert audits (sonnet, read-only, 5 screenshots plus
+source). Adjudicated against source:
+- **Confirmed:** no icon tokens; nav 22px over a 10.4px caption; logo letterbox; timer-bar
+  buttons 38/34px wide at ≤440/≤340px (`index.css:217-233`).
+- **Incomplete:** the UI audit blamed only aspect ratio for the PNGs, missing the empty-canvas
+  cause.
+- **Stale:** the UX audit's "PNG nav already fixed" was true of `main`, but the owner now wants a
+  colored nav back.
+
+Owner Q&A: all tabs colored, which after asking for best practice became colour-as-state (active
+full-colour, inactive greyscale, two-tone SVG); timer bar relayout in scope; live-preview sign-off.
+Spec merged (#230), and #229 was promoted to `ready`/`effort:M`, kept as one Issue so the whole
+system previews together.
+
+**Reconcile.** #210 closed (shipped as #212). #219 unblocked (#218 closed).
+`scripts/create_issue.sh` and `create_board_view.sh` were missing on the home branch; copied from
+`main`. Two IMPROVEMENTS entries logged: one `[local]`, fixed this tick; one `[template]`, added to
+the credential-blocked bucket in Needs owner.
+
+---
+
 ## 2026-09-28 — Nav icon + Progress/Personal Bests redesign shipped and merged (PR #228), deploy blocked on SSH key
 
 Direct owner dispatch, not a queued Issue (same pattern as the #217 mobile icon audit): right

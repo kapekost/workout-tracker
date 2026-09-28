@@ -3,6 +3,19 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-28 — #229 design system: tokens, not per-item sizes; colored nav; timer bar relayout; live preview
+
+Owner rejected per-item icon bumps ("plan a proper design system and apply, get professional ux UI
+engineer review") after the exploratory `claude/icons-scale-up` branch — which stays unmerged as
+reference. Owner answers to the intake Q&A, informed by independent UI- and UX-expert audits:
+(1) **Nav: all three tabs colored.** Asked for best practice; recommended and adopted: color *is* the
+state signal — the active tab full-color, inactive tabs greyscale — drawn as two-tone SVGs (the
+Progress one keeping the owner's preferred bar-chart-with-arrow shape), never opacity-dimming a
+multi-hue asset (UX audit rule; weakest state cue). (2) **Timer bar in scope, with relayout** to
+restore the 44px tap-target floor its ≤440px/≤340px breakpoints currently shrink to 38/34px wide.
+(3) **Sign-off by live preview** — build on a branch, show before/after of every screen, owner
+approves the actual px values before anything ships.
+
 ## 2026-09-14 — UI review splits into a UI-expert pass and a UX-expert pass, plus a live browser check
 
 Owner, reviewing the visual-polish spec (#164/#152/#168): "verify visually on the browser and
