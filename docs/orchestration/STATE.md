@@ -48,6 +48,9 @@
 (none — runner proceeds normally)
 
 ## In-flight
+- **Owner dispatch: icon scale-up** (branch `claude/icons-scale-up`, worktree `~/dev/wt-icons-scale-up`)
+  — claimed 2026-09-28T09:30Z, live session. Owner, 2026-09-28: icons still small everywhere, not only
+  the nav; wants the old Progress bar-chart PNG back, scaled up, and a bigger header logo.
 - **PR #225** (`claude/dynamic-progression`, worktree `~/dev/wt-dynamic-progression`): time-aware
   weight/rep/warm-up suggestions. It had **never run CI**: it conflicted with `main` (a
   `backend/main.py` import line vs. #227's `plan_seed`), and GitHub doesn't run `pull_request`
