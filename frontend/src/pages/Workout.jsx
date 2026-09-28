@@ -551,7 +551,7 @@ export default function Workout() {
             ) : notes[ex.id] ? (
               <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}><IconPencil size={14} /> {notes[ex.id]}</p>
             ) : (
-              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
+              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
             )}
 
             {/* Last workout + overload hint */}

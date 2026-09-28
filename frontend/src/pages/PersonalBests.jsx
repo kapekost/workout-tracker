@@ -9,7 +9,7 @@ import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
-import { IconCheck, IconTrash, IconArrowLeft } from '../icons'
+import { IconCheck, IconTrash, IconArrowLeft, IconPlus, IconTrophy } from '../icons'
 
 const labelStyle = {
   display: 'block', color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
@@ -107,7 +107,10 @@ export default function PersonalBests() {
             const armed = confirmId === r.id
             return (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
-                <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg}kg × {r.reps}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: space.xs }}>
+                  <IconTrophy size={14} color={colors.success} />
+                  <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg}kg × {r.reps}</span>
+                </span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}
                   aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
@@ -124,7 +127,7 @@ export default function PersonalBests() {
         isOpen={addOpen}
         onToggle={() => setAddOpen(o => !o)}
         style={{ marginTop: 14 }}
-        header={<Eyebrow color={colors.accent}>+ Add</Eyebrow>}
+        header={<Eyebrow color={colors.accent}><IconPlus size={10} /> Add</Eyebrow>}
       >
         <form onSubmit={submit} className="personal-bests-form">
           <label style={labelStyle}>Exercise</label>
@@ -158,7 +161,7 @@ export default function PersonalBests() {
           <input type="text" value={note} onChange={e => setNote(e.target.value)}
             placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : '+ Add Personal Best'}
+            {saving ? 'Saving…' : <><IconPlus size={16} /> Add Personal Best</>}
           </button>
         </form>
       </DisclosureRow>

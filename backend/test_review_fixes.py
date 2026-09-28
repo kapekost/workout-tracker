@@ -120,7 +120,12 @@ def test_events_batch_over_100_rejected(client):
 
 
 def test_unknown_workout_day_rejected(client):
-    assert client.post("/api/sessions", json={"workout_day": "yoga_day"}).status_code == 422
+    # workout_day was a hardcoded Literal (422 on an unknown value) until the
+    # AI plan updates Phase 1 data model made the plan per-profile DB data;
+    # it's now validated in the handler against the acting profile's own
+    # plan_days, so an unknown day is a 400, not a Pydantic 422 (spec §1.5,
+    # plan Task 1a Step 5). See test_plan.py for the new, dedicated coverage.
+    assert client.post("/api/sessions", json={"workout_day": "yoga_day"}).status_code == 400
     assert client.post("/api/sessions", json={"workout_day": "upper_b"}).status_code == 200
 
 

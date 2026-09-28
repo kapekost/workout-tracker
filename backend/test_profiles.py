@@ -14,6 +14,10 @@ def _member_client(mainmod, username="plain"):
     with mainmod.db() as conn:
         member_id = conn.execute(
             "INSERT INTO profiles (username, role) VALUES (?, 'member')", (username,)).lastrowid
+        # A real create_profile call seeds DEFAULT_PLAN for the new profile
+        # (AI plan updates Phase 1) — mirrored here so this raw-insert member
+        # can Start Workout the same as a real one.
+        mainmod._seed_plan_for_profile(conn, member_id)
         member = TestClient(mainmod.app)
         member.cookies.set("wt_session", mainmod.issue_session(conn, member_id))
         conn.commit()
@@ -119,7 +123,7 @@ def test_personal_bests_rebuilt_with_profile_scoped_unique(mainmod):
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
         row = conn.execute("SELECT profile_id FROM personal_bests WHERE exercise_id='bench_press'").fetchone()
         assert row["profile_id"] == seed_id
@@ -319,7 +323,7 @@ def test_profiles_round_trip_through_export_import(client, reauthenticate):
 
 def test_migration_adds_icon_column_seeded_for_admin(mainmod):
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
         assert "icon" in cols
         row = conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()
@@ -340,7 +344,7 @@ def test_icon_migration_does_not_override_an_already_set_icon(mainmod):
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         assert conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()[0] == "🔥"
 
 def test_profile_me_returns_acting_profile_with_icon(client):
