@@ -1,12 +1,19 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Progress from './Progress'
-import { type } from '../lib/theme'
+import { type, colors } from '../lib/theme'
 
 vi.mock('../api', () => ({
   api: { get: vi.fn() },
 }))
 import { api } from '../api'
+
+// jsdom's CSSOM serializes an inline hex color back out as rgb(...) — see
+// Chip.test.jsx/Workout.test.jsx's identical helper.
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
 
 const exercises = [
   { exercise_id: 'bench_press', exercise_name: 'Bench Press' },
@@ -101,6 +108,23 @@ describe('Progress page', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
 
     expect(await screen.findByText('+10 kg since 07-01')).toBeInTheDocument()
+  })
+
+  it('renders a non-positive delta in muted (not success) color, with no + prefix', async () => {
+    // Descending weight: delta < 0. Final-review finding (2026-09-27): every
+    // prior delta test only exercised the delta > 0 branch, leaving the
+    // muted/no-prefix branch (delta <= 0) completely unguarded.
+    mockExercises(exercises, [
+      { date: '2026-07-01', max_weight: 70 },
+      { date: '2026-07-08', max_weight: 65 },
+    ])
+    renderProgress()
+    await screen.findByRole('button', { name: 'Bench Press' })
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
+
+    const delta = await screen.findByText('-5 kg since 07-01')
+    expect(delta).toBeInTheDocument()
+    expect(delta.style.color).toBe(hexToRgb(colors.muted))
   })
 
   it('renders no delta (and does not crash) when only one session is logged', async () => {
