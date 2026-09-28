@@ -9,6 +9,111 @@
 
 ---
 
+## 2026-09-28 — Nav icon + Progress/Personal Bests redesign shipped and merged (PR #228), deploy blocked on SSH key
+
+Direct owner dispatch, not a queued Issue (same pattern as the #217 mobile icon audit): right
+after #217 deployed, the owner said "Still seems the icons are small we should review with ui ux
+expert and redesign the screen with the records and progress."
+
+**Verified before touching anything.** Confirmed production live at `8f293b7` via a direct
+`curl /api/health` (no caching/stale-deploy issue — ruled out first). Built a fresh local instance
+from a clean `origin/main` checkout (seeded `kapekost` password via `main.hash_password()`, seeded
+realistic session/PB data directly in SQLite) and screenshotted the nav bar, Progress, Personal
+Bests and History pages via `claude-in-chrome` at both a real desktop width and the narrowest
+window this environment's Chrome would allow (~500px — Chrome enforces a window-width floor here,
+true 375–390px was not reachable, noted rather than pretended away).
+
+**The complaint was real, and #217 alone couldn't have fixed it.** #217 correctly restored the
+literal pixel *height* of the Progress/History nav icons, but they were still raster PNG "sticker"
+icons — gradient shading, drop shadow, real internal padding baked into the source image, and
+(confirmed reading the components) a `color` prop that was destructured and never actually applied
+to anything — sitting next to `IconHome`'s crisp flat SVG. Equal box height was never going to fix
+a different rendering technique, different color language, and a component contract that silently
+dropped its own recolor prop. Zoomed screenshots made this immediately, visibly obvious next to
+Home in the nav bar, before any subagent was even dispatched.
+
+**Two-pass review, on `sonnet` per this repo's own model-tiering policy** (a UI-expert pass and a
+separate UX-expert pass, each given the same 9 real screenshots blind to each other's output) both
+independently converged on the same root cause and additionally flagged: a real routing bug (the
+bottom nav lit up "Home" while on `/personal-bests`, contradicting that page's own "← Progress"
+breadcrumb — confirmed in source, `NavBar.jsx`'s prefix-match had no entry for that route and fell
+through to the `'/'` default); the Progress page's "Personal Record" stat rendering at the exact
+same type scale as the secondary "Sessions" counter (confirmed in `StatPair.jsx` — hardcoded
+`1.5rem`, no override); no trend/delta indicator despite the page already loading full session
+history; and Personal Bests reading as a generic flat data list with no "record" signal beyond
+text color. Every finding was checked against actual source before being accepted, per this
+project's own standing lesson from #152's false-positive review incident — none were taken on
+either reviewer's word alone.
+
+**Root-cause note on *why* these particular icons were PNGs at all**, dug out of this repo's own
+history rather than assumed: #210/#212/#213 (earlier the same prior day) tried an AI-image-
+generation pipeline (ChatGPT), hit real limitations (couldn't reproduce its own raster generation
+as faithful SVG), and landed on PNG rasters specifically for the icons whose two-tone shading a
+single-`currentColor` SVG structurally can't render (an opacity accent over an identically-colored
+base blends to that same color, invisible regardless of size). That reasoning was sound for *those*
+icons at the time — but #209 (same day) had already proven a simpler path forward: hand-author new
+icons directly in the app's own established SVG house style (fill+opacity-overlay / stroke
+duotone), no AI image tool, no asset-extraction pipeline. This fix repeats that same,
+already-proven approach for `IconArrowTrendingUp` and `IconClipboardList`, rather than reopening
+the abandoned AI-image saga.
+
+**A real bug caught by live-rendering the fix, not by reading the diff.** The first version of the
+redrawn `IconClipboardList` shipped its 3 "list-line" details as `<rect>`s at reduced opacity with
+no fill of their own — inheriting the exact same `fill={color}` as the opaque clipboard body
+beneath them. Alpha-blending a color with itself at any opacity is a no-op (`0.3*C + 0.7*C = C`):
+the *exact* failure class this repo's own `#211`/`#212` history already diagnosed once, reproduced
+by this plan's own first-draft SVG code. The task reviewer (working from the diff alone) correctly
+flagged it as "⚠️ cannot verify from diff" and approved anyway — it only surfaced because the
+controller stood up the actual app and zoomed into the nav bar, at which point the icon was
+visibly a flat, detail-free blob in both nav states. Fixed by folding the body and list-lines into
+one path using `fillRule="evenodd"` (real transparent cutouts, not an alpha-blended overlay) —
+re-verified live afterward in both active/inactive states, confirmed working.
+
+**Shipped via `superpowers:subagent-driven-development`**, 3 tasks (icon redraw + NavBar fix;
+Progress PR-emphasis + trend delta; Personal Bests trophy marks) plus the fix round above plus one
+final-review fix (a real test-coverage gap: every delta test only exercised the `delta > 0`
+branch, the muted/no-`+` branch was completely unguarded). **A real account-level session rate
+limit hit mid-plan** (the Task 2 task-reviewer subagent failed outright, HTTP 429) — rather than
+discard already-verified work or blindly retry into a possibly-still-limited channel, the
+controller completed that review and the small, mechanical Task 3 implementation directly itself
+(each ledgered explicitly as a deviation with reasoning, each still got an independent
+fresh-subagent check once rate-limit pressure visibly eased — Task 3's implementation and the
+final whole-branch review both landed clean on fresh `sonnet` dispatches). 435/435 frontend tests
+passing, clean build, `progress.png`/`history.png` deleted with no remaining importers.
+
+**Post-fix UI-expert + UX-expert re-review against new screenshots of the *shipped* result** (not
+the original diagnosis screenshots — this project's own standing requirement to verify the result,
+not just the diagnosis) confirmed the fix actually works: nav icons now match Home's visual weight,
+the Personal-Bests-page nav highlight correctly shows "Progress" (not "Home") directly in the
+screenshot itself, the PR stat visibly outranks Sessions with a working trend line, and no
+regressions or overengineering. Two Minor notes, both adjudicated and parked rather than acted on:
+a pre-existing (not new) mixed stroke/fill icon convention already used elsewhere in this app
+(`IconCheck`), and a subjective "is the trophy mark redundant" disagreement between the two
+reviewers themselves, left as shipped per the plan's own "cheapest possible" intent.
+
+**PR #228 merged clean** — CI green (head commit confirmed matching before merge), Codex's own bot
+comment stated its review quota is exhausted for this PR (same as #217/#226 before it, nothing to
+adjudicate), `autoMode.allow` let the merge through directly with no classifier block. `main` is
+now `404610f`.
+
+**Deploy is blocked, not done — reported plainly rather than claimed.** `scripts/deploy.sh` built
+and tagged the image locally (`kapekost/workout-tracker:404610f`, confirmed present via
+`docker images`) but the SSH transfer to the Pi failed: `Permission denied (publickey)` —
+`~/.ssh/id_raspi` is passphrase-protected and this automated session's shell has no path to the
+macOS Keychain that would normally supply it (confirmed: `ssh-add -l` shows no loaded identities,
+and a direct manual `ssh` attempt with the same key failed identically). Per this repo's own
+standing caution (`~/dev` workspace memory: "subagents can't unlock it, failed attempts trip
+OpenSSH PerSourcePenalties and lock out the main session too"), **stopped after the second failed
+attempt rather than retrying** — confirmed production is still healthy and untouched at `8f293b7`
+via a direct `curl /api/health` before doing anything else. No backend/schema change in this PR, so
+no pre-deploy snapshot was needed regardless. **The exact command an owner (or any session with a
+real, keychain-unlocked terminal) needs to run**: `bash scripts/deploy.sh` from a clean checkout of
+`main` (or `git worktree add <path> origin/main`) with `AGENTS.local.md` present — the image is
+already built and cached locally, so this should be a fast rebuild + transfer, not a from-scratch
+build.
+
+---
+
 ## 2026-09-27 — #209 shipped; deploy crash-looped in production, rolled back, root-caused and fixed
 
 **#209 (icon glyph sweep) shipped clean.** Authored 3 new icon components in this repo's *current*

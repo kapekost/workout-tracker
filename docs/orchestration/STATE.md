@@ -16,47 +16,57 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Same-day session continuing the #152/#207/#208/#210/#212/#213/#214 icon-system
-  work archived in `HISTORY.md`. Two things shipped and deployed this tick, full writeups below:
-  1. **Mobile icon audit** (direct owner dispatch, not a queued Issue) — 3 of 7 PNG icons were
-     letterboxed by `object-fit: contain`, fixed with a paint-only `transform: scale()`. PR #217.
-  2. **#209** (icon glyph sweep) — 3 new icons authored in the current house style (not Heroicons,
-     despite the Issue's stale text — confirmed via git history the style moved on in #212) plus 5
-     call-site swaps and a real test-coverage fix. PR #226.
-- **A real production incident happened deploying #209, found and fixed same tick**: `main` had also
-  picked up an unrelated concurrent PR (#224, a schema migration, v6→v7) from another session sharing
-  this Claude-Session identity. Deploying both together crash-looped the container — #224 added
-  `import plan_seed` to `main.py` but never updated the Dockerfile's explicit `COPY` list (repeat of
-  the historical #127 failure shape; CI never builds the Dockerfile). Confirmed real downtime (`curl`
-  timeout), rolled back immediately to `b52ef1b` (~1-2 min total downtime), confirmed via
-  `PRAGMA user_version` the migration never ran so the DB was untouched, fixed the Dockerfile, verified
-  the fix for real (built + ran the image locally before shipping), shipped as its own PR (#227),
-  redeployed with a fresh pre-deploy backup snapshot taken first. **Production is now `8f293b7`**,
-  verified three ways including `PRAGMA integrity_check` directly on the Pi. Full timeline in
-  `HISTORY.md` and `AGENTS.local.md`'s Current-status / dated action items.
-- **Also found, reported to the owner directly, not yet actioned:** a stray unmerged remote branch
-  `claude/210-icon-redesign` survives on GitHub despite an earlier tick recording it as deleted — see
-  `HISTORY.md` for detail. `git push origin --delete claude/210-icon-redesign` is the cleanup command
-  if the owner wants it gone; left alone per GUARDRAILS (remote branch deletion needs fresh human
-  approval).
+- **Current focus:** Direct owner dispatch (not a queued Issue), same pattern as #217: after #217
+  deployed, owner said "icons are still small... redesign the screen with the records and
+  progress." Verified first (production confirmed live at `8f293b7`, no caching issue), root-caused
+  via real screenshots + a two-pass `sonnet` UI/UX review with every finding checked against
+  source: the real problem was 2 nav icons still being raster PNG "stickers" with a broken color
+  contract (equal box height, from #217, was never going to fix a different rendering technique), a
+  real NavBar routing bug (`/personal-bests` lit up "Home"), an under-emphasized Progress-page PR
+  stat with no trend indicator, and a generic-looking Personal Bests list. Fixed via
+  `superpowers:subagent-driven-development` (3 tasks, plan at
+  `docs/superpowers/plans/2026-09-27-progress-pb-nav-redesign.md`); a real bug (an invisible
+  opacity-over-same-color icon detail — the exact #211/#212 failure class) was caught by the
+  controller live-rendering the fix, not by reading the diff, and fixed before shipping. **PR #228
+  merged clean, `main` is now `404610f`.** Full writeup in `HISTORY.md`.
+- **Deploy is blocked, not done.** `scripts/deploy.sh` built and tagged the image locally
+  (`kapekost/workout-tracker:404610f`) but the SSH transfer failed — `~/.ssh/id_raspi` needs a
+  passphrase this automated session's shell can't supply via Keychain. Stopped after one retry per
+  this repo's own standing SSH-lockout caution rather than hammering it. **Production is still
+  healthy and untouched at `8f293b7`** (verified via `curl /api/health` after the failed attempt).
+  See Needs owner below for the exact command.
 - **`#157`/`#201` stay skipped** (destructive/unapproved — confirmed no standing approval covers
   #157 against `DECISIONS.md`'s only record, which names just #105/#86/#87; #201 is React Native,
-  owner-confirmed intentional lowest rank). Ready queue is otherwise clear of same-day work — next
-  tick should re-run the full reconcile (step 2) fresh rather than trust this line, since #196/#197
-  (`intake`) and whatever #224's own session leaves behind haven't been re-checked since this tick
-  started.
-- **Environment note:** two worktrees not created by this session are present on this machine
-  (`~/dev/wt-ai-plan-updates`, `~/dev/wt-dynamic-progression`) — other concurrent sessions on this
-  same repo, confirmed real (one of them shipped #224 mid-tick). Not touched; noted so a future tick
-  doesn't mistake them for its own stray state, and doesn't assume this repo is single-session.
+  owner-confirmed intentional lowest rank). Ready queue otherwise unexamined this tick (this was a
+  direct dispatch, not a full `/orchestrate` reconcile) — next real tick should run the full step-2
+  reconcile fresh.
+- **Environment note:** two worktrees not created by this session were present on this machine
+  during this tick (`~/dev/wt-ai-plan-updates`, `~/dev/wt-dynamic-progression`) — other concurrent
+  sessions on this same repo. Not touched. This tick's own temporary worktrees
+  (`~/dev/wt-progress-redesign`, `~/dev/wt-deploy-228`) were both cleaned up before finishing.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight — #209 shipped and deployed this tick, claim cleared)
+(no branches in flight — PR #228 shipped and merged this tick, claim cleared)
 
 ## Needs owner
+- **PR #228 (nav icon + Progress/PBs redesign) is merged to `main` (`404610f`) but NOT deployed.**
+  `scripts/deploy.sh` built and tagged the image locally (`kapekost/workout-tracker:404610f`,
+  confirmed via `docker images`) but the SSH transfer to the Pi failed with
+  `Permission denied (publickey)` — `~/.ssh/id_raspi` is passphrase-protected and this session's
+  shell has no path to the macOS Keychain that normally supplies it (`ssh-add -l` showed no loaded
+  identities; a direct manual `ssh` retry with the same key failed identically). Stopped after that
+  one retry, not hammered further, per this repo's own standing caution about tripping OpenSSH
+  `PerSourcePenalties` and locking out the owner's own session too. **Production confirmed still
+  healthy and untouched at `8f293b7`** via `curl /api/health` immediately after the failed attempt
+  — no partial/broken state. **To finish this**: run `bash scripts/deploy.sh` from a real terminal
+  with Keychain access — either this machine's normal interactive session, or a fresh
+  `git worktree add <path> origin/main` with `AGENTS.local.md` copied in. The image is already
+  built and cached locally on this machine, so it should be a fast rebuild (Docker layer cache) +
+  transfer, not a from-scratch build. Verify after with a direct `curl /api/health` (expect
+  `version: 404610f`), not just the script's own assertion.
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
   CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.
