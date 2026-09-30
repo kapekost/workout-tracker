@@ -3,6 +3,19 @@
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
 > them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
+## 2026-09-30 — #229 design signed off, with changes from review
+
+Owner: "all approved" on the #229 design review (issue comments 5904751315 and 5904802288;
+design system artifact https://claude.ai/artifact/XhMjU1CaCdVFrLTVftd1Rm). Approved: icon scale
+caption 16 / body 20 / control 22 / heading 24 / nav 26 / header 28; nav active second tone option B
+(`accent-deep` #8fae22, `muted-3` #6b6b6b for inactive); timer bar holds only the rest controls at
+44×44 everywhere, with workout time and screen-on moved to the Workout header eyebrow ("ACTIVE
+SESSION · 52:10"), and the rest adjusters read "−30s" / "+30s" as text. Day icons replace the body
+PNGs, one per day, targeted muscles in a second tone of the day colour: Upper A dumbbell curl,
+Upper B overhead press, Lower A back squat, Lower B deadlift. "Add note" becomes a muted text
+action, not a button. This sign-off replaces the spec's "live preview" gate for the design itself;
+the build still gets the PLAYBOOK step 5 UI render and UI/UX review.
+
 ## 2026-09-28 — Progress trend anchor stays a date
 
 The Progress trend line keeps its date anchor ("since 08-04") rather than relative wording
