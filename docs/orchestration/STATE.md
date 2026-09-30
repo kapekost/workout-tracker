@@ -52,7 +52,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#229** — claimed 2026-09-30T22:55:46Z, live session.
+- **#229** — claimed 2026-09-30T22:55:46Z, live session. Checkpoint: claimed @ 2026-09-30T23:08:36Z (live session).
 
 ## Needs owner
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
