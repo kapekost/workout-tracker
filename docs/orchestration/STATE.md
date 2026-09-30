@@ -52,7 +52,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#229** — claimed 2026-09-30T22:55:46Z, live session. Checkpoint: executed @ 2026-09-30T23:28:58Z (plan done: https://github.com/kapekost/workout-tracker/pull/234 (merged 94204ba)).
+- **#229** — claimed 2026-09-30T22:55:46Z, live session. Checkpoint: done @ 2026-09-30T23:37:42Z (plan merged, PR #234).
 
 ## Needs owner
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
