@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 46 -->
+<!-- last-reviewed-count: 50 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -54,3 +54,7 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-09-27: Dockerfile's explicit (non-wildcard) backend COPY list silently drifted from a new module import a second time (2026-09-27, plan_seed.py, same shape as the historical #127 bootstrap_owner.py incident) -- CI never builds the Dockerfile so this only ever surfaces as a real deploy crash, never a red check. Caused ~1-2 min of real downtime, caught fast and rolled back immediately, no data loss. Fix candidate: a cheap CI step that actually builds the Dockerfile, or a static check that every top-level import in main.py resolves to a file the Dockerfile's COPY lines include.
 - [template] 2026-09-28: PLAYBOOK step 6 assumes a PR with no checks is just slow to register. 2026-09-28, PR #225: zero checks for hours, and a previous tick pushed an empty 'nudge CI' commit, which cannot help. The real cause was a merge conflict with main; GitHub runs no pull_request workflows on a conflicting PR. Add: if 'gh pr checks' shows no checks, run 'gh pr view --json mergeable' before anything else.
 - [local] 2026-09-28: scripts/create_issue.sh (which GUARDRAILS mandates for every Issue) exists on main but not on the orchestration home branch's working tree, so the mandated command fails from the checkout a tick actually runs in (2026-09-28, #229, had to run it from a main-based worktree). Either cherry-pick scripts/ onto the home branch or have PLAYBOOK say to run it via a main worktree.
+- [local] 2026-10-01: orch-checkpoint.sh exits 0 when its GitHub status-comment update fails (connection reset, 2026-10-01 #229), so a failed write-back looks like success. Fix candidate: retry the gh api calls and exit non-zero (or print a loud warning line) on final failure.
+- [local] 2026-10-01: The design-system artifact lists muted-3 as #5c5c5c while DECISIONS.md 2026-09-30 records #6b6b6b (#229 plan uses #6b6b6b). Reconcile the artifact and the decision log so the build has one source of truth.
+- [local] 2026-10-01: gh pr checks --watch dies on a transient GraphQL connection reset and must be re-run by hand (2026-10-01 PR #234). Fix candidate: a small retry wrapper used by PLAYBOOK step 6.
+- [local] 2026-10-01: The bash tool's 120s timeout backgrounded a chained gh edit, comment, worktree remove and checkpoint command (2026-10-01). Fix candidate: PLAYBOOK note to split such chains into separate short calls.

@@ -23,19 +23,16 @@
   nav (active full-colour, inactive greyscale, two-tone SVG), timer bar relayout in scope, and
   sign-off by live preview. Spec merged (#230):
   `docs/superpowers/specs/2026-09-28-icon-design-system-design.md`, linked in the Issue body.
-- **Next action:** #229's design is signed off (`DECISIONS.md` 2026-09-30, "all approved"), so the
-  spec's live-preview gate for the design itself is met. The spec (2026-09-28) predates that
-  sign-off and now disagrees with it in three places: the timer bar (spec §4 squeezes the old
-  layout; the signed-off design holds only the rest controls at 44x44, text "-30s"/"+30s", with
-  workout time and screen-on moved to the Workout header eyebrow), the day icons (four new SVGs
-  replace the body PNGs, which spec §2 had normalizing instead), and the nav second tone (option B,
-  `accent-deep` #8fae22). Plan only that delta, short, then execute spec §7 steps 1-4 on one branch.
-  Step 5 becomes the PLAYBOOK step 5 UI render plus UI and UX review on the PR, not an owner
-  preview gate. Design references: `origin/design/229-review` (`docs/design/229/*.png`) and the
-  design-system artifact linked in `DECISIONS.md`.
-- **Shipped this tick:** PR #225 (dynamic progression) merged as `e786276` and **deployed +
-  verified live** (the suggestion rendered correctly locally first). #228's `404610f` deployed
-  earlier the same day (see HISTORY).
+- **Next action:** #229's plan merged (PR #234, `94204ba`):
+  `docs/superpowers/plans/2026-10-01-icon-design-system-229.md` (217 lines, six tasks, named tests),
+  linked in the Issue body. Next tick executes it on one branch (spec §7 steps 1-4 plus the
+  signed-off delta: nav tone B, rest-controls-only timer bar, Workout header eyebrow, four day-icon
+  SVGs, muted "Add note"). Check size first: over 40 files or a wrong `effort:M` means split per
+  GUARDRAILS. Step 5 is the PLAYBOOK step 5 UI render plus UI and UX review, not an owner gate.
+  Note for the build: Progress and History nav icons are already SVGs on main (#228), so the spec's
+  PNG assumption is out of date. Design references: `origin/design/229-review` and the design-system
+  artifact linked in `DECISIONS.md`.
+- **Shipped this tick:** the #229 plan only (PR #234, docs). Nothing deployed; no app change yet.
 - **Rejected reference branch:** `claude/icons-scale-up` (29471aa, worktree `~/dev/wt-icons-scale-up`)
   is the per-item attempt the owner turned down. Keep it only for its measured PNG crop boxes (spec
   §9). Never PR it, and delete it once #229 ships.
@@ -52,7 +49,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#229** — claimed 2026-09-30T22:55:46Z, live session. Checkpoint: done @ 2026-09-30T23:37:42Z (plan merged, PR #234).
+(none)
 
 ## Needs owner
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import

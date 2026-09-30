@@ -9,6 +9,36 @@
 
 ---
 
+## 2026-10-01 - Tick: #229 icon design system, delta plan merged
+
+**Pick.** #229 (P2, effort:M, touches UI) was the top pickable `ready` Issue. Skipped #157 (auth/token
+handling, no approved label), #201 (owner-confirmed lowest), #219 (ranks after; another session's
+worktree exists), #220-#223 (blocked), #231 (P3). Premise re-checked on main: no icon tokens in
+`theme.js`, 52 numeric `size={N}` sites in 15 files, NavBar still colour-only, `.timer-bar` buttons
+still shrunk to 38/34px.
+
+**Plan.** The 2026-09-30 sign-off ("all approved") disagreed with the 2026-09-28 spec in three places
+(timer bar, day icons, nav second tone), so a plan was written and merged: PR #234 (`94204ba`),
+`docs/superpowers/plans/2026-10-01-icon-design-system-229.md`, 217 lines, six tasks with named tests,
+no implementation bodies. `**Plan:**` line added to the Issue body. Codex review only reported a usage
+limit. CI green (backend 39s, sanity 6s, test 1m21s).
+
+**Findings.** Progress and History nav icons are already SVGs on main (#228), so the spec's PNG
+assumption was stale. The design-system artifact says muted-3 #5c5c5c; the recorded decision is
+#6b6b6b, and the plan uses #6b6b6b. Reconcile the artifact.
+
+**Housekeeping.** Board 3 holds all 26 open Issues (the "23 off-board" count was a label miscount);
+no state-less Issues; no unanswered owner comments; PLAYBOOK on main is a strict subset of home,
+GUARDRAILS identical. STATE cursor corrected (e8da4f1).
+
+**Friction logged (4 `[local]`).** checkpoint script exits 0 on a failed status comment; muted-3
+mismatch; `gh pr checks --watch` dies on transient resets; 120s tool timeout backgrounding chained
+commands.
+
+**Cost.** Output tokens per stage: reconcile 11836, pick 14852, claim 4256, execute 20149, tail 0.
+
+---
+
 ## 2026-09-28 — Tick: #228 + #225 deployed, per-item icon work rejected → #229 design-system spec
 
 **Deploys.** `404610f` (#228) deployed from a clean `origin/main` worktree once SSH came back (it
