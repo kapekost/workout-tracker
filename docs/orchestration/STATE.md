@@ -52,7 +52,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight — this tick's icon claim cleared; #225 merged + deployed)
+- **#229** — claimed 2026-09-30T22:55:46Z, live session.
 
 ## Needs owner
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
