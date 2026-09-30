@@ -23,18 +23,27 @@
   nav (active full-colour, inactive greyscale, two-tone SVG), timer bar relayout in scope, and
   sign-off by live preview. Spec merged (#230):
   `docs/superpowers/specs/2026-09-28-icon-design-system-design.md`, linked in the Issue body.
-- **Next action:** pick #229 and plan only the decisions the spec left open (the spec already has
-  an ordered sequence and named guard tests, so per the plan gate this should be short or skipped).
-  Execute spec §7 steps 1-4 on one preview branch, **publish the before/after preview for the
-  owner, and do not merge before their sign-off** (spec §7.5-6).
+- **Next action:** #229's design is signed off (`DECISIONS.md` 2026-09-30, "all approved"), so the
+  spec's live-preview gate for the design itself is met. The spec (2026-09-28) predates that
+  sign-off and now disagrees with it in three places: the timer bar (spec §4 squeezes the old
+  layout; the signed-off design holds only the rest controls at 44x44, text "-30s"/"+30s", with
+  workout time and screen-on moved to the Workout header eyebrow), the day icons (four new SVGs
+  replace the body PNGs, which spec §2 had normalizing instead), and the nav second tone (option B,
+  `accent-deep` #8fae22). Plan only that delta, short, then execute spec §7 steps 1-4 on one branch.
+  Step 5 becomes the PLAYBOOK step 5 UI render plus UI and UX review on the PR, not an owner
+  preview gate. Design references: `origin/design/229-review` (`docs/design/229/*.png`) and the
+  design-system artifact linked in `DECISIONS.md`.
 - **Shipped this tick:** PR #225 (dynamic progression) merged as `e786276` and **deployed +
   verified live** (the suggestion rendered correctly locally first). #228's `404610f` deployed
   earlier the same day (see HISTORY).
 - **Rejected reference branch:** `claude/icons-scale-up` (29471aa, worktree `~/dev/wt-icons-scale-up`)
   is the per-item attempt the owner turned down. Keep it only for its measured PNG crop boxes (spec
   §9). Never PR it, and delete it once #229 ships.
-- **Reconciled:** #210 closed (already shipped as #212). #219 unblocked (#218 closed). The
-  PLAYBOOK main-vs-home divergence is main lagging, the normal direction; home is a strict superset.
+- **Reconciled (this tick):** board has 70 items and no open Issue is off it (the "23 off-board"
+  count came from counting by label, not project membership); no state-less Issues; PLAYBOOK on
+  `main` is a strict subset of the home copy (home only adds), nothing to merge back;
+  GUARDRAILS is identical on both. Earlier: #210 closed (already shipped as #212). #219 unblocked
+  (#218 closed). The PLAYBOOK main-vs-home divergence is main lagging, the normal direction; home is a strict superset.
 - **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). #231 (trophy =
   best single, `effort:S`) and #219 (AI plan updates 1b) are the next pickable `ready` after #229. Its predecessor spec/plan sit uncommitted
   in `~/dev/wt-ai-plan-updates` (another session's worktree; not touched).
