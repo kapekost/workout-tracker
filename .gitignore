@@ -48,3 +48,19 @@ venv/
 # any real MCP server config — never commit either, copy from the .example
 AGENTS.local.md
 .mcp.json
+
+# Per-machine agent permission grants (2026-10-02 review, finding 7). These are
+# the accumulated local allowlists Claude Code and opencode write for THIS
+# machine: ssh invocations naming the real deploy host and its key, tailscale
+# addresses, Read grants over the owner's home directory, and pre-approved
+# destructive Bash patterns. Every entry is host-specific by definition and none
+# of it belongs in a public repo.
+#
+# .claude/settings.local.json was previously untracked but NOT ignored, so a
+# single `git add -A` would have published the deploy target's LAN IP, tailnet
+# IP, SSH username and key path — the exact values the history scrub
+# (DECISIONS.md, 2026-09) replaced with placeholders. `git status` listed it as
+# `??` for exactly that reason. Treat every line here as a hard requirement.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+opencode.json
