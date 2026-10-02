@@ -4,8 +4,11 @@ import Workout from './Workout'
 import { PLAN } from '../data/workoutPlan'
 import { colors, type } from '../lib/theme'
 
+// `put` is here because the note editor calls it. It was absent from this mock
+// originally, which is the second half of why the broken note save shipped
+// green: the mock shape and the bug agreed with each other.
 vi.mock('../api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }))
 import { api } from '../api'
@@ -299,5 +302,45 @@ describe('unknown workout_day', () => {
     renderWorkout()
     expect(await screen.findByText('Unknown workout day.')).toBeInTheDocument()
     expect(screen.queryByText('home')).not.toBeInTheDocument()
+  })
+})
+
+describe('per-exercise notes', () => {
+  // The whole feature was untested, and it did not work: Workout.saveNote calls
+  // api.put, api.js never exported one, and the catch turned the resulting
+  // TypeError into a "Failed to save note" toast while the optimistic
+  // setNotes update above it made the note appear to save.
+  // mockReset, not just mockSession: vi.clearAllMocks() clears recorded calls
+  // but leaves the *implementation* from the previous describe block in place,
+  // and 'unknown workout day' below sets one that renders no exercise cards.
+  // That pollution is why these two could not find any note UI at all.
+  it('PUTs the note to the server when the textarea loses focus', async () => {
+    api.get.mockReset()
+    mockSession()
+    renderWorkout()
+
+    const addNote = await screen.findByRole('button', { name: /add note/i })
+    await act(async () => { fireEvent.click(addNote) })
+    const ta = screen.getByRole('textbox')
+    fireEvent.change(ta, { target: { value: 'pause on chest' } })
+    await act(async () => { fireEvent.blur(ta) })
+
+    expect(api.put).toHaveBeenCalledWith(
+      `/exercises/${ex1.id}/note`, { note: 'pause on chest' })
+  })
+
+  it('surfaces a failure rather than pretending the note saved', async () => {
+    api.get.mockReset()
+    mockSession()
+    api.put.mockRejectedValue(new Error('API PUT /exercises/x/note → 500'))
+    renderWorkout()
+
+    const addNote = await screen.findByRole('button', { name: /add note/i })
+    await act(async () => { fireEvent.click(addNote) })
+    const ta = screen.getByRole('textbox')
+    fireEvent.change(ta, { target: { value: 'will not persist' } })
+    await act(async () => { fireEvent.blur(ta) })
+
+    expect(await screen.findByText(/failed to save note/i)).toBeInTheDocument()
   })
 })
