@@ -23,26 +23,54 @@ once reviewed — never commit a real credential; reference an env var instead.
 
 ### The automated PR reviewer
 
-`.github/workflows/opencode-review.yml` runs an agent over every non-draft PR. It is an
-**extra reviewer, not a gate** — it approves or blocks in its own name, and that approval is
-never the owner's and never the `approved` label (`GUARDRAILS.md`; decision in
-`DECISIONS.md` 2026-10-03). The owner is not a required reviewer per PR; PRs merge on green
-CI without live approval.
+`.github/workflows/opencode-review.yml` runs an agent over every non-draft PR from a
+same-repo branch. It is an **extra reviewer, not a gate**, and it is deliberately hobbled so
+it cannot do damage:
 
-What it posts is one short message: a verdict line, counts, `file:line` findings, and a
-`Details` section only where the judgement was hard. On a re-review it looks at the diff
-since its own last review and closes its own resolved threads first
-(`scripts/resolve_review_threads.sh` — it can only resolve threads that bot started, never a
-human's).
+- It **holds no GitHub token.** Two other steps hold one: one fetches the PR's prior review
+  history into a file the agent reads, the other resolves the agent's own review threads and
+  posts its verdict. So an agent reading attacker-controlled PR text has no credential to
+  leak and cannot post anything the prompt did not produce. Note *how* that isolation is
+  achieved, because it is weaker than it looks: **Actions has no step-level `permissions`
+  key** — it is valid only at workflow and job level, so the job holds the union of scopes
+  and the reviewer is kept off the token by Actions not injecting `GITHUB_TOKEN` into a
+  `run` step's environment unless that step names it in its own `env:`. A previous version
+  of the workflow put `permissions` on individual steps; that is not a weaker version of the
+  design, it is an invalid file, and it made run 8 fail Actions' validator with **zero jobs
+  — no step ran at all**. `actions/checkout` also runs with `persist-credentials: false`, so
+  the token is not left in `.git/config` for the reviewer to read. Real per-step scoping
+  would require splitting the reviewer into its own job; that is the honest way to make this
+  invariant structural rather than incidental.
+- It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
+  runs (project config outranks global, so the PR's own copy would otherwise win), any
+  `.opencode/` directory is deleted (plugins there load in-process before any permission
+  check), the repository is made read-only, and `bash` is a default-deny allowlist of read
+  commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
+  and `bash scripts/deploy.sh` were each denied with the repo unchanged.
+
+It posts **one short comment**, not a GitHub review: a verdict line, counts, then one
+single-line bullet per finding, each a `file:line` **hyperlinked to the line at the PR head
+commit** (`.../blob/<head-sha>/<path>#L<line>`). Hard cap **20 lines / 180 words** for the
+whole message, enforced by the prompt, and there is **no `Details` section** — anything needing
+more than a line is dropped or becomes a one-line `Notes` bullet (used only for what could not
+be verified). Keeping it this short is a deliberate trade: a reader who skims to the end has
+still seen every real finding. It **cannot** submit a formal `--approve` or
+`--request-changes`, and posts no inline per-line comments — both would need a token inside
+the agent. On a re-review it reads the history file and looks at the diff since its own last
+review.
 
 So when you see it:
 
-- **`--request-changes` is a concern.** Handle it like red CI: fix it, or answer it in the
-  thread. Never wave it through because the diff looked fine to you.
-- **Its approval means nothing on its own** — CI still has to actually run.
+- **A "Blocking" verdict is a concern.** Handle it like red CI: fix it, or answer it in the
+  thread. Never wave it through because the diff looked fine to you. It will not stop a merge
+  — nothing about it is a required check in the merge sense; it is a person-shaped opinion
+  from a bot.
+- **Silence means nothing.** If the job is skipped (draft, fork) or the provider failed, there
+  is no comment and no verdict. Absence is not approval.
 - **It can be wrong.** A review of this repo on 2026-10-03 produced four false Criticals true
-  only on a stale base branch. Re-verify any claim against the branch you are about to ship;
-  see `.claude/agents/reviewer.md`.
+  only on a stale base branch, and its first successful run found four real defects in the
+  workflow that had just been written to prevent exactly what it then did. Re-verify any claim
+  against the branch you are about to ship; see `.claude/agents/reviewer.md`.
 
 ### Deployment knowledge stays local
 

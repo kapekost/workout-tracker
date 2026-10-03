@@ -12,6 +12,36 @@
 > intermediate decisions recorded on the home branch. Read the home branch directly for the full,
 > current log.
 
+## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
+
+Owner, in response to the review bot objecting that `--approve` contradicted the "approval is
+human-only" guardrail. It did not: that rule is about the `approved` label and the `APPROVE`
+box — destructive-operation approval — and a bot approving a pull request is a different act
+by a different actor. The wording now says so in both places (`GUARDRAILS.md` "Approval is
+human-only" scope bullet and "Merge & branch rules"), so the next session does not have to
+re-derive it.
+
+**The decision:** the owner is not a required reviewer per PR. This repo already merges on
+green CI with no live approval per PR; a bot that reviews is an *extra* opinion in that set,
+not a gate and not a substitute for the owner. GitHub agrees structurally — `GITHUB_TOKEN`
+approvals are excluded from branch protection, so the bot cannot be mistaken for a human
+approver by the platform either. The one thing that changes the picture is the bot saying
+**Blocking**: that is a concern, and it gets handled like red CI.
+
+**Also settled here:** a re-review should make the reader's life easier, not harder. The
+reviewer looks only at the diff since its own last review, closes its own resolved threads
+first (`scripts/resolve_review_threads.sh`, which can only ever resolve threads the bot itself
+started), and posts one short message with a fixed shape — verdict, counts, findings, details
+only where the judgement was hard. A review nobody reads to the end has not reviewed anything.
+
+**Corrected the same day, after the bot's own review of that change (PR #242).** The first
+implementation made the reviewer token-less *and* left it holding a config tier the PR could
+outrank, so the read-only guarantee was decorative; it also broke the re-review path, because
+`gh` needs a token the reviewer no longer had. The shipped shape: two steps hold a token (one
+fetches review history into a file, one resolves threads and posts) and the reviewer itself
+holds none; its project `opencode.json` is replaced with a trusted one before it runs; and it
+posts a **comment**, not a review state, because a review state needs a token it cannot have.
+
 ## 2026-09-08 — "Complete" means merged and deployed, not just merged
 
 Owner, right after a tick reported a UI wave as "shipped" while it was actually only merged to

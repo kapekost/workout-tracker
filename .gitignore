@@ -51,6 +51,11 @@ venv
 
 # Agent worktrees (scratch checkouts; never part of the repo)
 .claude/worktrees/
+# opencode agent plugins and local agent state. `.opencode/plugins/*.js` is
+# auto-loaded and executed in-process before any permission check, so a tracked
+# one would be code injection into any opencode run in this repo. The CI review
+# workflow also removes this directory before running the reviewer.
+.opencode/
 
 # Agent execution scratch (ledgers, briefs, review packages)
 .superpowers/
