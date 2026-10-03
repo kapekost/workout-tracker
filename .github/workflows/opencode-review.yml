@@ -113,7 +113,7 @@ jobs:
           # any permission check, so no permission block gates them. `.opencode/`
           # is not tracked, so removing it removes the vector rather than
           # overriding it. (It is gitignored as well, as defence in depth.)
-          rm -rf .opencode
+          rm -rf .opencode .claude opencode.jsonc opencode.json AGENTS.md CLAUDE.md
           cat > opencode.json <<'JSON'
           {
             "$schema": "https://opencode.ai/config.json",
@@ -146,7 +146,19 @@ jobs:
                 "git diff*": "allow",
                 "git log*": "allow",
                 "git show*": "allow",
-                "git rev-parse*": "allow"
+                "git rev-parse*": "allow",
+                "*--output*": "deny",
+                "*--no-index*": "deny",
+                "*--ext-diff*": "deny",
+                "git -c*": "deny",
+                "git * -c *": "deny",
+                "*;*": "deny",
+                "*&*": "deny",
+                "*|*": "deny",
+                "*>*": "deny",
+                "*<*": "deny",
+                "*`*": "deny",
+                "*$(*": "deny"
               }
             }
           }
@@ -401,13 +413,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.base_ref }}
         run: |
           set -uo pipefail
-          # Runs here rather than in the reviewer because it needs a credential,
-          # and it runs before the post so the thread list the reader sees is the
-          # one the verdict refers to.
-          bash scripts/resolve_review_threads.sh "$PR" || \
-            echo "could not resolve review threads (non-fatal)"
+          # The script comes from the base branch: this step holds a write token,
+          # so it must not run code the PR can edit.
+          if git show "origin/$BASE:scripts/resolve_review_threads.sh" > "$RUNNER_TEMP/resolve.sh" 2>/dev/null; then
+            bash "$RUNNER_TEMP/resolve.sh" "$PR" || \
+              echo "could not resolve review threads (non-fatal)"
+          else
+            echo "no resolve script on $BASE; skipping thread resolution"
+          fi
+          if grep -qE 'sk-or-|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|Bearer [A-Za-z0-9._-]{20,}' "$RUNNER_TEMP/review.txt"; then
+            echo "the review text matched a secret pattern; posting a notice instead" >&2
+            echo "**Automated review withheld.** The output matched a secret pattern and was not posted. See the Actions log for the run." > "$RUNNER_TEMP/review.txt"
+          fi
           if [ -s "$RUNNER_TEMP/review.txt" ]; then
             gh pr comment "$PR" --body-file "$RUNNER_TEMP/review.txt"
             echo "posted review verdict"
