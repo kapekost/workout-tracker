@@ -374,7 +374,12 @@ jobs:
             if [ "$rc" -ne 0 ]; then
               why=$(tail -c 300 "$RUNNER_TEMP/review.err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')
               echo "::warning::$model failed: $why"
-              echo "- \`$model\`: $why" >> "$RUNNER_TEMP/skip-reasons.txt"
+              case "$why" in
+                *"Rate limit"*) short="rate limited" ;;
+                *"data policy"*) short="no endpoint matches the no-training privacy policy" ;;
+                *) short="failed, see the Actions log" ;;
+              esac
+              echo "- \`$model\`: $short" >> "$RUNNER_TEMP/skip-reasons.txt"
             fi
             if [ "$rc" -eq 0 ] && [ -s "$RUNNER_TEMP/review.txt" ]; then break; fi
             : > "$RUNNER_TEMP/review.txt"
