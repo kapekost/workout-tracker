@@ -54,6 +54,37 @@ export const type = {
     title: '1.75rem',
     display: '2rem',
   },
+  // Sizes that appear in the app but are deliberately NOT on the scale above,
+  // each with the reason it is allowed to be there. The 2026-10-03 design review
+  // (Wave 0.5) asked for a parity guard, and the honest answer is that a strict
+  // "no literals anywhere" rule would be wrong: these four are intentional, so
+  // the guard's job is to catch a *fifth* appearing, not to force these onto the
+  // scale. Every entry carries its reason inline, because a bare list is how
+  // `2.2rem` is still here in 2027 with the justification deleted — the same
+  // failure shape as `password_hash` surviving in `SELECT *`.
+  //
+  // `0.6rem` used to be a fifth entry. It is gone: the scale floor exists to
+  // stop drift, not to police legibility, and one of its three call sites was
+  // the app's most safety-relevant micro-copy ("0 = bodyweight only", read
+  // mid-set). All three moved up to `sm`.
+  offScale: {
+    // Exactly 16px. iOS Safari zooms the whole page in when a focused input
+    // computes below 16px, throwing the rest of the screen off-screen. This is
+    // a platform floor, not a design preference, so it is not negotiable against
+    // the scale — which is why it gets an entry instead of a token.
+    '1rem': 'iOS 16px focused-input floor (.field, the number inputs, the note textarea)',
+    // Glyph-sized text: btn-icon (which is also NumControl's +/- steppers, the
+    // most-tapped control in the app), the shared number input, and Home's
+    // "›" chevron. Characters, not prose, so the scale's reading sizes do not
+    // apply.
+    '1.25rem': 'icon glyphs: btn-icon, input[type=number], the last-session chevron',
+    // The rest clock gives up height before anything else on that bar does.
+    '1.5rem': 'rest clock at <=340px',
+    '1.35rem': 'rest clock at <=380px',
+    // The cues sheet's exercise name. It is an <h2> in a modal, so it must not
+    // match the page's `title`, and a stepper heading does not read at `strong`.
+    '1.3rem': 'cues-sheet exercise heading: between `strong` and the page `title`',
+  },
   weight: {
     regular: 400,
     semibold: 600,

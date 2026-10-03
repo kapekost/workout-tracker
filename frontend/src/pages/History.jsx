@@ -168,7 +168,7 @@ export default function History() {
               <>
                 <DayAccent day={s.workout_day} shape="bar" />
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
+                  <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body }}>
                     {plan && <DayIcon day={s.workout_day} />} {plan?.name ?? s.workout_day}
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>

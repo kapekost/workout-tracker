@@ -177,7 +177,10 @@ function WeightFieldLabel({ bodyweight }) {
     <div style={{ marginBottom: space.sm }}>
       <Eyebrow>{bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}</Eyebrow>
       {bodyweight && (
-        <p style={{ color: colors.muted2, fontSize: '0.6rem', marginTop: 2 }}>0 = bodyweight only</p>
+        // type.size.sm, not the 0.6rem this used to be. That was below the scale
+        // floor, on the app's most safety-relevant micro-copy: 0 means
+        // bodyweight, not a broken field. Read mid-set.
+        <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 2 }}>0 = bodyweight only</p>
       )}
     </div>
   )
@@ -636,11 +639,18 @@ export default function Workout() {
                 first and only the toast knew better. It now keeps the words,
                 marks them unsaved, and leaves the editor open holding them. */}
             {noteEditing?.exId === ex.id ? (
+              /* 1rem, not type.size.md (0.8rem). iOS Safari zooms the whole page
+                 in when a focused field computes below 16px, and this is a field
+                 the user focuses *between sets* — the zoom lands mid-workout and
+                 shifts the Log Set button out from under their thumb. Same floor
+                 .field and PersonalBests' inputs already document. This was the
+                 app's only focusable text control without it; found by the owner,
+                 not by a review. */
               <textarea autoFocus
                 value={noteEditing.text}
                 onChange={e => setNoteEditing(ed => ({ ...ed, text: e.target.value }))}
                 onBlur={e => saveNote(ex.id, e.target.value.trim())}
-                style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
+                style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: '1rem', padding: 8, resize: 'vertical' }} />
             ) : notes[ex.id] ? (
               <p onClick={() => setNoteEditing({ exId: ex.id, text: notes[ex.id] })} style={{ color: noteFailed[ex.id] ? colors.danger : colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>
                 <IconPencil size={14} /> {notes[ex.id]}

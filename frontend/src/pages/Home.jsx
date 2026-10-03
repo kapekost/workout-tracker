@@ -262,7 +262,7 @@ export default function Home() {
                 <p style={{ fontWeight: type.weight.semibold }}><DayIcon day={lastPlan.id} /> {lastPlan.name}</p>
                 <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
               </div>
-              <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
+              <span style={{ color: colors.muted, fontSize: '1.25rem' }}>›</span>
             </button>
           </div>
         </div>
