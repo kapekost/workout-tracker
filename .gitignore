@@ -2,8 +2,10 @@
 # No trailing slash on the four below on purpose: a trailing slash matches
 # directories only, so a *symlinked* node_modules/.venv (a common shortcut when a
 # linked worktree reuses the main checkout's install) shows up as untracked and
-# one `git add -A` commits it. That is not hypothetical — it happened here, and
-# the symlink then checks out as a broken absolute path on any other machine.
+# one `git add -A` commits it — as a symlink, and as 300MB of dependencies if it
+# is a real directory. Not hypothetical: it happened here, and the symlink then
+# checked out as a broken absolute path on any other machine. A bare name
+# matches both a directory and a symlink.
 node_modules
 frontend/node_modules
 
