@@ -24,6 +24,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   review:
     # Three gates, all about not producing a false signal.
@@ -42,6 +46,10 @@ jobs:
       github.event.action != 'converted_to_draft' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # A ceiling, not a target. Run 3 sat 28 minutes before being cancelled by
+    # hand; run 6 took 5m35s. 20 leaves generous headroom over a normal run while
+    # stopping a stuck provider call from occupying a runner indefinitely.
+    timeout-minutes: 20
     # Union of what the two token steps need. See the note at the top of this file:
     # Actions has no per-step permissions, so this is job-wide by necessity, and the
     # reviewer's isolation comes from its `env`, not from this block.

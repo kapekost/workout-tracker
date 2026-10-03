@@ -6,9 +6,18 @@ name: Scaffold sanity
 # build, or lint passed. If this project has (or gets) real application
 # CI, that workflow is the one that should be a required status check.
 
+# No `branches: [main]` filter. It was here, and it meant this workflow never
+# ran: every PR in this repo targets the integration branch, so the committed-
+# secret scan, the .env scan, and the deploy-target-specifics scan (#132 — added
+# after the Pi IP, SSH key path and a co-located service leaked into tracked
+# files) had all been dormant. An unscoped `pull_request` covers main too.
+#
+# NOTE: this file originates from the agent-scaffold Copier template
+# (added in #18, which pulled it from gh:kapekost/agent-scaffold). Unlike the
+# other three workflows, a hand-edit here can be reverted by the next
+# `copier` update, so the trigger fix really belongs upstream in that template.
 on:
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +33,7 @@ concurrency:
 jobs:
   sanity:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
 
