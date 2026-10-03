@@ -1,10 +1,19 @@
 # Dependencies
-node_modules/
-frontend/node_modules/
+# No trailing slash on the four below on purpose: a trailing slash matches
+# directories only, so a *symlinked* node_modules/.venv (a common shortcut when a
+# linked worktree reuses the main checkout's install) shows up as untracked and
+# one `git add -A` commits it. That is not hypothetical — it happened here, and
+# the symlink then checks out as a broken absolute path on any other machine.
+node_modules
+frontend/node_modules
 
 # Build output
 frontend/dist/
 static/
+
+# Manual review screenshots (frontend/e2e/review-shots.spec.js writes these on a
+# developer's machine; they are images of someone's training data)
+frontend/review-shots
 
 # Playwright test output (frontend/e2e — see playwright.config.js)
 frontend/test-results/
@@ -14,8 +23,8 @@ frontend/blob-report/
 # Python
 __pycache__/
 *.py[cod]
-.venv/
-venv/
+.venv
+venv
 
 # Runtime data (SQLite DB + volume) — never commit workout data
 # Anchored to repo root so it does NOT match frontend/src/data/ (app source).
