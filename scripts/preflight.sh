@@ -19,7 +19,19 @@
 # Exit 0 = safe to proceed. Exit 1 = a BLOCKER was found; read the output.
 
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Fail closed if there is no repo. `cd "$(git rev-parse --show-toplevel || pwd)"`
+# is the bug this replaces: `cd ""` is a no-op in bash, so outside a repo the
+# script went on to report "clean tree, no linked worktrees" and exited 0 — a
+# confident all-clear about a directory it knew nothing about, which is the
+# precise failure mode this script exists to eliminate.
+if ! top="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  echo "BLOCKER  not inside a git repository — cannot establish state." >&2
+  echo "         Run this from a clone, or cd to one first. Refusing to report" >&2
+  echo "         a clean state it has not checked." >&2
+  exit 1
+fi
+cd "$top"
 
 BLOCK=0
 warn() { printf '  %s\n' "$*"; }

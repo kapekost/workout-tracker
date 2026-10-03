@@ -49,14 +49,38 @@ fi
 # in this script looked at the branch relationship, and /api/health reported
 # "ok" the whole time because the app it served was healthy — just old.
 #
+# The base ref is resolved to whatever this clone actually has, and if NEITHER
+# can be found the deploy fails closed. An earlier version skipped the check when
+# `main` did not resolve, which is the same incident unguarded: a clone whose
+# default branch is `master`, or one made with `-b <other>`, skipped the gate
+# entirely and deployed a stale branch with no warning. Also compares against
+# origin/main when there is no local main, so a stale local ref cannot
+# legitimise a stale branch.
+#
 # Override for a deliberate hotfix-from-an-old-branch deploy with
 # DEPLOY_ALLOW_STALE=1. There is no such override for the dirty-tree check.
-if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]] && git -C "$ROOT" rev-parse --verify --quiet main >/dev/null; then
-  if ! git -C "$ROOT" merge-base --is-ancestor main HEAD; then
-    echo "error: HEAD is not a descendant of main — deploying this would replace" >&2
-    echo "       the running app with an older build. Merge main, or re-run with" >&2
-    echo "       DEPLOY_ALLOW_STALE=1 if that is genuinely intended." >&2
-    git -C "$ROOT" log --oneline HEAD..main | sed 's/^/         missing: /' >&2
+base_ref=""
+for candidate in main origin/main; do
+  if git -C "$ROOT" rev-parse --verify --quiet "$candidate" >/dev/null; then
+    base_ref="$candidate"
+    break
+  fi
+done
+
+if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
+  if [[ -z "$base_ref" ]]; then
+    echo "error: no 'main' or 'origin/main' ref to compare against, so the" >&2
+    echo "       stale-branch check cannot run. Fetch it, or re-run with" >&2
+    echo "       DEPLOY_ALLOW_STALE=1 if deploying from an old branch is genuinely" >&2
+    echo "       intended. Failing closed on purpose: skipping this check is how" >&2
+    echo "       the 2026-10-03 deploy shipped an app 59 commits behind." >&2
+    exit 1
+  fi
+  if ! git -C "$ROOT" merge-base --is-ancestor "$base_ref" HEAD; then
+    echo "error: HEAD is not a descendant of $base_ref — deploying this would" >&2
+    echo "       replace the running app with an older build. Merge it, or" >&2
+    echo "       re-run with DEPLOY_ALLOW_STALE=1 if that is genuinely intended." >&2
+    git -C "$ROOT" log --oneline HEAD.."$base_ref" | sed 's/^/         missing: /' >&2
     exit 1
   fi
 fi
