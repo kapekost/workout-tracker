@@ -1,6 +1,10 @@
 # Dependencies
-node_modules/
-frontend/node_modules/
+# No trailing slash on the four below on purpose: a trailing slash matches
+# directories only, so a *symlinked* node_modules/.venv (a common shortcut when a
+# linked worktree reuses the main checkout's install) shows up as untracked and
+# one `git add -A` commits 300MB of dependencies. A bare name matches both.
+node_modules
+frontend/node_modules
 
 # Build output
 frontend/dist/
@@ -14,8 +18,8 @@ frontend/blob-report/
 # Python
 __pycache__/
 *.py[cod]
-.venv/
-venv/
+.venv
+venv
 
 # Runtime data (SQLite DB + volume) — never commit workout data
 # Anchored to repo root so it does NOT match frontend/src/data/ (app source).
