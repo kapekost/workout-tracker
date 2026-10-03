@@ -72,7 +72,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout PR Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           # Do not leave the job token in .git/config for the reviewer to read. With
