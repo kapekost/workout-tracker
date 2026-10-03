@@ -3,7 +3,9 @@
 Date: 2026-10-03
 Origin: two read-only specialist reviews dispatched in an opencode session on
 `claude/import-auth-hardening` (UI/design-systems pass, UX/core-workflow pass). Neither wrote code.
-Status: **tracker written, nothing implemented, owner's mockup selection outstanding.**
+Status: **Waves 0 and most of Wave 1 implemented** (see "What has shipped" below). Still open:
+Wave 1.2's idempotency key, Wave 1.4, Wave 2, Wave 3, Wave 4, and the browser check that every
+UI change in this repo is required to have — which could not be run where this work was written.
 
 Spec: none. This is not an Issue's plan — it is the queue the two reviews produced, ordered so the
 cheap high-confidence work lands first and the judgement calls go to the owner last.
@@ -201,3 +203,60 @@ The offline write queue and warm-up/drop-set typing were both explicitly decline
 2026-09-06 audit and are not re-argued here. Nothing in this tracker touches auth, deploy, backup or
 the service worker's cache strategy — Wave 1 and 2 are UI-only and carry no schema change, so no
 export snapshot and no restore drill is required for them.
+
+---
+
+## What has shipped (2026-10-03, later session)
+
+Four commits on `design/wave0-tokens`, branched from `claude/import-auth-hardening`. Every item
+below is red-first: the test fails with the fix reverted, and each new guard was verified by
+reintroducing the defect it exists to catch.
+
+| item | state | note |
+|---|---|---|
+| 0.1 error toast contrast | shipped earlier (#235) | |
+| 0.2 `theme-color` | shipped earlier (#235) | |
+| 0.3 disabled state | shipped earlier (#235) | |
+| 0.4 stray hues | **done** | plus the finding that `.btn-icon:active` was 1.03:1 against its own resting fill — a pressed control that was not |
+| 0.5 size parity | **done, differently** | the plan's "theme.js and index.css agree on sizes" is not checkable — `type.size` has no `:root` counterpart. Shipped as an allowlist with per-entry reasons, scanned across **inline styles too**, where three of the five off-scale values actually were |
+| 0.6 contrast comments | **done** | 1.12→1.05, 4.96→4.63, and a test that re-derives both |
+| 0.7 Skeleton | **done** | token radius; dead `height = 16` default removed |
+| 1.1 failed read | **done, wider than planned** | six sites, not four. An independent pass found the worst one is not on this list at all: `Workout.jsx` did `.catch(() => nav('/'))`, throwing you out of your own live workout |
+| 1.2 idempotency | **partly** | the honest-failure half shipped with 1.6. The `client_id` key needs a schema change, so it is a separate deploy with an export snapshot and a restore drill — **and it invalidates this document's own closing claim that Wave 1 carries no schema change** |
+| 1.3 note saves | **done** | the finding was not the lie, it was that `setEditingNote(null)` ran before the `await` and destroyed the typed words |
+| 1.4 Finish confirm | **open** | mockup pick still outstanding; the pass argues an un-finish path beats a confirm |
+| 1.5 clearable numbers | shipped earlier (#235) | |
+| 1.6 one catch | **done** | branches on `err.status`; the no-status branch keeps the retry hint *and* tells you to check the set list |
+| 1.7 stale indicator | **done, and cheaper than planned** | the `aria-hidden` was on the `<svg>`, not the live region — so this was a copy fix, not an a11y-mechanism one |
+
+### Found outside this tracker
+
+- **The iOS 16px focused-input floor was missing on the note textarea** (`Workout.jsx`, 0.8rem).
+  It is the only focusable text control in the app without it, and it is the one you focus *between
+  sets*. Reported by the owner using the app; no review had caught it. Now 1rem, with a guard that
+  walks every `<textarea>` and text `<input>` in `src` — resolving inline sizes, spread style
+  objects and CSS classes — and fails if any lands under 16px or cannot be resolved at all.
+- **`Home.jsx`'s `/exercises/recency` failure** was a fifth false empty state: the muscle-group
+  picker was being handed `[]`, which reads as "you have never trained anything".
+- **The skeleton-height question** (do the ten hand-guessed heights match what the real content
+  occupies?) is unanswered and is not answerable from source. A mis-tap on Log Set is the failure
+  mode if they are wrong. Costs one throttled load to check.
+
+### What could not be done here
+
+**No rendered screen was looked at.** Chromium will not execute in an Alpine/musl sandbox —
+`unsupported relocation type 1032` under `gcompat`, which is the same family of problem the
+Dockerfile's arm64 builder has. Every visual judgement above is therefore unverified, and this
+repo's own rule (DECISIONS.md 2026-09-06) says a UI change is not done until someone has looked at
+it. `frontend/e2e/review-shots.spec.js` is the handoff: it drives the changed screens, saves a
+screenshot of each at 390px and 320px, and prints the computed sizes and colours that source review
+cannot see. Run it on a machine with a working browser:
+
+```
+cd frontend && REVIEW_SHOTS=1 REVIEW_PASS='<the local dev password>' npx playwright test e2e/review-shots.spec.js
+```
+
+Three calls in particular want eyes: whether Home's new error state reads correctly at 320px,
+whether "Data may be old" crowds the TopBar's username, and whether the danger-coloured "· not
+saved" is visible at all inside an exercise card that dense (if it is not, revert the text on
+failure instead of marking it).

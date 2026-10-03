@@ -13,11 +13,12 @@ import { api } from '../api'
 const PROFILE = { id: 1, username: 'kapekost', role: 'admin' }
 
 function Probe() {
-  const { active, ready, discard } = useActiveSession()
+  const { active, ready, failed, discard } = useActiveSession()
   return (
     <div>
       <span data-testid="active">{active ? active.id : 'none'}</span>
       <span data-testid="ready">{String(ready)}</span>
+      <span data-testid="failed">{String(failed)}</span>
       <button onClick={() => discard(active.id)}>discard</button>
     </div>
   )
@@ -93,5 +94,33 @@ describe('ActiveSessionProvider', () => {
     setProfile(null)
 
     await waitFor(() => expect(screen.getByTestId('active')).toHaveTextContent('none'))
+  })
+
+  // Wave 1.1. A rejected read says we could not find out whether a session is
+  // in progress; it does not say there isn't one. Nulling `active` here made
+  // Home replace Resume with Start over a live workout.
+  it('keeps the active session when a refresh fails, and says the read failed', async () => {
+    api.get.mockResolvedValueOnce([{ id: 12, completed: 0 }])
+    const { setProfile } = renderWith(PROFILE)
+    await waitFor(() => expect(screen.getByTestId('active')).toHaveTextContent('12'))
+
+    // Sign out and back in is not what this exercises — a *failed* fetch is.
+    // Re-render with the same profile after making the next call reject.
+    api.get.mockRejectedValueOnce(new Error('offline'))
+    setProfile({ ...PROFILE }) // new object identity → effect re-runs
+    await waitFor(() => expect(screen.getByTestId('failed')).toHaveTextContent('true'))
+
+    expect(screen.getByTestId('active')).toHaveTextContent('12')
+  })
+
+  it('clears failed once a read succeeds again', async () => {
+    api.get.mockRejectedValueOnce(new Error('offline'))
+    const { setProfile } = renderWith(PROFILE)
+    await waitFor(() => expect(screen.getByTestId('failed')).toHaveTextContent('true'))
+
+    api.get.mockResolvedValueOnce([{ id: 3, completed: 0 }])
+    setProfile({ ...PROFILE })
+    await waitFor(() => expect(screen.getByTestId('failed')).toHaveTextContent('false'))
+    expect(screen.getByTestId('active')).toHaveTextContent('3')
   })
 })

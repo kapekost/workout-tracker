@@ -1,7 +1,10 @@
 # Orchestration Decisions
 
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
-> them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
+> them. **Newest at the bottom — append.** (The header used to say "newest at the top" while every
+> entry had in fact been appended at the bottom for two months; a header that lies about where to
+> write is how an entry ends up in the wrong place, and this file is a log, not a set of slides.)
+> Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
 > **Note:** this file is mirrored from the orchestration home branch
 > (`claude/workout-tracker-backlog-bu9qnw`), which is the source of truth and is not merged to
@@ -567,3 +570,27 @@ then triage the 10 stale branches individually — two hold unmerged commits tha
 `main` has since superseded by another route, so they are candidates for
 deletion, but deleting branches is destructive and belongs to the owner.
 
+
+## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
+
+Owner, in response to the review bot objecting that `--approve` contradicted the
+"approval is human-only" guardrail. It does not: that rule is about the `approved`
+label and the `APPROVE` box — destructive-operation approval — and a bot approving
+a pull request is a different act by a different actor. The wording now says so in
+both places (`GUARDRAILS.md` "Approval is human-only" scope bullet and "Merge &
+branch rules"), so the next session does not have to re-derive it.
+
+**The decision:** the owner is not a required reviewer per PR. This repo already
+merges on green CI with no live approval per PR; a bot that reviews and approves is
+an *extra* opinion in that set, not a gate and not a substitute for the owner.
+GitHub agrees structurally — `GITHUB_TOKEN` approvals are excluded from branch
+protection, so the bot cannot be mistaken for a human approver by the platform
+either. The one thing that changes the picture is the bot saying
+`--request-changes`: that is a concern, and it gets handled like red CI.
+
+**Also settled here:** a re-review should make the reader's life easier, not
+harder. So `opencode-review.yml` now reviews only the delta since its own last
+review, closes its own resolved threads first (`scripts/resolve_review_threads.sh`,
+which can only ever resolve threads the bot itself started), and posts one short
+message with a fixed shape — verdict, counts, findings, details only where the
+judgement was hard. A review nobody reads to the end has not reviewed anything.

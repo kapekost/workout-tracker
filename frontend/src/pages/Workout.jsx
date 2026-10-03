@@ -177,7 +177,10 @@ function WeightFieldLabel({ bodyweight }) {
     <div style={{ marginBottom: space.sm }}>
       <Eyebrow>{bodyweight ? 'Added Weight (kg)' : 'Weight (kg)'}</Eyebrow>
       {bodyweight && (
-        <p style={{ color: colors.muted2, fontSize: '0.6rem', marginTop: 2 }}>0 = bodyweight only</p>
+        // type.size.sm, not the 0.6rem this used to be. That was below the scale
+        // floor, on the app's most safety-relevant micro-copy: 0 means
+        // bodyweight, not a broken field. Read mid-set.
+        <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 2 }}>0 = bodyweight only</p>
       )}
     </div>
   )
@@ -198,6 +201,7 @@ export default function Workout() {
   const nav = useNavigate()
   const { refresh } = useActiveSession()
   const [session, setSession] = useState(null)
+  const [loadError, setLoadError] = useState(false)
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
   const prsAtStart = useRef({})
@@ -218,7 +222,14 @@ export default function Workout() {
   const { held: wakeLockHeld } = useWakeLock(true)
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
-  const [editingNote, setEditingNote] = useState(null)
+  // Which note is open, and what has been typed into it so far — one object
+  // rather than an exercise id plus a separate draft. Wave 1.3: the draft has to
+  // survive a failed save, and the old shape could not express that. `text` is
+  // live, so a controlled textarea is the only thing that can re-seed the editor
+  // with the user's own words after a failure (defaultValue cannot: it only
+  // reads on mount).
+  const [noteEditing, setNoteEditing] = useState(null) // { exId, text } | null
+  const [noteFailed, setNoteFailed] = useState({})    // exId -> true
   const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
   // Same tap-again-to-confirm shape as History.jsx's confirmId and
@@ -276,7 +287,12 @@ export default function Workout() {
         const pf = prefillFor(firstId, s.sets || [], prMap, data, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
         setWeight(pf.weight); setReps(pf.reps)
       }
-    }).catch(() => nav('/'))
+    // A failed read must NOT navigate. `.catch(() => nav('/'))` threw the user
+    // out of their own live workout and landed on Home, which then said "No
+    // sessions logged yet" and offered to start a different day (Wave 1.1).
+    // This is the only one of the six read-failure sites that destroyed
+    // navigation context rather than merely mislabelling a state.
+    }).catch(() => setLoadError(true))
     // Load notes
     api.get('/notes').then(setNotes).catch(() => {})
   }, [sessionId])
@@ -284,6 +300,23 @@ export default function Workout() {
   useEffect(() => {
     saveRestTimer(sessionId, { restStartMs, pausedRem })
   }, [sessionId, restStartMs, pausedRem])
+
+  if (loadError) return (
+    <div style={{ paddingTop: 24 }}>
+      <Eyebrow color={colors.danger} size={type.size.base} style={{ marginBottom: 4 }}>
+        Couldn't load
+      </Eyebrow>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 16 }}>
+        Check your connection
+      </h1>
+      <div className="form-error">
+        We couldn't open this workout. Your sets are safe — nothing was logged or lost.
+      </div>
+      <button className="btn-secondary" style={{ marginTop: 16 }} onClick={() => window.location.reload()}>
+        Try again
+      </button>
+    </div>
+  )
 
   if (!session) return (
     <div style={{ paddingTop: 24 }}>
@@ -375,9 +408,30 @@ export default function Workout() {
         }
       }
     } catch (e) {
-      // Weight/reps state is untouched on this path, so the retry this tells
-      // you to do is genuinely one tap -- the copy just has to say so.
-      showToast("Couldn't save that set — tap Log Set again", 'error')
+      // Wave 1.6: one message for every failure told the user to "tap Log Set
+      // again" for a 422, which can never succeed on retry — the backend
+      // rejects reps < 1 and weight_kg < 0 or > 1000 (main.py:343-345), and the
+      // reps stepper moves in steps of 1, so a fractional value was not even
+      // reachable by stepping. The message demanded the impossible.
+      //
+      // `err.status` already exists (api.js). Branching on it:
+      //   401       — api.js is already routing this to the logout handler;
+      //               the screen is being torn down, so a toast is noise.
+      //   4xx       — the server rejected the request. Retrying changes nothing.
+      //   no status — network drop or the 8s abort. The write may or may not
+      //               have landed, which is why this branch keeps the retry
+      //               hint AND points at the set list to check first.
+      if (e?.status === 401) {
+        // api.js is already routing this to the logout handler and the screen
+        // is being torn down; a toast racing the redirect is noise. Falls
+        // through to setLogging(false) like every other branch.
+      } else if (e?.status === 422) {
+        showToast('That value is not allowed — check weight and reps', 'error')
+      } else if (e?.status >= 400 && e?.status < 500) {
+        showToast("Couldn't save that set — the server rejected it", 'error')
+      } else {
+        showToast("Couldn't save that set — check the sets above, then tap Log Set again", 'error')
+      }
     }
     setLogging(false)
   }
@@ -406,9 +460,20 @@ export default function Workout() {
 
   async function saveNote(exId, text) {
     setNotes(prev => ({ ...prev, [exId]: text }))
-    setEditingNote(null)
-    try { await api.put(`/exercises/${exId}/note`, { note: text }) }
-    catch { showToast('Failed to save note', 'error') }
+    try {
+      await api.put(`/exercises/${exId}/note`, { note: text })
+      setNoteEditing(null)
+      setNoteFailed(prev => { const next = { ...prev }; delete next[exId]; return next })
+    } catch {
+      // The editor deliberately STAYS OPEN, holding the text. The old code
+      // closed it before the await, so a failed save destroyed what the user
+      // had typed — the data loss here was never the missing row, it was the
+      // words, and they were being thrown away one line above this catch.
+      // Leaving it open and controlled is also the retry: fix the connection,
+      // tap away again.
+      setNoteFailed(prev => ({ ...prev, [exId]: true }))
+      showToast('Note not saved — still here, tap to retry', 'error')
+    }
   }
 
   async function finishWorkout() {
@@ -569,15 +634,30 @@ export default function Workout() {
               <IconClipboardDocumentList size={16} /> Form cues + demo
             </button>
 
-            {/* Per-exercise note */}
-            {editingNote === ex.id ? (
-              <textarea defaultValue={notes[ex.id] || ''} autoFocus
+            {/* Per-exercise note. Wave 1.3: a failed save used to leave the note on
+                screen looking saved, because the optimistic update landed
+                first and only the toast knew better. It now keeps the words,
+                marks them unsaved, and leaves the editor open holding them. */}
+            {noteEditing?.exId === ex.id ? (
+              /* 1rem, not type.size.md (0.8rem). iOS Safari zooms the whole page
+                 in when a focused field computes below 16px, and this is a field
+                 the user focuses *between sets* — the zoom lands mid-workout and
+                 shifts the Log Set button out from under their thumb. Same floor
+                 .field and PersonalBests' inputs already document. This was the
+                 app's only focusable text control without it; found by the owner,
+                 not by a review. */
+              <textarea autoFocus
+                value={noteEditing.text}
+                onChange={e => setNoteEditing(ed => ({ ...ed, text: e.target.value }))}
                 onBlur={e => saveNote(ex.id, e.target.value.trim())}
-                style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
+                style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: '1rem', padding: 8, resize: 'vertical' }} />
             ) : notes[ex.id] ? (
-              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}><IconPencil size={14} /> {notes[ex.id]}</p>
+              <p onClick={() => setNoteEditing({ exId: ex.id, text: notes[ex.id] })} style={{ color: noteFailed[ex.id] ? colors.danger : colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>
+                <IconPencil size={14} /> {notes[ex.id]}
+                {noteFailed[ex.id] && <span style={{ color: colors.muted, fontStyle: 'normal' }}> · not saved</span>}
+              </p>
             ) : (
-              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
+              <button className="tap-target" onClick={() => setNoteEditing({ exId: ex.id, text: '' })} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
             )}
 
             {/* Last workout + overload hint */}

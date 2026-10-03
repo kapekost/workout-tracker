@@ -39,6 +39,17 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
   --muted-2: #b3b3b3;
   --danger: #ef4444;
   --danger-bg: #2a1a1a;
+  /* Wave 0.4: the pressed state .btn-icon used to hardcode #2a2a42, a
+     blue-grey left over from the retired palette. Against its own resting
+     fill (#2a2a2a) it measures 1.03:1 — visually identical — so pressing
+     +/- on the steppers, the most-tapped control in the app, produced no
+     feedback at all beyond the global opacity change. #3a3a3a is 1.26:1
+     against the resting fill and a true neutral. */
+  --surface-raised: #3a3a3a;
+  /* Also Wave 0.4. Reused by .btn-secondary's label, which was #e2e8f0 —
+     also retired-palette. 11.4:1 on its own fill either way, so this is
+     about the theme being one system, not about legibility. */
+  --text-secondary: #e5e5e5;
   --accent-wash: rgba(212, 255, 63, 0.14);
   --content-max-width: 28rem;
   --page-gutter: 1rem;
@@ -82,7 +93,7 @@ button:active { opacity: 0.7; }
 }
 .btn-primary:active { opacity: 0.8; }
 .btn-secondary {
-  background: var(--border); color: #e2e8f0; font-weight: 600;
+  background: var(--border); color: var(--text-secondary); font-weight: 600;
   padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer;
   transition: opacity 0.15s;
 }
@@ -93,7 +104,7 @@ button:active { opacity: 0.7; }
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   transition: background 0.15s;
 }
-.btn-icon:active { background: #2a2a42; }
+.btn-icon:active { background: var(--surface-raised); }
 .btn-primary:disabled { opacity: 0.55; cursor: default; }
 /* 2026-10-03 design review, Wave 0.3: only .btn-primary had a disabled
    state, and every rest-timer control uses .btn-icon/.btn-secondary — so
@@ -142,11 +153,16 @@ button:focus-visible, a:focus-visible {
   color: var(--accent); font-family: inherit; font-size: 0.8rem; font-weight: 600;
 }
 .field-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-/* The full border, not just the left bar: --danger-bg is 1.12:1 against
+/* The full border, not just the left bar: --danger-bg is 1.05:1 against
    --card, so the fill alone is invisible and a 3px strip was the only thing
    saying "error" -- too little at arm's length in gym lighting. --danger is
-   4.96:1 on --card, so the outline is what actually carries the signal. The
-   token itself is left alone; History.jsx uses --danger-bg as a border. */
+   4.63:1 on --card, so the outline is what actually carries the signal. The
+   token itself is left alone; History.jsx uses --danger-bg as a border.
+   Wave 0.6: this comment said 1.12:1 and 4.96:1. Both were wrong, and they
+   were the only contrast figures asserted anywhere outside theme.test.js —
+   which is exactly why they rotted. Measured with the WCAG formula in
+   theme.test.js, which now re-derives every ratio quoted in this file, so a
+   stale number here fails the suite instead of misleading the next reader. */
 .form-error {
   color: #fff; background: var(--danger-bg);
   border: 1px solid var(--danger);
@@ -195,16 +211,39 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   width: 100%;
 }
 
+/* Bottom-anchored, not top-anchored.
+   It used to sit at `top: 20px`, which put it directly over the fixed header
+   (z-index 45 vs the toast's 100) — it covered the app name, the version stamp
+   and, on the workout screen, the top of the exercise card. Confirmed in a
+   real browser at 320px, not inferred: the 2026-10-03 screenshots caught it
+   covering "Gym Tracker" and clipping the h1.
+
+   The reason to move it rather than nudge it down is where the eyes are. Every
+   message this toast carries — a logged set, a failed save, a rejected value —
+   arrives while the user's thumb and gaze are at the BOTTOM of the screen, on
+   Log Set. A message that appears at the top is a message that has to be found.
+
+   --toast-lift is one token so the extra offset is decided in one place: the
+   NavBar is always the base, exactly as it is for the rest timer
+   (`bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom))`), and the
+   lift is what has to clear whatever else is docked at the bottom. */
 .toast {
-  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--navbar-height) + var(--toast-lift, 16px) + env(safe-area-inset-bottom));
   background: var(--success); color: #0d0d0d; font-weight: 700;
   padding: 12px 24px; border-radius: 100px; z-index: 100; width: max-content;
   max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
-  animation: slideDown 0.3s ease;
+  animation: slideUp 0.3s ease;
 }
+/* The rest timer sits on top of the NavBar and is 70px of clearance
+   (Workout.jsx's EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR, the measured value), so
+   the toast needs 16 + 70. :has() is Safari 15.4+ / Chrome 105+, well inside
+   this app's floor, and it keeps the condition in CSS instead of a mount effect
+   that sets a style property on <html>. */
+body:has(.timer-bar) .toast { --toast-lift: 86px; }
 .toast.error { background: var(--danger); color: #0d0d0d; }
-@keyframes slideDown {
-  from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 .route-fade { animation: routeFadeIn 200ms ease; }
@@ -220,11 +259,21 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .timer-bar.flash { animation: timerflash 0.4s ease-in-out 3; }
 @keyframes timerflash { 50% { background: #2a4d2a; } }
 .timer-bar .session-clock { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-.timer-bar .wake-chip { color: var(--accent); font-size: 0.6rem; font-weight: 700; margin-left: 8px; }
+/* Was 0.6rem, below the scale floor (xs = 0.65rem) — see type.offScale in
+   theme.js for why that entry no longer exists. */
+.timer-bar .wake-chip { color: var(--accent); font-size: 0.7rem; font-weight: 700; margin-left: 8px; }
 .timer-controls { display: flex; align-items: center; gap: 8px; }
 .rest-block { text-align: center; min-width: 88px; }
-.rest-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; }
-.rest-clock { color: #fff; font-weight: 700; font-size: 2.2rem; line-height: 1; }
+/* REST / GO / PAUSED, read at arm's length in the middle of a set. Was
+   0.6rem with 0.1em tracking — below the floor, and its tracking matched no
+   other uppercase label in the app (.field-label and Eyebrow both use
+   type.labelTracking = 0.08em). */
+.rest-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; }
+/* Was 2.2rem — larger than type.size.display, i.e. off the top of the scale.
+   At `display` it is still the largest text in the app, and the ~4px of bar
+   height it gives back is what the mobile media queries below were
+   compensating for. */
+.rest-clock { color: #fff; font-weight: 700; font-size: 2rem; line-height: 1; }
 .timer-pill { min-height: 44px; min-width: 44px; font-size: 0.75rem; padding: 4px 12px; }
 @media (max-width: 440px) {
   .timer-bar { gap: 8px; padding: 10px 10px; }
@@ -250,7 +299,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   .cues-overlay, .cues-sheet { transition: none !important; }
 }
 .skeleton {
-  background: linear-gradient(90deg,#1a1a2e 25%,#23233a 37%,#1a1a2e 63%);
+  background: linear-gradient(90deg,#1a1a1a 25%,#2f2f2f 37%,#1a1a1a 63%);
   background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
 }
 @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
