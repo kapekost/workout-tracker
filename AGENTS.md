@@ -21,6 +21,29 @@ MCP servers: copy `.mcp.json.example` to `.mcp.json` and fill in what this repo
 actually needs. Start new servers at local scope, promote to project scope only
 once reviewed — never commit a real credential; reference an env var instead.
 
+### The automated PR reviewer
+
+`.github/workflows/opencode-review.yml` runs an agent over every non-draft PR. It is an
+**extra reviewer, not a gate** — it approves or blocks in its own name, and that approval is
+never the owner's and never the `approved` label (`GUARDRAILS.md`; decision in
+`DECISIONS.md` 2026-10-03). The owner is not a required reviewer per PR; PRs merge on green
+CI without live approval.
+
+What it posts is one short message: a verdict line, counts, `file:line` findings, and a
+`Details` section only where the judgement was hard. On a re-review it looks at the diff
+since its own last review and closes its own resolved threads first
+(`scripts/resolve_review_threads.sh` — it can only resolve threads that bot started, never a
+human's).
+
+So when you see it:
+
+- **`--request-changes` is a concern.** Handle it like red CI: fix it, or answer it in the
+  thread. Never wave it through because the diff looked fine to you.
+- **Its approval means nothing on its own** — CI still has to actually run.
+- **It can be wrong.** A review of this repo on 2026-10-03 produced four false Criticals true
+  only on a stale base branch. Re-verify any claim against the branch you are about to ship;
+  see `.claude/agents/reviewer.md`.
+
 ### Deployment knowledge stays local
 
 This repo deploys to one specific machine (see "Where it runs" below), which

@@ -43,6 +43,14 @@ the `approved` label itself. See "Approval is human-only" below.
   needs no branch-protection setup, on any repo.
 - **A red CI is still a hard stop.** If `gh pr checks --watch --fail-fast` exits non-zero, do not
   merge — fix it and push again, do not force through.
+- **The opencode review bot is an extra reviewer, not a required one.** Its `--approve`
+  (`.github/workflows/opencode-review.yml`) is *that bot's* review of the PR, recorded under its
+  own login. It is never the owner's approval, never a destructive-operation approval, and never
+  a merge — GitHub also excludes `GITHUB_TOKEN` approvals from branch protection, so it cannot
+  stand in for a human approver even if one were configured. The owner is **not** in the loop
+  per PR; an approval from the bot that raises no concern is not itself a concern. When it posts
+  `--request-changes`, that *is* a concern: treat it exactly like red CI — fix it or answer it
+  in the thread, never wave it through on the grounds that the PR looked fine to you.
 - **Never force-push.** Never push directly to `main`.
 - Feature branch → PR. No direct commits to `main`.
 
@@ -96,6 +104,12 @@ routine, say — see "Claiming work"), and a force-push can silently destroy ano
 in-flight work with no warning.
 
 ### Approval is human-only
+- **Scope: the `approved` label and the `APPROVE` box, nothing else.** This rule governs
+  *destructive-operation* approval. It is not a rule about code review, and it should not be read
+  as one: a CI bot approving a pull request is that bot reviewing code (see "Merge & branch
+  rules"), which is a different act from a human clearing a destructive operation. Conflating
+  the two is what made `opencode-review.yml` look like it was breaking this section when it was
+  doing what it is named after.
 - **The `approve` variant is unreachable as of 2026-10-03, deliberately.** The deny
   list contains `Bash(gh issue edit *--add-label approved*)`, and a deny rule is enforced by
   mechanism rather than by actor — it cannot tell a human typing the command from the agent
