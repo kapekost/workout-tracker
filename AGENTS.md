@@ -23,26 +23,39 @@ once reviewed — never commit a real credential; reference an env var instead.
 
 ### The automated PR reviewer
 
-`.github/workflows/opencode-review.yml` runs an agent over every non-draft PR. It is an
-**extra reviewer, not a gate** — it approves or blocks in its own name, and that approval is
-never the owner's and never the `approved` label (`GUARDRAILS.md`; decision in
-`DECISIONS.md` 2026-10-03). The owner is not a required reviewer per PR; PRs merge on green
-CI without live approval.
+`.github/workflows/opencode-review.yml` runs an agent over every non-draft PR from a
+same-repo branch. It is an **extra reviewer, not a gate**, and it is deliberately hobbled so
+it cannot do damage:
 
-What it posts is one short message: a verdict line, counts, `file:line` findings, and a
-`Details` section only where the judgement was hard. On a re-review it looks at the diff
-since its own last review and closes its own resolved threads first
-(`scripts/resolve_review_threads.sh` — it can only resolve threads that bot started, never a
-human's).
+- It **holds no GitHub token.** Two other steps hold one: one fetches the PR's prior review
+  history into a file the agent reads, the other resolves the agent's own review threads and
+  posts its verdict. So an agent reading attacker-controlled PR text has no credential to
+  leak and cannot post anything the prompt did not produce.
+- It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
+  runs (project config outranks global, so the PR's own copy would otherwise win), any
+  `.opencode/` directory is deleted (plugins there load in-process before any permission
+  check), the repository is made read-only, and `bash` is a default-deny allowlist of read
+  commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
+  and `bash scripts/deploy.sh` were each denied with the repo unchanged.
+
+It posts **one short comment**, not a GitHub review: a verdict line, counts, `file:line`
+findings, and a `Details` section only where the judgement was hard. It **cannot** submit a
+formal `--approve` or `--request-changes`, and posts no inline per-line comments — both would
+need a token inside the agent. On a re-review it reads the history file and looks at the diff
+since its own last review.
 
 So when you see it:
 
-- **`--request-changes` is a concern.** Handle it like red CI: fix it, or answer it in the
-  thread. Never wave it through because the diff looked fine to you.
-- **Its approval means nothing on its own** — CI still has to actually run.
+- **A "Blocking" verdict is a concern.** Handle it like red CI: fix it, or answer it in the
+  thread. Never wave it through because the diff looked fine to you. It will not stop a merge
+  — nothing about it is a required check in the merge sense; it is a person-shaped opinion
+  from a bot.
+- **Silence means nothing.** If the job is skipped (draft, fork) or the provider failed, there
+  is no comment and no verdict. Absence is not approval.
 - **It can be wrong.** A review of this repo on 2026-10-03 produced four false Criticals true
-  only on a stale base branch. Re-verify any claim against the branch you are about to ship;
-  see `.claude/agents/reviewer.md`.
+  only on a stale base branch, and its first successful run found four real defects in the
+  workflow that had just been written to prevent exactly what it then did. Re-verify any claim
+  against the branch you are about to ship; see `.claude/agents/reviewer.md`.
 
 ### Deployment knowledge stays local
 
