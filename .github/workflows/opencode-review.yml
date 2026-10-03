@@ -122,6 +122,15 @@ jobs:
               "requireTests": true,
               "denyOnTypescriptErrors": true
             },
+            "provider": {
+              "openrouter": {
+                "models": {
+                  "stealth/space-bunny-alpha": { "options": { "provider": { "data_collection": "deny" } } },
+                  "nvidia/nemotron-3-ultra-550b-a55b:free": { "options": { "provider": { "data_collection": "deny" } } },
+                  "nvidia/nemotron-3-super-120b-a12b:free": { "options": { "provider": { "data_collection": "deny" } } }
+                }
+              }
+            },
             "permission": {
               "edit": "deny",
               "write": "deny",
@@ -353,11 +362,20 @@ jobs:
           # suppress the verdict — the "a job that always fails means no PR is ever
           # green" problem this workflow exists to stop, reintroduced by the fix.
           # The exit code is captured and judged in the post step instead.
-          opencode run \
-            --model openrouter/stealth/space-bunny-alpha \
-            --format default \
-            "$REVIEW_PROMPT" | tee "$RUNNER_TEMP/review.txt"
-          echo "review exit: ${PIPESTATUS[0]:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          # First model that exits 0 with output wins. data_collection=deny in the
+          # config above means a provider that may train on prompts is never routed
+          # to; the request fails and the next model is tried.
+          for model in stealth/space-bunny-alpha \
+                       nvidia/nemotron-3-ultra-550b-a55b:free \
+                       nvidia/nemotron-3-super-120b-a12b:free; do
+            opencode run --model "openrouter/$model" --format default \
+              "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
+            rc=$?
+            echo "review model $model exit: $rc" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$rc" -eq 0 ] && [ -s "$RUNNER_TEMP/review.txt" ]; then break; fi
+            : > "$RUNNER_TEMP/review.txt"
+          done
+          cat "$RUNNER_TEMP/review.txt"
 
       # ── token step 2 of 2: resolve threads, then post ────────────────────────
       - name: Post the verdict
