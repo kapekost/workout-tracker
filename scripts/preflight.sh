@@ -66,6 +66,10 @@ else
       warn "  Anything you deploy will CHANGE the running app. If you expected"
       warn "  to be shipping a no-op, stop and find out why first."
     fi
+    if [[ "$running" =~ ^[0-9a-f]{7,40}$ ]] && git cat-file -e "$running^{commit}" 2>/dev/null \
+       && ! git merge-base --is-ancestor "$running" HEAD; then
+      bad "HEAD does not contain the live version $running; deploying would drop its changes."
+    fi
     if [[ "$running" == "dev" || -z "$running" ]]; then
       warn "  note: 'dev' means the image was built without --build-arg APP_COMMIT,"
       warn "  so the stamp proves nothing. Rebuild with APP_COMMIT set."

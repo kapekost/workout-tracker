@@ -85,6 +85,31 @@ if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
   fi
 fi
 
+# HEAD must also contain what is running. Containing main is not enough when the
+# live image came from another branch (the 2026-10-03 deploy was one).
+# Fails closed: an unreachable host, a "dev" stamp or a SHA this clone does not
+# have all stop the deploy. DEPLOY_ALLOW_STALE=1 is the rollback path.
+if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
+  # shellcheck disable=SC2086
+  live_health="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" 'curl -fsS --max-time 8 http://127.0.0.1:8080/api/health' 2>/dev/null || true)"
+  live_sha="$(printf '%s' "$live_health" | sed -n 's/.*"version":"\([0-9a-f]\{7,40\}\)".*/\1/p')"
+  if [[ -z "$live_sha" ]]; then
+    echo "error: could not read a commit SHA from /api/health on $DEPLOY_HOST (got: ${live_health:-nothing})." >&2
+    echo "       Cannot tell what is running, so cannot tell whether this deploy goes backwards." >&2
+    echo "       Re-run with DEPLOY_ALLOW_STALE=1 only if that is intended." >&2
+    exit 1
+  fi
+  if ! git -C "$ROOT" cat-file -e "$live_sha^{commit}" 2>/dev/null; then
+    echo "error: live version $live_sha is not in this clone. Run 'git fetch --all' first." >&2
+    exit 1
+  fi
+  if ! git -C "$ROOT" merge-base --is-ancestor "$live_sha" HEAD; then
+    echo "error: HEAD does not contain the live version $live_sha; deploying would drop its changes." >&2
+    git -C "$ROOT" log --oneline HEAD.."$live_sha" | sed 's/^/         missing: /' >&2
+    exit 1
+  fi
+fi
+
 # Warn, never fail: mail config missing only means invites and resets cannot
 # send, which must not block deploying everything else. Checked before the build
 # so the warning is visible rather than buried under image transfer output.
