@@ -127,7 +127,12 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      showToast("Couldn't start the workout — try again", 'error')
+      if (e.status === 409) {
+        showToast('A workout is already in progress', 'error')
+        refresh()
+      } else {
+        showToast("Couldn't start the workout — try again", 'error')
+      }
       setStarting(false)
     }
   }
@@ -160,18 +165,6 @@ export default function Home() {
           Check your connection
         </h1>
         <LoadError what="your workouts" onRetry={() => { setLoading(true); load(); refresh() }} />
-        {/* The picker needs /exercises/recency, and an empty list reads as
-            "you have never trained anything" rather than "we could not check" —
-            so it is withheld on its own failure too. */}
-        {!recencyError && (
-          <MuscleGroupPicker
-            groups={groupRecovery(recency)}
-            lastTrainedByDay={lastTrainedByDay(sessions)}
-            activeSession={active}
-            starting={starting}
-            onStart={startDay}
-          />
-        )}
         <VersionStamp />
       </div>
     )

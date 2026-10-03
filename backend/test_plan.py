@@ -167,6 +167,43 @@ def test_create_session_accepts_any_day_in_the_profiles_plan(client):
         r = client.post("/api/sessions", json={"workout_day": day})
         assert r.status_code == 200, r.text
         assert r.json()["workout_day"] == day
+        client.patch(f"/api/sessions/{r.json()['id']}", json={"completed": True})
+
+
+def test_create_session_conflicts_while_a_workout_is_open(client):
+    first = client.post("/api/sessions", json={"workout_day": "upper_a"})
+    assert first.status_code == 200
+    second = client.post("/api/sessions", json={"workout_day": "lower_a"})
+    assert second.status_code == 409
+    assert len(client.get("/api/sessions").json()) == 1
+
+    client.patch(f"/api/sessions/{first.json()['id']}", json={"completed": True})
+    assert client.post("/api/sessions", json={"workout_day": "lower_a"}).status_code == 200
+
+
+def test_reopening_a_session_conflicts_while_another_is_open(client):
+    first = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()
+    client.patch(f"/api/sessions/{first['id']}", json={"completed": True})
+    second = client.post("/api/sessions", json={"workout_day": "lower_a"}).json()
+
+    r = client.patch(f"/api/sessions/{first['id']}", json={"completed": False})
+    assert r.status_code == 409
+    assert client.patch(f"/api/sessions/{second['id']}", json={"completed": False}).status_code == 200
+
+    client.patch(f"/api/sessions/{second['id']}", json={"completed": True})
+    assert client.patch(f"/api/sessions/{first['id']}", json={"completed": False}).status_code == 200
+
+
+def test_an_open_session_does_not_block_another_profile(client, anon_client, mainmod):
+    assert client.post("/api/sessions", json={"workout_day": "upper_a"}).status_code == 200
+    with mainmod.db() as conn:
+        other = conn.execute("INSERT INTO profiles (username, role) VALUES ('other', 'member')").lastrowid
+        conn.execute("INSERT INTO plan_days (profile_id, day_key, name, sort_order) "
+                     "SELECT ?, day_key, name, sort_order FROM plan_days WHERE day_key = 'upper_a' LIMIT 1",
+                     (other,))
+        anon_client.cookies.set("wt_session", mainmod.issue_session(conn, other))
+        conn.commit()
+    assert anon_client.post("/api/sessions", json={"workout_day": "upper_a"}).status_code == 200
 
 
 def test_create_session_rejects_a_day_key_not_in_the_profiles_plan(client):
