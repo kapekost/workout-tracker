@@ -356,12 +356,10 @@ jobs:
             finding goes in the body as `file:line`.
 
         run: |
+          # Actions starts bash with -e, so `set -uo pipefail` alone leaves it on and
+          # the first failing model would end the step. +e lets the loop fall through.
+          set +e
           set -uo pipefail
-          # `set -e` is deliberately NOT on here. With it, a non-zero exit skips
-          # every later step, so one provider 429 would both redden the check and
-          # suppress the verdict — the "a job that always fails means no PR is ever
-          # green" problem this workflow exists to stop, reintroduced by the fix.
-          # The exit code is captured and judged in the post step instead.
           # First model that exits 0 with output wins. data_collection=deny in the
           # config above means a provider that may train on prompts is never routed
           # to; the request fails and the next model is tried.
