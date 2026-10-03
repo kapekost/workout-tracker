@@ -584,13 +584,9 @@ _rate_windows: dict[str, tuple[float, int]] = {}
 # sync `def` endpoints, so Starlette runs them in the anyio worker threadpool
 # (40 threads by default) and they really do run concurrently.
 _RATE_LIMIT_LOCK = threading.Lock()
-# Past this many tracked identities, stop creating NEW ones. This is the bound
-# that actually holds: sweeping expired windows only helps once time has moved
-# on, and `enforce_rate_limit` evaluates every key it is handed even after the
-# request is already doomed to a 429 — so without a hard cap an attacker posting
-# distinct usernames keeps adding keys for the whole 15-minute window. The
-# per-IP counter still trips at RATE_LIMIT_MAX regardless, so refusing to track
-# more identities cannot weaken the limit that protects the CPU.
+# Past this many tracked identities the store is full. A key that cannot be
+# tracked is treated as over the limit (fail closed), so filling the store cannot
+# switch the limiter off for other callers. Expired windows are swept first.
 _RATE_LIMIT_MAX_KEYS = 4096
 # Sweep threshold. High enough that the sweep never runs in normal operation
 # (one household, a handful of logins a week), low enough to keep the expired
@@ -604,31 +600,23 @@ def reset_rate_limits() -> None:
 def _rate_limit_hit(key: str) -> bool:
     """Count one attempt against a fixed window. True once over the limit.
 
-    Holds _RATE_LIMIT_LOCK for the whole read-modify-write. The obvious version
-    — build a list of stale keys, then `del` them — is not safe here and was
-    caught in review: with two threads on the login path, one iterating the dict
-    while the other inserts raises `RuntimeError: dictionary changed size during
-    iteration`, and two threads building the same eviction list then race on
-    `del` and raise `KeyError`. Both escape the request thread *before* the 429
-    decision, so the endpoint 500s instead of throttling — the limiter becomes
-    an amplifier. `list(...)` snapshots for iteration and `pop(k, None)` makes
-    the removal idempotent; the lock makes the pair atomic.
+    The whole read-modify-write holds _RATE_LIMIT_LOCK, and the sweep snapshots
+    with list() and removes with pop(k, None), so concurrent logins cannot raise
+    RuntimeError or KeyError before the 429 decision.
     """
     now = time.time()
     with _RATE_LIMIT_LOCK:
-        start, count = _rate_windows.get(key, (now, 0))
-        if now - start >= RATE_LIMIT_WINDOW_S:
-            start, count = now, 0
-        count += 1
-        # Refuse to *create* identities past the cap. An existing key still
-        # counts, so the counter that matters keeps working; we just stop letting
-        # an unauthenticated caller grow this dict.
-        if key in _rate_windows or len(_rate_windows) < _RATE_LIMIT_MAX_KEYS:
-            _rate_windows[key] = (start, count)
         if len(_rate_windows) > _RATE_LIMIT_SWEEP_AT:
             cutoff = now - RATE_LIMIT_WINDOW_S
             for stale in [k for k, (s, _) in list(_rate_windows.items()) if s < cutoff]:
                 _rate_windows.pop(stale, None)
+        if key not in _rate_windows and len(_rate_windows) >= _RATE_LIMIT_MAX_KEYS:
+            return True
+        start, count = _rate_windows.get(key, (now, 0))
+        if now - start >= RATE_LIMIT_WINDOW_S:
+            start, count = now, 0
+        count += 1
+        _rate_windows[key] = (start, count)
     return count > RATE_LIMIT_MAX
 
 def enforce_rate_limit(request: Request, *keys: str) -> None:
@@ -641,10 +629,11 @@ def enforce_rate_limit(request: Request, *keys: str) -> None:
     rejecting afterwards would leave the amplifier fully intact.
     """
     ip = request.client.host if request.client else "unknown"
-    # Every counter is evaluated, not short-circuited, so one key going over
-    # does not stop the others from recording the attempt.
-    over = [_rate_limit_hit(k) for k in (f"ip:{ip}", *keys)]
-    if any(over):
+    # The IP counter goes first and subject keys are only counted while it is
+    # under, so one address cannot grow the store by posting distinct usernames.
+    if _rate_limit_hit(f"ip:{ip}"):
+        raise HTTPException(429, "too many attempts; try again in a few minutes")
+    if any([_rate_limit_hit(k) for k in keys]):
         raise HTTPException(429, "too many attempts; try again in a few minutes")
 
 def hash_token(raw: str) -> str:
