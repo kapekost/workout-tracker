@@ -184,7 +184,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .personal-bests-form input[type="number"] {
   text-align: left;
   font-family: inherit;
-  font-size: 0.9rem;
+  /* 1rem, not 0.9rem: iOS Safari zooms the page in on any focused input
+     under 16px (same rule .field documents). The inline fieldStyle in
+     PersonalBests.jsx sets this too — it is inline, so it wins — but this
+     rule exists to override the shared 1.25rem centered rule above, so it
+     has to agree rather than quietly reintroduce the zoom. */
+  font-size: 1rem;
   font-weight: inherit;
   padding: 10px 8px;
   width: 100%;
