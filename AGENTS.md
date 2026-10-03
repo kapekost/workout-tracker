@@ -27,20 +27,14 @@ once reviewed — never commit a real credential; reference an env var instead.
 same-repo branch. It is an **extra reviewer, not a gate**, and it is deliberately hobbled so
 it cannot do damage:
 
-- It **holds no GitHub token.** Two other steps hold one: one fetches the PR's prior review
-  history into a file the agent reads, the other resolves the agent's own review threads and
-  posts its verdict. So an agent reading attacker-controlled PR text has no credential to
-  leak and cannot post anything the prompt did not produce. Note *how* that isolation is
-  achieved, because it is weaker than it looks: **Actions has no step-level `permissions`
-  key** — it is valid only at workflow and job level, so the job holds the union of scopes
-  and the reviewer is kept off the token by Actions not injecting `GITHUB_TOKEN` into a
-  `run` step's environment unless that step names it in its own `env:`. A previous version
-  of the workflow put `permissions` on individual steps; that is not a weaker version of the
-  design, it is an invalid file, and it made run 8 fail Actions' validator with **zero jobs
-  — no step ran at all**. `actions/checkout` also runs with `persist-credentials: false`, so
-  the token is not left in `.git/config` for the reviewer to read. Real per-step scoping
-  would require splitting the reviewer into its own job; that is the honest way to make this
-  invariant structural rather than incidental.
+- The **model job holds no token.** The workflow is three jobs: `history` (read-only token,
+  fetches prior reviews), `review` (`permissions: {}`, runs the model) and `post` (write token,
+  checks out the **default branch** and runs only `scripts/` from it, never the PR's). Data moves
+  between them as artifacts, and the review artifact is untrusted model output that
+  `scripts/post_review.py` validates before posting. Actions has no step-level `permissions`
+  key (an earlier version that used one failed validation with zero jobs), which is why the
+  split is by job. The limit: the workflow file itself still runs from the PR's merge ref, so
+  this defends against injected content, not a malicious committer with write access.
 - It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
   runs (project config outranks global, so the PR's own copy would otherwise win), any
   `.opencode/` directory is deleted (plugins there load in-process before any permission
@@ -48,16 +42,15 @@ it cannot do damage:
   commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
   and `bash scripts/deploy.sh` were each denied with the repo unchanged.
 
-It posts **one short comment**, not a GitHub review: a verdict line, counts, then one
-single-line bullet per finding, each a `file:line` **hyperlinked to the line at the PR head
-commit** (`.../blob/<head-sha>/<path>#L<line>`). Hard cap **20 lines / 180 words** for the
-whole message, enforced by the prompt, and there is **no `Details` section** — anything needing
-more than a line is dropped or becomes a one-line `Notes` bullet (used only for what could not
-be verified). Keeping it this short is a deliberate trade: a reader who skims to the end has
-still seen every real finding. It **cannot** submit a formal `--approve` or
-`--request-changes`, and posts no inline per-line comments — both would need a token inside
-the agent. On a re-review it reads the history file and looks at the diff since its own last
-review.
+It posts **one review**: a verdict line, one inline comment per blocking finding that sits
+on a changed line, and a short body list for findings that do not (plus at most three optional
+nits). The model prints JSON; `post_review.py` parses it, caps it (20 findings, 400 chars each),
+removes URLs and HTML, escapes markdown punctuation so nothing renders as a link, image or
+mention, drops lines not in the diff, and withholds the whole output if it matches a secret
+pattern (checked before and after JSON decoding). Output that is not that JSON is posted
+truncated inside a code block. A skipped review is JSON with `"skipped": true`. It posts as a `COMMENT`, never
+`--approve` or `--request-changes`. On a re-review it reads the history file and looks at the
+diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead.
 
 So when you see it:
 
