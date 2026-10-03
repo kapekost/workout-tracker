@@ -532,3 +532,46 @@ describe('per-exercise notes', () => {
     expect(await screen.findByText(/failed to save note/i)).toBeInTheDocument()
   })
 })
+
+// ── 2026-10-03 design review, item 1.5 ────────────────────────────────
+// The handler used to be
+//   onChange={e => onChange(Number.isNaN(parseFloat(e.target.value)) ? min : v)}
+// so clearing the field wrote the minimum back on the same keystroke. The
+// field could never be empty, and because the caret then sat after the
+// refilled digit, the next keystroke appended to it: clear "8", type "5",
+// log 15. This is the field a user reaches for mid-set with one hand.
+describe('number entry mid-workout (2026-10-03 review 1.5)', () => {
+  it('a number field can be cleared instead of refilling its minimum', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const reps = screen.getAllByRole('spinbutton')[1]
+    expect(reps.value).not.toBe('')
+
+    fireEvent.focus(reps)
+    fireEvent.change(reps, { target: { value: '' } })
+    expect(reps.value).toBe('')
+
+    fireEvent.change(reps, { target: { value: '5' } })
+    expect(reps.value).toBe('5')
+
+    fireEvent.blur(reps)
+    await waitFor(() => expect(reps).toHaveValue(5))
+  })
+
+  it('an emptied field still commits its minimum on blur', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const reps = screen.getAllByRole('spinbutton')[1]
+    const before = Number(reps.value)
+
+    fireEvent.focus(reps)
+    fireEvent.change(reps, { target: { value: '' } })
+    fireEvent.blur(reps)
+    // The floor still applies on the way out — this fix is about not
+    // fighting the user mid-entry, not about permitting an invalid value.
+    await waitFor(() => expect(reps).toHaveValue(1))
+    expect(before).toBeGreaterThanOrEqual(1)
+  })
+})

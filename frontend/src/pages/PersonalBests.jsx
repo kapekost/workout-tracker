@@ -17,7 +17,13 @@ const labelStyle = {
 }
 const fieldStyle = {
   width: '100%', background: colors.border, color: colors.text, border: 'none',
-  borderRadius: 8, padding: '10px 8px', fontSize: type.size.body,
+  borderRadius: 8, padding: '10px 8px',
+  // Exactly 1rem, not type.size.body (0.9rem). iOS Safari zooms the whole page
+  // in when a focused input computes below 16px, which on a phone throws the
+  // rest of the form off-screen — the same rule .field already documents and
+  // the auth screens already follow. This is an inline style, so it wins over
+  // the .personal-bests-form CSS rule; both are set for that reason.
+  fontSize: '1rem',
 }
 
 export default function PersonalBests() {
@@ -28,6 +34,15 @@ export default function PersonalBests() {
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(1)
   const [year, setYear] = useState(new Date().getFullYear())
+  // 2026-10-03 design review 1.5: the inputs hold the raw string while the
+  // user types. `parseFloat('') || 0` used to write the default straight back
+  // on the same keystroke, so the field could never be emptied — and on Year
+  // that meant clearing showed 2026 again, so typing "14" produced 202614,
+  // which the API rejects. The committed numbers above stay authoritative for
+  // the save payload; these are only what the input displays.
+  const [weightText, setWeightText] = useState('20')
+  const [repsText, setRepsText] = useState('1')
+  const [yearText, setYearText] = useState(String(new Date().getFullYear()))
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const { toast, showToast } = useToast()
@@ -139,20 +154,23 @@ export default function PersonalBests() {
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Weight (kg)</label>
-              <input type="number" inputMode="decimal" value={weight}
-                onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+              <input type="number" inputMode="decimal" value={weightText}
+                onChange={e => { const t = e.target.value; setWeightText(t); const v = parseFloat(t); if (!Number.isNaN(v)) setWeight(v) }}
+                onBlur={() => { if (weightText.trim() === '') setWeightText(String(weight)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Reps</label>
-              <input type="number" inputMode="numeric" value={reps}
-                onChange={e => setReps(parseInt(e.target.value, 10) || 1)}
+              <input type="number" inputMode="numeric" value={repsText}
+                onChange={e => { const t = e.target.value; setRepsText(t); const v = parseInt(t, 10); if (!Number.isNaN(v)) setReps(v) }}
+                onBlur={() => { if (repsText.trim() === '') setRepsText(String(reps)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Year</label>
-              <input type="number" inputMode="numeric" value={year}
-                onChange={e => setYear(parseInt(e.target.value, 10) || year)}
+              <input type="number" inputMode="numeric" value={yearText}
+                onChange={e => { const t = e.target.value; setYearText(t); const v = parseInt(t, 10); if (!Number.isNaN(v)) setYear(v) }}
+                onBlur={() => { if (yearText.trim() === '') setYearText(String(year)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
           </div>
