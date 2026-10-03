@@ -49,10 +49,12 @@ cues for a 4-day Upper/Lower split.
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
-  volume. Never commit the DB; `data/` is gitignored. Schema v4 (#66,
-  2026-08-31): added a `profiles` table + `profile_id` on every other table,
-  backfilled to a seeded `kapekost`/admin profile (`password_hash` left
-  `NULL` — no login yet, see #67).
+  volume. Never commit the DB; `data/` is gitignored. Schema **v6**: `profiles`
+  (#66, 2026-08-31) added accounts and a `profile_id` on every other table,
+  backfilled to a seeded `kapekost`/admin profile; #84 (2026-09-05) added
+  `profiles.email`, `auth_tokens` and `auth_sessions`. Every data endpoint now
+  requires a session (#86), so an unauthenticated caller gets 401 and
+  `_default_profile_id` is gone.
 
 ## Where it runs
 
@@ -306,37 +308,30 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-09-05 (deployed `3ed18a4`; `main` == the deployed image)._
+_Last updated: 2026-10-03 (deployed `1f1e390` from `claude/import-auth-hardening`, a
+descendant of `main` @ `94204ba`; **`main` is not itself the deployed image** —
+see "Branch discipline" below.)_
 
-**Running now:** commit `3ed18a4`, deployed 2026-09-05. Container healthy,
-`/api/health` `status: ok`. **Schema v6** — accounts groundwork (#84):
-`profiles.email`, `auth_tokens`, `auth_sessions`. Verified live: schema
-version 6, row counts unchanged across the migration (1 profile, 2 sessions,
-33 sets, 814 events), auth tables absent from the export envelope.
+**Running now:** commit `1f1e390`, deployed 2026-10-03. Container healthy,
+`/api/health` `{"status":"ok","version":"1f1e390"}`. **Schema v6.**
 
-**The login gate is deliberately NOT on.** #84 shipped the machinery —
-bcrypt hashing, server-side sessions, the `wt_session` cookie, a
-`current_profile` dependency, and `/api/auth/login` · `/logout` · `/me` —
-but no data endpoint requires a session yet, and `_default_profile_id` is
-untouched. That is #86, and it must not land before #85's emailed invite
-flow and the owner bootstrap work, or the owner is locked out of their own
-history. Verified live after this deploy: `/api/auth/me` 401 without a
-cookie, login refused for the seeded profile (its `password_hash` is NULL
-until it is invited), and `/api/sessions`, `/api/notes`, `/api/personal-bests`
-and `/api/profile/me` all still 200 unauthenticated.
+**The login gate is ON.** #86 landed. Verified live against the running box
+during this deploy, not inferred from source — an anonymous caller with no
+cookie gets `401` from `/api/sessions`, `/api/export`, `/api/notes` and
+`/api/plan`. `/api/health` is `{status, version}` and nothing else; the backup
+posture is `/api/admin/backup-status`, admin-only.
 
-That describes the **deployed image**. #86's backend half is on `main`:
-`_default_profile_id` is gone, every data endpoint 401s without a session,
-`/api/health` is `{status, version}` and the backup posture is
-`/api/admin/backup-status`. The next deploy closes the gate for real, so the
-owner must have set a password through the invite flow before it goes out.
+> **Row counts are NOT re-verified for this deploy.** Every endpoint that could
+> confirm them is behind the closed gate, so the figures from the 2026-09-05
+> verification (1 profile, 2 sessions, 33 sets, 814 events) are 28 days old and
+> almost certainly wrong now. Re-check with an admin session before trusting
+> them in a restore decision.
 
 **Break-glass, for an owner locked out of their own app.** With the gate closed
 there is no anonymous way in, so the recovery path is on the host rather than
-over HTTP: `scripts/bootstrap_owner.py`, which until now was written down only
-in a test docstring. It mints a fresh invite/reset token for a profile and
-emails it through Resend — the same path an ordinary invite takes, no backdoor
-and no password argument:
+over HTTP: `scripts/bootstrap_owner.py`. It mints a fresh invite/reset token for
+a profile and emails it through Resend — the same path an ordinary invite takes,
+no backdoor and no password argument:
 
 ```
 docker exec -e RESEND_API_KEY=... -e MAIL_FROM=... -e APP_BASE_URL=... \
@@ -358,10 +353,79 @@ that predates passwords (pre-v6, or any profile whose `password_hash` is NULL)
 leaves nobody able to log in over HTTP at all — the command above is then the
 only way back in.
 
-This deploy also brought the previously-undeployed backlog live in one jump
-from `9e4bf65`: the two-leg backup reporting (#93), the manual-backup change
-and the `deploy.sh` warn-don't-fail behaviour (#96), and the backup
-documentation consolidation (#95/#97/#98/#99/#100).
+*(Historical: the paragraph that follows describes an earlier deploy from
+`9e4bf65`, kept as history.)* The 2026-09-05 deploy brought the
+previously-undeployed backlog live in one jump from `9e4bf65`: the two-leg
+backup reporting (#93), the manual-backup change and the `deploy.sh`
+warn-don't-fail behaviour (#96), and the backup documentation consolidation
+(#95/#97/#98/#99/#100).
+
+### Branch discipline — `main` is not the deployed image
+
+`1f1e390` is on `claude/import-auth-hardening`, which contains `main` @ `94204ba`
+but is not `main`. Assume neither direction without checking.
+
+**How this went wrong on 2026-10-03, because it will happen again.** Work was
+branched from `claude/workout-tracker-backlog-bu9qnw`, which had *diverged*
+from `main` and sat 59 commits behind it — not merely behind, off to the side.
+A deploy from it replaced the running app with an older build and silently
+removed `Login`, `SetPassword` and `VersionBadge`. Two things made that possible
+and both are now fixed rather than documented:
+
+1. **`scripts/deploy.sh` now refuses a `HEAD` that is not a descendant of
+   `main`**, naming the missing commits. Its dirty-tree check was never enough:
+   a branch 59 commits behind `main` is a *clean* tree. `DEPLOY_ALLOW_STALE=1`
+   overrides it, deliberately, for a hotfix from an old branch.
+2. **Always check the branch before branching off it:**
+   `git merge-base --is-ancestor main HEAD`. If that fails, you are on a stale
+   side branch and everything you read or ship off it is suspect.
+
+The review that should have caught this instead reported four **false**
+Critical findings against an unauthenticated `POST /api/import` — verified live
+as `401` the whole time. They were true on the stale branch and false on `main`.
+A code review that is not re-verified against the branch you are about to ship
+is not a review. The corrected write-up is
+[`docs/superpowers/research/2026-10-03-review-corrected.md`](docs/superpowers/research/2026-10-03-review-corrected.md),
+which supersedes the incorrect 2026-10-02 one (deleted rather than edited — a
+plan for a bug that does not exist reads as current work).
+
+### What this deploy changed
+
+Five fixes, each with a regression test verified to fail without it:
+
+- **`api.put` was missing from `frontend/src/api.js`.** `Workout.jsx` called it
+  for every per-exercise note save, so notes threw a `TypeError` behind a
+  `catch` that said "Failed to save note", while the optimistic state update
+  made them look saved. **Per-exercise notes have never persisted.**
+  It shipped because `Workout.test.jsx` mocked the API as exactly
+  `{get, post, patch, delete}` — the mock and the bug agreed. `api.test.js` now
+  asserts the verb surface, so the two halves cannot drift apart silently.
+  *The transferable lesson: a mock authored from the intended interface hides
+  bugs in that interface.*
+- **Auth hygiene** (`backend/main.py`): re-minting a token now supersedes the
+  previous one of the same kind (a reset link minted before a compromise used
+  to survive the victim's own password reset); token redemption is claimed
+  atomically before any bcrypt work, so a losing racer fails rather than
+  overwriting the winner's password; and `_rate_windows` is swept, since its
+  keys are attacker-chosen on a public endpoint and nothing evicted them.
+- **Accessibility**: toasts get `role="status"`/`aria-live` (every PR
+  announcement and error was invisible to a screen reader), and the nav marks
+  `aria-current="page"`.
+
+**Backup posture as of this deploy:** last snapshot 2026-09-27, both legs `ok`
+(319,488 bytes local; off-site `gdrive:workout-tracker-backups`). That is 5 days
+old and crosses the 8-day stale threshold on 2026-10-05. Run `scripts/backup.sh`
+by hand before then — and note the `Testing`-publishing caveat below, which makes
+a *re-authorization* the likely failure rather than a code fix.
+
+**Still open, deliberately not in this deploy:** the admin export envelope
+carries `password_hash` into every backup (`SELECT *` on `profiles`), and
+stripping it changes restore semantics — an envelope without hashes leaves every
+account needing `forgot-password`. That is an owner decision plus a fresh
+restore drill, not a patch. Also open: `deploy.sh` `eval`s a gitignored file its
+own dirty-tree gate cannot see; the container runs as root with no compose
+resource limits and unhashed requirements; and the agentic tooling has no
+prompt-injection trust boundary.
 
 **Off-site backups: working, but best-effort by decision (2026-09-04).**
 The 2026-09-01..04 outage (`invalid_grant`, four failed nights, last good
