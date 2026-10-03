@@ -580,6 +580,11 @@ MAIL_FROM = os.environ.get("MAIL_FROM", "")
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_WINDOW_S = 15 * 60
 _rate_windows: dict[str, tuple[float, int]] = {}
+# Sweep threshold for _rate_windows. High enough that the sweep never runs in
+# normal operation (one household, a handful of logins a week) and low enough
+# that an attacker spraying distinct usernames cannot grow the dict without
+# bound on a memory-constrained host.
+_RATE_LIMIT_SWEEP_AT = 256
 
 def reset_rate_limits() -> None:
     """Tests only — the window store is process-global by design."""
@@ -593,6 +598,15 @@ def _rate_limit_hit(key: str) -> bool:
         start, count = now, 0
     count += 1
     _rate_windows[key] = (start, count)
+    # Evict expired windows, or _rate_windows grows without bound: the per-
+    # subject keys are attacker-chosen (`user:` up to 64 chars, `email:` up to
+    # 254), nothing ever removed them, and this dict is process-global on a
+    # ~1 GB box. Sweeping here costs a pass over a dict that is bounded by
+    # the eviction itself, so the amortised cost is constant.
+    if len(_rate_windows) > _RATE_LIMIT_SWEEP_AT:
+        cutoff = now - RATE_LIMIT_WINDOW_S
+        for k in [k for k, (s, _) in _rate_windows.items() if s < cutoff]:
+            del _rate_windows[k]
     return count > RATE_LIMIT_MAX
 
 def enforce_rate_limit(request: Request, *keys: str) -> None:
@@ -626,6 +640,15 @@ def mint_token(conn, profile_id: int, kind: str) -> str:
     """Insert a token row and return the raw value. Does not commit."""
     if kind not in TOKEN_TTL:
         raise ValueError(f"unknown token kind: {kind}")
+    # Supersede any outstanding token of the same kind first. Without this,
+    # "single use" only ever meant "redeemed once": a reset link minted before
+    # a compromise stayed live through the victim's own password reset, because
+    # set_password only marks the row it actually redeemed. Redeeming the stale
+    # one then silently rotated the password again and logged the attacker in.
+    # Retiring them here means only the most recently issued token works.
+    conn.execute("UPDATE auth_tokens SET used_at = datetime('now') "
+                 "WHERE profile_id = ? AND kind = ? AND used_at IS NULL",
+                 (profile_id, kind))
     raw = secrets.token_urlsafe(32)
     conn.execute("INSERT INTO auth_tokens (profile_id, token_hash, kind, expires_at) "
                  f"VALUES (?, ?, ?, datetime('now', '{TOKEN_TTL[kind]}'))",
@@ -807,9 +830,21 @@ def set_password(body: SetPasswordIn, response: Response):
             # A clear 400 rather than a 500 out of bcrypt — and the token is
             # still unused, so a too-short password costs the user nothing.
             raise HTTPException(400, str(exc))
+        # Claim the token atomically, and only then spend the hash. The SELECT
+        # above is a convenience read; this is the actual gate. The old code
+        # marked used_at with a plain `WHERE id = ?`, so two concurrent
+        # redemptions of the same link both passed the SELECT and both wrote a
+        # password — last writer won, and the "this link works once" promise in
+        # the email was not true. `used_at IS NULL` plus a rowcount check makes
+        # the second caller lose, and it does so *before* any hashing.
+        claimed = conn.execute(
+            "UPDATE auth_tokens SET used_at = datetime('now') "
+            "WHERE id = ? AND used_at IS NULL", (row["id"],)).rowcount
+        if claimed != 1:
+            conn.rollback()
+            raise HTTPException(400, "this link is invalid or has expired")
         conn.execute("UPDATE profiles SET password_hash = ? WHERE id = ?",
                      (password_hash, row["profile_id"]))
-        conn.execute("UPDATE auth_tokens SET used_at = datetime('now') WHERE id = ?", (row["id"],))
         # Every existing session dies here. This is the entire reason sessions
         # are server-side rows: a reset must end sessions a thief already holds.
         revoke_sessions(conn, row["profile_id"])
