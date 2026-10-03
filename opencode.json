@@ -1,0 +1,7 @@
+{
+  "review": {
+    "strict": true,
+    "requireTests": true,
+    "denyOnTypescriptErrors": true
+  }
+}

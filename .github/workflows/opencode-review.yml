@@ -1,0 +1,61 @@
+name: OpenCode Iterative PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  review:
+    # Skip draft PRs to save API tokens
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run OpenCode Iterative Review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: openrouter/stealth/space-bunny-alpha
+          use_github_token: true
+          prompt: |
+            You are enforcing strict code quality standards on Pull Request #${{ github.event.pull_request.number }}.
+
+            ---
+            ### STEP 1: CONTEXT & HISTORY GATHERING
+            1. Fetch previous PR review comments and thread history using the GitHub CLI:
+               `gh pr view ${{ github.event.pull_request.number }} --json reviews,comments,reviewRequests`
+            2. Extract any previously requested changes, reported bugs, or missing requirements from past reviews.
+
+            ---
+            ### STEP 2: VERIFICATION & DIFF ANALYSIS
+            1. Analyze the new diff against the target branch (`origin/${{ github.base_ref }}`):
+               `git diff origin/${{ github.base_ref }}...HEAD`
+            2. Evaluate each previously flagged issue:
+               - Was it addressed correctly in the new commit(s)?
+               - Was it partially addressed or ignored?
+            3. Scan the new changes for fresh issues (bugs, regressions, missing tests, broken types, or performance bottlenecks).
+
+            ---
+            ### STEP 3: DECISION MATRIX & ACTION
+
+            #### CASE A: Unresolved Issues or New Problems Exist
+            If ANY past issue remains unaddressed OR new blocking issues were introduced:
+            1. Post inline comments on the specific code lines where problems exist.
+            2. Issue a formal review blocking the PR:
+               `gh pr review ${{ github.event.pull_request.number }} --request-changes --body "<summary of remaining & new issues>"`
+
+            #### CASE B: All Issues Resolved & Code Satisfies Standards
+            If ALL past review comments are verified as fixed AND no new issues are introduced:
+            1. Submit an official approval:
+               `gh pr review ${{ github.event.pull_request.number }} --approve --body "All previously requested changes have been verified and resolved. Code satisfies repository quality standards."`
