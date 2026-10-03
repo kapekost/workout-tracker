@@ -1010,6 +1010,9 @@ def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
             "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
             (profile_id, s.workout_day)).fetchone():
             raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
+        if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
+                        (profile_id,)).fetchone():
+            raise HTTPException(409, "a workout is already in progress")
         cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
                            (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()

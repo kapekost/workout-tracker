@@ -167,6 +167,18 @@ def test_create_session_accepts_any_day_in_the_profiles_plan(client):
         r = client.post("/api/sessions", json={"workout_day": day})
         assert r.status_code == 200, r.text
         assert r.json()["workout_day"] == day
+        client.patch(f"/api/sessions/{r.json()['id']}", json={"completed": True})
+
+
+def test_create_session_conflicts_while_a_workout_is_open(client):
+    first = client.post("/api/sessions", json={"workout_day": "upper_a"})
+    assert first.status_code == 200
+    second = client.post("/api/sessions", json={"workout_day": "lower_a"})
+    assert second.status_code == 409
+    assert len(client.get("/api/sessions").json()) == 1
+
+    client.patch(f"/api/sessions/{first.json()['id']}", json={"completed": True})
+    assert client.post("/api/sessions", json={"workout_day": "lower_a"}).status_code == 200
 
 
 def test_create_session_rejects_a_day_key_not_in_the_profiles_plan(client):

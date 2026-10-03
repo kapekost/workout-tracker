@@ -95,6 +95,17 @@ describe('Home (full page)', () => {
     fireEvent.click(startBtn)
     expect(await screen.findByText("Couldn't start the workout — try again")).toBeInTheDocument()
   })
+
+  it('a 409 on start says a workout is already open and re-reads the active session', async () => {
+    mockHomeApi({ sessions: [], recency: [] })
+    const refresh = vi.fn()
+    mockActive.value = { active: null, refresh, ready: true, failed: false }
+    api.post.mockRejectedValue(Object.assign(new Error('API POST /sessions → 409'), { status: 409 }))
+    renderHome()
+    fireEvent.click(await screen.findByRole('button', { name: /^Start/ }))
+    expect(await screen.findByText('A workout is already in progress')).toBeInTheDocument()
+    expect(refresh).toHaveBeenCalled()
+  })
 })
 
 describe('planForDay', () => {
@@ -230,6 +241,17 @@ describe('Home when a read fails', () => {
     renderHome()
     await screen.findByRole('button', { name: /Try again/ })
     expect(screen.queryByRole('button', { name: /^Start / })).not.toBeInTheDocument()
+  })
+
+  it('does not offer the muscle picker when sessions could not be read, even if recency loaded', async () => {
+    // The picker starts workouts, and with sessions unread it cannot know one is already open.
+    mockHomeApi({
+      sessionsFail: true,
+      recency: [{ exercise_id: ex1.id, sets: 3, last_at: '2026-09-01 10:00:00', last_date: '2026-09-01' }],
+    })
+    renderHome()
+    await screen.findByRole('button', { name: /Try again/ })
+    expect(screen.queryByText('Muscle groups')).not.toBeInTheDocument()
   })
 
   it('a failed recency read hides the muscle picker rather than showing it empty', async () => {
