@@ -219,7 +219,14 @@ export default function Workout() {
   const { held: wakeLockHeld } = useWakeLock(true)
   const [lastPerf, setLastPerf] = useState({}) // exercise_id -> {sets,...} | null
   const [notes, setNotes] = useState({})
-  const [editingNote, setEditingNote] = useState(null)
+  // Which note is open, and what has been typed into it so far — one object
+  // rather than an exercise id plus a separate draft. Wave 1.3: the draft has to
+  // survive a failed save, and the old shape could not express that. `text` is
+  // live, so a controlled textarea is the only thing that can re-seed the editor
+  // with the user's own words after a failure (defaultValue cannot: it only
+  // reads on mount).
+  const [noteEditing, setNoteEditing] = useState(null) // { exId, text } | null
+  const [noteFailed, setNoteFailed] = useState({})    // exId -> true
   const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
   // Same tap-again-to-confirm shape as History.jsx's confirmId and
@@ -450,9 +457,20 @@ export default function Workout() {
 
   async function saveNote(exId, text) {
     setNotes(prev => ({ ...prev, [exId]: text }))
-    setEditingNote(null)
-    try { await api.put(`/exercises/${exId}/note`, { note: text }) }
-    catch { showToast('Failed to save note', 'error') }
+    try {
+      await api.put(`/exercises/${exId}/note`, { note: text })
+      setNoteEditing(null)
+      setNoteFailed(prev => { const next = { ...prev }; delete next[exId]; return next })
+    } catch {
+      // The editor deliberately STAYS OPEN, holding the text. The old code
+      // closed it before the await, so a failed save destroyed what the user
+      // had typed — the data loss here was never the missing row, it was the
+      // words, and they were being thrown away one line above this catch.
+      // Leaving it open and controlled is also the retry: fix the connection,
+      // tap away again.
+      setNoteFailed(prev => ({ ...prev, [exId]: true }))
+      showToast('Note not saved — still here, tap to retry', 'error')
+    }
   }
 
   async function finishWorkout() {
@@ -613,15 +631,23 @@ export default function Workout() {
               <IconClipboardDocumentList size={16} /> Form cues + demo
             </button>
 
-            {/* Per-exercise note */}
-            {editingNote === ex.id ? (
-              <textarea defaultValue={notes[ex.id] || ''} autoFocus
+            {/* Per-exercise note. Wave 1.3: a failed save used to leave the note on
+                screen looking saved, because the optimistic update landed
+                first and only the toast knew better. It now keeps the words,
+                marks them unsaved, and leaves the editor open holding them. */}
+            {noteEditing?.exId === ex.id ? (
+              <textarea autoFocus
+                value={noteEditing.text}
+                onChange={e => setNoteEditing(ed => ({ ...ed, text: e.target.value }))}
                 onBlur={e => saveNote(ex.id, e.target.value.trim())}
                 style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
             ) : notes[ex.id] ? (
-              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}><IconPencil size={14} /> {notes[ex.id]}</p>
+              <p onClick={() => setNoteEditing({ exId: ex.id, text: notes[ex.id] })} style={{ color: noteFailed[ex.id] ? colors.danger : colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>
+                <IconPencil size={14} /> {notes[ex.id]}
+                {noteFailed[ex.id] && <span style={{ color: colors.muted, fontStyle: 'normal' }}> · not saved</span>}
+              </p>
             ) : (
-              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
+              <button className="tap-target" onClick={() => setNoteEditing({ exId: ex.id, text: '' })} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
             )}
 
             {/* Last workout + overload hint */}
