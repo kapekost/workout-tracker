@@ -363,6 +363,7 @@ jobs:
           # First model that exits 0 with output wins. data_collection=deny in the
           # config above means a provider that may train on prompts is never routed
           # to; the request fails and the next model is tried.
+          : > "$RUNNER_TEMP/skip-reasons.txt"
           for model in stealth/space-bunny-alpha \
                        nvidia/nemotron-3-ultra-550b-a55b:free \
                        nvidia/nemotron-3-super-120b-a12b:free; do
@@ -370,10 +371,23 @@ jobs:
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
             echo "review model $model exit: $rc" >> "$GITHUB_STEP_SUMMARY"
-            [ "$rc" -eq 0 ] || { echo "::warning::$model failed: $(tail -c 400 "$RUNNER_TEMP/review.err" | tr '\n' ' ')"; }
+            if [ "$rc" -ne 0 ]; then
+              why=$(tail -c 300 "$RUNNER_TEMP/review.err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')
+              echo "::warning::$model failed: $why"
+              echo "- \`$model\`: $why" >> "$RUNNER_TEMP/skip-reasons.txt"
+            fi
             if [ "$rc" -eq 0 ] && [ -s "$RUNNER_TEMP/review.txt" ]; then break; fi
             : > "$RUNNER_TEMP/review.txt"
           done
+          if [ ! -s "$RUNNER_TEMP/review.txt" ]; then
+            echo "::notice::automated review skipped, no model available"
+            {
+              echo "**Automated review skipped.** No model was available, so this PR has had no bot review. This is not an approval; review it independently."
+              echo
+              cat "$RUNNER_TEMP/skip-reasons.txt"
+            } > "$RUNNER_TEMP/review.txt"
+            echo "REVIEW SKIPPED: no model available" >> "$GITHUB_STEP_SUMMARY"
+          fi
           cat "$RUNNER_TEMP/review.txt"
 
       # ── token step 2 of 2: resolve threads, then post ────────────────────────
