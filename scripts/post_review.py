@@ -2,13 +2,12 @@
 """Turn the reviewer's output into one GitHub review, or one plain comment.
 
 The reviewer holds no token and its output is derived from attacker-controlled PR
-text, so this script treats it as untrusted: it parses, validates, caps and scrubs
-it before anything is posted. It runs from the base branch, never from the PR.
+text, so this script treats it as untrusted: it parses, validates, caps and escapes
+it before anything is posted. It runs from the default branch, never from the PR.
 
     python3 post_review.py <pr> <owner/repo> <head-sha> <review-file>
 
-Output that is not the expected JSON (including the "review skipped" notice) is
-posted as a scrubbed, truncated plain comment.
+Output that is not the expected JSON is posted inside a code block, truncated.
 """
 import json
 import re
@@ -19,63 +18,49 @@ MAX_FINDINGS = 20
 MAX_BODY = 400
 MAX_SUMMARY = 200
 MAX_PLAIN = 3000
+MAX_INPUT = 50_000
 
 SECRET = re.compile(r"sk-or-|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|Bearer [A-Za-z0-9._-]{20,}")
 WITHHELD = ("**Automated review withheld.** The output matched a secret pattern "
             "and was not posted. See the Actions log for the run.")
+FENCE = "`" * 3
 
 
 def sanitize(text, repo, limit):
-    """Plain text only: no mentions, images, HTML, or links off this repo."""
-    text = str(text)
-    text = re.sub(r"<[^>]*>", "", text)
-    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
-    own = f"https://github.com/{repo}/"
-    text = re.sub(r"https?://[^\s)>\]]+",
-                  lambda m: m.group(0) if m.group(0).startswith(own) else "[link removed]", text)
+    """Literal text only: URLs and HTML are removed, @mentions are broken, and every
+    markdown punctuation mark is escaped, so nothing renders as a link, image,
+    mention or cross-reference."""
+    text = str(text)[:limit * 4]
+    text = re.sub(r"<[^>]{0,200}>", "", text)
+    text = re.sub(r"https?://\S+|\bwww\.\S+", "[link removed]", text)
+    text = " ".join(text.split())[:limit]
     text = re.sub(r"@(?=\w)", "@​", text)
-    text = " ".join(text.split())
-    return text[:limit]
+    return re.sub(r"([\\`*_\[\]()<>&#|~!])", r"\\\1", text)
 
 
 def extract_json(text):
-    """The first top-level JSON object in the text, or None."""
-    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
-    candidates = [fence.group(1)] if fence else []
-    start = text.find("{")
-    while start != -1:
-        depth = 0
-        in_str = False
-        esc = False
-        for i in range(start, len(text)):
-            ch = text[i]
-            if in_str:
-                if esc:
-                    esc = False
-                elif ch == "\\":
-                    esc = True
-                elif ch == '"':
-                    in_str = False
-            elif ch == '"':
-                in_str = True
-            elif ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    candidates.append(text[start:i + 1])
-                    break
-        start = text.find("{", start + 1)
-        if len(candidates) > 8:
-            break
-    for c in candidates:
+    """The first JSON object with a "findings" key, or None. Bounded work."""
+    text = text[:MAX_INPUT]
+    decoder = json.JSONDecoder()
+    pos = text.find("{")
+    for _ in range(20):
+        if pos == -1:
+            return None
         try:
-            obj = json.loads(c)
-        except ValueError:
+            obj, _end = decoder.raw_decode(text, pos)
+        except (ValueError, RecursionError):
+            pos = text.find("{", pos + 1)
             continue
         if isinstance(obj, dict) and "findings" in obj:
             return obj
+        pos = text.find("{", pos + 1)
     return None
+
+
+def plain_comment(text):
+    """Unstructured output goes inside a code block, where nothing renders or notifies."""
+    text = text[:MAX_PLAIN].replace(FENCE, "'''")
+    return f"**Automated review output (not structured, shown as text)**\n\n{FENCE}text\n{text}\n{FENCE}"
 
 
 def commentable_lines(patch):
@@ -95,13 +80,19 @@ def commentable_lines(patch):
     return lines
 
 
+def is_line(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def build(text, patches, repo):
     """Returns ("review", body, comments) or ("plain", body, [])."""
     if SECRET.search(text):
         return "plain", WITHHELD, []
     data = extract_json(text)
     if data is None:
-        return "plain", sanitize(text, repo, MAX_PLAIN) or "The reviewer produced no output.", []
+        return "plain", plain_comment(text) if text.strip() else "The reviewer produced no output.", []
+    if SECRET.search(json.dumps(data, ensure_ascii=False)):
+        return "plain", WITHHELD, []
 
     findings = data.get("findings")
     if not isinstance(findings, list):
@@ -116,17 +107,18 @@ def build(text, patches, repo):
         if not body or not isinstance(path, str):
             continue
         blocking = f.get("blocking") is True
-        anchored = (isinstance(line, int) and not isinstance(line, bool)
-                    and path in patches and line in commentable_lines(patches[path]))
+        anchored = is_line(line) and path in patches and line in commentable_lines(patches[path])
         if blocking and anchored:
             comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
             continue
-        where = f"`{sanitize(path, repo, 120)}:{line}`" if isinstance(line, int) else f"`{sanitize(path, repo, 120)}`"
+        shown = sanitize(path, repo, 120)
+        where = f"{shown}:{line}" if is_line(line) else shown
         (blocking_lines if blocking else optional_lines).append(f"- {where} {body}")
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
-    blocking_total = len(comments) + len(blocking_lines)
-    if blocking_total:
+    if data.get("skipped") is True:
+        head = f"**Automated review skipped.** {summary}".strip()
+    elif comments or blocking_lines:
         head = f"**BLOCKING** {summary}".strip()
     else:
         head = f"**CLEAN** {summary}".strip()
@@ -137,7 +129,7 @@ def build(text, patches, repo):
         parts += ["", "**Optional**"] + optional_lines[:3]
     notes = data.get("notes")
     if isinstance(notes, list):
-        clean = [sanitize(n, repo, MAX_BODY) for n in notes[:3] if isinstance(n, str)]
+        clean = [sanitize(n, repo, MAX_BODY) for n in notes[:5] if isinstance(n, str)]
         if clean:
             parts += ["", "**Notes**"] + [f"- {n}" for n in clean]
     return "review", "\n".join(parts), comments
@@ -175,7 +167,8 @@ def main(argv):
     with open(path, encoding="utf-8", errors="replace") as fh:
         text = fh.read(200_000)
 
-    kind, body, comments = build(text, pr_patches(repo, pr) if extract_json(text) else {}, repo)
+    patches = pr_patches(repo, pr) if extract_json(text) else {}
+    kind, body, comments = build(text, patches, repo)
     if kind == "plain":
         r = gh([f"repos/{repo}/issues/{pr}/comments", "-X", "POST"], {"body": body})
         print("posted plain comment" if r.returncode == 0 else r.stderr, file=sys.stderr)
@@ -183,9 +176,9 @@ def main(argv):
 
     payload = {"commit_id": head_sha, "event": "COMMENT", "body": body, "comments": comments}
     r = gh([f"repos/{repo}/pulls/{pr}/reviews", "-X", "POST"], payload)
-    if r.returncode != 0 and comments:
-        # A line GitHub refuses must not lose the finding: fold the comments into the body.
-        folded = [f"- `{c['path']}:{c['line']}` {c['body']}" for c in comments]
+    if r.returncode != 0 and comments and "422" in (r.stderr + r.stdout):
+        # GitHub refused a line: fold the comments into the body rather than lose them.
+        folded = [f"- {sanitize(c['path'], repo, 120)}:{c['line']} {c['body']}" for c in comments]
         payload = {"commit_id": head_sha, "event": "COMMENT",
                    "body": body + "\n\n**Blocking**\n" + "\n".join(folded), "comments": []}
         r = gh([f"repos/{repo}/pulls/{pr}/reviews", "-X", "POST"], payload)

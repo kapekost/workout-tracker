@@ -35,7 +35,7 @@ def test_line_outside_the_diff_falls_back_to_the_body_not_an_inline_comment():
     kind, body, comments = pr.build(
         review([{"file": "a.py", "line": 99, "blocking": True, "body": "breaks"}]), PATCHES, REPO)
     assert comments == []
-    assert "`a.py:99` breaks" in body
+    assert "a.py:99 breaks" in body
 
 
 def test_file_not_in_the_pr_is_never_anchored():
@@ -58,14 +58,20 @@ def test_findings_are_capped():
     assert len(comments) == pr.MAX_FINDINGS
 
 
-def test_mentions_html_images_and_foreign_links_are_neutralised():
+def test_mentions_html_images_and_links_are_neutralised():
     text = pr.sanitize(
-        "ping @someone <b>x</b> ![i](http://evil/x.png) see https://evil.example/a "
-        f"and https://github.com/{REPO}/pull/1", REPO, 400)
-    assert "@someone" not in text and "@​someone" in text
-    assert "<b>" not in text and "![" not in text
+        "ping @someone <b>x</b> ![i](http://evil/x.png) see https://evil.example/a and www.evil.example "
+        f"also https://github.com/{REPO}/pull/1", REPO, 400)
+    assert "@someone" not in text and "@\u200bsomeone" in text
+    assert "<b>" not in text
     assert "evil" not in text
-    assert f"https://github.com/{REPO}/pull/1" in text
+    assert "github.com" not in text
+
+
+def test_markdown_punctuation_is_escaped_so_nothing_can_render_as_a_link_or_reference():
+    text = pr.sanitize("[x](//evil.com) ![a][r] [r]: //e.com h&#116;tps://e.com owner/repo#12", REPO, 400)
+    for ch in "[]()&#":
+        assert text.count(ch) == text.count("\\" + ch), (ch, text)
 
 
 def test_body_length_is_capped():
@@ -91,7 +97,41 @@ def test_json_inside_prose_and_fences_is_found():
 def test_non_json_output_is_posted_as_truncated_plain_text():
     kind, body, comments = pr.build("**Automated review skipped.** nothing ran. " + "x" * 9000, {}, REPO)
     assert kind == "plain" and comments == []
-    assert len(body) <= pr.MAX_PLAIN
+    assert body.startswith("**Automated review output")
+    assert body.count("```") == 2
+    assert pr.MAX_PLAIN <= len(body) <= pr.MAX_PLAIN + 200
+
+
+def test_plain_output_cannot_close_its_own_code_block():
+    _, body, _ = pr.build("text ```\n@someone [x](https://evil.example)", {}, REPO)
+    assert body.count("```") == 2
+
+
+def test_a_secret_hidden_behind_json_escapes_is_still_withheld():
+    leak = json.dumps({"summary": "s", "findings": [{"file": "a.py", "line": 11, "blocking": True,
+                                                    "body": "sk-or-v1-abc"}]}).replace("sk-or-", "\\u0073k-or-")
+    assert "sk-or-" not in leak
+    kind, body, _ = pr.build(leak, PATCHES, REPO)
+    assert kind == "plain" and body == pr.WITHHELD
+
+
+def test_pathological_input_is_bounded_and_does_not_raise():
+    import time
+    start = time.time()
+    for text in ("{" * 200_000, '{"findings":' * 60_000, "{" * 5000 + "}" * 5000,
+                 '{"a":' * 20_000 + "1" + "}" * 20_000):
+        kind, _, _ = pr.build(text, {}, REPO)
+        assert kind == "plain"
+    assert time.time() - start < 5
+
+
+def test_skipped_notice_is_marked_skipped_not_clean():
+    notice = json.dumps({"skipped": True, "summary": "No model was available.", "findings": [],
+                         "notes": ["model-a: rate limited"]})
+    kind, body, comments = pr.build(notice, {}, REPO)
+    assert kind == "review" and comments == []
+    assert body.startswith("**Automated review skipped.**")
+    assert "CLEAN" not in body
 
 
 def test_secret_in_output_is_withheld_whole():

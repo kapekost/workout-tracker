@@ -29,11 +29,12 @@ it cannot do damage:
 
 - The **model job holds no token.** The workflow is three jobs: `history` (read-only token,
   fetches prior reviews), `review` (`permissions: {}`, runs the model) and `post` (write token,
-  checks out the **base commit** and runs only `scripts/` from it, never the PR's). Data moves
+  checks out the **default branch** and runs only `scripts/` from it, never the PR's). Data moves
   between them as artifacts, and the review artifact is untrusted model output that
   `scripts/post_review.py` validates before posting. Actions has no step-level `permissions`
   key (an earlier version that used one failed validation with zero jobs), which is why the
-  split is by job.
+  split is by job. The limit: the workflow file itself still runs from the PR's merge ref, so
+  this defends against injected content, not a malicious committer with write access.
 - It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
   runs (project config outranks global, so the PR's own copy would otherwise win), any
   `.opencode/` directory is deleted (plugins there load in-process before any permission
@@ -44,12 +45,12 @@ it cannot do damage:
 It posts **one review**: a verdict line, one inline comment per blocking finding that sits
 on a changed line, and a short body list for findings that do not (plus at most three optional
 nits). The model prints JSON; `post_review.py` parses it, caps it (20 findings, 400 chars each),
-strips mentions, HTML, images and links off this repo, drops lines not in the diff, and withholds
-the whole output if it matches a secret pattern. Output that is not that JSON, including the
-"review skipped" notice, is posted as a truncated plain comment. It posts as a `COMMENT`, never
+removes URLs and HTML, escapes markdown punctuation so nothing renders as a link, image or
+mention, drops lines not in the diff, and withholds the whole output if it matches a secret
+pattern (checked before and after JSON decoding). Output that is not that JSON is posted
+truncated inside a code block. A skipped review is JSON with `"skipped": true`. It posts as a `COMMENT`, never
 `--approve` or `--request-changes`. On a re-review it reads the history file and looks at the
-diff since its own last review. The PR that first introduces `post_review.py` posts a plain
-comment, because `post` runs the base commit's scripts.
+diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead.
 
 So when you see it:
 

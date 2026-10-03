@@ -95,7 +95,9 @@ jobs:
       - name: Install the trusted read-only config
         run: |
           set -euo pipefail
-          rm -rf .opencode .claude opencode.jsonc opencode.json AGENTS.md CLAUDE.md
+          find . -type l -delete
+          find . \( -name .opencode -o -name .claude -o -name .agents -o -name 'opencode.json*' \
+                    -o -name AGENTS.md -o -name CLAUDE.md \) -prune -exec rm -rf {} +
           cat > opencode.json <<'JSON'
           {
             "$schema": "https://opencode.ai/config.json",
@@ -132,6 +134,9 @@ jobs:
                 "*--output*": "deny",
                 "*--no-index*": "deny",
                 "*--ext-diff*": "deny",
+                "* /*": "deny",
+                "*../*": "deny",
+                "* ~*": "deny",
                 "git -c*": "deny",
                 "git * -c *": "deny",
                 "*;*": "deny",
@@ -261,13 +266,22 @@ jobs:
             if [ "$rc" -eq 0 ] && [ -s "$RUNNER_TEMP/review.txt" ]; then break; fi
             : > "$RUNNER_TEMP/review.txt"
           done
+          # The key is known here, so output containing it verbatim is dropped.
+          if [ -s "$RUNNER_TEMP/review.txt" ] && grep -qF -- "$OPENROUTER_API_KEY" "$RUNNER_TEMP/review.txt"; then
+            echo "::error::review output contained the API key; discarded"
+            : > "$RUNNER_TEMP/review.txt"
+          fi
           if [ ! -s "$RUNNER_TEMP/review.txt" ]; then
             echo "::notice::automated review skipped, no model available"
-            {
-              echo "**Automated review skipped.** No model was available, so this PR has had no bot review. This is not an approval; review it independently."
-              echo
-              cat "$RUNNER_TEMP/skip-reasons.txt"
-            } > "$RUNNER_TEMP/review.txt"
+            # JSON, so post_review.py can tell this notice from model prose. Reasons are
+            # fixed strings written above, never model output.
+            python3 - "$RUNNER_TEMP/skip-reasons.txt" > "$RUNNER_TEMP/review.txt" <<'PY'
+          import json, sys
+          notes = [l.strip("- \n").replace("`", "") for l in open(sys.argv[1]) if l.strip()]
+          print(json.dumps({"skipped": True, "findings": [], "notes": notes,
+                            "summary": "No model was available, so this PR has had no bot review. "
+                                       "This is not an approval; review it independently."}))
+          PY
             echo "REVIEW SKIPPED: no model available" >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -291,12 +305,13 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      # The base commit, not the PR: this job holds a write token, so it must not run
-      # code the PR can edit.
-      - name: Checkout the base commit
+      # The default branch, not the PR: this job holds a write token, so it must not run
+      # scripts the PR can edit. (The workflow file itself still comes from the PR's merge
+      # ref; this design defends against injected content, not a malicious committer.)
+      - name: Checkout the default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -319,14 +334,6 @@ jobs:
             python3 scripts/post_review.py "$PR" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$REVIEW"
             exit $?
           fi
-          # The base predates post_review.py (this is the PR that adds it): plain comment.
-          if grep -qE 'sk-or-|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|Bearer [A-Za-z0-9._-]{20,}' "$REVIEW"; then
-            echo "**Automated review withheld.** The output matched a secret pattern and was not posted. See the Actions log for the run." > "$REVIEW"
-          fi
-          if [ -s "$REVIEW" ]; then
-            head -c 3000 "$REVIEW" > "$REVIEW.cut"
-            gh pr comment "$PR" --body-file "$REVIEW.cut"
-          else
-            echo "the reviewer produced no output; posting nothing" >&2
-            exit 1
-          fi
+          # The default branch has no post_review.py yet (the PR that adds it): post a fixed
+          # string only, never model text.
+          gh pr comment "$PR" --body "**Automated review ran but could not be posted.** The default branch has no post script yet. See the Actions log. This is not an approval."
