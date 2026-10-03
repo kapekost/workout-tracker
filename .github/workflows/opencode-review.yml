@@ -372,6 +372,7 @@ jobs:
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
             echo "review model $model exit: $rc" >> "$GITHUB_STEP_SUMMARY"
+            [ "$rc" -eq 0 ] || { echo "::warning::$model failed: $(tail -c 400 "$RUNNER_TEMP/review.err" | tr '\n' ' ')"; }
             if [ "$rc" -eq 0 ] && [ -s "$RUNNER_TEMP/review.txt" ]; then break; fi
             : > "$RUNNER_TEMP/review.txt"
           done
