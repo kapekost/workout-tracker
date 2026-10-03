@@ -55,6 +55,11 @@ export default function NavBar() {
             <button
               key={tab.path}
               onClick={() => nav(tab.path)}
+              // aria-current tells a screen reader which tab you are on. The
+              // active state was carried entirely by icon+label color, so
+              // without this the three tabs announced as three identical links
+              // with no indication of position.
+              aria-current={isActive ? 'page' : undefined}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', gap: 3, background: 'none', border: 'none',
