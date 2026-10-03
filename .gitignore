@@ -1,10 +1,21 @@
 # Dependencies
-node_modules/
-frontend/node_modules/
+# No trailing slash on the four below on purpose: a trailing slash matches
+# directories only, so a *symlinked* node_modules/.venv (a common shortcut when a
+# linked worktree reuses the main checkout's install) shows up as untracked and
+# one `git add -A` commits it — as a symlink, and as 300MB of dependencies if it
+# is a real directory. Not hypothetical: it happened here, and the symlink then
+# checked out as a broken absolute path on any other machine. A bare name
+# matches both a directory and a symlink.
+node_modules
+frontend/node_modules
 
 # Build output
 frontend/dist/
 static/
+
+# Manual review screenshots (frontend/e2e/review-shots.spec.js writes these on a
+# developer's machine; they are images of someone's training data)
+frontend/review-shots
 
 # Playwright test output (frontend/e2e — see playwright.config.js)
 frontend/test-results/
@@ -14,8 +25,8 @@ frontend/blob-report/
 # Python
 __pycache__/
 *.py[cod]
-.venv/
-venv/
+.venv
+venv
 
 # Runtime data (SQLite DB + volume) — never commit workout data
 # Anchored to repo root so it does NOT match frontend/src/data/ (app source).
@@ -40,6 +51,11 @@ venv/
 
 # Agent worktrees (scratch checkouts; never part of the repo)
 .claude/worktrees/
+# opencode agent plugins and local agent state. `.opencode/plugins/*.js` is
+# auto-loaded and executed in-process before any permission check, so a tracked
+# one would be code injection into any opencode run in this repo. The CI review
+# workflow also removes this directory before running the reviewer.
+.opencode/
 
 # Agent execution scratch (ledgers, briefs, review packages)
 .superpowers/
@@ -48,3 +64,19 @@ venv/
 # any real MCP server config — never commit either, copy from the .example
 AGENTS.local.md
 .mcp.json
+
+# Per-machine agent permission grants (2026-10-02 review, finding 7). These are
+# the accumulated local allowlists Claude Code and opencode write for THIS
+# machine: ssh invocations naming the real deploy host and its key, tailscale
+# addresses, Read grants over the owner's home directory, and pre-approved
+# destructive Bash patterns. Every entry is host-specific by definition and none
+# of it belongs in a public repo.
+#
+# .claude/settings.local.json was previously untracked but NOT ignored, so a
+# single `git add -A` would have published the deploy target's LAN IP, tailnet
+# IP, SSH username and key path — the exact values the history scrub
+# (DECISIONS.md, 2026-09) replaced with placeholders. `git status` listed it as
+# `??` for exactly that reason. Treat every line here as a hard requirement.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+# opencode.json

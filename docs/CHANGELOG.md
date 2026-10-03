@@ -3,6 +3,101 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-10-03 — Gate confirmed live, and the fix for notes that never saved (`1f1e390`)
+
+Deployed `1f1e390` from `claude/import-auth-hardening`, a descendant of `main`
+@ `94204ba`. No schema change, so no pre-deploy export snapshot and no restore
+drill were required.
+
+**The login gate is now confirmed closed on the running box**, not merely
+present in source: `/api/sessions`, `/api/export`, `/api/notes` and `/api/plan`
+all answer `401` to a caller with no cookie, and `/api/health` is
+`{"status":"ok","version":"1f1e390"}` and nothing else. Row counts were **not**
+re-verified — every endpoint that could confirm them is behind the gate — so the
+figures from the 2026-09-05 check are 28 days stale.
+
+Five fixes, each with a regression test confirmed to fail without it.
+
+**Per-exercise notes have never saved, and never will have until now.**
+`frontend/src/api.js` exported `get/post/patch/delete`; `Workout.jsx` called
+`api.put('/exercises/${exId}/note')` on every save. The call threw a `TypeError`,
+`saveNote`'s `catch` reported "Failed to save note", and the optimistic
+`setNotes` update directly above it made the note look saved regardless. The
+backend route has existed and been tested the whole time. It shipped because
+`Workout.test.jsx` mocked the API as exactly those four verbs — the mock and the
+bug agreed — and `api.test.js` asserted nothing about the verb surface. Both are
+now pinned: the mock carries `put`, and a new test asserts every verb the
+backend serves exists, sends its own method, and sets `Content-Type` only when
+it has a body. Verified by deleting `put` and watching three tests fail.
+
+The transferable part is in the test's comment, because it generalises: **a mock
+authored from the intended interface hides bugs in that interface.** A regression
+test for a bug like this has to reach the real module, not a stand-in that was
+written by reading the same wrong assumption.
+
+**Auth hygiene**, three small gaps in code that is otherwise careful:
+
+- `mint_token` did not supersede prior tokens, so "single use" only ever meant
+  *redeemed once*. A reset link minted before a compromise stayed live through
+  the victim's own password reset — `set_password` marked only the row it
+  redeemed — and redeeming the stale link rotated the password again and logged
+  the attacker in. The email promises "this link works once", which now has to
+  be true of the link. Superseding is scoped per-profile and per-kind, so an
+  invite is not killed by a reset.
+- Redemption was not atomic: it `SELECT`ed for `used_at IS NULL` and later ran
+  `UPDATE … WHERE id = ?` with no predicate and no rowcount check, so two
+  concurrent redemptions of one link both wrote a password. The token is now
+  claimed atomically *before* any hashing, so the loser fails without spending a
+  bcrypt. Worth recording that the first test written for this **passed against
+  the unfixed code** — it was sequential, and the old SELECT already blocks
+  sequential reuse. The test that distinguishes the two implementations injects
+  the race by consuming the token between the SELECT and the write; old code
+  answers `200` and overwrites, fixed code answers `400`.
+- `_rate_windows` grew without bound: process-global, nothing ever removed a
+  key, and the per-subject keys are attacker-chosen (`user:` 64 chars,
+  `email:` 254) on a public endpoint. Now swept past a threshold, with a test
+  asserting live windows are never dropped — otherwise the sweep hands an
+  attacker free attempts by ageing their own counter.
+
+**Accessibility.** `Toast` carries every PR announcement and every error in the
+app, and with no live region all of it was invisible to a screen reader — the
+toast was visual-only. Now `role="status"`/`aria-live="polite"`, escalating to
+`role="alert"`/`assertive` for errors. `NavBar` conveyed its active tab purely
+through icon and label colour, so all three tabs announced as identical links
+with no position; now `aria-current="page"`.
+
+**A near-miss worth recording, because the fixes are the interesting part.**
+An earlier deploy in this session shipped from `claude/workout-tracker-backlog-bu9qnw`,
+a branch that had diverged from `main` and sat 59 commits behind it. It replaced
+the running app with an older build and silently removed `Login`, `SetPassword`
+and `VersionBadge` — the update button vanished from the UI. `deploy.sh` only
+refused a *dirty* tree, and a branch 59 commits behind `main` is a perfectly
+clean tree.
+
+So the same wrong base produced a review with **four false Critical findings**
+against an unauthenticated `POST /api/import` — claims that were true on the
+stale branch and false on `main`, where #86 had already closed the gate. Every
+finding in the corrected review is re-verified against `main`, and the false
+ones are listed as fixed-elsewhere rather than quietly deleted.
+
+Two durable fixes, both enforced rather than documented:
+
+1. `scripts/deploy.sh` now refuses a `HEAD` that is not a descendant of `main`,
+   naming the missing commits. `DEPLOY_ALLOW_STALE=1` is the deliberate override
+   for a hotfix from an old branch; there is no override for the dirty-tree
+   check. Verified against five scenarios.
+2. `AGENTS.md`'s Status section names the deployed SHA and says plainly that
+   `main` is not it, because the previous version said "`main` == the deployed
+   image" while it was 378 commits away.
+
+Tests: 276 backend + 450 frontend, both green, plus a successful frontend build.
+Run natively on Alpine aarch64 — the same libc and architecture as the deploy
+target — which also settled a standing open question in `AGENTS.md`: every
+backend dependency resolves to a prebuilt `cp314-musllinux_1_2_aarch64` wheel
+with no Rust build, so the aarch64-wheel bar that shaped the dependency
+choices is lower than the docs assumed. The reason to avoid new deps is install
+time and image size, not wheel availability.
+
 ## 2026-09-05 — Accounts, step 1: schema v6 and the auth core (`claude/84-auth-core`)
 
 Deployed `3ed18a4`. The machinery for real logins, with the door still open.

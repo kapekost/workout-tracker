@@ -35,6 +35,49 @@ function listenForExpiry() {
   return handler
 }
 
+// The client/server verb contract.
+//
+// api.js had no test file until #117, and when one arrived it covered errors,
+// timeouts, 204s and the auth helpers — but never the verb surface itself.
+// So `api.put` was simply absent while Workout.jsx called it, per-exercise
+// notes silently failed to persist behind a catch that showed "Failed to save
+// note", and Workout.test.jsx's own mock listed get/post/patch/delete without
+// `put`, so the mock and the bug agreed and 439 tests passed green over a
+// feature that did not work.
+//
+// The failure mode is general: a mock written from the *intended* interface
+// hides bugs in that interface. This test asserts the client exposes every verb
+// the backend serves, so the two halves cannot drift apart unnoticed again.
+describe('the verb surface', () => {
+  const BACKEND_VERBS = ['get', 'post', 'patch', 'put', 'delete']
+
+  it('exposes every verb the backend serves', () => {
+    for (const verb of BACKEND_VERBS) {
+      expect(typeof api[verb], `api.${verb} is missing — the backend serves it`).toBe('function')
+    }
+  })
+
+  it.each(BACKEND_VERBS)('%s sends its own HTTP method', async (verb) => {
+    fetch.mockResolvedValue(jsonResponse(200, { ok: true }))
+    const args = verb === 'get' || verb === 'delete' ? ['/x'] : ['/x', { a: 1 }]
+    await api[verb](...args)
+    expect(fetch.mock.calls[0][1].method).toBe(verb.toUpperCase())
+  })
+
+  it.each(BACKEND_VERBS)('%s sends a JSON body when given one', async (verb) => {
+    fetch.mockResolvedValue(jsonResponse(200, { ok: true }))
+    await api[verb]('/x', { note: 'hi' })
+    const init = fetch.mock.calls[0][1]
+    if (verb === 'get' || verb === 'delete') {
+      // No body means no Content-Type — see the request builder.
+      expect(init.headers['Content-Type']).toBeUndefined()
+    } else {
+      expect(init.headers['Content-Type']).toBe('application/json')
+      expect(JSON.parse(init.body)).toEqual({ note: 'hi' })
+    }
+  })
+})
+
 describe('api request errors', () => {
   it('keeps the status in the message so existing callers can still match on it', async () => {
     fetch.mockResolvedValue(jsonResponse(409, { detail: 'already exists' }))

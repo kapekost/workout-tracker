@@ -1,0 +1,61 @@
+name: Workflow lint
+
+# Lints the workflow files themselves. Added because on 2026-10-03 run 8 of
+# opencode-review.yml failed with **zero jobs**: `permissions:` had been placed
+# on individual steps, which Actions does not support, and an unknown key is a
+# workflow-level validation error. Nothing ran, so no step ever went red — the
+# bot was simply dead, with no failing check anywhere to say so. Run 9 (green)
+# only existed after a human read the run list and noticed.
+#
+# PyYAML accepts that file happily, which is how "verified by parsing the YAML"
+# missed it. actionlint models Actions' own validator and reports all three.
+# shellcheck and pyflakes are switched on because the ubuntu runners ship both;
+# all four workflows are currently clean under all three, so this costs nothing.
+#
+# Runs on every PR rather than targeting a base branch on purpose: the repo's
+# integration branch is not `main`, and a `branches: [main]` filter here would
+# mean this check never ran at all. That is exactly how the committed-secret
+# and deploy-specifics scans in scaffold-sanity.yml ended up dormant.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned to an exact release rather than "latest": an unpinned download
+      # would mean CI runs whatever a third party published most recently. The
+      # SHA-256 is checked against the checksum file published alongside the
+      # release, so pinning is not the only control — the tarball's contents are
+      # verified independently of its filename.
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: v1.7.12
+          ACTIONLINT_SHA256: >-
+            8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          base="https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}"
+          archive="actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o /tmp/actionlint.tar.gz "${base}/${archive}"
+          echo "${ACTIONLINT_SHA256}  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint --version
+
+      # No -color: the runner log is not a TTY, so actionlint disables colour by
+      # itself and forcing it only injects escape codes that break grep.
+      - name: Lint workflows
+        run: /tmp/actionlint

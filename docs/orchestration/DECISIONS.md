@@ -1,13 +1,46 @@
 # Orchestration Decisions
 
 > Append-only log of owner decisions made during `/orchestrate` runs, so the runner never relitigates
-> them. Newest at the top. Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
+> them. **Newest at the bottom — append.** (The header used to say "newest at the top" while every
+> entry had in fact been appended at the bottom for two months; a header that lies about where to
+> write is how an entry ends up in the wrong place, and this file is a log, not a set of slides.)
+> Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
 > **Note:** this file is mirrored from the orchestration home branch
 > (`claude/workout-tracker-backlog-bu9qnw`), which is the source of truth and is not merged to
 > `main` (2026-09-04 decision on that branch). `main`'s copy lags — entries here may be missing
 > intermediate decisions recorded on the home branch. Read the home branch directly for the full,
 > current log.
+
+## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
+
+Owner, in response to the review bot objecting that `--approve` contradicted the "approval is
+human-only" guardrail. It did not: that rule is about the `approved` label and the `APPROVE`
+box — destructive-operation approval — and a bot approving a pull request is a different act
+by a different actor. The wording now says so in both places (`GUARDRAILS.md` "Approval is
+human-only" scope bullet and "Merge & branch rules"), so the next session does not have to
+re-derive it.
+
+**The decision:** the owner is not a required reviewer per PR. This repo already merges on
+green CI with no live approval per PR; a bot that reviews is an *extra* opinion in that set,
+not a gate and not a substitute for the owner. GitHub agrees structurally — `GITHUB_TOKEN`
+approvals are excluded from branch protection, so the bot cannot be mistaken for a human
+approver by the platform either. The one thing that changes the picture is the bot saying
+**Blocking**: that is a concern, and it gets handled like red CI.
+
+**Also settled here:** a re-review should make the reader's life easier, not harder. The
+reviewer looks only at the diff since its own last review, closes its own resolved threads
+first (`scripts/resolve_review_threads.sh`, which can only ever resolve threads the bot itself
+started), and posts one short message with a fixed shape — verdict, counts, findings, details
+only where the judgement was hard. A review nobody reads to the end has not reviewed anything.
+
+**Corrected the same day, after the bot's own review of that change (PR #242).** The first
+implementation made the reviewer token-less *and* left it holding a config tier the PR could
+outrank, so the read-only guarantee was decorative; it also broke the re-review path, because
+`gh` needs a token the reviewer no longer had. The shipped shape: two steps hold a token (one
+fetches review history into a file, one resolves threads and posts) and the reviewer itself
+holds none; its project `opencode.json` is replaced with a trusted one before it runs; and it
+posts a **comment**, not a review state, because a review state needs a token it cannot have.
 
 ## 2026-09-08 — "Complete" means merged and deployed, not just merged
 
@@ -362,3 +395,232 @@ Don't auto-create `.mcp.json` from `.mcp.json.example` or add MCP servers
 speculatively. The owner decides which MCP servers (if any) a given
 project actually needs, case by case. If a task seems to need one, ask
 rather than guessing.
+
+## 2026-10-03 — `password_hash` in the export envelope: open, deliberately not patched
+
+**Status: awaiting an owner decision.** Recorded here so it is not re-litigated
+or quietly "fixed" by the next agent that notices it.
+
+`backend/main.py`'s `export_data` uses `SELECT *` for the admin branch, so the
+envelope carries every profile's bcrypt hash — and those envelopes are what
+`scripts/backup.sh` ships to Drive. Requires an admin session, which is most of
+the mitigation.
+
+Stripping the column is a one-line change and it is **not** obviously right.
+Import deletes and re-inserts `profiles`, so a restore from a hash-free envelope
+leaves every account with a NULL `password_hash` and nobody able to log in over
+HTTP; recovery becomes `forgot-password` for every profile. That may well be the
+better trade — a backup should not be a store of credential material, which is
+the same reasoning that keeps `auth_sessions` and `auth_tokens` out of `TABLES` —
+but it changes the disaster-recovery path and needs a fresh restore drill before
+it goes anywhere near production.
+
+Needs an owner call plus a drill, not a patch. Deliberately excluded from the
+2026-10-03 deploy; see `AGENTS.md`'s Status section.
+
+## 2026-10-03 — Verify every review finding against the branch you are about to ship
+
+A review produced four **false** Critical security findings because it ran
+against `claude/workout-tracker-backlog-bu9qnw`, a branch that had diverged from
+`main` and sat 59 commits behind it. On that branch `POST /api/import` really
+was unauthenticated and really could wipe the database. On `main`, #86 had
+closed the gate months earlier and every data endpoint answered `401`.
+
+The generalisable rule: **a code review that is not re-verified against the
+branch you are about to ship is not a review.** Findings get cheaper to check
+than to retract, and a false Critical is worse than a missed one — it burns the
+reader's trust in the whole document.
+
+Two supporting changes:
+
+- `scripts/deploy.sh` refuses a `HEAD` that is not a descendant of `main`. The
+  dirty-tree check was never sufficient: a branch 59 commits behind `main` is a
+  clean tree. `DEPLOY_ALLOW_STALE=1` is the deliberate override.
+- The incorrect review was **deleted rather than edited**. A plan for a bug that
+  does not exist reads as current work, which is how the stale branch's version
+  would have kept misleading readers. The corrected write-up lists the false
+  findings explicitly as fixed-elsewhere, since "this was wrong and here is why"
+  is the part worth keeping.
+
+Cost of the mistake, for the record: a deploy from the stale branch replaced the
+running app with an older build and removed `Login`, `SetPassword` and
+`VersionBadge`. Data was never at risk — the change was schema-free — but the
+app lost three features for a deploy cycle.
+
+## 2026-10-03 — The "retry any classifier denial" rule lives on the home branch and still needs narrowing
+
+**This could not be fixed from `claude/import-auth-hardening`, and saying so is
+the point of the entry.**
+
+`GUARDRAILS.md` previously had no rule about permission-classifier denials at
+all. The instruction to retry lives in the *home branch's* `STATE.md` (lines
+108–111 there), not in `main`'s copy — `main`'s is 82 lines and is a pointer
+file, the real one is 157 lines. So the rule that most needed narrowing is the
+one a feature branch is least able to reach.
+
+It currently reads, in effect: *any classifier denial with a generic or missing
+reason is worth one identical retry before treating it as a hard stop.*
+
+That generalises from a real observation — the harness classifier really is flaky,
+and `gh pr merge` did succeed on an identical retry — into "a denial is not a
+stop condition." The permission classifier is the only control in this system that
+is **not** subject to the agent's discretion: everything else in `GUARDRAILS.md`
+is prose the model reads and honours. This rule tells it to retry that one.
+
+The generalized form is also exactly the conclusion an instruction planted in a
+hostile GitHub comment would want reached: *the harness said no, but retrying is
+the documented procedure.* See the new "Untrusted content" section.
+
+`GUARDRAILS.md` now carries the narrowed rule — retry only for non-destructive,
+non-merge categories, never for an `approved`-label write, a merge, a push, a
+deploy, or anything on the hard-stop list — **and it is a hard stop to override a
+destructive denial.**
+
+**Still to do, on the home branch, by whoever owns it:**
+
+1. Reconcile `claude/workout-tracker-backlog-bu9qnw` with `main`. It has diverged
+   and sits 59 commits behind, and it is the branch every `/orchestrate` tick
+   resolves its state through. That is the root cause of the 2026-10-03 bad
+   deploy, and it is an owner decision: merge `main` into it, or re-point
+   `STATE.md`'s home-branch header at a branch that tracks `main`.
+2. Once reconciled, delete the retry sentence from the real `STATE.md`, or replace
+   it with a pointer to the narrowed rule in `GUARDRAILS.md`. Leaving both is how
+   the broad version comes back.
+
+Until step 1 happens, note that the new `deploy.sh` main-descendant gate will
+**block any deploy from the home branch.** That is correct behaviour, and it will
+look like a new bug to whoever hits it first.
+
+## 2026-10-03 — Preflight is a check, not advice
+
+`scripts/preflight.sh` exists because of
+`https://kapekost.co.uk/blog/an-ai-agent-i-didnt-have-to-trust`: *"I would rather
+have a test that makes the bad outcome impossible than an agent that is merely
+well-behaved."*
+
+The 2026-10-03 session was a run of exactly that failure. It branched from
+whatever branch was checked out, produced four false Critical findings, deployed
+a build 59 commits behind `main`, and asserted to the owner that the deploy
+"changes nothing in the app" — every step a paragraph in `AGENTS.md` would have
+prevented and none of them checked.
+
+`preflight.sh` is read-only and checks: local `HEAD` against the *deployed*
+version (not "which branch am I on"), whether `main` is an ancestor, **which other
+local branches have diverged**, and whether another agent has uncommitted work, a
+linked worktree, or stashes in this tree. It exits non-zero on a blocker.
+
+Two design choices worth keeping:
+
+- **It compares against the running box, not against a branch name.** The
+  question that matters before a deploy is "what is live, and is that what I
+  think I am shipping" — not "am I on a branch."
+- **It reports all diverged local branches, not just the current one.** The trap
+  for the next agent is usually a branch they have not stood on yet. First run
+  found thirteen, three of them orphaned `worktree-agent-*` branches from a
+  session six days earlier.
+
+It has no host default. `AGENTS.local.md` is gitignored, so the script takes
+`DEPLOY_TARGET` from the environment and degrades to warnings when unset — it has
+to stay runnable from a plain clone with no local config.
+
+## 2026-10-03 — Why the classifier retry rule exists, and the real fix
+
+Recorded after the owner pointed out the retry rule had been narrowed for the
+wrong reason.
+
+The retry is not a workaround for the agent being unreliable. It exists because
+**the owner was being asked to approve trivial actions**: a `git commit` on the
+agent's own branch, a read-only `gh` call, refused with no category at all, so
+the agent escalated to a human for something with no risk in it. That is a real
+cost, it belongs to the harness rather than the agent, and re-issuing the
+byte-identical command is not a judgement call — nothing is decided, the same
+request is made again. For non-destructive actions the right response to a bare
+denial is retry.
+
+What was wrong was the *scope*, not the retry. It had generalised from "safe
+actions sometimes get a bare denial" to "any denial may be retried", which does
+two harmful things: it tells the agent a denial is never a stop condition, and
+the permission classifier is the one control in this system that is not the
+agent's to overrule. A broad retry rule is also exactly what an instruction
+planted in a hostile GitHub comment would want concluded (see "Untrusted
+content").
+
+So the narrowed rule in `GUARDRAILS.md` is scoped to non-destructive,
+non-merge, non-push, non-deploy, non-`approved`-label actions — which is what
+the original observation actually supported.
+
+**The real fix is upstream of the rule and has not been done:** widen the
+permission allowlists so ordinary actions do not reach the classifier at all.
+`.claude/settings.json` has been extended with the two read-only scripts the
+orchestrator genuinely needs (`preflight.sh`, `orchestrate_status.sh`) and a
+23-entry `deny` list covering the paths and commands that should never be
+reachable by an agent at all. That reduces how often a denial happens, rather
+than teaching the agent to push past one when it does.
+
+**`/orchestrate.md` remains the hole.** Its frontmatter is
+`allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, Skill` — tool
+*categories*, with no argument patterns. For the duration of any `/orchestrate`
+invocation that pre-approves unrestricted shell and arbitrary file write,
+superseding the narrow allowlist above for unattended scheduled ticks. Not fixed
+here: it is the orchestrator's own entry point and changing it is an owner
+decision about how much autonomy the unattended runner has.
+
+## 2026-10-03 — Branch alignment: the pattern is integration failure, not a forgotten merge
+
+The owner guessed this was "deploy from main, then forget to merge". Checked, it
+is the inverse, and worse — it fails in **both** directions at once.
+
+```
+2026-10-03  claude/import-auth-hardening        +157  -0
+2026-10-01  claude/workout-tracker-backlog-bu9qnw +140 -59   <- the home branch
+2026-10-01  main                                   +0  -0
+2026-09-27  worktree-agent-af9cbab9983a5e3c2       +4  -5
+2026-09-27  progress-pb-redesign-review-fix        +3  -5
+...         (10 more branches, all behind, several with unmerged commits)
+```
+
+- The home branch has **140 commits `main` does not have.** Work is landing there
+  and not reaching `main`.
+- `main` has **59 commits the home branch does not have.** It has not tracked
+  `main` since it diverged.
+
+So the orchestrator works on a long-lived integration branch, its output never
+gets merged to `main`, and the branch never absorbs `main`'s work either. `main`
+is therefore *not* the integration point despite being the default branch, and
+`main`'s own Status section asserting `main == the deployed image` was false for
+weeks because of it.
+
+`preflight.sh` now surfaces this mechanically: 13 local branches do not contain
+`main`, listed by name, because the trap for the next agent is usually a branch
+they have not stood on yet.
+
+**Proposed next tick, needs an owner decision on scope:** merge `main` into the
+home branch (or re-point the home-branch header at a branch that tracks `main`),
+then triage the 10 stale branches individually — two hold unmerged commits that
+`main` has since superseded by another route, so they are candidates for
+deletion, but deleting branches is destructive and belongs to the owner.
+
+
+## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
+
+Owner, in response to the review bot objecting that `--approve` contradicted the
+"approval is human-only" guardrail. It does not: that rule is about the `approved`
+label and the `APPROVE` box — destructive-operation approval — and a bot approving
+a pull request is a different act by a different actor. The wording now says so in
+both places (`GUARDRAILS.md` "Approval is human-only" scope bullet and "Merge &
+branch rules"), so the next session does not have to re-derive it.
+
+**The decision:** the owner is not a required reviewer per PR. This repo already
+merges on green CI with no live approval per PR; a bot that reviews and approves is
+an *extra* opinion in that set, not a gate and not a substitute for the owner.
+GitHub agrees structurally — `GITHUB_TOKEN` approvals are excluded from branch
+protection, so the bot cannot be mistaken for a human approver by the platform
+either. The one thing that changes the picture is the bot saying
+`--request-changes`: that is a concern, and it gets handled like red CI.
+
+**Also settled here:** a re-review should make the reader's life easier, not
+harder. So `opencode-review.yml` now reviews only the delta since its own last
+review, closes its own resolved threads first (`scripts/resolve_review_threads.sh`,
+which can only ever resolve threads the bot itself started), and posts one short
+message with a fixed shape — verdict, counts, findings, details only where the
+judgement was hard. A review nobody reads to the end has not reviewed anything.

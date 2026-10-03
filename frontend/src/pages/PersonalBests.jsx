@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { ALL_EXERCISES } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
+import LoadError from '../components/LoadError'
 import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
@@ -17,17 +18,36 @@ const labelStyle = {
 }
 const fieldStyle = {
   width: '100%', background: colors.border, color: colors.text, border: 'none',
-  borderRadius: 8, padding: '10px 8px', fontSize: type.size.body,
+  borderRadius: 8, padding: '10px 8px',
+  // Exactly 1rem, not type.size.body (0.9rem). iOS Safari zooms the whole page
+  // in when a focused input computes below 16px, which on a phone throws the
+  // rest of the form off-screen — the same rule .field already documents and
+  // the auth screens already follow. This is an inline style, so it wins over
+  // the .personal-bests-form CSS rule; both are set for that reason.
+  fontSize: '1rem',
 }
 
 export default function PersonalBests() {
   const nav = useNavigate()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  // Wave 1.1: same shape as History — a failed read rendered
+  // "No historical PBs logged yet.", which is a claim about the user's
+  // history, not about this device's connectivity.
+  const [loadError, setLoadError] = useState(false)
   const [exerciseId, setExerciseId] = useState(ALL_EXERCISES[0]?.id ?? '')
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(1)
   const [year, setYear] = useState(new Date().getFullYear())
+  // 2026-10-03 design review 1.5: the inputs hold the raw string while the
+  // user types. `parseFloat('') || 0` used to write the default straight back
+  // on the same keystroke, so the field could never be emptied — and on Year
+  // that meant clearing showed 2026 again, so typing "14" produced 202614,
+  // which the API rejects. The committed numbers above stay authoritative for
+  // the save payload; these are only what the input displays.
+  const [weightText, setWeightText] = useState('20')
+  const [repsText, setRepsText] = useState('1')
+  const [yearText, setYearText] = useState(String(new Date().getFullYear()))
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const { toast, showToast } = useToast()
@@ -38,8 +58,19 @@ export default function PersonalBests() {
   // (2026-09-06 UI review, item 19).
   const [addOpen, setAddOpen] = useState(false)
 
+  const load = useCallback(async () => {
+    try {
+      setEntries(await api.get('/personal-bests'))
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
+    load()
   }, [])
 
   async function submit(e) {
@@ -98,7 +129,9 @@ export default function PersonalBests() {
           add one, so the list -- not a 5-field form -- gets the eye on load
           (2026-09-06 UI review, item 19). The add form moved into the
           disclosure below. */}
-      {loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
+      {loadError ? (
+        <LoadError what="your personal bests" onRetry={() => { setLoading(true); load() }} />
+      ) : loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
         <EmptyState title="No historical PBs logged yet." />
       ) : Object.entries(grouped).map(([name, rows]) => (
         <div key={name} className="card" style={{ padding: space.xl, marginBottom: 10 }}>
@@ -139,20 +172,23 @@ export default function PersonalBests() {
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Weight (kg)</label>
-              <input type="number" inputMode="decimal" value={weight}
-                onChange={e => setWeight(parseFloat(e.target.value) || 0)}
+              <input type="number" inputMode="decimal" value={weightText}
+                onChange={e => { const t = e.target.value; setWeightText(t); const v = parseFloat(t); if (!Number.isNaN(v)) setWeight(v) }}
+                onBlur={() => { if (weightText.trim() === '') setWeightText(String(weight)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Reps</label>
-              <input type="number" inputMode="numeric" value={reps}
-                onChange={e => setReps(parseInt(e.target.value, 10) || 1)}
+              <input type="number" inputMode="numeric" value={repsText}
+                onChange={e => { const t = e.target.value; setRepsText(t); const v = parseInt(t, 10); if (!Number.isNaN(v)) setReps(v) }}
+                onBlur={() => { if (repsText.trim() === '') setRepsText(String(reps)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Year</label>
-              <input type="number" inputMode="numeric" value={year}
-                onChange={e => setYear(parseInt(e.target.value, 10) || year)}
+              <input type="number" inputMode="numeric" value={yearText}
+                onChange={e => { const t = e.target.value; setYearText(t); const v = parseInt(t, 10); if (!Number.isNaN(v)) setYear(v) }}
+                onBlur={() => { if (yearText.trim() === '') setYearText(String(year)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
           </div>

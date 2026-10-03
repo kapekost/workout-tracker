@@ -136,3 +136,28 @@ describe('Progress page', () => {
     expect(screen.queryByText(/kg since/)).not.toBeInTheDocument()
   })
 })
+
+// ── Wave 1.1, 2026-10-03 design review ──
+describe('Progress when a read fails', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('a failed exercise list does not claim you have no data', async () => {
+    api.get.mockRejectedValue(new Error('offline'))
+    renderProgress()
+    await screen.findByRole('alert')
+    expect(screen.queryByText(/No data yet/i)).not.toBeInTheDocument()
+  })
+
+  it('a failed series read does not claim you have not logged enough', async () => {
+    // The old catch fell through to `data.length < 2`, which says "Log at least
+    // 2 sessions to see a trend" — advice derived from a response that never
+    // arrived.
+    api.get.mockImplementation(async (path) => {
+      if (path === '/progress') return [{ exercise_id: 'bench', exercise_name: 'Bench Press' }]
+      throw new Error('offline')
+    })
+    renderProgress()
+    expect(await screen.findByText(/couldn't load this trend/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Log at least 2 sessions/i)).not.toBeInTheDocument()
+  })
+})

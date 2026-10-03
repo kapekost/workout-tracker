@@ -4,7 +4,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets, hashlib, time, math, urllib.request, urllib.error
+import sqlite3, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone, date
 import plan_seed
@@ -580,19 +580,55 @@ MAIL_FROM = os.environ.get("MAIL_FROM", "")
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_WINDOW_S = 15 * 60
 _rate_windows: dict[str, tuple[float, int]] = {}
+# Every mutation of _rate_windows happens under this lock. The two callers are
+# sync `def` endpoints, so Starlette runs them in the anyio worker threadpool
+# (40 threads by default) and they really do run concurrently.
+_RATE_LIMIT_LOCK = threading.Lock()
+# Past this many tracked identities, stop creating NEW ones. This is the bound
+# that actually holds: sweeping expired windows only helps once time has moved
+# on, and `enforce_rate_limit` evaluates every key it is handed even after the
+# request is already doomed to a 429 — so without a hard cap an attacker posting
+# distinct usernames keeps adding keys for the whole 15-minute window. The
+# per-IP counter still trips at RATE_LIMIT_MAX regardless, so refusing to track
+# more identities cannot weaken the limit that protects the CPU.
+_RATE_LIMIT_MAX_KEYS = 4096
+# Sweep threshold. High enough that the sweep never runs in normal operation
+# (one household, a handful of logins a week), low enough to keep the expired
+# tail short between sweeps.
+_RATE_LIMIT_SWEEP_AT = 256
 
 def reset_rate_limits() -> None:
     """Tests only — the window store is process-global by design."""
     _rate_windows.clear()
 
 def _rate_limit_hit(key: str) -> bool:
-    """Count one attempt against a fixed window. True once over the limit."""
+    """Count one attempt against a fixed window. True once over the limit.
+
+    Holds _RATE_LIMIT_LOCK for the whole read-modify-write. The obvious version
+    — build a list of stale keys, then `del` them — is not safe here and was
+    caught in review: with two threads on the login path, one iterating the dict
+    while the other inserts raises `RuntimeError: dictionary changed size during
+    iteration`, and two threads building the same eviction list then race on
+    `del` and raise `KeyError`. Both escape the request thread *before* the 429
+    decision, so the endpoint 500s instead of throttling — the limiter becomes
+    an amplifier. `list(...)` snapshots for iteration and `pop(k, None)` makes
+    the removal idempotent; the lock makes the pair atomic.
+    """
     now = time.time()
-    start, count = _rate_windows.get(key, (now, 0))
-    if now - start >= RATE_LIMIT_WINDOW_S:
-        start, count = now, 0
-    count += 1
-    _rate_windows[key] = (start, count)
+    with _RATE_LIMIT_LOCK:
+        start, count = _rate_windows.get(key, (now, 0))
+        if now - start >= RATE_LIMIT_WINDOW_S:
+            start, count = now, 0
+        count += 1
+        # Refuse to *create* identities past the cap. An existing key still
+        # counts, so the counter that matters keeps working; we just stop letting
+        # an unauthenticated caller grow this dict.
+        if key in _rate_windows or len(_rate_windows) < _RATE_LIMIT_MAX_KEYS:
+            _rate_windows[key] = (start, count)
+        if len(_rate_windows) > _RATE_LIMIT_SWEEP_AT:
+            cutoff = now - RATE_LIMIT_WINDOW_S
+            for stale in [k for k, (s, _) in list(_rate_windows.items()) if s < cutoff]:
+                _rate_windows.pop(stale, None)
     return count > RATE_LIMIT_MAX
 
 def enforce_rate_limit(request: Request, *keys: str) -> None:
@@ -626,6 +662,15 @@ def mint_token(conn, profile_id: int, kind: str) -> str:
     """Insert a token row and return the raw value. Does not commit."""
     if kind not in TOKEN_TTL:
         raise ValueError(f"unknown token kind: {kind}")
+    # Supersede any outstanding token of the same kind first. Without this,
+    # "single use" only ever meant "redeemed once": a reset link minted before
+    # a compromise stayed live through the victim's own password reset, because
+    # set_password only marks the row it actually redeemed. Redeeming the stale
+    # one then silently rotated the password again and logged the attacker in.
+    # Retiring them here means only the most recently issued token works.
+    conn.execute("UPDATE auth_tokens SET used_at = datetime('now') "
+                 "WHERE profile_id = ? AND kind = ? AND used_at IS NULL",
+                 (profile_id, kind))
     raw = secrets.token_urlsafe(32)
     conn.execute("INSERT INTO auth_tokens (profile_id, token_hash, kind, expires_at) "
                  f"VALUES (?, ?, ?, datetime('now', '{TOKEN_TTL[kind]}'))",
@@ -807,9 +852,21 @@ def set_password(body: SetPasswordIn, response: Response):
             # A clear 400 rather than a 500 out of bcrypt — and the token is
             # still unused, so a too-short password costs the user nothing.
             raise HTTPException(400, str(exc))
+        # Claim the token atomically, and only then spend the hash. The SELECT
+        # above is a convenience read; this is the actual gate. The old code
+        # marked used_at with a plain `WHERE id = ?`, so two concurrent
+        # redemptions of the same link both passed the SELECT and both wrote a
+        # password — last writer won, and the "this link works once" promise in
+        # the email was not true. `used_at IS NULL` plus a rowcount check makes
+        # the second caller lose, and it does so *before* any hashing.
+        claimed = conn.execute(
+            "UPDATE auth_tokens SET used_at = datetime('now') "
+            "WHERE id = ? AND used_at IS NULL", (row["id"],)).rowcount
+        if claimed != 1:
+            conn.rollback()
+            raise HTTPException(400, "this link is invalid or has expired")
         conn.execute("UPDATE profiles SET password_hash = ? WHERE id = ?",
                      (password_hash, row["profile_id"]))
-        conn.execute("UPDATE auth_tokens SET used_at = datetime('now') WHERE id = ?", (row["id"],))
         # Every existing session dies here. This is the entire reason sessions
         # are server-side rows: a reset must end sessions a thief already holds.
         revoke_sessions(conn, row["profile_id"])

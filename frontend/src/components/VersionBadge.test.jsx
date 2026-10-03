@@ -118,3 +118,42 @@ describe('VersionBadge', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
+
+// ── Wave 1.7, 2026-10-03 design review ──
+// This was a 12px aria-hidden glyph with no text anywhere: nothing to read and
+// nothing announced. Note the aria-hidden was on the <svg>, not on the
+// role="status" span, so the live region was never hidden — putting words inside
+// it is all that was needed.
+describe('VersionBadge when the network drops', () => {
+  const staleNetwork = () => makeNetworkStore({ getSnapshot: () => true })
+
+  it('says something in words, not just a symbol', () => {
+    renderBadge(makeStore(), '/', staleNetwork())
+    expect(screen.getByText(/data may be old/i)).toBeInTheDocument()
+  })
+
+  it('never says "offline" — stale also fires on mere slowness', () => {
+    // networkStatus.js marks stale on the SW's 4s NetworkFirst race resolving
+    // the page's own fetch from cache, so the network is often fine.
+    renderBadge(makeStore(), '/', staleNetwork())
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+  })
+
+  it('the words are not inside an aria-hidden subtree', () => {
+    renderBadge(makeStore(), '/', staleNetwork())
+    const el = screen.getByText(/data may be old/i)
+    expect(el.closest('[aria-hidden="true"]')).toBeNull()
+  })
+
+  it('the live region announces the full sentence, not just two words', () => {
+    renderBadge(makeStore(), '/', staleNetwork())
+    const status = screen.getByRole('status')
+    expect(status).toHaveAttribute('aria-atomic', 'true')
+    expect(status).toHaveTextContent(/network unreachable/i)
+  })
+
+  it('says nothing at rest', () => {
+    renderBadge(makeStore(), '/', makeNetworkStore())
+    expect(screen.queryByText(/data may be old/i)).not.toBeInTheDocument()
+  })
+})

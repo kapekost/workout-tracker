@@ -4,8 +4,11 @@ import Workout from './Workout'
 import { PLAN } from '../data/workoutPlan'
 import { colors, type } from '../lib/theme'
 
+// `put` is here because the note editor calls it. It was absent from this mock
+// originally, which is the second half of why the broken note save shipped
+// green: the mock shape and the bug agreed with each other.
 vi.mock('../api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }))
 import { api } from '../api'
@@ -487,5 +490,224 @@ describe('unknown workout_day', () => {
     renderWorkout()
     expect(await screen.findByText("Couldn't find this workout.")).toBeInTheDocument()
     expect(screen.queryByText('home')).not.toBeInTheDocument()
+  })
+})
+
+describe('per-exercise notes', () => {
+  // The whole feature was untested, and it did not work: Workout.saveNote calls
+  // api.put, api.js never exported one, and the catch turned the resulting
+  // TypeError into a "Failed to save note" toast while the optimistic
+  // setNotes update above it made the note appear to save.
+  // mockReset, not just mockSession: vi.clearAllMocks() clears recorded calls
+  // but leaves the *implementation* from the previous describe block in place,
+  // and 'unknown workout day' below sets one that renders no exercise cards.
+  // That pollution is why these two could not find any note UI at all.
+  it('PUTs the note to the server when the textarea loses focus', async () => {
+    api.get.mockReset()
+    mockSession()
+    renderWorkout()
+
+    const addNote = await screen.findByRole('button', { name: /add note/i })
+    await act(async () => { fireEvent.click(addNote) })
+    const ta = screen.getByRole('textbox')
+    fireEvent.change(ta, { target: { value: 'pause on chest' } })
+    await act(async () => { fireEvent.blur(ta) })
+
+    expect(api.put).toHaveBeenCalledWith(
+      `/exercises/${ex1.id}/note`, { note: 'pause on chest' })
+  })
+
+  it('surfaces a failure rather than pretending the note saved', async () => {
+    api.get.mockReset()
+    mockSession()
+    api.put.mockRejectedValue(new Error('API PUT /exercises/x/note → 500'))
+    renderWorkout()
+
+    const addNote = await screen.findByRole('button', { name: /add note/i })
+    await act(async () => { fireEvent.click(addNote) })
+    const ta = screen.getByRole('textbox')
+    fireEvent.change(ta, { target: { value: 'will not persist' } })
+    await act(async () => { fireEvent.blur(ta) })
+
+    // Wave 1.3 changed this copy deliberately: "Failed to save note" named the
+    // problem and stopped there, with no next step and no statement about
+    // whether the words survived — which, in the old flow, they had not.
+    expect(await screen.findByText(/still here, tap to retry/i)).toBeInTheDocument()
+  })
+})
+
+// ── 2026-10-03 design review, item 1.5 ────────────────────────────────
+// The handler used to be
+//   onChange={e => onChange(Number.isNaN(parseFloat(e.target.value)) ? min : v)}
+// so clearing the field wrote the minimum back on the same keystroke. The
+// field could never be empty, and because the caret then sat after the
+// refilled digit, the next keystroke appended to it: clear "8", type "5",
+// log 15. This is the field a user reaches for mid-set with one hand.
+describe('number entry mid-workout (2026-10-03 review 1.5)', () => {
+  it('a number field can be cleared instead of refilling its minimum', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const reps = screen.getAllByRole('spinbutton')[1]
+    expect(reps.value).not.toBe('')
+
+    fireEvent.focus(reps)
+    fireEvent.change(reps, { target: { value: '' } })
+    expect(reps.value).toBe('')
+
+    fireEvent.change(reps, { target: { value: '5' } })
+    expect(reps.value).toBe('5')
+
+    fireEvent.blur(reps)
+    await waitFor(() => expect(reps).toHaveValue(5))
+  })
+
+  it('an emptied field still commits its minimum on blur', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const reps = screen.getAllByRole('spinbutton')[1]
+    const before = Number(reps.value)
+
+    fireEvent.focus(reps)
+    fireEvent.change(reps, { target: { value: '' } })
+    fireEvent.blur(reps)
+    // The floor still applies on the way out — this fix is about not
+    // fighting the user mid-entry, not about permitting an invalid value.
+    await waitFor(() => expect(reps).toHaveValue(1))
+    expect(before).toBeGreaterThanOrEqual(1)
+  })
+})
+
+// ── Wave 1.1 / 1.6, 2026-10-03 design review ──
+describe('Workout: a failed session read must not throw you out of the workout', () => {
+  it('stays on the page and says the sets are safe', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') throw Object.assign(new Error('offline'), { status: undefined })
+      if (path === '/notes') return {}
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    expect(await screen.findByText(/Your sets are safe/i)).toBeInTheDocument()
+    // The old code was `.catch(() => nav('/'))`, which rendered the "/" route.
+    expect(screen.queryByText('home')).not.toBeInTheDocument()
+  })
+})
+
+describe('Workout: Log Set failure messages match what can actually happen', () => {
+  function rejectPost(err) {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    api.post.mockRejectedValue(err)
+  }
+
+  async function logFirstSet() {
+    renderWorkout()
+    const btn = await screen.findByRole('button', { name: /log set/i })
+    fireEvent.click(btn)
+  }
+
+  it('a 422 does not tell you to retry — retrying cannot succeed', async () => {
+    rejectPost(Object.assign(new Error('API POST → 422'), { status: 422 }))
+    await logFirstSet()
+    expect(await screen.findByText(/not allowed/i)).toBeInTheDocument()
+    expect(screen.queryByText(/tap Log Set again/i)).not.toBeInTheDocument()
+  })
+
+  it('a 4xx says the server rejected it, with no retry hint', async () => {
+    rejectPost(Object.assign(new Error('API POST → 400'), { status: 400 }))
+    await logFirstSet()
+    expect(await screen.findByText(/server rejected it/i)).toBeInTheDocument()
+  })
+
+  it('a network failure keeps the retry hint but tells you to check first', async () => {
+    // No status at all: the 8s AbortSignal.timeout throws a TimeoutError, and the
+    // write may or may not have landed. That is the one case where "try again"
+    // is honest, and it has to come with the check-your-set-list instruction.
+    rejectPost(Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' }))
+    await logFirstSet()
+    expect(await screen.findByText(/check the sets above/i)).toBeInTheDocument()
+  })
+
+  it('a 401 stays silent — the logout handler is already tearing the screen down', async () => {
+    rejectPost(Object.assign(new Error('API POST → 401'), { status: 401 }))
+    await logFirstSet()
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(screen.queryByText(/Couldn't save that set/i)).not.toBeInTheDocument()
+  })
+})
+
+// ── Wave 1.3, 2026-10-03 design review ──
+// The old flow closed the editor BEFORE the await, so a failed save destroyed
+// the typed words; and because the optimistic update landed first, the note then
+// sat on screen looking saved with only a toast saying otherwise.
+describe('Workout: a note save that fails', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  function mockWithFailedNote(err) {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return { [ex1.id]: 'old note' }
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    api.put.mockRejectedValue(err || new Error('offline'))
+  }
+
+  async function openEditorAndType(text) {
+    renderWorkout()
+    await screen.findByText(/old note/)
+    fireEvent.click(screen.getByText(/old note/))
+    const ta = await screen.findByRole('textbox')
+    fireEvent.change(ta, { target: { value: text } })
+    fireEvent.blur(ta)
+  }
+
+  it('keeps the typed words on screen instead of destroying them', async () => {
+    mockWithFailedNote()
+    await openEditorAndType('felt heavy, dropped to 60')
+    await waitFor(() => expect(api.put).toHaveBeenCalled())
+    expect(screen.getByDisplayValue('felt heavy, dropped to 60')).toBeInTheDocument()
+  })
+
+  it('marks the note as not saved rather than letting it look saved', async () => {
+    mockWithFailedNote()
+    await openEditorAndType('belt popped')
+    await waitFor(() => expect(api.put).toHaveBeenCalled())
+    // Close the editor the way a user would — tap elsewhere — and the marker
+    // must still be there.
+    fireEvent.blur(screen.getByRole('textbox'))
+    await waitFor(() => expect(screen.getByText(/not saved/i)).toBeInTheDocument())
+    expect(screen.getByText(/belt popped/)).toBeInTheDocument()
+  })
+
+  it('says the note is still here and how to retry', async () => {
+    mockWithFailedNote()
+    await openEditorAndType('grip gave out')
+    expect(await screen.findByText(/still here, tap to retry/i)).toBeInTheDocument()
+  })
+
+  it('a successful save shows no not-saved marker', async () => {
+    mockWithFailedNote()
+    api.put.mockResolvedValue({ ok: true })
+    await openEditorAndType('clean set')
+    await waitFor(() => expect(screen.getByText(/clean set/)).toBeInTheDocument())
+    expect(screen.queryByText(/not saved/i)).not.toBeInTheDocument()
   })
 })
