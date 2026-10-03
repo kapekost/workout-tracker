@@ -30,7 +30,17 @@ it cannot do damage:
 - It **holds no GitHub token.** Two other steps hold one: one fetches the PR's prior review
   history into a file the agent reads, the other resolves the agent's own review threads and
   posts its verdict. So an agent reading attacker-controlled PR text has no credential to
-  leak and cannot post anything the prompt did not produce.
+  leak and cannot post anything the prompt did not produce. Note *how* that isolation is
+  achieved, because it is weaker than it looks: **Actions has no step-level `permissions`
+  key** — it is valid only at workflow and job level, so the job holds the union of scopes
+  and the reviewer is kept off the token by Actions not injecting `GITHUB_TOKEN` into a
+  `run` step's environment unless that step names it in its own `env:`. A previous version
+  of the workflow put `permissions` on individual steps; that is not a weaker version of the
+  design, it is an invalid file, and it made run 8 fail Actions' validator with **zero jobs
+  — no step ran at all**. `actions/checkout` also runs with `persist-credentials: false`, so
+  the token is not left in `.git/config` for the reviewer to read. Real per-step scoping
+  would require splitting the reviewer into its own job; that is the honest way to make this
+  invariant structural rather than incidental.
 - It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
   runs (project config outranks global, so the PR's own copy would otherwise win), any
   `.opencode/` directory is deleted (plugins there load in-process before any permission

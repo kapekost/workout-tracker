@@ -4,9 +4,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# Job default: READ-ONLY for every step. Write access is granted to exactly two
-# steps below, both of which run fixed commands and neither of which is given the
-# model. The reviewer itself is handed no credential at all.
+# This workflow has no step-level `permissions` key, because GitHub Actions does not
+# have one — `permissions` is valid only at workflow and job level. An earlier version
+# of this file put it on individual steps, which made the whole workflow fail Actions'
+# validator with zero jobs (run 8, 2026-10-03); actionlint catches it locally.
+#
+# So write access is scoped to the JOB, and the reviewer is kept off the token by the
+# only mechanism that is actually per-step: `env`. Actions does not inject
+# `GITHUB_TOKEN` into a `run` step's environment unless that step names
+# `secrets.GITHUB_TOKEN` in its own `env:`. Only the two steps below do. The reviewer's
+# env is `OPENROUTER_API_KEY` and `REVIEW_PROMPT` and nothing else, so `gh` cannot
+# authenticate for it — which run 6 confirmed live ("No GH_TOKEN").
+#
+# That is a weaker guarantee than real permission scoping, which would need the
+# reviewer split into its own job. It holds because the token is never materialised
+# in that shell, not because the job's token lacks write scopes.
 #
 # `contents: read` is still needed at this level for actions/checkout to clone.
 permissions:
@@ -30,13 +42,22 @@ jobs:
       github.event.action != 'converted_to_draft' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # Union of what the two token steps need. See the note at the top of this file:
+    # Actions has no per-step permissions, so this is job-wide by necessity, and the
+    # reviewer's isolation comes from its `env`, not from this block.
     permissions:
       contents: read
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout PR Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Do not leave the job token in .git/config for the reviewer to read. With
+          # this on, `git diff`/`log`/`show` still work (they are local) but nothing
+          # on disk can authenticate to GitHub during the run.
+          persist-credentials: false
 
       # opencode is installed and run directly, NOT through
       # `anomalyco/opencode/github`. That action is not a reviewer: it is a coding
@@ -114,9 +135,6 @@ jobs:
 
       # ── token step 1 of 2: read the review history the reviewer cannot read ──
       - name: Fetch prior review history
-        permissions:
-          contents: read
-          pull-requests: write
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -145,8 +163,6 @@ jobs:
 
       # ── the reviewer: no credential of any kind ───────────────────────────────
       - name: Run the review
-        permissions:
-          contents: read
         id: review
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -324,10 +340,6 @@ jobs:
 
       # ── token step 2 of 2: resolve threads, then post ────────────────────────
       - name: Post the verdict
-        permissions:
-          contents: read
-          issues: write
-          pull-requests: write
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
