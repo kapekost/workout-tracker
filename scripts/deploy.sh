@@ -42,6 +42,25 @@ if [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then
   exit 1
 fi
 
+# Refuse to deploy a branch that is behind main. A dirty-tree check is not
+# enough: a feature branch 59 commits behind main is a perfectly *clean* tree,
+# so on 2026-10-03 it passed the gate above and replaced the running app with
+# an older build, silently removing Login, SetPassword and VersionBadge. Nothing
+# in this script looked at the branch relationship, and /api/health reported
+# "ok" the whole time because the app it served was healthy — just old.
+#
+# Override for a deliberate hotfix-from-an-old-branch deploy with
+# DEPLOY_ALLOW_STALE=1. There is no such override for the dirty-tree check.
+if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]] && git -C "$ROOT" rev-parse --verify --quiet main >/dev/null; then
+  if ! git -C "$ROOT" merge-base --is-ancestor main HEAD; then
+    echo "error: HEAD is not a descendant of main — deploying this would replace" >&2
+    echo "       the running app with an older build. Merge main, or re-run with" >&2
+    echo "       DEPLOY_ALLOW_STALE=1 if that is genuinely intended." >&2
+    git -C "$ROOT" log --oneline HEAD..main | sed 's/^/         missing: /' >&2
+    exit 1
+  fi
+fi
+
 # Warn, never fail: mail config missing only means invites and resets cannot
 # send, which must not block deploying everything else. Checked before the build
 # so the warning is visible rather than buried under image transfer output.
