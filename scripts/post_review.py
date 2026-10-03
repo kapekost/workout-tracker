@@ -32,10 +32,11 @@ def sanitize(text, repo, limit):
     mention or cross-reference."""
     text = str(text)[:limit * 4]
     text = re.sub(r"<[^>]{0,200}>", "", text)
-    text = re.sub(r"https?://\S+|\bwww\.\S+", "[link removed]", text)
+    text = re.sub(r"[\u202a-\u202e\u2066-\u2069]", "", text)
+    text = re.sub(r"\b\w+://\S+|\bwww\.\S+", "[link removed]", text, flags=re.I)
     text = " ".join(text.split())[:limit]
     text = re.sub(r"@(?=\w)", "@​", text)
-    return re.sub(r"([\\`*_\[\]()<>&#|~!])", r"\\\1", text)
+    return re.sub(r"([\\`*_\[\]()<>&#|~!:$])", r"\\\1", text)
 
 
 def extract_json(text):
@@ -116,7 +117,7 @@ def build(text, patches, repo):
         (blocking_lines if blocking else optional_lines).append(f"- {where} {body}")
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
-    if data.get("skipped") is True:
+    if data.get("skipped") is True and not findings:
         head = f"**Automated review skipped.** {summary}".strip()
     elif comments or blocking_lines:
         head = f"**BLOCKING** {summary}".strip()

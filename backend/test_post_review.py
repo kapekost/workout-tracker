@@ -145,3 +145,20 @@ def test_clean_review():
     kind, body, comments = pr.build(review([], summary="3 files, no findings"), PATCHES, REPO)
     assert kind == "review" and comments == []
     assert body.startswith("**CLEAN**")
+
+
+def test_scheme_and_host_matching_is_case_insensitive_and_covers_any_scheme():
+    text = pr.sanitize("HTTPS://evil.example WWW.evil.example ftp://evil.example/x", REPO, 400)
+    assert "evil" not in text.lower()
+
+
+def test_bidi_controls_are_stripped():
+    assert pr.sanitize("a‮b⁦c", REPO, 50) == "abc"
+
+
+def test_a_model_cannot_hide_findings_behind_the_skipped_flag():
+    payload = json.dumps({"skipped": True, "summary": "s", "findings": [
+        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]})
+    _, body, comments = pr.build(payload, PATCHES, REPO)
+    assert len(comments) == 1
+    assert body.startswith("**BLOCKING**")

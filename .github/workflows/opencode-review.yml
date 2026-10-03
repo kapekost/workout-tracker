@@ -126,14 +126,21 @@ jobs:
               "todowrite": "allow",
               "bash": {
                 "*": "deny",
-                "git status*": "allow",
-                "git diff*": "allow",
-                "git log*": "allow",
-                "git show*": "allow",
-                "git rev-parse*": "allow",
-                "*--output*": "deny",
+                "git status": "allow",
+                "git status *": "allow",
+                "git diff *": "allow",
+                "git log": "allow",
+                "git log *": "allow",
+                "git show *": "allow",
+                "git rev-parse *": "allow",
+                "*--out*": "deny",
                 "*--no-index*": "deny",
                 "*--ext-diff*": "deny",
+                "*$*": "deny",
+                "*\"*": "deny",
+                "*'*": "deny",
+                "*\\*": "deny",
+                "*\t*": "deny",
                 "* /*": "deny",
                 "*../*": "deny",
                 "* ~*": "deny",
@@ -267,7 +274,7 @@ jobs:
             : > "$RUNNER_TEMP/review.txt"
           done
           # The key is known here, so output containing it verbatim is dropped.
-          if [ -s "$RUNNER_TEMP/review.txt" ] && grep -qF -- "$OPENROUTER_API_KEY" "$RUNNER_TEMP/review.txt"; then
+          if [ -n "$OPENROUTER_API_KEY" ] && [ -s "$RUNNER_TEMP/review.txt" ] && grep -qF -- "$OPENROUTER_API_KEY" "$RUNNER_TEMP/review.txt"; then
             echo "::error::review output contained the API key; discarded"
             : > "$RUNNER_TEMP/review.txt"
           fi
@@ -327,7 +334,10 @@ jobs:
         run: |
           set -uo pipefail
           REVIEW="$RUNNER_TEMP/review-out/review.txt"
-          if [ -f scripts/resolve_review_threads.sh ]; then
+          # Earlier threads are resolved only when this run produced a real review; a skipped
+          # or empty run must not make the PR look clean.
+          if [ -f scripts/resolve_review_threads.sh ] && grep -q '"findings"' "$REVIEW" \
+             && ! grep -q '"skipped": *true' "$REVIEW"; then
             bash scripts/resolve_review_threads.sh "$PR" || echo "could not resolve review threads (non-fatal)"
           fi
           if [ -f scripts/post_review.py ]; then
