@@ -1010,6 +1010,8 @@ def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
             "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
             (profile_id, s.workout_day)).fetchone():
             raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
+        # Take the write lock before the check, or two simultaneous starts both pass it.
+        conn.execute("BEGIN IMMEDIATE")
         if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
                         (profile_id,)).fetchone():
             raise HTTPException(409, "a workout is already in progress")
@@ -1052,6 +1054,10 @@ def patch_session(sid: int, p: SessionPatch, profile_id: int = Depends(acting_pr
                     "ended_at = COALESCE(ended_at, datetime('now')) WHERE id = ?",
                     (sid,))
             else:
+                conn.execute("BEGIN IMMEDIATE")
+                if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0 AND id != ?",
+                                (profile_id, sid)).fetchone():
+                    raise HTTPException(409, "a workout is already in progress")
                 conn.execute("UPDATE sessions SET completed = 0 WHERE id = ?", (sid,))
         conn.commit()
         row = conn.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone()
