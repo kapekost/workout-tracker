@@ -4,7 +4,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets, hashlib, time, math, urllib.request, urllib.error
+import sqlite3, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone, date
 import plan_seed
@@ -580,10 +580,21 @@ MAIL_FROM = os.environ.get("MAIL_FROM", "")
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_WINDOW_S = 15 * 60
 _rate_windows: dict[str, tuple[float, int]] = {}
-# Sweep threshold for _rate_windows. High enough that the sweep never runs in
-# normal operation (one household, a handful of logins a week) and low enough
-# that an attacker spraying distinct usernames cannot grow the dict without
-# bound on a memory-constrained host.
+# Every mutation of _rate_windows happens under this lock. The two callers are
+# sync `def` endpoints, so Starlette runs them in the anyio worker threadpool
+# (40 threads by default) and they really do run concurrently.
+_RATE_LIMIT_LOCK = threading.Lock()
+# Past this many tracked identities, stop creating NEW ones. This is the bound
+# that actually holds: sweeping expired windows only helps once time has moved
+# on, and `enforce_rate_limit` evaluates every key it is handed even after the
+# request is already doomed to a 429 — so without a hard cap an attacker posting
+# distinct usernames keeps adding keys for the whole 15-minute window. The
+# per-IP counter still trips at RATE_LIMIT_MAX regardless, so refusing to track
+# more identities cannot weaken the limit that protects the CPU.
+_RATE_LIMIT_MAX_KEYS = 4096
+# Sweep threshold. High enough that the sweep never runs in normal operation
+# (one household, a handful of logins a week), low enough to keep the expired
+# tail short between sweeps.
 _RATE_LIMIT_SWEEP_AT = 256
 
 def reset_rate_limits() -> None:
@@ -591,22 +602,33 @@ def reset_rate_limits() -> None:
     _rate_windows.clear()
 
 def _rate_limit_hit(key: str) -> bool:
-    """Count one attempt against a fixed window. True once over the limit."""
+    """Count one attempt against a fixed window. True once over the limit.
+
+    Holds _RATE_LIMIT_LOCK for the whole read-modify-write. The obvious version
+    — build a list of stale keys, then `del` them — is not safe here and was
+    caught in review: with two threads on the login path, one iterating the dict
+    while the other inserts raises `RuntimeError: dictionary changed size during
+    iteration`, and two threads building the same eviction list then race on
+    `del` and raise `KeyError`. Both escape the request thread *before* the 429
+    decision, so the endpoint 500s instead of throttling — the limiter becomes
+    an amplifier. `list(...)` snapshots for iteration and `pop(k, None)` makes
+    the removal idempotent; the lock makes the pair atomic.
+    """
     now = time.time()
-    start, count = _rate_windows.get(key, (now, 0))
-    if now - start >= RATE_LIMIT_WINDOW_S:
-        start, count = now, 0
-    count += 1
-    _rate_windows[key] = (start, count)
-    # Evict expired windows, or _rate_windows grows without bound: the per-
-    # subject keys are attacker-chosen (`user:` up to 64 chars, `email:` up to
-    # 254), nothing ever removed them, and this dict is process-global on a
-    # ~1 GB box. Sweeping here costs a pass over a dict that is bounded by
-    # the eviction itself, so the amortised cost is constant.
-    if len(_rate_windows) > _RATE_LIMIT_SWEEP_AT:
-        cutoff = now - RATE_LIMIT_WINDOW_S
-        for k in [k for k, (s, _) in _rate_windows.items() if s < cutoff]:
-            del _rate_windows[k]
+    with _RATE_LIMIT_LOCK:
+        start, count = _rate_windows.get(key, (now, 0))
+        if now - start >= RATE_LIMIT_WINDOW_S:
+            start, count = now, 0
+        count += 1
+        # Refuse to *create* identities past the cap. An existing key still
+        # counts, so the counter that matters keeps working; we just stop letting
+        # an unauthenticated caller grow this dict.
+        if key in _rate_windows or len(_rate_windows) < _RATE_LIMIT_MAX_KEYS:
+            _rate_windows[key] = (start, count)
+        if len(_rate_windows) > _RATE_LIMIT_SWEEP_AT:
+            cutoff = now - RATE_LIMIT_WINDOW_S
+            for stale in [k for k, (s, _) in list(_rate_windows.items()) if s < cutoff]:
+                _rate_windows.pop(stale, None)
     return count > RATE_LIMIT_MAX
 
 def enforce_rate_limit(request: Request, *keys: str) -> None:

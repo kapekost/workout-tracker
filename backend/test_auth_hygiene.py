@@ -193,3 +193,83 @@ def test_eviction_never_drops_a_live_window(fast):
         fast._rate_limit_hit("user:trigger-the-sweep")
         assert len(fast._rate_windows) >= fast._RATE_LIMIT_SWEEP_AT
     fast.reset_rate_limits()
+
+# --- the limiter must be safe under the concurrency it actually gets ---
+
+def test_concurrent_hits_never_raise(fast):
+    """The two limiter callers are sync `def` endpoints, so Starlette runs them
+    in the anyio worker threadpool (40 threads by default) and they genuinely
+    run concurrently.
+
+    The first version of the sweep built its eviction list by iterating the live
+    dict and then `del`-ing from it. Two threads doing that raise
+    `RuntimeError: dictionary changed size during iteration`, or `KeyError` when
+    they build the same eviction list and race the removal — and both escape the
+    request thread *before* the 429 decision, so login 500s instead of
+    throttling. Reproduced at 12 of 16 threads before the lock and the snapshot.
+    """
+    import threading
+    fast.reset_rate_limits()
+    with pytest.MonkeyPatch.context() as mp:
+        now = 3_000_000.0
+        mp.setattr(fast.time, "time", lambda: now)
+        # Seed a store far past the sweep threshold with all-expired windows, so
+        # every concurrent hit triggers a sweep.
+        for i in range(2000):
+            fast._rate_windows[f"seed:{i}"] = (0.0, 1)
+        fast._RATE_LIMIT_SWEEP_AT = 8
+
+        errors: list[str] = []
+
+        def hammer(n):
+            try:
+                for i in range(200):
+                    fast._rate_limit_hit(f"user:{n}-{i}")
+            except Exception as exc:      # noqa: BLE001 - that is the assertion
+                errors.append(f"{type(exc).__name__}: {exc}")
+
+        threads = [threading.Thread(target=hammer, args=(n,)) for n in range(16)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert not errors, f"{len(errors)}/16 threads raised: {errors[:3]}"
+
+
+def test_the_store_is_hard_capped(fast):
+    """Sweeping expired windows does not bound growth *within* a window, because
+    `enforce_rate_limit` evaluates every key it is handed even after the request
+    is already doomed to a 429. So distinct usernames keep adding keys for the
+    whole window. Measured before this cap: 3001 keys from 3000 blocked
+    requests, and per-hit cost rising 56x (14us -> 787us at 60k keys).
+
+    The cap must not weaken the limit itself: the per-IP counter still trips, so
+    an attacker is still throttled even once the store refuses new identities.
+    """
+    fast.reset_rate_limits()
+    with pytest.MonkeyPatch.context() as mp:
+        now = 4_000_000.0
+        mp.setattr(fast.time, "time", lambda: now)   # nothing ever expires
+        fast._RATE_LIMIT_MAX_KEYS = 64
+        for i in range(5000):
+            fast._rate_limit_hit(f"user:sprayed-{i}")
+        size = len(fast._rate_windows)
+    assert size <= 64, f"store grew to {size} keys, cap was 64"
+    fast.reset_rate_limits()
+
+
+def test_the_cap_does_not_disable_the_limiter(fast, client):
+    """The real protection is the per-IP counter. Fill the store, then confirm a
+    single IP is still throttled — a cap that silently turned the limiter off
+    would be worse than the leak it fixed."""
+    fast.reset_rate_limits()
+    with pytest.MonkeyPatch.context() as mp:
+        now = 5_000_000.0
+        mp.setattr(fast.time, "time", lambda: now)
+        fast._RATE_LIMIT_MAX_KEYS = 4
+        codes = [client.post("/api/auth/login",
+                            json={"username": f"u{i}", "password": "x" * 20}).status_code
+                 for i in range(12)]
+    assert 429 in codes, f"IP was never throttled: {codes}"
+    assert codes[-1] == 429
+    fast.reset_rate_limits()
