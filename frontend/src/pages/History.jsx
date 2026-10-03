@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { api } from '../api'
 import { PLAN } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
+import LoadError from '../components/LoadError'
 import DayAccent from '../components/DayAccent'
 import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
@@ -78,11 +79,26 @@ export default function History() {
   const [details, setDetails] = useState({})
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Wave 1.1: a rejected read used to leave `sessions` at [], so this page
+  // rendered "0 sessions logged" and "No sessions yet." — both statements
+  // about the user's own training, neither of them checked.
+  const [loadError, setLoadError] = useState(false)
   const [confirmId, setConfirmId] = useState(null)
   const { toast, showToast } = useToast()
 
+  const load = useCallback(async () => {
+    try {
+      setSessions(await api.get('/sessions'))
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
+    load()
   }, [])
 
   async function toggle(id) {
@@ -118,6 +134,15 @@ export default function History() {
       <Skeleton height={72} style={{ marginBottom: 10 }} />
       <Skeleton height={72} style={{ marginBottom: 10 }} />
       <Skeleton height={72} />
+    </div>
+  )
+
+  // The page heading stays: this is a degraded data state, not a different
+  // page, and NavBar still works from here.
+  if (loadError) return (
+    <div style={{ paddingTop: 16 }}>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>History</h1>
+      <LoadError what="your history" onRetry={() => { setLoading(true); load() }} />
     </div>
   )
 

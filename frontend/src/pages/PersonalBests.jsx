@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { ALL_EXERCISES } from '../data/workoutPlan'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
+import LoadError from '../components/LoadError'
 import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
@@ -30,6 +31,10 @@ export default function PersonalBests() {
   const nav = useNavigate()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  // Wave 1.1: same shape as History — a failed read rendered
+  // "No historical PBs logged yet.", which is a claim about the user's
+  // history, not about this device's connectivity.
+  const [loadError, setLoadError] = useState(false)
   const [exerciseId, setExerciseId] = useState(ALL_EXERCISES[0]?.id ?? '')
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(1)
@@ -53,8 +58,19 @@ export default function PersonalBests() {
   // (2026-09-06 UI review, item 19).
   const [addOpen, setAddOpen] = useState(false)
 
+  const load = useCallback(async () => {
+    try {
+      setEntries(await api.get('/personal-bests'))
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    api.get('/personal-bests').then(d => { setEntries(d); setLoading(false) }).catch(() => setLoading(false))
+    load()
   }, [])
 
   async function submit(e) {
@@ -113,7 +129,9 @@ export default function PersonalBests() {
           add one, so the list -- not a 5-field form -- gets the eye on load
           (2026-09-06 UI review, item 19). The add form moved into the
           disclosure below. */}
-      {loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
+      {loadError ? (
+        <LoadError what="your personal bests" onRetry={() => { setLoading(true); load() }} />
+      ) : loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
         <EmptyState title="No historical PBs logged yet." />
       ) : Object.entries(grouped).map(([name, rows]) => (
         <div key={name} className="card" style={{ padding: space.xl, marginBottom: 10 }}>

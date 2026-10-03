@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
+import LoadError from '../components/LoadError'
 import StatPair from '../components/StatPair'
 import { colors, type, space } from '../lib/theme'
 import { IconTrophy, IconArrowTrendingUp } from '../icons'
@@ -27,26 +28,47 @@ export default function Progress() {
   const [selected, setSelected] = useState(null)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
+  // Wave 1.1: two reads, two lies. A failed /progress left `exercises` empty and
+  // the page said "No data yet. Complete a workout to see progress here."; a
+  // failed /progress/{id} fell through to `data.length < 2` and said "Log at
+  // least 2 sessions to see a trend". Neither had been asked anything.
+  const [listError, setListError] = useState(false)
+  const [dataError, setDataError] = useState(false)
 
   // Opens on a real chart instead of an empty screen: whichever exercise the
   // /progress response lists first (the same order the chip row renders) is
   // auto-selected once the list loads. `s ?? …` leaves a user's own tap
   // alone if one has already landed by the time this resolves.
-  useEffect(() => {
-    api.get('/progress').then(d => {
+  const loadList = useCallback(async () => {
+    try {
+      const d = await api.get('/progress')
       setExercises(d)
       setSelected(s => s ?? d[0]?.exercise_id)
-    }).catch(() => {})
+      setListError(false)
+    } catch {
+      setListError(true)
+    }
   }, [])
+
+  const loadSeries = useCallback(async (id) => {
+    setLoading(true)
+    try {
+      const d = await api.get(`/progress/${id}`)
+      setData(d.map(r => ({ date: r.date.slice(5), weight: r.max_weight })))
+      setDataError(false)
+    } catch {
+      setDataError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadList() }, [loadList])
 
   useEffect(() => {
     if (!selected) return
-    setLoading(true)
-    api.get(`/progress/${selected}`).then(d => {
-      setData(d.map(r => ({ date: r.date.slice(5), weight: r.max_weight })))
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [selected])
+    loadSeries(selected)
+  }, [selected, loadSeries])
 
   const selectedName = exercises.find(e => e.exercise_id === selected)?.exercise_name
   const pr = data.length ? Math.max(...data.map(d => d.weight)) : null
@@ -71,7 +93,9 @@ export default function Progress() {
         </button>
       </div>
 
-      {exercises.length === 0 ? <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." /> : (
+      {listError ? (
+        <LoadError what="your progress" onRetry={loadList} />
+      ) : exercises.length === 0 ? <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." /> : (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
             {exercises.map(ex => (
@@ -105,6 +129,10 @@ export default function Progress() {
                 <p style={{ color: colors.muted, fontSize: type.size.md, fontWeight: type.weight.semibold, paddingLeft: 20, marginBottom: 16 }}>{selectedName}</p>
                 {loading ? (
                   <div style={{ padding: '12px 20px' }}><Skeleton height={180} /></div>
+                ) : dataError ? (
+                  <div style={{ padding: '12px 20px' }}>
+                    <LoadError what="this trend" onRetry={() => selected && loadSeries(selected)} />
+                  </div>
                 ) : data.length < 2 ? (
                   <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted, fontSize: type.size.lg }}>
                     Log at least 2 sessions to see a trend

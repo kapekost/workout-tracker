@@ -218,3 +218,21 @@ describe('PersonalBests form (2026-10-03 review 1.5 / 3.4)', () => {
     }
   })
 })
+
+// ── Wave 1.1, 2026-10-03 design review ──
+describe('PersonalBests when the read fails', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('does not claim you have no historical PBs', async () => {
+    api.get.mockRejectedValue(new Error('offline'))
+    renderPage()
+    await screen.findByRole('alert')
+    expect(screen.queryByText(/No historical PBs logged yet/i)).not.toBeInTheDocument()
+  })
+
+  it('answers "nothing was lost" — the question behind that empty state', async () => {
+    api.get.mockRejectedValue(new Error('offline'))
+    renderPage()
+    expect(await screen.findByText(/Nothing was lost/i)).toBeInTheDocument()
+  })
+})

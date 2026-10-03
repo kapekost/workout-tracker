@@ -10,6 +10,7 @@ import MuscleGroupPicker from '../components/MuscleGroupPicker'
 import Eyebrow from '../components/Eyebrow'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
+import LoadError from '../components/LoadError'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
 import DayIcon from '../components/DayIcon'
@@ -158,13 +159,7 @@ export default function Home() {
         <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
           Check your connection
         </h1>
-        <div className="form-error" style={{ marginTop: 16 }}>
-          We couldn't load your workouts. Nothing was lost.
-        </div>
-        <button className="btn-secondary" onClick={() => { setLoading(true); load(); refresh() }}
-          style={{ marginTop: 16 }}>
-          Try again
-        </button>
+        <LoadError what="your workouts" onRetry={() => { setLoading(true); load(); refresh() }} />
         {/* The picker needs /exercises/recency, and an empty list reads as
             "you have never trained anything" rather than "we could not check" —
             so it is withheld on its own failure too. */}
