@@ -66,6 +66,14 @@ else
       warn "  Anything you deploy will CHANGE the running app. If you expected"
       warn "  to be shipping a no-op, stop and find out why first."
     fi
+    if [[ "$running" =~ ^[0-9a-f]{7,40}$ ]]; then
+      level=bad; [[ "${DEPLOY_ALLOW_STALE:-0}" == "1" ]] && level=warn
+      if ! live_full="$(git rev-parse --verify --quiet "$running^{commit}")"; then
+        $level "live version $running is unknown or ambiguous here; run git fetch --all."
+      elif ! git merge-base --is-ancestor "$live_full" HEAD; then
+        $level "HEAD does not contain the live version $running; deploying would drop its changes."
+      fi
+    fi
     if [[ "$running" == "dev" || -z "$running" ]]; then
       warn "  note: 'dev' means the image was built without --build-arg APP_COMMIT,"
       warn "  so the stamp proves nothing. Rebuild with APP_COMMIT set."

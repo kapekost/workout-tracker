@@ -47,7 +47,7 @@ and them (the script's parser stops at the next `## `):
 ```
 DEPLOY_HOST=pi.example
 DEPLOY_APP_DIR=/home/user/workout-tracker
-DEPLOY_SSH_OPTS='-o BatchMode=yes'
+DEPLOY_SSH_OPTS='-o ConnectTimeout=10'
 ```
 
 ## Application environment
