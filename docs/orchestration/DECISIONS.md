@@ -413,3 +413,79 @@ Cost of the mistake, for the record: a deploy from the stale branch replaced the
 running app with an older build and removed `Login`, `SetPassword` and
 `VersionBadge`. Data was never at risk — the change was schema-free — but the
 app lost three features for a deploy cycle.
+
+## 2026-10-03 — The "retry any classifier denial" rule lives on the home branch and still needs narrowing
+
+**This could not be fixed from `claude/import-auth-hardening`, and saying so is
+the point of the entry.**
+
+`GUARDRAILS.md` previously had no rule about permission-classifier denials at
+all. The instruction to retry lives in the *home branch's* `STATE.md` (lines
+108–111 there), not in `main`'s copy — `main`'s is 82 lines and is a pointer
+file, the real one is 157 lines. So the rule that most needed narrowing is the
+one a feature branch is least able to reach.
+
+It currently reads, in effect: *any classifier denial with a generic or missing
+reason is worth one identical retry before treating it as a hard stop.*
+
+That generalises from a real observation — the harness classifier really is flaky,
+and `gh pr merge` did succeed on an identical retry — into "a denial is not a
+stop condition." The permission classifier is the only control in this system that
+is **not** subject to the agent's discretion: everything else in `GUARDRAILS.md`
+is prose the model reads and honours. This rule tells it to retry that one.
+
+The generalized form is also exactly the conclusion an instruction planted in a
+hostile GitHub comment would want reached: *the harness said no, but retrying is
+the documented procedure.* See the new "Untrusted content" section.
+
+`GUARDRAILS.md` now carries the narrowed rule — retry only for non-destructive,
+non-merge categories, never for an `approved`-label write, a merge, a push, a
+deploy, or anything on the hard-stop list — **and it is a hard stop to override a
+destructive denial.**
+
+**Still to do, on the home branch, by whoever owns it:**
+
+1. Reconcile `claude/workout-tracker-backlog-bu9qnw` with `main`. It has diverged
+   and sits 59 commits behind, and it is the branch every `/orchestrate` tick
+   resolves its state through. That is the root cause of the 2026-10-03 bad
+   deploy, and it is an owner decision: merge `main` into it, or re-point
+   `STATE.md`'s home-branch header at a branch that tracks `main`.
+2. Once reconciled, delete the retry sentence from the real `STATE.md`, or replace
+   it with a pointer to the narrowed rule in `GUARDRAILS.md`. Leaving both is how
+   the broad version comes back.
+
+Until step 1 happens, note that the new `deploy.sh` main-descendant gate will
+**block any deploy from the home branch.** That is correct behaviour, and it will
+look like a new bug to whoever hits it first.
+
+## 2026-10-03 — Preflight is a check, not advice
+
+`scripts/preflight.sh` exists because of
+`https://kapekost.co.uk/blog/an-ai-agent-i-didnt-have-to-trust`: *"I would rather
+have a test that makes the bad outcome impossible than an agent that is merely
+well-behaved."*
+
+The 2026-10-03 session was a run of exactly that failure. It branched from
+whatever branch was checked out, produced four false Critical findings, deployed
+a build 59 commits behind `main`, and asserted to the owner that the deploy
+"changes nothing in the app" — every step a paragraph in `AGENTS.md` would have
+prevented and none of them checked.
+
+`preflight.sh` is read-only and checks: local `HEAD` against the *deployed*
+version (not "which branch am I on"), whether `main` is an ancestor, **which other
+local branches have diverged**, and whether another agent has uncommitted work, a
+linked worktree, or stashes in this tree. It exits non-zero on a blocker.
+
+Two design choices worth keeping:
+
+- **It compares against the running box, not against a branch name.** The
+  question that matters before a deploy is "what is live, and is that what I
+  think I am shipping" — not "am I on a branch."
+- **It reports all diverged local branches, not just the current one.** The trap
+  for the next agent is usually a branch they have not stood on yet. First run
+  found thirteen, three of them orphaned `worktree-agent-*` branches from a
+  session six days earlier.
+
+It has no host default. `AGENTS.local.md` is gitignored, so the script takes
+`DEPLOY_TARGET` from the environment and degrades to warnings when unset — it has
+to stay runnable from a plain clone with no local config.
