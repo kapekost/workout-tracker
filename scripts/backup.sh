@@ -21,9 +21,10 @@ COMPOSE_FILE="${COMPOSE_FILE:-$HOME/workout-tracker/docker-compose.yml}"
 # shellcheck disable=SC2086  # intentional word-splitting: COMPOSE is a multi-word command
 COMPOSE="docker compose -f $COMPOSE_FILE"
 DB="${DB:-/app/data/workouts.db}"
-# Where /api/health looks for the result — same directory as the DB, because
-# that is the one path both sides already agree on (backend/main.py derives it
-# from DATABASE_URL the same way).
+# Where the app looks for the result — same directory as the DB, because that
+# is the one path both sides already agree on (backend/main.py derives it from
+# DATABASE_URL the same way). It is served by GET /api/admin/backup-status;
+# scripts/deploy.sh, which has no session, reads this file directly.
 STATUS="$(dirname "$DB")/backup-status.json"
 # NOT /tmp: that's tmpfs, which wipes the 90-day local retention on every reboot.
 STAGE="${STAGE:-$HOME/backups}"
@@ -36,9 +37,9 @@ REMOTE_KEEP_DAYS="${REMOTE_KEEP_DAYS:-}"
 # schedule, and a manual backup has no schedule to be late against, so it would
 # simply fire forever (see #89). Left in place because reinstating a cron plus
 # an external check later is then a two-line change. Running this by hand tells
-# you the result directly — non-zero exit, stderr, and last_backup_status in
-# /api/health, which reports "failed" immediately or "stale" once an "ok" is
-# more than 8 days old. That 8 days is now a "it's been a while" nudge rather
+# you the result directly — non-zero exit, stderr, and last_backup_status from
+# /api/admin/backup-status, which reports "failed" immediately or "stale" once
+# an "ok" is more than 8 days old. That 8 days is now a "it's been a while" nudge rather
 # than a missed-schedule alarm; nothing fails a deploy over it. Note that
 # last_backup_status is the LOCAL leg only; the off-site one is reported
 # separately as last_backup_remote_status and never fails the run (#93).
@@ -54,7 +55,7 @@ mkdir -p "$STAGE"
 cleanup_ctmp() { $COMPOSE exec -T workout-tracker rm -f "$CTMP" >/dev/null 2>&1 || true; }
 trap cleanup_ctmp EXIT
 
-# Records the result where /api/health reads it. Same shape of problem as the
+# Records the result where /api/admin/backup-status reads it. Same shape of problem as the
 # VACUUM above, from the other direction: the status file has to land inside
 # the data volume, but ~/workout-tracker/data on the host is drwxr-xr-x root
 # root — Docker created it when it first mounted the volume — and the cron user
@@ -110,7 +111,7 @@ if $COMPOSE exec -T workout-tracker python -c "import sqlite3; sqlite3.connect('
   # standing between us and data loss. Calling the whole run failed because
   # Drive was unreachable is what taught us to stop reading the signal — four
   # such nights in a row, 2026-09-01..04 (#93). So a broken rclone leg is
-  # recorded and visible in /api/health, but it does not fail the run.
+  # recorded and visible in /api/admin/backup-status, but it does not fail the run.
   if rclone copy "$OUT" "$REMOTE"; then
     remote_json="{\"status\":\"ok\",\"at\":\"$(now_utc)\",\"remote\":\"$REMOTE\"}"
     if [ -n "$REMOTE_KEEP_DAYS" ]; then
@@ -129,12 +130,12 @@ else
 fi
 
 # No `|| true` here on purpose: the old heartbeat swallowed its own failures by
-# construction, so a backup whose result never reached /api/health looked
+# construction, so a backup whose result never reached the status file looked
 # identical to one that never ran. A backup nobody can see the result of is not
 # a finished backup — say so in the exit status.
 if ! write_status "{\"local\":$local_json,\"remote\":$remote_json}"; then
   if [ "$status" -ne 0 ]; then
-    echo "backup.sh: the failure above could not be recorded for /api/health either" >&2
+    echo "backup.sh: the failure above could not be recorded for the app either" >&2
   fi
   status=1
 fi

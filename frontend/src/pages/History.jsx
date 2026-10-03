@@ -5,10 +5,12 @@ import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
 import DayAccent from '../components/DayAccent'
+import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
 import { colors, type, space } from '../lib/theme'
+import { IconTrophy, IconClock, IconCheck } from '../icons'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -51,10 +53,10 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                 <span style={{ color: colors.muted, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.base }}>Set {st.set_number}</span>
                 <span className="font-mono" style={{
                   fontSize: type.size.lg, fontWeight: type.weight.bold,
-                  color: st.weight_kg === best ? colors.amber : colors.textSecondary
+                  color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
-                  {st.weight_kg === best && ' 🏆'}
+                  {st.weight_kg === best && <IconTrophy size={12} />}
                 </span>
               </div>
             ))}
@@ -122,7 +124,7 @@ export default function History() {
   return (
     <div style={{ paddingTop: 16 }}>
       <Toast toast={toast} />
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>History</h1>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>History</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 28 }}>
         {sessions.length} session{sessions.length !== 1 ? 's' : ''} logged
       </p>
@@ -142,11 +144,11 @@ export default function History() {
                 <DayAccent day={s.workout_day} shape="bar" />
                 <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: type.weight.semibold, fontSize: '0.95rem' }}>
-                    {plan?.emoji} {plan?.name ?? s.workout_day}
+                    {plan && <DayIcon day={s.workout_day} />} {plan?.name ?? s.workout_day}
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
-                    {s.date} {s.completed ? '· ✓ completed' : '· in progress'}
-                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}>⏱ {sessionDuration(s)}</span></> : ''}
+                    {s.date} · {s.completed ? <><IconCheck size={12} /> completed</> : 'in progress'}
+                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={12} /> {sessionDuration(s)}</span></> : ''}
                   </p>
                 </div>
               </>

@@ -68,16 +68,37 @@ docker save "$local_tag" \
 echo "==> restarting service"
 # The deploy target supplies its own docker-compose.yml, from its own clone of
 # this repo, so that clone has to be current before compose runs. The tag to
-# start is taken from APP_COMMIT (`image: ...:${APP_COMMIT:-latest}`), and a
-# clone predating that change still pins a hardcoded `:latest` — which ignores
-# APP_COMMIT entirely and re-creates the *old* image, leaving the verification
-# below to fail with a version mismatch that looks like a build problem.
+# start is taken from APP_COMMIT (`image: ...:${APP_COMMIT:?...}`, required
+# since #126), and a clone predating that fix still pins the old
+# `${APP_COMMIT:-latest}` fallback — which silently re-creates whatever
+# `:latest` happens to resolve to instead of failing loudly, leaving the
+# verification below to fail with a version mismatch that looks like a build
+# problem rather than a stale clone.
 # --ff-only so a diverged clone halts the deploy loudly rather than quietly
 # merging on the target.
+#
+# APP_COMMIT is also written into .env here, not just exported for this one
+# command: Compose auto-loads .env from the project directory for every
+# invocation, so this is what lets scripts/backup.sh (or a bare `docker
+# compose ...` typed by hand) resolve `${APP_COMMIT:?...}` too. Before this,
+# #126 made that variable required but only ever supplied it inline to this
+# one `up` call — so backup.sh's own `docker compose exec` calls failed the
+# interpolation outright the moment a deploy landed the stricter compose
+# file, breaking the app's only backup mechanism with no code change to
+# backup.sh itself. Real incident, 2026-09-08.
+#
+# `.env` holds live secrets (RESEND_API_KEY, ...) and stays mode 600 — the
+# rewrite runs under `umask 077` so `.env.new` is never briefly wider than
+# that, and fails loudly (via `-f .env` first) rather than silently dropping
+# every other line if the file is ever missing, instead of only tolerating
+# grep's own "no APP_COMMIT line to remove" exit status.
 # shellcheck disable=SC2086
 ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
   "cd '$DEPLOY_APP_DIR' \
      && git pull --ff-only \
+     && test -f .env \
+     && (umask 077; { grep -v '^APP_COMMIT=' .env || true; printf 'APP_COMMIT=%s\n' '$short_sha'; } > .env.new) \
+     && mv .env.new .env && chmod 600 .env \
      && APP_COMMIT='$short_sha' docker compose up -d --force-recreate workout-tracker"
 
 echo "==> verifying /api/health"
@@ -116,22 +137,27 @@ if actual != expected:
         f"deployment verification failed: /api/health version={actual!r}, expected={expected!r}"
     )
 
-# Warn, don't abort. Backups are manual as of 2026-09-04, so there is no
-# schedule for "stale" to be late against — it just means the last backup was
-# more than a week ago, which is worth saying out loud but is no reason to
-# refuse a deploy. A hard failure here would force a backup before every deploy
-# once a week had passed.
-if payload.get("last_backup_status") == "stale":
-    print("warning: last_backup_status is stale — the last backup is over a week old.")
-    print("         run scripts/backup.sh on the host if you want a fresh one.")
-
-# The off-site leg is reported separately (#93) and is never fatal here — the
-# local snapshot is the one that matters for a deploy. Printed so a chronically
-# broken Drive leg is at least visible at deploy time rather than only in
-# /api/health, which nobody reads unless they already suspect something.
-remote = payload.get("last_backup_remote_status")
-print(f"verified: version={actual}, last_backup_status={payload.get('last_backup_status')}"
-      + (f", off-site={remote}" if remote else ""))
+print(f"verified: version={actual}")
 PY
+
+# The backup posture used to arrive in that same payload. #86 trimmed
+# /api/health to {status, version} and moved the four last_backup_* keys to
+# GET /api/admin/backup-status, which needs an admin session — and this script
+# has none by design, since it runs where no browser has ever logged in.
+#
+# So read the file the app reads, straight off the host, and print it as it
+# stands. Never fatal: a chronically broken off-site leg was always a warning
+# here, never a reason to refuse a deploy, and forcing a backup before every
+# deploy once a week had passed would be worse than the problem. Printed raw
+# rather than interpreted, because "ok older than 8 days is stale" is a rule
+# that has already had to move once (#89) and a second copy of it living here
+# would be the copy nobody remembers to update.
+echo "==> last backup, as recorded on the host"
+# shellcheck disable=SC2086
+if ! ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
+     "cat '$DEPLOY_APP_DIR/data/backup-status.json'" 2>/dev/null | sed 's/^/    /'; then
+  echo "    (no status file yet — backups are manual; see docs/BACKUPS.md)"
+fi
+echo "    for the interpreted view: GET /api/admin/backup-status, as an admin"
 
 echo "==> deploy verified: $short_sha"

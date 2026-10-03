@@ -1,3 +1,29 @@
+from fastapi.testclient import TestClient
+
+
+def _member_client(mainmod, username="plain"):
+    """A second, member-role profile with its own real session cookie — not a
+    raw row we then never authenticate as, per
+    test_second_profile_can_log_the_same_pb_as_the_first's pattern for
+    creating the profile, and conftest.py's `client` fixture / issue_session
+    for putting a real session on a client of its own.
+
+    `username` is overridable so a single test can create more than one
+    member (e.g. an importer and a victim) without colliding on the UNIQUE
+    username constraint."""
+    with mainmod.db() as conn:
+        member_id = conn.execute(
+            "INSERT INTO profiles (username, role) VALUES (?, 'member')", (username,)).lastrowid
+        # A real create_profile call seeds DEFAULT_PLAN for the new profile
+        # (AI plan updates Phase 1) — mirrored here so this raw-insert member
+        # can Start Workout the same as a real one.
+        mainmod._seed_plan_for_profile(conn, member_id)
+        member = TestClient(mainmod.app)
+        member.cookies.set("wt_session", mainmod.issue_session(conn, member_id))
+        conn.commit()
+    return member, member_id
+
+
 def test_migration_creates_profiles_table_with_seeded_admin(mainmod):
     with mainmod.db() as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
@@ -97,7 +123,7 @@ def test_personal_bests_rebuilt_with_profile_scoped_unique(mainmod):
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         seed_id = conn.execute("SELECT id FROM profiles WHERE username='kapekost'").fetchone()[0]
         row = conn.execute("SELECT profile_id FROM personal_bests WHERE exercise_id='bench_press'").fetchone()
         assert row["profile_id"] == seed_id
@@ -152,6 +178,88 @@ def test_export_includes_profiles(client):
     assert len(exp["tables"]["profiles"]) == 1
     assert exp["tables"]["profiles"][0]["username"] == "kapekost"
 
+def test_member_export_contains_only_their_own_rows(client, mainmod):
+    # The seeded admin logs their own data through `client` first.
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    client.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    client.post("/api/events", json=[{"name": "admin_event"}])
+    client.put("/api/exercises/bench_press/note", json={"note": "admin note"})
+
+    member, member_id = _member_client(mainmod)
+    member_sid = member.post("/api/sessions", json={"workout_day": "lower_a"}).json()["id"]
+    member.post(f"/api/sessions/{member_sid}/sets", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "set_number": 1, "reps": 5, "weight_kg": 80})
+    member.post("/api/personal-bests", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "weight_kg": 80, "reps": 5, "achieved_year": 2026})
+    member.post("/api/events", json=[{"name": "member_event"}])
+    member.put("/api/exercises/squat/note", json={"note": "member note"})
+
+    tables = member.get("/api/export").json()["tables"]
+
+    # profiles is scoped to exactly one row -- their own -- not dropped, so
+    # the envelope shape (and the import validation that expects a `profiles`
+    # key) stays identical to the admin export's shape.
+    assert [r["id"] for r in tables["profiles"]] == [member_id]
+
+    assert len(tables["sessions"]) == 1
+    assert tables["sessions"][0]["workout_day"] == "lower_a"
+    assert tables["sessions"][0]["profile_id"] == member_id
+
+    # sets is scoped via a join through its owning session rather than a
+    # filter on sets.profile_id directly (decision #2) -- only the member's
+    # own set comes back, not the admin's bench press set.
+    assert len(tables["sets"]) == 1
+    assert tables["sets"][0]["exercise_id"] == "squat"
+
+    assert len(tables["personal_bests"]) == 1
+    assert tables["personal_bests"][0]["exercise_id"] == "squat"
+    assert tables["personal_bests"][0]["profile_id"] == member_id
+
+    assert len(tables["events"]) == 1
+    assert tables["events"][0]["name"] == "member_event"
+    assert tables["events"][0]["profile_id"] == member_id
+
+    assert len(tables["exercise_notes"]) == 1
+    assert tables["exercise_notes"][0]["exercise_id"] == "squat"
+    assert tables["exercise_notes"][0]["profile_id"] == member_id
+
+def test_member_export_still_401s_with_no_session(anon_client):
+    # Moving /api/export from require_admin to current_profile must not loosen
+    # the gate itself -- an anonymous caller still gets nothing.
+    r = anon_client.get("/api/export")
+    assert r.status_code == 401
+    assert r.json() == {"detail": "not authenticated"}
+
+def test_admin_export_unchanged(client, mainmod, seed_profile_id):
+    # Existing behaviour, named explicitly as a property of this change rather
+    # than incidentally covered by test_export_envelope_shape: an admin's
+    # export is still the whole database, every profile's rows included.
+    client.post("/api/sessions", json={"workout_day": "upper_a"})
+    client.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    client.post("/api/events", json=[{"name": "admin_event"}])
+
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "lower_a"})
+    member.post("/api/personal-bests", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "weight_kg": 80, "reps": 5, "achieved_year": 2026})
+    member.post("/api/events", json=[{"name": "member_event"}])
+
+    tables = client.get("/api/export").json()["tables"]
+    assert {r["id"] for r in tables["profiles"]} == {seed_profile_id, member_id}
+    assert {r["profile_id"] for r in tables["sessions"]} == {seed_profile_id, member_id}
+    assert {r["profile_id"] for r in tables["personal_bests"]} == {seed_profile_id, member_id}
+    assert {r["profile_id"] for r in tables["events"]} == {seed_profile_id, member_id}
+
 def test_old_v3_envelope_without_profiles_still_imports(client):
     # Simulates a backup taken before this feature existed (schema_version 3, no "profiles" key).
     old_envelope = {
@@ -202,20 +310,20 @@ def test_old_envelope_with_legacy_notes_and_pbs_backfills_profile_id(client):
     assert exp["tables"]["exercise_notes"][0]["profile_id"] is not None
     assert exp["tables"]["personal_bests"][0]["profile_id"] is not None
 
-def test_profiles_round_trip_through_export_import(client):
+def test_profiles_round_trip_through_export_import(client, reauthenticate):
     client.post("/api/personal-bests", json={
         "exercise_id": "bench_press", "exercise_name": "Bench Press",
         "weight_kg": 100, "reps": 3, "achieved_year": 2023})
     envelope = client.get("/api/export").json()
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
     assert r.status_code == 200
-    again = client.get("/api/export").json()
+    again = reauthenticate(client).get("/api/export").json()
     assert again["tables"]["profiles"] == envelope["tables"]["profiles"]
     assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]
 
 def test_migration_adds_icon_column_seeded_for_admin(mainmod):
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
         assert "icon" in cols
         row = conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()
@@ -236,7 +344,7 @@ def test_icon_migration_does_not_override_an_already_set_icon(mainmod):
         conn.commit()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         assert conn.execute("SELECT icon FROM profiles WHERE username='kapekost'").fetchone()[0] == "🔥"
 
 def test_profile_me_returns_acting_profile_with_icon(client):
@@ -246,3 +354,300 @@ def test_profile_me_returns_acting_profile_with_icon(client):
     assert body["username"] == "kapekost"
     assert body["role"] == "admin"
     assert body["icon"] == "💪"
+
+# --- #87 Task 2: member import — additive merge ---
+# A member's /api/import is a second, additive mode ("merge") next to the
+# admin's unchanged whole-database "replace" -- see the design doc's
+# decisions #3-#12 (docs/superpowers/plans/2026-09-06-accounts-export-import-roles.md)
+# for the full reasoning behind id remapping, the profiles/idempotency
+# carve-outs, and the {"merged": {...}} response shape asserted below.
+
+def test_member_import_merges_into_their_own_profile(mainmod):
+    # Deliberately no personal_bests/exercise_notes here -- those two tables
+    # have a real uniqueness constraint that would make even this *first*
+    # merge collide with the live row the export was taken from (see
+    # test_member_import_is_idempotent_for_personal_bests_and_notes, which
+    # covers that separately). sessions/sets/events have no such constraint,
+    # so this test isolates the plain "merge doubles it" property.
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    member.post("/api/events", json=[{"name": "member_event"}])
+
+    envelope = member.get("/api/export").json()
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    assert r.json() == {"merged": {
+        "sessions": 1, "sets": 1, "events": 1, "personal_bests": 0, "exercise_notes": 0}}
+
+    doubled = member.get("/api/export").json()["tables"]
+    # This is the property, not a bug: merge is additive, so importing a
+    # profile's own export back into itself lays a second copy on top of the
+    # first rather than being a no-op.
+    assert len(doubled["sessions"]) == 2
+    assert len(doubled["sets"]) == 2
+    assert len(doubled["events"]) == 2
+
+def test_member_import_cannot_write_to_another_profile(mainmod):
+    victim, victim_id = _member_client(mainmod, "victim")
+    victim_sid = victim.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    victim.post(f"/api/sessions/{victim_sid}/sets", json={
+        "exercise_id": "deadlift", "exercise_name": "Deadlift",
+        "set_number": 1, "reps": 5, "weight_kg": 140})
+    victim.post("/api/personal-bests", json={
+        "exercise_id": "deadlift", "exercise_name": "Deadlift",
+        "weight_kg": 140, "reps": 5, "achieved_year": 2025})
+    victim_before = victim.get("/api/export").json()["tables"]
+
+    attacker, attacker_id = _member_client(mainmod, "attacker")
+    attacker_sid = attacker.post("/api/sessions", json={"workout_day": "lower_a"}).json()["id"]
+    attacker.post(f"/api/sessions/{attacker_sid}/sets", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "set_number": 1, "reps": 5, "weight_kg": 100})
+    attacker.post("/api/personal-bests", json={
+        "exercise_id": "squat", "exercise_name": "Squat",
+        "weight_kg": 100, "reps": 5, "achieved_year": 2025})
+
+    envelope = attacker.get("/api/export").json()
+    # Forge every profile_id-carrying row to point at the victim's real id.
+    envelope["tables"]["sessions"][0]["profile_id"] = victim_id
+    envelope["tables"]["sets"][0]["profile_id"] = victim_id
+    envelope["tables"]["personal_bests"][0]["profile_id"] = victim_id
+
+    r = attacker.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+
+    after = attacker.get("/api/export").json()["tables"]
+    # Merge always forces profile_id to the caller -- the forged value is
+    # never honoured, so the merged rows land on the attacker's own profile.
+    assert {s["profile_id"] for s in after["sessions"]} == {attacker_id}
+    assert {s["profile_id"] for s in after["sets"]} == {attacker_id}
+    assert {p["profile_id"] for p in after["personal_bests"]} == {attacker_id}
+
+    # The victim's own data is completely unaffected.
+    assert victim.get("/api/export").json()["tables"] == victim_before
+
+def test_member_import_drops_orphaned_sets(mainmod):
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    envelope = member.get("/api/export").json()
+
+    # A set naming a session id the envelope itself never defines. The id
+    # remap only ever maps ids from this same envelope's own "sessions" list
+    # (decision #7), so this has no legitimate home once ids are rewritten --
+    # not "envelope didn't include the session it's really in" so much as
+    # "there is nothing in this import for it to attach to".
+    orphan = dict(envelope["tables"]["sets"][0])
+    orphan["id"] = 999999
+    orphan["session_id"] = 424242
+    envelope["tables"]["sets"].append(orphan)
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+    assert r.json()["merged"]["sets"] == 1  # the orphan was silently skipped, not inserted, not an error
+
+    after = member.get("/api/export").json()["tables"]["sets"]
+    assert len(after) == 2  # the original set + the one legitimate merged copy -- not 3
+
+def test_member_import_is_idempotent_for_personal_bests_and_notes(mainmod):
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    member.post("/api/personal-bests", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "weight_kg": 100, "reps": 3, "achieved_year": 2023})
+    member.put("/api/exercises/bench_press/note", json={"note": "go slow"})
+    envelope = member.get("/api/export").json()
+    body = {"mode": "merge", "confirm": True, "envelope": envelope}
+
+    member.post("/api/import", json=body)
+    after_first = member.get("/api/export").json()["tables"]
+    member.post("/api/import", json=body)
+    after_second = member.get("/api/export").json()["tables"]
+
+    # personal_bests/exercise_notes carry a real UNIQUE/PRIMARY KEY constraint
+    # scoped to profile_id (decision #9), and merge inserts into them with
+    # INSERT OR IGNORE -- so re-importing byte-identical rows is a no-op for
+    # these two tables specifically, from the very first import onward (the
+    # export was taken *after* these rows already existed live, so even
+    # import #1 collides with the original row). This is a documented POC
+    # limitation, not a real id-based idempotency scheme: it only holds
+    # because the (profile_id, exercise_id, ...) tuple is byte-identical
+    # every time, not because merge is tracking what it has already imported.
+    assert len(after_first["personal_bests"]) == len(after_second["personal_bests"]) == 1
+    assert len(after_first["exercise_notes"]) == len(after_second["exercise_notes"]) == 1
+
+    # sessions/sets have no such constraint -- they are NOT deduplicated and
+    # keep growing with every import, unlike personal_bests/exercise_notes.
+    assert len(after_second["sessions"]) > len(after_first["sessions"])
+    assert len(after_second["sets"]) > len(after_first["sets"])
+
+def test_member_import_ignores_profiles_table(mainmod):
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["profiles"][0]["role"] = "admin"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 200
+
+    with mainmod.db() as conn:
+        role = conn.execute("SELECT role FROM profiles WHERE id = ?", (member_id,)).fetchone()[0]
+    assert role == "member"  # the mutated envelope role was never applied
+
+def test_member_import_rejects_replace_mode(mainmod):
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = member.get("/api/export").json()
+
+    r = member.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(member.get("/api/export").json()["tables"]["sessions"]) == 1  # DB untouched
+
+def test_member_import_requires_confirm(mainmod):
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = member.get("/api/export").json()
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": False, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(member.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_member_import_rejects_unknown_columns(mainmod):
+    member, member_id = _member_client(mainmod)
+    member.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["sessions"][0]["bogus_col"] = 1
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(member.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_admin_import_rejects_merge_mode(client):
+    client.post("/api/sessions", json={"workout_day": "upper_a"})
+    envelope = client.get("/api/export").json()
+
+    r = client.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+    assert len(client.get("/api/export").json()["tables"]["sessions"]) == 1
+
+def test_import_replace_rejects_an_envelope_with_no_admin_profile(client, mainmod, seed_profile_id):
+    # A member's own export has a "profiles" key with exactly one row, and it
+    # is never role="admin". If an admin restored that file with
+    # mode="replace" -- a plausible real mistake ("a member emailed me their
+    # export") -- _import_replace would wipe the live profiles table down to
+    # zero admins: require_admin then 403s everyone, and POST /api/profiles is
+    # itself admin-gated, so there would be no in-app way back in. Must be
+    # refused outright, not partially applied.
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
+    # Rejection, not a partial replace -- the live admin profile is untouched.
+    with mainmod.db() as conn:
+        row = conn.execute("SELECT role FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()
+    assert row is not None and row["role"] == "admin"
+
+# --- #141: harden member import/export ---
+# Four small gaps deliberately parked during #87's review: merge bypassing the
+# write endpoints' own field validation, no size cap on a member's merge
+# request, no check that the envelope's own `profiles` row is the caller's,
+# and a malformed `profiles` shape 500ing instead of 400ing on replace.
+
+def test_member_import_rejects_unknown_workout_day_and_rolls_back_whole_merge(mainmod):
+    # SessionIn's Literal is enforced by POST /api/sessions but was not
+    # enforced by merge -- an envelope can otherwise plant an arbitrary
+    # workout_day string. The attached, still-valid set must not merge either:
+    # one bad row 400s the *whole* import, not just itself.
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["sessions"][0]["workout_day"] = "bogus_day"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
+    after = member.get("/api/export").json()["tables"]
+    assert len(after["sessions"]) == 1  # nothing merged -- not even the still-valid set
+    assert len(after["sets"]) == 1
+
+def test_member_import_rejects_invalid_set_fields_and_rolls_back_whole_merge(mainmod):
+    # SetIn's ge/le bounds (reps>=1, weight_kg in [0,1000], set_number>=1) are
+    # enforced by POST /api/sessions/{id}/sets but were not enforced by merge.
+    member, member_id = _member_client(mainmod)
+    sid = member.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    member.post(f"/api/sessions/{sid}/sets", json={
+        "exercise_id": "bench_press", "exercise_name": "Bench Press",
+        "set_number": 1, "reps": 5, "weight_kg": 60})
+
+    for bad_field, bad_value in (("reps", -99), ("weight_kg", 1e9), ("set_number", -5)):
+        envelope = member.get("/api/export").json()
+        envelope["tables"]["sets"][0][bad_field] = bad_value
+        r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+        assert r.status_code == 400, bad_field
+
+    after = member.get("/api/export").json()["tables"]
+    assert len(after["sessions"]) == 1  # none of the three bad-field attempts merged anything
+    assert len(after["sets"]) == 1
+
+def test_member_import_rejects_envelope_over_the_row_cap(mainmod):
+    # Cranked down so the test doesn't need thousands of rows to prove the cap
+    # is real and enforced before anything is written.
+    mainmod.MERGE_MAX_ROWS = 3
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()  # 1 profiles row already
+    envelope["tables"]["events"] = [{"name": f"e{i}"} for i in range(4)]  # 1 + 4 > 3
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 422
+
+    after = member.get("/api/export").json()["tables"]["events"]
+    assert after == []  # rejected before a single row was inserted
+
+def test_member_import_rejects_a_stolen_admin_backup(mainmod, client):
+    # A member merging a leaked admin whole-database export must not absorb
+    # every account's data into their own -- the envelope's own `profiles`
+    # table names a different (here, the seed admin's) id than the caller's.
+    client.post("/api/sessions", json={"workout_day": "upper_a"})
+    admin_export = client.get("/api/export").json()
+
+    member, member_id = _member_client(mainmod)
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": admin_export})
+    assert r.status_code == 400
+
+    after = member.get("/api/export").json()["tables"]
+    assert len(after["sessions"]) == 0  # the admin's session was never absorbed
+
+def test_member_import_rejects_malformed_profiles_shape_with_400(mainmod):
+    # Regression guard, merge-mode counterpart to the replace-mode test below:
+    # the profile-match guard's `.get("id")` used to run on whatever
+    # "profiles" was even if it wasn't a list of row-dicts, so a non-list (or
+    # a list of non-dicts) shape crashed with an uncaught AttributeError
+    # instead of landing on this guard's existing clean 400.
+    member, member_id = _member_client(mainmod)
+    envelope = member.get("/api/export").json()
+    envelope["tables"]["profiles"] = "not-a-list"
+
+    r = member.post("/api/import", json={"mode": "merge", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400
+
+def test_import_replace_rejects_malformed_profiles_shape_with_400(client):
+    # Regression guard: `env["tables"]["profiles"]` present but not a list
+    # (e.g. a hand-corrupted backup) used to 500 out of the admin-lockout
+    # guard's `any(...)` instead of landing on the existing clean 400.
+    envelope = client.get("/api/export").json()
+    envelope["tables"]["profiles"] = "not-a-list"
+
+    r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": envelope})
+    assert r.status_code == 400

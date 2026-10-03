@@ -33,3 +33,20 @@ export function clearRestTimer(sessionId) {
   if (!canStore) return
   try { localStorage.removeItem(PREFIX + sessionId) } catch {}
 }
+
+// Logout (#124) needs to wipe every session's rest timer, not just one --
+// the account signing out has no reason to know which session ids it left
+// entries under, and a leftover entry names a session id belonging to the
+// account that just left. Sweep by prefix rather than tracking a separate
+// index of ids.
+export function clearAllRestTimers() {
+  if (!canStore) return
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(PREFIX)) keys.push(key)
+    }
+    keys.forEach((key) => localStorage.removeItem(key))
+  } catch { /* storage unavailable; nothing to sweep */ }
+}

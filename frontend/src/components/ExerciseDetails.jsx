@@ -3,7 +3,8 @@ import ExerciseDemo from './ExerciseDemo'
 import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
 import Chip from './Chip'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
+import { IconPlay } from '../icons'
 
 // Target / cues / demo body shared by the standalone Exercise page and the
 // in-workout cues modal, so both stay in sync and only track views once.
@@ -17,13 +18,16 @@ export default function ExerciseDetails({ ex, color }) {
     <>
       {/* Muscles */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+        {/* No `color` here: Chip's non-toggle (label) branch hardcodes
+            colors.muted regardless of what's passed, so color={color} was a
+            silent no-op (2026-09-06 UI review, item 18a). */}
         {ex.muscles.map(m => (
-          <Chip key={m} color={color}>{m}</Chip>
+          <Chip key={m}>{m}</Chip>
         ))}
       </div>
 
       {/* Target */}
-      <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+      <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
         <Eyebrow style={{ marginBottom: 12 }}>Target</Eyebrow>
         <div style={{ display: 'flex', gap: 32 }}>
           <div>
@@ -38,7 +42,7 @@ export default function ExerciseDetails({ ex, color }) {
       </div>
 
       {/* Form cues */}
-      <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+      <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
         <Eyebrow style={{ marginBottom: 14 }}>Form cues</Eyebrow>
         <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {ex.cues.map((cue, i) => (
@@ -57,17 +61,17 @@ export default function ExerciseDetails({ ex, color }) {
       </div>
 
       {/* Demo */}
-      <ExerciseDemo ex={ex} color={color} style={{ marginBottom: 12 }}>
+      <ExerciseDemo ex={ex} color={color} style={{ marginBottom: space.md }}>
         {/* YouTube Fallback (if demo fails or is missing, component returns children) */}
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: space.md }}>
           <a href={ex.ytUrl} target="_blank" rel="noopener noreferrer"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               background: colors.border, border: `1px solid ${color}44`,
               borderRadius: 12, padding: '16px 20px', color,
-              textDecoration: 'none', fontWeight: type.weight.bold, fontSize: '0.9rem'
+              textDecoration: 'none', fontWeight: type.weight.bold, fontSize: type.size.body
             }}>
-            <span style={{ fontSize: '1.4rem' }}>▶</span>
+            <IconPlay size={22} />
             Watch form demo on YouTube
           </a>
           <p style={{ color: colors.muted, fontSize: type.size.sm, textAlign: 'center', marginTop: 10 }}>

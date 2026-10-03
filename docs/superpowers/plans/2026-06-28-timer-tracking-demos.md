@@ -805,22 +805,23 @@ Expected: build succeeds (Vite build runs inside the image; the test deps are no
 
 ```bash
 docker save kapekost/workout-tracker:latest | gzip | \
-  ssh deploy-user@example-pi-host 'gunzip | docker load'
+  ssh <user>@<pi-host> 'gunzip | docker load'
 ```
 
 - [ ] **Step 3: Restart on the Pi**
 
 ```bash
-ssh deploy-user@example-pi-host 'cd ~/workout-tracker && docker compose up -d'
+ssh <user>@<pi-host> 'cd ~/workout-tracker && docker compose up -d'
 ```
 
 - [ ] **Step 4: Verify app + co-tenant health**
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://203.0.113.10:8080/   # expect 200
-ssh deploy-user@example-pi-host 'docker ps --format "{{.Names}} {{.Status}}" | grep -E "workout|homeassistant"'
+curl -s -o /dev/null -w "%{http_code}\n" http://<pi-host>:8080/   # expect 200
+ssh <user>@<pi-host> 'docker ps --format "{{.Names}} {{.Status}}" | grep -E "workout|<co-tenant>"'
 ```
-Expected: app `200`; `homeassistant` still `healthy`; workout container `Up`.
+Expected: app `200`; the co-tenant service still `healthy`; workout container `Up`. Real
+host/user/co-tenant values are in `AGENTS.local.md`.
 Then on a phone: start a workout (timer bar + rest countdown), finish (summary card), check History (duration), open an exercise (inline demo or YouTube fallback).
 
 - [ ] **Step 5: Update AGENTS.md status + commit**

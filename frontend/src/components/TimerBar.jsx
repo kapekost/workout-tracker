@@ -3,6 +3,7 @@ import { remainingSeconds, elapsedSeconds, formatClock } from '../lib/timer'
 import { playBeep } from '../lib/sound'
 import { track } from '../lib/analytics'
 import { colors, type } from '../lib/theme'
+import { IconClock, IconBolt, IconMinus, IconPlus, IconPlay, IconPause } from '../icons'
 
 export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, onAddRest, onSkipRest, color, wakeLockHeld, paused, pausedRem, onTogglePause, hasLoggedSets = true }) {
   const [now, setNow] = useState(Date.now())
@@ -44,26 +45,26 @@ export default function TimerBar({ sessionStartMs, restStartMs, restTargetSec, o
   return (
     <div className={`timer-bar${flash ? ' flash' : ''}`}>
       <div className="session-clock">
-        ⏱ <span style={{ fontWeight: type.weight.bold }}>{sessionStr}</span>
+        <IconClock size={16} /> <span style={{ fontWeight: type.weight.bold }}>{sessionStr}</span>
         {wakeLockHeld && (
-          <span className="wake-chip">🔆<span className="wake-text"> On</span></span>
+          <span className="wake-chip"><IconBolt size={14} /><span className="wake-text"> On</span></span>
         )}
       </div>
       <div className="timer-controls" style={{
         opacity: resting ? 1 : 0.4,
         pointerEvents: resting ? 'auto' : 'none'
       }}>
-        <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => { track('rest_adjust', { delta: -30 }); onAddRest(-30) }}>−30</button>
+        <button className="btn-icon" disabled={!resting} aria-label="subtract 30 seconds" onClick={() => { track('rest_adjust', { delta: -30 }); onAddRest(-30) }}><IconMinus size={14} />30</button>
         <div className="rest-block">
-          <div className="rest-label" style={{ color: !resting ? colors.muted2 : rem === 0 ? colors.mint : paused ? colors.amber : colors.muted }}>
+          <div className="rest-label" style={{ color: !resting ? colors.muted2 : rem === 0 ? colors.accent : paused ? colors.text : colors.muted, fontWeight: paused ? type.weight.bold : undefined }}>
             {showIdleHint ? 'LOG A SET' : !resting ? 'READY' : paused ? 'PAUSED' : rem === 0 ? 'GO' : 'REST'}
           </div>
           <div className="rest-clock">
             {resting ? formatClock(rem) : '—:—'}
           </div>
         </div>
-        <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => { track('rest_adjust', { delta: 30 }); onAddRest(30) }}>+30</button>
-        <button className="btn-secondary timer-pill" disabled={!resting} aria-label={paused ? 'resume rest timer' : 'pause rest timer'} onClick={onTogglePause}>{paused ? '▶' : '⏸'}</button>
+        <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => { track('rest_adjust', { delta: 30 }); onAddRest(30) }}><IconPlus size={14} />30</button>
+        <button className="btn-secondary timer-pill" disabled={!resting} aria-label={paused ? 'resume rest timer' : 'pause rest timer'} onClick={onTogglePause}>{paused ? <IconPlay size={14} /> : <IconPause size={14} />}</button>
         <button className="btn-secondary timer-pill" disabled={!resting} aria-label="skip rest" onClick={() => { track('rest_skip'); onSkipRest() }}>Skip</button>
       </div>
     </div>

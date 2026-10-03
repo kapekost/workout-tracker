@@ -60,6 +60,6 @@ rest timer is running. Nothing else on the workout screen is restructured.
 ## Deploy
 
 - Mac-build → Pi deploy model unchanged. **Pi deploy is blocked** while off the home LAN
-  (`203.0.113.10` unreachable); ship when back on-network.
+  (the Pi's LAN address is unreachable — see `AGENTS.local.md`); ship when back on-network.
 - Also commit the currently-untracked `frontend/src/data/workoutPlan.js` (committed code
   imports it; a fresh clone/`git pull` would otherwise break the build).

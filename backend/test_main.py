@@ -64,3 +64,67 @@ def test_new_top_weight_gives_weight_pr_only_no_reps_pr(client):
     types = [p["type"] for p in prs]
     assert "weight" in types
     assert "reps" not in types  # no prior reps at 65kg to beat
+
+
+# Cache-Control on the built frontend. Starlette sets ETag/Last-Modified but
+# leaves Cache-Control unset, so the browser invents a freshness lifetime for
+# index.html — and since Vite fingerprints everything under assets/, a stale
+# index.html pins the app to the previous build with no visible error. Real
+# incident: #105's login screens were live on the server and absent on a phone
+# the following day.
+def test_index_html_must_revalidate(mainmod):
+    assert mainmod.cache_control_for("/app/static/index.html") == "no-cache"
+
+def test_unfingerprinted_root_files_must_revalidate(mainmod):
+    # Same name across every build, so they can never be cached forever.
+    for path in ("/app/static/favicon.ico", "/app/static/manifest.webmanifest"):
+        assert mainmod.cache_control_for(path) == "no-cache"
+
+def test_fingerprinted_assets_are_immutable(mainmod):
+    cc = mainmod.cache_control_for("/app/static/assets/index-Dn7kvad8.js")
+    assert "immutable" in cc and "max-age=31536000" in cc
+
+
+# --- SPA deep links -------------------------------------------------------
+# The app is a single bundle behind client-side routes, but it is served by
+# StaticFiles, which only knows files. Every route therefore 404'd unless you
+# arrived by clicking. Nobody noticed until #85's invite email linked straight
+# to /set-password?token=... and the owner got {"detail":"Not Found"}.
+
+@pytest.fixture
+def built_client(monkeypatch, tmp_path):
+    """A client for an app that has a built frontend next to it."""
+    static = tmp_path / "static"
+    (static / "assets").mkdir(parents=True)
+    (static / "index.html").write_text("<!doctype html><title>Gym Tracker</title>")
+    (static / "assets" / "index-abc123.js").write_text("console.log('app')")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", str(tmp_path / "test.db"))
+    import main
+    importlib.reload(main)
+    return TestClient(main.app)
+
+@pytest.mark.parametrize("route", ["/login", "/set-password", "/history", "/progress"])
+def test_client_routes_serve_the_app_shell(built_client, route):
+    res = built_client.get(route)
+    assert res.status_code == 200
+    assert "Gym Tracker" in res.text
+
+def test_the_invite_links_path_works_with_its_token(built_client):
+    # The exact shape #85's email sends.
+    res = built_client.get("/set-password?token=some-raw-token")
+    assert res.status_code == 200 and "Gym Tracker" in res.text
+
+def test_a_missing_asset_still_404s(built_client):
+    # Answering with HTML would turn "your index.html is stale" into an opaque
+    # MIME error in the console.
+    assert built_client.get("/assets/index-gone.js").status_code == 404
+
+def test_an_unknown_api_path_still_404s_as_json(built_client):
+    res = built_client.get("/api/definitely-not-a-route")
+    assert res.status_code == 404
+    assert res.json()["detail"]
+
+def test_real_files_are_still_served(built_client):
+    res = built_client.get("/assets/index-abc123.js")
+    assert res.status_code == 200 and "console.log" in res.text

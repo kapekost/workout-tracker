@@ -6,14 +6,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
 import StatPair from '../components/StatPair'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
+import { IconTrophy, IconArrowTrendingUp } from '../icons'
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 14px' }}>
       <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 4 }}>{label}</p>
-      <p style={{ color: colors.mint, fontFamily: 'JetBrains Mono, monospace', fontWeight: type.weight.bold, fontSize: '1rem' }}>
+      <p style={{ color: colors.accent, fontFamily: 'JetBrains Mono, monospace', fontWeight: type.weight.bold, fontSize: '1rem' }}>
         {payload[0].value} kg
       </p>
     </div>
@@ -27,7 +28,16 @@ export default function Progress() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => { api.get('/progress').then(setExercises).catch(() => {}) }, [])
+  // Opens on a real chart instead of an empty screen: whichever exercise the
+  // /progress response lists first (the same order the chip row renders) is
+  // auto-selected once the list loads. `s ?? …` leaves a user's own tap
+  // alone if one has already landed by the time this resolves.
+  useEffect(() => {
+    api.get('/progress').then(d => {
+      setExercises(d)
+      setSelected(s => s ?? d[0]?.exercise_id)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!selected) return
@@ -40,24 +50,30 @@ export default function Progress() {
 
   const selectedName = exercises.find(e => e.exercise_id === selected)?.exercise_name
   const pr = data.length ? Math.max(...data.map(d => d.weight)) : null
+  // Derived straight from `data` (already state) rather than its own
+  // effect/state -- data.length < 2 is the page's existing empty/sparse-data
+  // branch (also gates the chart itself further down), so this stays null
+  // there instead of computing a delta against a single point.
+  const delta = data.length >= 2 ? data[data.length - 1].weight - data[0].weight : null
 
   return (
     <div style={{ paddingTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 4 }}>Progress</h1>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Progress</h1>
           <p style={{ color: colors.muted2, fontSize: type.size.lg }}>Max weight per session</p>
         </div>
         <button className="tap-target" onClick={() => nav('/personal-bests')}
-          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.mint,
-            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap' }}>
-          🏆 PBs
+          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.accent,
+            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IconTrophy size={14} /> PBs
         </button>
       </div>
 
       {exercises.length === 0 ? <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." /> : (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
             {exercises.map(ex => (
               <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)} selected={selected === ex.exercise_id}>
                 {ex.exercise_name}
@@ -68,13 +84,24 @@ export default function Progress() {
           {selected && (
             <div>
               {pr && (
-                <div className="card" style={{ padding: '16px 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <StatPair label="Personal Record" value={`🏆 ${pr} kg`} valueColor={colors.amber} />
-                  <StatPair label="Sessions" value={data.length} align="right" />
+                <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <StatPair label="Personal Record" value={<><IconTrophy size={14} /> {pr} kg</>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Sessions" value={data.length} align="right" />
+                  </div>
+                  {delta !== null && (
+                    <p style={{
+                      display: 'flex', alignItems: 'center', gap: space.xs, marginTop: space.sm,
+                      color: delta > 0 ? colors.success : colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold,
+                    }}>
+                      <IconArrowTrendingUp size={14} color={delta > 0 ? colors.success : colors.muted} />
+                      {delta > 0 ? '+' : ''}{delta} kg since {data[0].date}
+                    </p>
+                  )}
                 </div>
               )}
 
-              <div className="card" style={{ padding: '20px 8px 12px 0' }}>
+              <div className="card" style={{ padding: `${space.xxl}px ${space.sm}px ${space.md}px 0` }}>
                 <p style={{ color: colors.muted, fontSize: type.size.md, fontWeight: type.weight.semibold, paddingLeft: 20, marginBottom: 16 }}>{selectedName}</p>
                 {loading ? (
                   <div style={{ padding: '12px 20px' }}><Skeleton height={180} /></div>
@@ -89,9 +116,9 @@ export default function Progress() {
                       <XAxis dataKey="date" tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
                       <YAxis tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="weight" stroke={colors.mint} strokeWidth={2.5}
-                        dot={{ fill: colors.mint, r: 4, stroke: colors.card, strokeWidth: 2 }}
-                        activeDot={{ r: 6, fill: colors.mint, stroke: colors.card, strokeWidth: 2 }} />
+                      <Line type="monotone" dataKey="weight" stroke={colors.accent} strokeWidth={2.5}
+                        dot={{ fill: colors.accent, r: 4, stroke: colors.card, strokeWidth: 2 }}
+                        activeDot={{ r: 6, fill: colors.accent, stroke: colors.card, strokeWidth: 2 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}

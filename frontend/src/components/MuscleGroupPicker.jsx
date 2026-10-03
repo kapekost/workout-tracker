@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { bestDayForMuscle } from '../lib/muscles'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 import Eyebrow from './Eyebrow'
+import DayIcon from './DayIcon'
 
 // Shown at the point of display, never in settings and never behind an icon.
 // The blind spot it discloses is one-directional: unlogged training can only
@@ -15,13 +16,13 @@ export const DISCLOSURE =
 // Freshness is a MAGNITUDE, so the ring is a sequential encoding: one hue,
 // dark to light, monotonic in lightness. Deliberately NOT red/amber/green —
 // "Recently trained" is a fact, not a warning, and must not look like one.
-// The vivid end is the app's existing mint accent, so the ring belongs to the
+// The vivid end is the app's existing accent, so the ring belongs to the
 // same system as everything else on the page.
 //
 // Both ends sit in the SAME hue family. A dim slate low end would make this a
 // two-hue ramp, which is a severity scale wearing a sequential costume.
-const RING_LOW = [45, 95, 80]      // dark emerald, recedes against the surface
-const RING_HIGH = [110, 231, 183]  // --mint, the app's one accent
+const RING_LOW = [45, 95, 80]      // dark lime, recedes against the surface
+const RING_HIGH = [212, 255, 63]   // --accent (#d4ff3f), the app's one accent
 
 // Distinct from the ramp so "never trained" is not confusable with "just
 // trained". Largely academic — an unknown ring renders fully empty anyway —
@@ -31,9 +32,9 @@ const RING_UNKNOWN = 'rgb(42, 42, 62)'
 // The unfilled track is a low-opacity step of the SAME ramp rather than an
 // unrelated neutral, so the meter reads as one object across its whole
 // circumference. It never varies with freshness — it is chrome, not data.
-// Byte-identical to colors.mintWash (this file's value was the survivor
+// Byte-identical to colors.accentWash (this file's value was the survivor
 // when that token was named — see the design-tokens spec §2.1).
-const RING_TRACK = colors.mintWash
+const RING_TRACK = colors.accentWash
 
 export function ringColor(freshness) {
   if (freshness === null || freshness === undefined) return RING_UNKNOWN
@@ -105,7 +106,12 @@ export default function MuscleGroupPicker({
   groups, lastTrainedByDay = {}, activeSession = null, starting = false, onStart,
 }) {
   const [expandedId, setExpandedId] = useState(null)
-  if (!groups?.length) return null
+  // A first-run install has groups.length > 0 (MUSCLE_GROUPS is fixed) but
+  // every group's freshness is null — groupRecovery's own "not trained yet"
+  // signal (see lib/recovery.js's bandFor/dayLabel, which already branch on
+  // this exact check). All-empty rings with nothing to show are meaningless,
+  // so bail the same way the plain "no groups at all" case already does.
+  if (!groups?.length || groups.every(g => g.freshness === null)) return null
 
   const expanded = groups.find(g => g.id === expandedId) || null
   const bestDayId = expanded ? bestDayForMuscle(expanded.id, lastTrainedByDay) : null
@@ -126,7 +132,7 @@ export default function MuscleGroupPicker({
       </div>
 
       {expanded && (
-        <div className="card" style={{ padding: 16, marginTop: 12 }}>
+        <div className="card" style={{ padding: space.xl, marginTop: 12 }}>
           {/* The one line on this screen that is simply true. */}
           <p style={{ color: colors.textSecondary, fontSize: type.size.md }}>{rawFact(expanded)}</p>
           <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 4 }}>
@@ -135,7 +141,7 @@ export default function MuscleGroupPicker({
           {bestDay && (
             <>
               <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 12 }}>
-                Best day for {expanded.label} → {bestDay.emoji} {bestDay.name}
+                Best day for {expanded.label} → <DayIcon day={bestDay.id} size={16} /> {bestDay.name}
               </p>
               {activeSession ? (
                 <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 8 }}>
@@ -153,7 +159,13 @@ export default function MuscleGroupPicker({
         </div>
       )}
 
-      <p style={{ color: '#4b5563', fontSize: type.size.sm, marginTop: 12, lineHeight: 1.5 }}>
+      {/* This paragraph must always stay legible — see
+          docs/superpowers/research/2026-08-16-recovery-science.md. It used to
+          render at a raw #4b5563 (2.61:1 on --bg, well under WCAG AA's 4.5:1
+          for body text — measured via theme.test.js's contrastRatio helper).
+          colors.muted2 clears AA at 5.29:1 since the 2026-09-06 UI review's
+          item 11 nudged that token lighter. */}
+      <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 12, lineHeight: 1.5 }}>
         {DISCLOSURE}
       </p>
     </div>

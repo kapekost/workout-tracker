@@ -1,58 +1,192 @@
-import { api } from './api'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { api, auth, onUnauthorized } from './api'
 
-// api.js had no test file at all, which is why `api.put` shipped undefined and
-// the per-exercise note save was silently broken behind a catch that showed
-// "Failed to save note" while an optimistic local update made it look saved.
-// The mock in pages/Workout.test.jsx mirrored that same omission -- it listed
-// get/post/patch/delete and nothing more -- so 221 tests passed green over a
-// feature that did not work.
+function jsonResponse(status, body) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.resolve(body),
+  }
+}
 
-describe('api', () => {
-  let calls
+function noContentResponse() {
+  return {
+    ok: true,
+    status: 204,
+    // A real 204 has an empty body, so res.json() rejects.
+    json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+  }
+}
 
-  beforeEach(() => {
-    calls = []
-    vi.stubGlobal('fetch', vi.fn(async (url, init) => {
-      calls.push({ url, init })
-      return { ok: true, status: 200, json: async () => ({ ok: true }) }
-    }))
+let stopListening = null
+
+beforeEach(() => { globalThis.fetch = vi.fn() })
+afterEach(() => {
+  // onUnauthorized writes to module state that outlives a test file's mocks,
+  // so an un-unregistered handler would fire inside the next test.
+  stopListening?.()
+  stopListening = null
+  vi.restoreAllMocks()
+})
+
+function listenForExpiry() {
+  const handler = vi.fn()
+  stopListening = onUnauthorized(handler)
+  return handler
+}
+
+describe('api request errors', () => {
+  it('keeps the status in the message so existing callers can still match on it', async () => {
+    fetch.mockResolvedValue(jsonResponse(409, { detail: 'already exists' }))
+    await expect(api.post('/personal-bests', {})).rejects.toThrow('API POST /personal-bests → 409')
   })
 
-  afterEach(() => vi.unstubAllGlobals())
-
-  // The regression this file exists for.
-  it('exposes put, which the note editor calls', () => {
-    expect(typeof api.put).toBe('function')
+  it('carries the status and the API detail on the error', async () => {
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'invalid username or password' }))
+    const err = await api.post('/auth/login', {}).catch(e => e)
+    expect(err.status).toBe(401)
+    expect(err.detail).toBe('invalid username or password')
   })
 
-  it('put sends a PUT with a JSON body', async () => {
-    await api.put('/exercises/bench/note', { note: 'pause on chest' })
-    expect(calls).toHaveLength(1)
-    expect(calls[0].url).toBe('/api/exercises/bench/note')
-    expect(calls[0].init.method).toBe('PUT')
-    expect(calls[0].init.headers['Content-Type']).toBe('application/json')
-    expect(JSON.parse(calls[0].init.body)).toEqual({ note: 'pause on chest' })
+  it('leaves detail null when the error body is not a JSON object with a string detail', async () => {
+    // FastAPI's 422 detail is a list of validation objects, not a message.
+    fetch.mockResolvedValue(jsonResponse(422, { detail: [{ msg: 'field required' }] }))
+    const err = await api.post('/auth/login', {}).catch(e => e)
+    expect(err.detail).toBeNull()
   })
 
-  it('covers every verb the backend exposes', () => {
-    // main.py has a PUT (/api/exercises/{id}/note). A PUT that exists only
-    // server-side is a half-finished contract; this pins the client side of it.
-    for (const verb of ['get', 'post', 'patch', 'put', 'delete']) {
-      expect(typeof api[verb], `${verb} is missing from api.js`).toBe('function')
-    }
+  it('leaves detail null when the error body is not JSON at all', async () => {
+    fetch.mockResolvedValue({ ok: false, status: 502, json: () => Promise.reject(new Error('nope')) })
+    const err = await api.get('/sessions').catch(e => e)
+    expect(err.status).toBe(502)
+    expect(err.detail).toBeNull()
+  })
+})
+
+describe('request timeout', () => {
+  // Gym wifi that associates but doesn't route lets iOS sit on a socket for
+  // 30-75s with no timeout at all -- long enough to wedge the Log Set button
+  // on "Logging…" for the rest of the set. AbortSignal.timeout(8000) caps
+  // that at 8s so the existing catch block in the caller fires instead.
+  it('caps every request at 8s via an abort signal', async () => {
+    const fakeSignal = {}
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(fakeSignal)
+    fetch.mockResolvedValue(jsonResponse(200, {}))
+
+    await api.get('/sessions')
+
+    expect(timeoutSpy).toHaveBeenCalledWith(8000)
+    expect(fetch.mock.calls[0][1].signal).toBe(fakeSignal)
+  })
+})
+
+describe('api 204 handling', () => {
+  it('resolves to null instead of choking on an empty body', async () => {
+    fetch.mockResolvedValue(noContentResponse())
+    await expect(api.post('/auth/logout')).resolves.toBeNull()
+  })
+})
+
+describe('auth helpers', () => {
+  it('login posts the credentials and returns the profile', async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { id: 1, username: 'kapekost', role: 'admin', icon: '💪' }))
+    const profile = await auth.login('kapekost', 'correct horse battery')
+    expect(profile.username).toBe('kapekost')
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('/api/auth/login')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ username: 'kapekost', password: 'correct horse battery' })
   })
 
-  it('throws with the status in the message so callers can branch on it', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: false, status: 409, json: async () => ({}) })))
-    // PersonalBests.jsx does err.message.includes('409') -- stringly-typed, and
-    // the reason this helper's error shape is now asserted rather than implied.
-    await expect(api.post('/personal-bests', {})).rejects.toThrow(/409/)
+  it('logout posts to the logout endpoint', async () => {
+    fetch.mockResolvedValue(noContentResponse())
+    await auth.logout()
+    expect(fetch.mock.calls[0][0]).toBe('/api/auth/logout')
+    expect(fetch.mock.calls[0][1].method).toBe('POST')
   })
 
-  it('does not send a Content-Type when there is no body', async () => {
-    await api.delete('/sessions/1')
-    expect(calls[0].init.headers).toEqual({})
-    expect(calls[0].init.body).toBeUndefined()
+  it('me reads the current session', async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { id: 1, username: 'kapekost' }))
+    await auth.me()
+    expect(fetch.mock.calls[0][0]).toBe('/api/auth/me')
+    expect(fetch.mock.calls[0][1].method).toBe('GET')
+  })
+
+  it('setPassword posts the token and the new password', async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { id: 2, username: 'invited' }))
+    await auth.setPassword('raw-token', 'a long enough password')
+    expect(fetch.mock.calls[0][0]).toBe('/api/auth/set-password')
+    expect(JSON.parse(fetch.mock.calls[0][1].body))
+      .toEqual({ token: 'raw-token', password: 'a long enough password' })
+  })
+
+  it('forgotPassword posts the email', async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { status: 'ok' }))
+    await auth.forgotPassword('someone@example.com')
+    expect(fetch.mock.calls[0][0]).toBe('/api/auth/forgot-password')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ email: 'someone@example.com' })
+  })
+})
+
+// The bridge from a plain module to the router. api.js has no navigation of
+// its own, so a 401 that means "your session ended" is announced and someone
+// else decides where that lands (SessionProvider clears the profile; App's
+// guard renders the login screen).
+describe('the expired-session signal', () => {
+  it('announces a 401 from a data endpoint', async () => {
+    const expired = listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+
+    await api.get('/sessions').catch(() => {})
+
+    expect(expired).toHaveBeenCalledTimes(1)
+  })
+
+  it('still throws, so the calling page is not left awaiting a promise that never settles', async () => {
+    listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+    await expect(api.post('/sessions', {})).rejects.toThrow('API POST /sessions → 401')
+  })
+
+  // The loop this guards against: the login screen posts a wrong password,
+  // the 401 it gets back bounces the screen to the login screen, and the
+  // message the user needed to read never renders.
+  it.each([
+    '/auth/me',
+    '/auth/login',
+    '/auth/set-password',
+    '/auth/forgot-password',
+    '/auth/logout',
+  ])('stays quiet about a 401 from %s', async (path) => {
+    const expired = listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'invalid username or password' }))
+
+    await api.post(path, {}).catch(() => {})
+
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('says nothing about statuses that are not 401', async () => {
+    const expired = listenForExpiry()
+    fetch.mockResolvedValue(jsonResponse(403, { detail: 'admins only' }))
+
+    await api.delete('/users/2').catch(() => {})
+
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('stops announcing once the handler unregisters', async () => {
+    const expired = vi.fn()
+    onUnauthorized(expired)()
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+
+    await api.get('/sessions').catch(() => {})
+
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when nothing is listening', async () => {
+    fetch.mockResolvedValue(jsonResponse(401, { detail: 'not authenticated' }))
+    await expect(api.get('/sessions')).rejects.toThrow('→ 401')
   })
 })

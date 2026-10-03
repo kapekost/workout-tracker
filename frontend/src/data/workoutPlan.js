@@ -4,7 +4,7 @@ export const CYCLE = ['upper_a', 'lower_a', 'upper_b', 'lower_b']
 
 export const PLAN = {
   upper_a: {
-    id: 'upper_a', name: 'Upper A', emoji: '💪',
+    id: 'upper_a', name: 'Upper A', icon: 'upper',
     tag: 'Chest · Back Horizontal · Arms',
     exercises: [
       {
@@ -89,7 +89,7 @@ export const PLAN = {
   },
 
   lower_a: {
-    id: 'lower_a', name: 'Lower A', emoji: '🦵',
+    id: 'lower_a', name: 'Lower A', icon: 'lower',
     tag: 'Quad · Hamstring · Calves',
     exercises: [
       {
@@ -161,7 +161,7 @@ export const PLAN = {
   },
 
   upper_b: {
-    id: 'upper_b', name: 'Upper B', emoji: '🏋️',
+    id: 'upper_b', name: 'Upper B', icon: 'upper',
     tag: 'Upper Chest · Vertical Pull · Shoulders',
     exercises: [
       {
@@ -246,7 +246,7 @@ export const PLAN = {
   },
 
   lower_b: {
-    id: 'lower_b', name: 'Lower B', emoji: '🔥',
+    id: 'lower_b', name: 'Lower B', icon: 'lower',
     tag: 'Posterior Chain · Glutes · Power',
     exercises: [
       {
@@ -327,7 +327,14 @@ export const getNextWorkoutId = (sessions) => {
 }
 
 export const DAY_COLORS = {
-  upper_a: '#6ee7b7',
+  // upper_a byte-identical to the app's single accent color, not an
+  // independent categorical hue like the other three days — reference the
+  // live token instead of duplicating its literal, so a future palette
+  // change can't silently leave this one day's color stale (exactly what
+  // happened here: this literal was still '#6ee7b7', the pre-Mono+Volt
+  // accent, after every other accent call site had already moved to
+  // colors.accent).
+  upper_a: colors.accent,
   lower_a: '#60a5fa',
   upper_b: '#f472b6',
   lower_b: '#fb923c'

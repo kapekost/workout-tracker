@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets, hashlib, time, urllib.request, urllib.error
+import sqlite3, os, json, glob, secrets, hashlib, time, math, urllib.request, urllib.error
 import bcrypt
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
+import plan_seed
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
 TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"]
@@ -16,6 +18,24 @@ TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_
 TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
                         "personal_bests": 3, "profiles": 4}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
+# #141: a member's merge-mode import has no admin gate on size the way replace
+# always effectively did (only an admin could reach /api/import at all before
+# #87). Deliberately not matched to /api/events's 100-per-batch cap: that cap
+# bounds one frontend analytics flush, not a whole account's history.
+#
+# Sized from this app's own real per-session row count, not a guess:
+# frontend/src/data/workoutPlan.js's 4-day cycle averages 15.5 sets/session
+# ((16+15+16+15)/4), plus 1 sessions row, plus frontend/src/lib/analytics.js's
+# track() call sites (session_start/session_finish, a screen_view+
+# time_on_screen pair per screen visited, one set_logged per set, and
+# TimerBar's rest_actual_vs_target firing roughly once per rest between
+# sets) -- call it ~35 events/session, for ~52 rows/session all in. At a
+# consistent 3-4 sessions/week (~180/year) that's ~9,500 rows/year. This cap
+# (100,000) covers roughly a decade of that real usage pattern in one merge
+# request -- comfortably more than "multi-year" -- while still bounding the
+# pathological/adversarial case of an envelope with no realistic relationship
+# to one person's own workout history.
+MERGE_MAX_ROWS = 100_000
 # scripts/backup.sh writes this next to the DB, in the volume the app already
 # mounts. It replaced an /api/events POST in #88: the status no longer lives
 # inside the database being backed up (a restore used to drag stale heartbeats
@@ -36,7 +56,14 @@ APP_VERSION = os.environ.get("APP_COMMIT", "dev")
 # No CORS middleware on purpose: prod serves the frontend same-origin and dev
 # uses the Vite proxy, so any cross-origin browser request is a foreign page
 # trying to read /api/export or fire /api/import — let the preflight fail.
-app = FastAPI()
+# No /docs, /redoc or /openapi.json either. FastAPI serves all three by
+# default and none of them is gated, so anonymous callers could read back the
+# full shape of every request the app accepts — 26 paths, LoginIn and
+# SetPasswordIn included — which is exactly what current_profile's 401 landing
+# before validation is supposed to prevent. Nobody browses them here: this is
+# one app with one frontend in the same repo, so the schema is not
+# documentation anybody needs, only reconnaissance nobody should get.
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 @contextmanager
 def db():
@@ -54,24 +81,29 @@ def db():
 def _column_exists(conn, table, col):
     return col in [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
-def _default_profile_id(conn):
-    # Temporary: attributes every new row to the seeded admin profile until #67
-    # introduces real request-scoped login/session identity. Every call site
-    # below is removed/replaced in #67, not extended further.
-    return conn.execute("SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
+def _seed_plan_for_profile(conn, profile_id):
+    """Insert plan_seed.DEFAULT_PLAN's days+exercises for profile_id.
 
-def acting_profile_id(conn):
-    """The profile whose data a request may read and mutate — the single seam
-    every data endpoint scopes through, for reads and writes alike.
-
-    Today it returns the default profile: #84's gate is still open, so there is
-    no request-scoped identity yet, and routing every endpoint through one place
-    keeps behaviour identical for now. #110 uses it to stop data leaking between
-    profiles (reads were never scoped); #86 then replaces this body with the
-    session lookup and deletes _default_profile_id — one function to change, not
-    every call site.
+    Shared by the v6->v7 migration's one-time backfill (every profile that
+    had zero plan_days rows at migration time) and create_profile (every
+    profile created from here on) — one insert loop, not two copies of it
+    (spec §1.3 / plan Task 1a Step 3).
     """
-    return _default_profile_id(conn)
+    for day_pos, day in enumerate(plan_seed.DEFAULT_PLAN):
+        day_id = conn.execute(
+            "INSERT INTO plan_days (profile_id, day_key, name, tag, icon, sort_order) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (profile_id, day["day_key"], day["name"], day["tag"], day["icon"], day_pos)
+        ).lastrowid
+        for ex_pos, ex in enumerate(day["exercises"]):
+            conn.execute(
+                "INSERT INTO plan_exercises (plan_day_id, exercise_id, name, alt, sets, "
+                "reps_low, reps_high, bodyweight, muscles_json, yt_url, cues_json, sort_order) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (day_id, ex["exercise_id"], ex["name"], ex["alt"], ex["sets"],
+                 ex["reps_low"], ex["reps_high"], int(ex["bodyweight"]),
+                 json.dumps(ex["muscles"]), ex["yt_url"], json.dumps(ex["cues"]), ex_pos)
+            )
 
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -212,6 +244,57 @@ def _migrate(conn):
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile ON auth_sessions(profile_id)")
         conn.execute("PRAGMA user_version = 6")
+    # --- v6 -> v7: per-profile plan (AI plan updates Phase 1) ---
+    # plan_days/plan_exercises deliberately do NOT join TABLES/TABLE_INTRODUCED_AT
+    # this phase — see spec §1.1: a plan is now real user data worth backing up,
+    # a real gap, but deliberately deferred to Phase 4's own review, the same way
+    # auth_tokens/auth_sessions opted out at v6 for their own stated reason.
+    if v < 7:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_days (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id  INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                day_key     TEXT NOT NULL,
+                name        TEXT NOT NULL,
+                tag         TEXT,
+                icon        TEXT,
+                sort_order  INTEGER NOT NULL,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(profile_id, day_key)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_exercises (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_day_id   INTEGER NOT NULL REFERENCES plan_days(id) ON DELETE CASCADE,
+                exercise_id   TEXT NOT NULL,
+                name          TEXT NOT NULL,
+                alt           TEXT,
+                sets          INTEGER NOT NULL,
+                reps_low      INTEGER NOT NULL,
+                reps_high     INTEGER NOT NULL,
+                bodyweight    INTEGER NOT NULL DEFAULT 0,
+                muscles_json  TEXT NOT NULL DEFAULT '[]',
+                yt_url        TEXT,
+                cues_json     TEXT NOT NULL DEFAULT '[]',
+                sort_order    INTEGER NOT NULL,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(plan_day_id, exercise_id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_plan_exercises_day ON plan_exercises(plan_day_id)")
+        # Backfill DEFAULT_PLAN for every profile that has zero plan_days rows
+        # yet (today: just the seeded kapekost profile) — computed before any
+        # insert in this run, so re-running init() against an already-migrated
+        # DB is a no-op, matching every other _migrate block's idempotency.
+        unseeded = conn.execute(
+            "SELECT id FROM profiles WHERE id NOT IN (SELECT DISTINCT profile_id FROM plan_days)"
+        ).fetchall()
+        for row in unseeded:
+            _seed_plan_for_profile(conn, row["id"])
+        conn.execute("PRAGMA user_version = 7")
 
 def init():
     with db() as conn:
@@ -247,10 +330,12 @@ init()
 
 # --- Models ---
 class SessionIn(BaseModel):
-    # Must match the PLAN/CYCLE keys in frontend/src/data/workoutPlan.js —
-    # adding or renaming a day there requires updating this Literal in the
-    # same deploy, or Start Workout 422s.
-    workout_day: Literal["upper_a", "lower_a", "upper_b", "lower_b"]
+    # Was a hardcoded Literal["upper_a", "lower_a", "upper_b", "lower_b"] —
+    # capping every profile at the same 4 day keys forever now that the plan
+    # is per-profile DB data (AI plan updates Phase 1, spec §1.5). Validated
+    # in create_session against the acting profile's own plan_days.day_key
+    # set instead (400, not a Pydantic 422, on an unknown key).
+    workout_day: str = Field(max_length=64)
 
 class SetIn(BaseModel):
     exercise_id: str = Field(max_length=64)
@@ -368,11 +453,10 @@ def _last_backup():
         local, remote = _leg(data, ("ok", "failed")), (None, None)
     return local[0], local[1] or "none", remote[0], remote[1]
 
-# --- Auth (#84) ---
-# Deliberately unwired from the data endpoints: #86 flips the gate and deletes
-# _default_profile_id. Keeping it in one block means #85 can lift the whole
-# section into its own module if it outgrows main.py — note that doing so also
-# needs a Dockerfile change, since it COPYs backend/main.py by name.
+# --- Auth (#84, wired to the data endpoints in #86) ---
+# Keeping it in one block means it can be lifted into its own module if it
+# outgrows main.py — note that doing so also needs a Dockerfile change, since
+# it COPYs backend/main.py by name.
 
 # Cost 12 = 627 ms on the deploy target (Pi 3 B+, aarch64), measured, not
 # assumed. bcrypt rather than a memory-hard KDF because each concurrent
@@ -515,8 +599,8 @@ def enforce_rate_limit(request: Request, *keys: str) -> None:
     """429 if any of the caller's counters is over. Keyed by IP *and* by the
     subject (username or email), per the design.
 
-    This exists because cost-12 hashing is 627 ms of CPU on a 4-core box that
-    also runs Home Assistant — an unthrottled login endpoint is a CPU amplifier
+    This exists because cost-12 hashing is 627 ms of CPU on a 4-core box shared
+    with another service — an unthrottled login endpoint is a CPU amplifier
     pointed at the house. So callers must invoke this *before* doing any hashing;
     rejecting afterwards would leave the amplifier fully intact.
     """
@@ -602,12 +686,16 @@ def _token_email_quietly(to: str, raw: str, kind: str) -> None:
         pass
 
 def current_profile(request: Request) -> dict:
-    """Request-scoped identity, from the session cookie.
+    """Request-scoped identity, from the session cookie. 401 if there isn't one.
 
-    Defined here but deliberately NOT applied to the data endpoints: #86 flips
-    the gate across all of them and deletes _default_profile_id. Wiring it in
-    early would close the app before the invite flow (#85) and the owner
-    bootstrap exist, locking the owner out of their own history.
+    Every endpoint that touches somebody's data depends on this, directly or
+    through acting_profile_id below, and that dependency *is* the gate: the 401
+    is a property of the route's signature rather than a check each handler has
+    to remember to write. It also lands before body and path-parameter
+    validation, so an anonymous caller cannot probe the app's shape by sending
+    rubbish and reading the 422 back — which is only worth something because
+    /openapi.json is off too (see the FastAPI() call above); it was serving the
+    whole schema while this docstring claimed otherwise.
     """
     with db() as conn:
         row = session_profile(conn, request.cookies.get(SESSION_COOKIE))
@@ -650,21 +738,55 @@ def require_admin(profile: dict = Depends(current_profile)) -> dict:
         raise HTTPException(403, "admin only")
     return profile
 
+def acting_profile_id(profile: dict = Depends(current_profile)) -> int:
+    """The id of the profile whose data a request may read and mutate — the
+    single seam every data endpoint scopes through, for reads and writes alike.
+
+    It was a plain function taking a connection until #86, because there was no
+    request-scoped identity to ask: it returned the seeded admin, and #110 used
+    it to stop reads leaking between profiles. Now it is a dependency, which is
+    what closes the gate — a profile id cannot be obtained without a live
+    session, so there is no way to write a route that scopes its queries and
+    forgets to authenticate. It stays its own name rather than each handler
+    reading profile["id"] because "whose data is this request acting on" is a
+    question this app may one day answer differently (an admin operating on
+    another account, say), and this is the one place that would change.
+    """
+    return profile["id"]
+
 # --- API Routes ---
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def health(response: Response):
+    # The only /api/ path an anonymous caller can read, and deliberately so:
+    # scripts/deploy.sh curls it from the host to prove the deploy landed, with
+    # no session and no way to obtain one. So it says the minimum that check
+    # needs — the backup posture it used to carry is /api/admin/backup-status
+    # now (#86), because a public endpoint should not publish how long it has
+    # been since the database was last copied off the box.
     response.headers["Cache-Control"] = "no-store"
     # Touch the database on purpose. Until #88 this endpoint read the backup
     # status out of the events table, so an unopenable DB failed the request as
     # a side effect — and scripts/deploy.sh has always leaned on that, reading
-    # anything other than a 200 as "the deploy is not up". Now that the status
-    # comes from a file, nothing else here opens the DB, and without this
-    # /api/health would cheerfully report ok for an app whose database is gone.
+    # anything other than a 200 as "the deploy is not up". Nothing else here
+    # opens the DB, and without this /api/health would cheerfully report ok for
+    # an app whose database is gone.
     with db() as conn:
         conn.execute("SELECT 1")
+    return {"status": "ok", "version": APP_VERSION}
+
+@app.get("/api/admin/backup-status")
+def backup_status(response: Response, admin: dict = Depends(require_admin)):
+    """The backup chain's posture — the four keys /api/health used to carry.
+
+    Admin rather than any session: it is infrastructure, not somebody's data,
+    and knowing that the last off-site copy failed nine days ago is useful to
+    exactly one person. docs/BACKUPS.md explains what the statuses mean.
+    """
+    # no-store for the same reason /api/export has it: a cached answer here is
+    # a reassuring one about a backup that may have failed since.
+    response.headers["Cache-Control"] = "no-store"
     last_at, last_status, remote_at, remote_status = _last_backup()
-    return {"status": "ok", "version": APP_VERSION,
-            "last_backup_at": last_at, "last_backup_status": last_status,
+    return {"last_backup_at": last_at, "last_backup_status": last_status,
             "last_backup_remote_at": remote_at,
             "last_backup_remote_status": remote_status}
 
@@ -728,6 +850,10 @@ def create_profile(body: ProfileIn, admin: dict = Depends(require_admin)):
         profile_id = conn.execute(
             "INSERT INTO profiles (username, email, role) VALUES (?, ?, 'member')",
             (body.username, body.email)).lastrowid
+        # Real, immediately usable starter plan — not an empty one — so it can
+        # be customized (by hand today; later, by pasting an AI update) rather
+        # than built from scratch (spec §1.3).
+        _seed_plan_for_profile(conn, profile_id)
         raw = mint_token(conn, profile_id, "invite")
         conn.commit()
     # Sent inline, not in the background: this caller is an authenticated admin
@@ -781,19 +907,63 @@ def auth_me(profile: dict = Depends(current_profile)):
     return profile
 
 @app.get("/api/profile/me")
-def get_current_profile():
-    # Temporary, like _default_profile_id: "the acting profile" is the seed
-    # admin until #67 introduces real login. Replaced there, not extended.
+def get_current_profile(profile: dict = Depends(current_profile)):
+    # Same answer as /api/auth/me minus the email, and it predates it — the
+    # frontend has called this one since before there was a login. Kept so the
+    # two are not renamed in the same step the gate closes; converging on one
+    # of them is a frontend change first.
+    return {k: profile[k] for k in ("id", "username", "role", "icon")}
+
+@app.get("/api/plan")
+def get_plan(profile_id: int = Depends(acting_profile_id)):
+    """The acting profile's plan, shaped to match workoutPlan.js's existing
+    PLAN/CYCLE objects almost exactly (spec §1.5) — a deliberate compatibility
+    shape, so the frontend usePlan() hook (Task 1b) is a thin reshape, not a
+    rewrite of every consumer's own logic. Note the wire field for an exercise's
+    id is "id", not "exercise_id" — matching workoutPlan.js's own exercise
+    objects.
+    """
     with db() as conn:
-        profile_id = acting_profile_id(conn)
-        row = conn.execute(
-            "SELECT id, username, role, icon FROM profiles WHERE id = ?", (profile_id,)).fetchone()
-        return dict(row)
+        days = conn.execute(
+            "SELECT * FROM plan_days WHERE profile_id = ? ORDER BY sort_order",
+            (profile_id,)).fetchall()
+        plan = {}
+        cycle = []
+        for day in days:
+            exercises = conn.execute(
+                "SELECT * FROM plan_exercises WHERE plan_day_id = ? ORDER BY sort_order",
+                (day["id"],)).fetchall()
+            plan[day["day_key"]] = {
+                "id": day["day_key"],
+                "name": day["name"],
+                "tag": day["tag"],
+                "icon": day["icon"],
+                "exercises": [
+                    {
+                        "id": ex["exercise_id"],
+                        "name": ex["name"],
+                        "alt": ex["alt"],
+                        "sets": ex["sets"],
+                        "repsLow": ex["reps_low"],
+                        "repsHigh": ex["reps_high"],
+                        "bodyweight": bool(ex["bodyweight"]),
+                        "muscles": json.loads(ex["muscles_json"]),
+                        "ytUrl": ex["yt_url"],
+                        "cues": json.loads(ex["cues_json"]),
+                    }
+                    for ex in exercises
+                ],
+            }
+            cycle.append(day["day_key"])
+        return {"plan": plan, "cycle": cycle}
 
 @app.post("/api/sessions")
-def create_session(s: SessionIn):
+def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
-        profile_id = acting_profile_id(conn)
+        if not conn.execute(
+            "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
+            (profile_id, s.workout_day)).fetchone():
+            raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
         cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
                            (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
         conn.commit()
@@ -801,30 +971,30 @@ def create_session(s: SessionIn):
         return dict(row)
 
 @app.get("/api/sessions")
-def list_sessions():
+def list_sessions(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM sessions WHERE profile_id = ? ORDER BY created_at DESC LIMIT 60",
-            (acting_profile_id(conn),)).fetchall()
+            (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}")
-def get_session(sid: int):
+def get_session(sid: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         s = conn.execute("SELECT * FROM sessions WHERE id = ? AND profile_id = ?",
-                         (sid, acting_profile_id(conn))).fetchone()
+                         (sid, profile_id)).fetchone()
         if not s:
             raise HTTPException(404)
         sets = conn.execute("SELECT * FROM sets WHERE session_id = ? ORDER BY logged_at", (sid,)).fetchall()
         return {**dict(s), "sets": [dict(x) for x in sets]}
 
 @app.patch("/api/sessions/{sid}")
-def patch_session(sid: int, p: SessionPatch):
+def patch_session(sid: int, p: SessionPatch, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 (not 403) when the session belongs to another profile — its
         # existence is not the caller's business (#110).
         if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
-                            (sid, acting_profile_id(conn))).fetchone():
+                            (sid, profile_id)).fetchone():
             raise HTTPException(404)
         if p.completed is not None:
             if p.completed:
@@ -841,11 +1011,11 @@ def patch_session(sid: int, p: SessionPatch):
         return dict(row)
 
 @app.delete("/api/sessions/{sid}")
-def delete_session(sid: int):
+def delete_session(sid: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 when the session belongs to another profile (#110).
         if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
-                            (sid, acting_profile_id(conn))).fetchone():
+                            (sid, profile_id)).fetchone():
             raise HTTPException(404)
         conn.execute("DELETE FROM sets WHERE session_id = ?", (sid,))
         conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
@@ -853,9 +1023,8 @@ def delete_session(sid: int):
         return {"deleted": True}
 
 @app.post("/api/sessions/{sid}/sets")
-def add_set(sid: int, s: SetIn):
+def add_set(sid: int, s: SetIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         # 404 when the session is another profile's — adding a set to a session
         # you do not own is a cross-profile write, same rule as PATCH/DELETE (#110).
         if not conn.execute("SELECT id FROM sessions WHERE id = ? AND profile_id = ?",
@@ -870,13 +1039,13 @@ def add_set(sid: int, s: SetIn):
         return dict(row)
 
 @app.delete("/api/sessions/{sid}/sets/{set_id}")
-def delete_set(sid: int, set_id: int):
+def delete_set(sid: int, set_id: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 unless the set's session belongs to the acting profile (#110).
         owned = conn.execute(
             "SELECT 1 FROM sets st JOIN sessions s ON s.id = st.session_id "
             "WHERE st.id = ? AND st.session_id = ? AND s.profile_id = ?",
-            (set_id, sid, acting_profile_id(conn))).fetchone()
+            (set_id, sid, profile_id)).fetchone()
         if not owned:
             raise HTTPException(404)
         conn.execute("DELETE FROM sets WHERE id = ? AND session_id = ?", (set_id, sid))
@@ -884,9 +1053,8 @@ def delete_set(sid: int, set_id: int):
         return {"deleted": True}
 
 @app.post("/api/personal-bests")
-def create_personal_best(pb: PersonalBestIn):
+def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         try:
             cur = conn.execute(
                 "INSERT INTO personal_bests (exercise_id, exercise_name, weight_kg, reps, achieved_year, achieved_note, profile_id) "
@@ -899,26 +1067,26 @@ def create_personal_best(pb: PersonalBestIn):
         return dict(row)
 
 @app.get("/api/personal-bests")
-def list_personal_bests():
+def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM personal_bests WHERE profile_id = ? "
-            "ORDER BY exercise_name, weight_kg DESC", (acting_profile_id(conn),)).fetchall()
+            "ORDER BY exercise_name, weight_kg DESC", (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.delete("/api/personal-bests/{pb_id}")
-def delete_personal_best(pb_id: int):
+def delete_personal_best(pb_id: int, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # 404 when the personal best belongs to another profile (#110).
         if not conn.execute("SELECT 1 FROM personal_bests WHERE id = ? AND profile_id = ?",
-                            (pb_id, acting_profile_id(conn))).fetchone():
+                            (pb_id, profile_id)).fetchone():
             raise HTTPException(404)
         conn.execute("DELETE FROM personal_bests WHERE id = ?", (pb_id,))
         conn.commit()
         return {"deleted": True}
 
 @app.get("/api/progress/{exercise_id}")
-def get_progress(exercise_id: str):
+def get_progress(exercise_id: str, profile_id: int = Depends(acting_profile_id)):
     # Completed sessions only (in-progress/abandoned sets would skew the chart
     # and the PR baseline), keeping the most recent 60, re-sorted for the chart.
     with db() as conn:
@@ -931,11 +1099,11 @@ def get_progress(exercise_id: str):
                 GROUP BY s.id, s.date
                 ORDER BY s.date DESC, s.id DESC LIMIT 60
             ) ORDER BY date ASC, sid ASC
-        """, (exercise_id, acting_profile_id(conn))).fetchall()
+        """, (exercise_id, profile_id)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/progress")
-def all_progress():
+def all_progress(profile_id: int = Depends(acting_profile_id)):
     # Completed sessions only, mirroring get_progress — otherwise the Progress
     # page lists picker chips whose charts are permanently empty. max_weight
     # lets the workout page build its PR baseline from this one call instead
@@ -946,21 +1114,20 @@ def all_progress():
             FROM sets st JOIN sessions s ON st.session_id = s.id
             WHERE s.completed = 1 AND s.profile_id = ?
             GROUP BY st.exercise_id, st.exercise_name ORDER BY st.exercise_name
-        """, (acting_profile_id(conn),)).fetchall()
+        """, (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/notes")
-def get_notes():
+def get_notes(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute("SELECT exercise_id, note FROM exercise_notes WHERE profile_id = ?",
-                           (acting_profile_id(conn),)).fetchall()
+                           (profile_id,)).fetchall()
         return {r["exercise_id"]: r["note"] for r in rows}
 
 @app.put("/api/exercises/{exercise_id}/note")
-def put_note(exercise_id: str, n: NoteIn):
+def put_note(exercise_id: str, n: NoteIn, profile_id: int = Depends(acting_profile_id)):
     note = n.note.strip()
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         if note:
             conn.execute(
                 "INSERT INTO exercise_notes (profile_id, exercise_id, note, updated_at) VALUES (?,?,?,datetime('now')) "
@@ -975,8 +1142,87 @@ def put_note(exercise_id: str, n: NoteIn):
 def epley(weight, reps):
     return round(weight * (1 + reps / 30) * 2) / 2
 
+def round_to_step(x, step=2.5):
+    # Round-half-up to the nearest step (not Python's banker's rounding), so
+    # e.g. 41.25 -> 42.5 deterministically. Floored at 0 (never suggest a
+    # negative weight).
+    return max(0.0, math.floor(x / step + 0.5) * step)
+
+def suggest_progression(last_sets, reps_low, reps_high, days_since,
+                        increment=2.5, bodyweight=False):
+    # See docs/superpowers/specs/2026-09-27-dynamic-progression-design.md §2.1-2.4.
+    if days_since is None:
+        return {
+            "weight_kg": 0 if bodyweight else 20,
+            "reps": reps_low,
+            "warmup": None,
+            "hit_status": None,
+            "layoff_band": "none",
+        }
+
+    # §2.1 hit status, checked against all logged sets (not just the last one).
+    if all(s["reps"] >= reps_high for s in last_sets):
+        hit_status = "clean"
+    elif any(s["reps"] < reps_low for s in last_sets):
+        hit_status = "missed"
+    else:
+        hit_status = "partial"
+
+    # §2.2 layoff band.
+    if days_since <= 13:
+        layoff_band = "recent"
+    elif days_since <= 27:
+        layoff_band = "short"
+    elif days_since <= 56:
+        layoff_band = "moderate"
+    else:
+        layoff_band = "long"
+
+    top_weight = max(s["weight_kg"] for s in last_sets)
+
+    # §2.3 combine hit status x layoff band.
+    if layoff_band == "recent":
+        if hit_status == "clean":
+            weight_kg = round_to_step(top_weight + increment)
+            reps = reps_low
+        elif hit_status == "partial":
+            weight_kg = top_weight
+            reps = reps_high
+        else:  # missed
+            weight_kg = top_weight
+            reps = reps_low
+    elif layoff_band == "short":
+        weight_kg = top_weight  # held flat, no increment even on a clean hit
+        reps = reps_low if hit_status == "missed" else reps_high
+    elif layoff_band == "moderate":
+        weight_kg = round_to_step(top_weight * 0.9)
+        reps = reps_low
+    else:  # long
+        weight_kg = round_to_step(top_weight * 0.8)
+        reps = reps_low
+
+    # §2.4 warm-up, computed from the post-adjustment working weight.
+    if weight_kg <= 0:
+        warmup = None
+    else:
+        warmup = {
+            "weight_kg": round_to_step(weight_kg * 0.5),
+            "reps": min(reps_high + 2, 15),
+        }
+
+    return {
+        "weight_kg": weight_kg,
+        "reps": reps,
+        "warmup": warmup,
+        "hit_status": hit_status,
+        "layoff_band": layoff_band,
+    }
+
 @app.get("/api/exercises/{exercise_id}/last")
-def last_performance(exercise_id: str, exclude_session: int | None = None):
+def last_performance(exercise_id: str, exclude_session: int | None = None,
+                     reps_low: int | None = None, reps_high: int | None = None,
+                     bodyweight: bool = False,
+                     profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         row = conn.execute(
             "SELECT s.id, s.date FROM sessions s "
@@ -984,16 +1230,24 @@ def last_performance(exercise_id: str, exclude_session: int | None = None):
             "WHERE s.completed = 1 AND st.exercise_id = ? AND s.id != ? AND s.profile_id = ? "
             "ORDER BY s.created_at DESC LIMIT 1",
             (exercise_id, exclude_session if exclude_session is not None else -1,
-             acting_profile_id(conn))).fetchone()
+             profile_id)).fetchone()
         if not row:
             return None
         sets = conn.execute(
             "SELECT set_number, weight_kg, reps FROM sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number",
             (row["id"], exercise_id)).fetchall()
-        return {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
+        result = {"session_id": row["id"], "date": row["date"], "sets": [dict(s) for s in sets]}
+        # Optional enrichment (spec §3.2): only when the caller sends both
+        # reps bounds. Omitting them (an old cached frontend, a rolling
+        # deploy) leaves the response exactly as it was before this feature.
+        if reps_low is not None and reps_high is not None:
+            days_since = (date.today() - date.fromisoformat(row["date"])).days
+            result["suggestion"] = suggest_progression(
+                result["sets"], reps_low, reps_high, days_since, bodyweight=bodyweight)
+        return result
 
 @app.get("/api/exercises/recency")
-def exercises_recency():
+def exercises_recency(profile_id: int = Depends(acting_profile_id)):
     # Powers the Home muscle-group picker: for each exercise, when it was last
     # trained, how much of it, and when it was trained before that.
     #
@@ -1033,13 +1287,12 @@ def exercises_recency():
                    ON prev.exercise_id = cur.exercise_id AND prev.rn = 2
             WHERE cur.rn = 1
             ORDER BY cur.exercise_id
-        """, (acting_profile_id(conn),)).fetchall()
+        """, (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
 @app.get("/api/sessions/{sid}/prs")
-def session_prs(sid: int):
+def session_prs(sid: int, pid: int = Depends(acting_profile_id)):
     with db() as conn:
-        pid = acting_profile_id(conn)
         # 404 when the session belongs to another profile — its PRs are computed
         # only against that profile's own history, never across profiles (#110).
         if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
@@ -1086,23 +1339,25 @@ def session_prs(sid: int):
     return prs
 
 @app.post("/api/events", status_code=204)
-def ingest_events(events: list[EventIn]):
+def ingest_events(events: list[EventIn], profile_id: int = Depends(acting_profile_id)):
+    # Session-gated since #86. It was the app's one unauthenticated write, which
+    # was only ever tenable because the backup heartbeat POSTed here — and #88
+    # moved that to a status file, leaving nothing that needs to write without
+    # a session.
     if len(events) > 100:
         raise HTTPException(422, "too many events in one batch (max 100)")
     if not events:
         return
     with db() as conn:
-        profile_id = acting_profile_id(conn)
         conn.executemany(
             "INSERT INTO events (name, screen, props, profile_id) VALUES (?,?,?,?)",
             [(e.name, e.screen, json.dumps(e.props) if e.props is not None else None, profile_id) for e in events])
         conn.commit()
 
 @app.get("/api/analytics/summary")
-def analytics_summary(days: int = 30):
+def analytics_summary(days: int = 30, pid: int = Depends(acting_profile_id)):
     window = f"-{int(days)} days"
     with db() as conn:
-        pid = acting_profile_id(conn)
         by_name = conn.execute(
             "SELECT name, COUNT(*) c FROM events WHERE ts >= datetime('now', ?) AND profile_id = ? "
             "GROUP BY name ORDER BY c DESC", (window, pid)).fetchall()
@@ -1112,18 +1367,299 @@ def analytics_summary(days: int = 30):
     return {"days": days, "by_name": [dict(r) for r in by_name], "by_screen": [dict(r) for r in by_screen]}
 
 @app.get("/api/export")
-def export_data(response: Response):
+def export_data(response: Response, profile: dict = Depends(current_profile)):
+    # Any authenticated profile can reach this (#87) — role decides *scope*,
+    # not whether the gate opens at all. An admin still gets exactly today's
+    # whole-database dump, `profiles` included (every account's bcrypt hash
+    # and email address), which is why that branch stays admin-only rather
+    # than opening further: docs/superpowers/specs/2026-09-04-accounts-auth-design.md.
+    #
+    # A member's own tap gets a second, additive path: every table filtered to
+    # rows they own. `profiles` is scoped to their own single row (WHERE id =
+    # :pid) rather than dropped, so the envelope still has the same shape the
+    # shared import validation expects. `sets` is scoped through a join on its
+    # owning session rather than filtering its own `profile_id` column
+    # directly: `sessions` is the authoritative owner (sets cascade-delete
+    # from it), and add_set already refuses to attach a set to a session the
+    # caller doesn't own, so the two predicates pick out identical rows for
+    # everything the API can produce — this just matches the join
+    # add_set/delete_set already use for this table.
     response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-        tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
+        if profile["role"] == "admin":
+            tables = {t: [dict(r) for r in conn.execute(f"SELECT * FROM {t}").fetchall()] for t in TABLES}
+        else:
+            pid = profile["id"]
+            scoped = {
+                "profiles": ("SELECT * FROM profiles WHERE id = ?", (pid,)),
+                "sessions": ("SELECT * FROM sessions WHERE profile_id = ?", (pid,)),
+                "sets": ("SELECT sets.* FROM sets JOIN sessions ON sets.session_id = sessions.id "
+                         "WHERE sessions.profile_id = ?", (pid,)),
+                "exercise_notes": ("SELECT * FROM exercise_notes WHERE profile_id = ?", (pid,)),
+                "events": ("SELECT * FROM events WHERE profile_id = ?", (pid,)),
+                "personal_bests": ("SELECT * FROM personal_bests WHERE profile_id = ?", (pid,)),
+            }
+            tables = {t: [dict(r) for r in conn.execute(*scoped[t]).fetchall()] for t in TABLES}
     return {"exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "schema_version": version, "tables": tables}
 
+def _import_replace(conn, env, admin, cur_version, env_version) -> dict:
+    """Whole-database replace — the app's only import behaviour until #87's
+    Task 2, and unchanged in substance here: it was pulled out of the route
+    handler verbatim so a member's additive merge (_import_merge, below) can
+    sit next to it without growing one function to cover two very different
+    write strategies (decision #12). Every wipe/insert/snapshot choice below
+    predates this extraction."""
+    # A member's own export has a "profiles" key with exactly their own
+    # (non-admin) row. Replacing with it wipes the live profiles table down
+    # to zero admins -- require_admin then 403s everyone, and there is no
+    # in-app way to create a new profile without one. Refuse before touching
+    # anything. Pre-v4 envelopes have no "profiles" key at all, which is a
+    # different, already-handled case (see the `continue` below) -- this only
+    # fires when the key is present but no row in it is an admin.
+    # A malformed envelope (e.g. "profiles" present but not a list of
+    # row-dicts) must land on this same clean 400, not an unhandled 500 from
+    # `any(...)` iterating something that isn't row-shaped (#141) — a non-list
+    # has no admin row in it by construction, same as an empty list.
+    if "profiles" in env["tables"] and (
+        not isinstance(env["tables"]["profiles"], list)
+        or not any(r.get("role") == "admin" for r in env["tables"]["profiles"])
+    ):
+        raise HTTPException(400, "envelope contains no admin profile; refusing to replace the database")
+    # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
+    # txn; microseconds so back-to-back imports can't collide on the name)
+    snap_dir = os.path.dirname(DB_PATH)
+    snap = os.path.join(snap_dir,
+                        f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S-%f}.db")
+    conn.execute(f"VACUUM INTO '{snap}'")
+    # Prune here, not after the import: failed imports also leave a
+    # snapshot behind and must not accumulate them unbounded.
+    for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+    try:
+        conn.execute("BEGIN")
+        for t in TABLES:
+            if t == "profiles" and "profiles" not in env["tables"]:
+                # Pre-v4 envelope has no opinion about profiles at all — leave the
+                # live table untouched rather than wiping the seed admin with no
+                # profiles data in the envelope to restore it from. Every write
+                # endpoint depends on at least one profile existing.
+                continue
+            valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
+            conn.execute(f"DELETE FROM {t}")
+            for r in env["tables"].get(t, []):
+                if not set(r.keys()) <= valid:
+                    raise ValueError(f"unknown column in {t} row")
+                row = dict(r)
+                if "profile_id" in valid and "profile_id" not in row:
+                    # Row predates profiles entirely (pre-v4 envelope) — attribute
+                    # it to whoever is restoring, the same backfill the original
+                    # migration did for pre-existing data. Safe against the wipe
+                    # above: an envelope old enough to reach here has no profiles
+                    # table, so the branch that skips it left the live one (and
+                    # therefore this id) standing.
+                    row["profile_id"] = admin["id"]
+                cols = list(row.keys())
+                placeholders = ",".join("?" * len(cols))
+                conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
+                             [row[c] for c in cols])
+        # The DB's physical schema is already at cur_version (migrations
+        # ran at startup); restoring older data must not record a lower
+        # version, or a later restart could re-run a non-idempotent
+        # migration against an already-migrated DB.
+        conn.execute(f"PRAGMA user_version = {max(env_version, cur_version)}")
+        conn.commit()
+        restored = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in TABLES}
+    except Exception:
+        conn.rollback()
+        raise HTTPException(400, "import failed; rolled back, live DB unchanged")
+    return restored
+
+def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
+    """A member's additive import (#87 Task 2): inserts the envelope's rows
+    into the caller's own profile, deletes nothing, and never touches
+    `profiles` even though one row of it is present in the envelope (there
+    only so the shared validation in import_data needs no member-specific
+    exception — see /api/export's comment). No pre-import snapshot: a
+    replace can lose everything, so it gets one; a merge only ever adds rows
+    scoped to the caller, so there is nothing for a snapshot to protect
+    against (decision #6).
+
+    sessions/events: `id` and `profile_id` are dropped from the incoming row
+    and reassigned — `id` by SQLite's own autoincrement, `profile_id` forced
+    to the caller — because the envelope's ids will collide with the
+    caller's own live rows, or name someone else's (decisions #7/#8). `sets`
+    follows the same rule but additionally remaps `session_id` through the
+    id map built from *this envelope's own* `sessions` rows; a `sets` row
+    whose `session_id` isn't in that map — because the envelope never
+    defined that session, or named one belonging to someone else — has no
+    legitimate home in this import and is silently dropped, which is what
+    makes "cannot write to another profile" true even for a forged
+    `session_id` rather than just a forged `profile_id` column.
+
+    personal_bests/exercise_notes use INSERT OR IGNORE against their real
+    profile-scoped UNIQUE constraints, so re-importing an identical row a
+    second time adds nothing — merge's one naturally-idempotent corner.
+    sessions/sets/events have no such constraint and are not deduplicated;
+    that's a documented POC limitation (decision #9), not an oversight.
+
+    #141 hardening, all enforced before any row is inserted (any failure
+    rejects the whole import, same rollback shape as the pre-existing
+    unknown-column check):
+      - the envelope's own `profiles` row(s) must be the caller's own profile
+        — an envelope that also carries someone else's (e.g. a leaked admin
+        whole-database backup) is refused outright rather than silently
+        absorbed into the caller's account.
+      - total row count across every table is capped (MERGE_MAX_ROWS) so one
+        request can't hold the write transaction open indefinitely or grow
+        the DB unboundedly.
+      - each row is validated against the same pydantic model its write
+        endpoint enforces (SessionIn/SetIn/PersonalBestIn/NoteIn/EventIn),
+        so merge can no longer smuggle in a `reps=-99` or an unknown
+        `workout_day` that POST /api/sessions or /api/sessions/{id}/sets
+        would 422 on. events' `props` is excluded from that check: the DB
+        stores it pre-serialized to a JSON string (see ingest_events), while
+        EventIn.props expects a parsed dict — validating the raw column
+        against that shape would reject every legitimate event that ever
+        carried props, not just malformed ones.
+    """
+    tables = env["tables"]
+    merged = {t: 0 for t in TABLES if t != "profiles"}
+
+    # Envelope/caller mismatch (#141 fix 3) — checked before anything else,
+    # mirroring _import_replace's own early-reject admin-lockout guard. A
+    # malformed (non-list) "profiles" shape must land on this same clean 400
+    # rather than an uncaught AttributeError from `.get` on a non-dict row —
+    # the same bug class fix 4 patches for _import_replace two guards away,
+    # and just as wrong to treat a malformed shape as "no mismatch found":
+    # that would let it slide through unchecked instead of being rejected.
+    profile_rows = tables.get("profiles", [])
+    if not isinstance(profile_rows, list) or any(
+        not isinstance(r, dict) or r.get("id") != profile_id for r in profile_rows
+    ):
+        raise HTTPException(400, "envelope profiles row does not match the caller's own profile; refusing to merge")
+
+    # Size cap (#141 fix 2) — count every row across every table before
+    # opening a transaction at all.
+    total_rows = sum(len(tables.get(t, [])) for t in TABLES)
+    if total_rows > MERGE_MAX_ROWS:
+        raise HTTPException(422, f"envelope too large to merge (max {MERGE_MAX_ROWS} rows across all tables)")
+
+    def valid_cols(table):
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+    try:
+        conn.execute("BEGIN")
+
+        valid_sessions = valid_cols("sessions")
+        session_id_map = {}
+        for row in tables.get("sessions", []):
+            if not set(row.keys()) <= valid_sessions:
+                raise ValueError("unknown column in sessions row")
+            SessionIn.model_validate(row)  # #141 fix 1
+            # workout_day is a validated str, not a Literal, since AI plan
+            # updates Phase 1 (spec §1.5) — model_validate above no longer
+            # rejects an unknown day key on its own, so check it here the same
+            # way create_session does, against the caller's own plan_days.
+            if not conn.execute(
+                "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
+                (profile_id, row.get("workout_day"))).fetchone():
+                raise ValueError(f"unknown workout day '{row.get('workout_day')}'")
+            old_id = row.get("id")
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            cur = conn.execute(f"INSERT INTO sessions ({','.join(cols)}) VALUES ({placeholders})",
+                               [new_row[c] for c in cols])
+            if old_id is not None:
+                session_id_map[old_id] = cur.lastrowid
+            merged["sessions"] += 1
+
+        valid_sets = valid_cols("sets")
+        for row in tables.get("sets", []):
+            if not set(row.keys()) <= valid_sets:
+                raise ValueError("unknown column in sets row")
+            SetIn.model_validate(row)  # #141 fix 1
+            new_session_id = session_id_map.get(row.get("session_id"))
+            if new_session_id is None:
+                continue  # orphaned: no session in this envelope to attach to
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            new_row["session_id"] = new_session_id
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            conn.execute(f"INSERT INTO sets ({','.join(cols)}) VALUES ({placeholders})",
+                         [new_row[c] for c in cols])
+            merged["sets"] += 1
+
+        valid_events = valid_cols("events")
+        for row in tables.get("events", []):
+            if not set(row.keys()) <= valid_events:
+                raise ValueError("unknown column in events row")
+            # props excluded — see the docstring note above.
+            EventIn.model_validate({k: v for k, v in row.items() if k != "props"})  # #141 fix 1
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            conn.execute(f"INSERT INTO events ({','.join(cols)}) VALUES ({placeholders})",
+                         [new_row[c] for c in cols])
+            merged["events"] += 1
+
+        valid_pbs = valid_cols("personal_bests")
+        for row in tables.get("personal_bests", []):
+            if not set(row.keys()) <= valid_pbs:
+                raise ValueError("unknown column in personal_bests row")
+            PersonalBestIn.model_validate(row)  # #141 fix 1
+            new_row = {k: v for k, v in row.items() if k != "id"}
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            cur = conn.execute(
+                f"INSERT OR IGNORE INTO personal_bests ({','.join(cols)}) VALUES ({placeholders})",
+                [new_row[c] for c in cols])
+            merged["personal_bests"] += cur.rowcount
+
+        valid_notes = valid_cols("exercise_notes")
+        for row in tables.get("exercise_notes", []):
+            if not set(row.keys()) <= valid_notes:
+                raise ValueError("unknown column in exercise_notes row")
+            NoteIn.model_validate(row)  # #141 fix 1
+            new_row = dict(row)
+            new_row["profile_id"] = profile_id
+            cols = list(new_row.keys())
+            placeholders = ",".join("?" * len(cols))
+            cur = conn.execute(
+                f"INSERT OR IGNORE INTO exercise_notes ({','.join(cols)}) VALUES ({placeholders})",
+                [new_row[c] for c in cols])
+            merged["exercise_notes"] += cur.rowcount
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise HTTPException(400, "import failed; rolled back, live DB unchanged")
+    return merged
+
 @app.post("/api/import")
-def import_data(payload: ImportIn):
-    if payload.mode != "replace" or not payload.confirm:
-        raise HTTPException(400, "import requires mode='replace' and confirm=true")
+def import_data(payload: ImportIn, profile: dict = Depends(current_profile)):
+    # Any authenticated profile can reach this (#87 Task 2) — role decides
+    # *which write strategy* runs, mirroring /api/export's role-decides-scope
+    # split. An admin's mode="replace" is exactly today's whole-database
+    # wipe-and-restore (_import_replace). A member's mode="merge" is a new,
+    # additive path (_import_merge): it inserts the envelope's rows into
+    # their own profile, never deletes anything, and never touches the
+    # `profiles` table even though one row of it is present in the envelope
+    # (present only so the shared validation below needs no member-specific
+    # exception — see /api/export's own comment for why that row is there).
+    #
+    # A member sending mode="replace" (or an admin sending mode="merge") 400s
+    # exactly like every other malformed-request shape below — it is a wrong
+    # request, not a permissions probe, so it is not a 403.
     env = payload.envelope
     if not isinstance(env, dict) or "tables" not in env or "schema_version" not in env:
         raise HTTPException(400, "malformed envelope")
@@ -1140,55 +1676,65 @@ def import_data(payload: ImportIn):
         cur_version = conn.execute("PRAGMA user_version").fetchone()[0]
         if env_version > cur_version:
             raise HTTPException(400, "envelope schema_version newer than app")
-        # auto-snapshot the live DB before wiping (VACUUM INTO must run outside a
-        # txn; microseconds so back-to-back imports can't collide on the name)
-        snap_dir = os.path.dirname(DB_PATH)
-        snap = os.path.join(snap_dir,
-                            f"pre-import-{datetime.now(timezone.utc):%Y%m%d-%H%M%S-%f}.db")
-        conn.execute(f"VACUUM INTO '{snap}'")
-        # Prune here, not after the import: failed imports also leave a
-        # snapshot behind and must not accumulate them unbounded.
-        for old in sorted(glob.glob(os.path.join(snap_dir, "pre-import-*.db")))[:-PRE_IMPORT_SNAPSHOTS_KEPT]:
-            try:
-                os.remove(old)
-            except OSError:
-                pass
+        required_mode = "replace" if profile["role"] == "admin" else "merge"
+        if payload.mode != required_mode or not payload.confirm:
+            raise HTTPException(400, f"import requires mode={required_mode!r} and confirm=true")
+        if profile["role"] == "admin":
+            return {"restored": _import_replace(conn, env, profile, cur_version, env_version)}
+        return {"merged": _import_merge(conn, env, profile["id"], cur_version, env_version)}
+
+def cache_control_for(path: str) -> str:
+    """What to send for one built asset.
+
+    Starlette's StaticFiles sets ETag and Last-Modified but never
+    Cache-Control, which leaves the browser to invent a freshness lifetime for
+    index.html. Because Vite fingerprints every filename under assets/, a
+    stale index.html pins the whole app to the previous build — old code, no
+    error, nothing to indicate it. That is not theoretical: #105 shipped the
+    login screens on 2026-09-05 and they were missing on a phone the next day.
+
+    So index.html (and anything else unfingerprinted) must revalidate every
+    time, and only the fingerprinted assets may be cached forever. A new build
+    gives them new names, so "immutable" is honest for them and a lie for
+    everything else.
+    """
+    return ("public, max-age=31536000, immutable"
+            if "/assets/" in path.replace(os.sep, "/") else "no-cache")
+
+def is_client_route(path: str) -> bool:
+    """Is this 404 a React Router path, or a genuinely missing file?
+
+    StaticFiles serves files. It has no idea that /login, /history and
+    /set-password are routes the bundle resolves once it is running, so it
+    404s them — the app only ever worked because every route was reached by
+    clicking, never by typing a URL, refreshing, or following a link. That
+    made the invite email unopenable: it points at /set-password?token=..., and
+    the server answered {"detail":"Not Found"}.
+
+    Two things must keep their real 404 rather than get the app shell. A
+    missing file under assets/ means a stale index.html is asking for a build
+    that no longer exists; answering with HTML turns that into a console MIME
+    error that hides the cause. And an unknown /api/ path is an API call, whose
+    caller wants JSON.
+    """
+    return not path.lstrip("/").startswith(("assets/", "api/"))
+
+class BuiltStatics(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        response.headers["Cache-Control"] = cache_control_for(str(full_path))
+        return response
+
+    async def get_response(self, path, scope):
+        # StaticFiles *raises* on a miss rather than returning a 404, so this
+        # has to catch rather than inspect a status code.
         try:
-            conn.execute("BEGIN")
-            for t in TABLES:
-                if t == "profiles" and "profiles" not in env["tables"]:
-                    # Pre-v4 envelope has no opinion about profiles at all — leave the
-                    # live table untouched rather than wiping the seed admin with no
-                    # profiles data in the envelope to restore it from. Every write
-                    # endpoint depends on at least one profile existing.
-                    continue
-                valid = {r[1] for r in conn.execute(f"PRAGMA table_info({t})")}
-                conn.execute(f"DELETE FROM {t}")
-                for r in env["tables"].get(t, []):
-                    if not set(r.keys()) <= valid:
-                        raise ValueError(f"unknown column in {t} row")
-                    row = dict(r)
-                    if "profile_id" in valid and "profile_id" not in row:
-                        # Row predates profiles entirely (pre-v4 envelope) — attribute
-                        # it to the live default profile, same backfill the original
-                        # migration did for pre-existing data.
-                        row["profile_id"] = _default_profile_id(conn)
-                    cols = list(row.keys())
-                    placeholders = ",".join("?" * len(cols))
-                    conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
-                                 [row[c] for c in cols])
-            # The DB's physical schema is already at cur_version (migrations
-            # ran at startup); restoring older data must not record a lower
-            # version, or a later restart could re-run a non-idempotent
-            # migration against an already-migrated DB.
-            conn.execute(f"PRAGMA user_version = {max(env_version, cur_version)}")
-            conn.commit()
-            restored = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in TABLES}
-        except Exception:
-            conn.rollback()
-            raise HTTPException(400, "import failed; rolled back, live DB unchanged")
-    return {"restored": restored}
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and is_client_route(path):
+                return await super().get_response("index.html", scope)
+            raise
 
 # Serve React — MUST be last
 if os.path.exists("static"):
-    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+    app.mount("/", BuiltStatics(directory="static", html=True), name="static")

@@ -11,10 +11,11 @@ import Eyebrow from '../components/Eyebrow'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
 import { useToast } from '../lib/useToast'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
+import DayIcon from '../components/DayIcon'
 
 export function planForDay(workoutDay) {
-  return PLAN[workoutDay] || { emoji: '🏋', name: 'Workout', tag: '', exercises: [] }
+  return PLAN[workoutDay] || { icon: 'upper', name: 'Workout', tag: '', exercises: [] }
 }
 
 // Most recent COMPLETED session date per plan day. Feeds bestDayForMuscle's
@@ -36,7 +37,7 @@ export function lastTrainedByDay(sessions) {
 export function VersionStamp() {
   return (
     <p className="font-mono" style={{ marginTop: 8, textAlign: 'center',
-      color: '#4b5563', fontSize: type.size.xs }}>
+      color: colors.muted2, fontSize: type.size.xs }}>
       v {__APP_COMMIT__}
     </p>
   )
@@ -93,7 +94,7 @@ export default function Home() {
       await refresh()
       nav(`/workout/${s.id}`)
     } catch (e) {
-      showToast('Failed to start — is the backend up?', 'error')
+      showToast("Couldn't start the workout — try again", 'error')
       setStarting(false)
     }
   }
@@ -109,11 +110,11 @@ export default function Home() {
       <Toast toast={toast} />
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <Eyebrow color={colors.mint} size={type.size.base} style={{ marginBottom: 4 }}>
+        <Eyebrow color={colors.accent} size={type.size.base} style={{ marginBottom: 4 }}>
           {active ? 'In progress' : 'Next up'}
         </Eyebrow>
-        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, lineHeight: 1.1 }}>
-          {next.emoji} {next.name}
+        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
+          <DayIcon day={next.id} /> {next.name}
         </h1>
         <p style={{ color: colors.muted2, marginTop: 6, fontSize: type.size.lg }}>{next.tag}</p>
         <p style={{ color: colors.muted, marginTop: 6, fontSize: type.size.md }}>
@@ -123,7 +124,7 @@ export default function Home() {
 
       {/* Exercise preview */}
       {next.exercises.length > 0 && (
-        <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
           <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             {next.exercises.length} exercises
           </Eyebrow>
@@ -134,7 +135,7 @@ export default function Home() {
               borderBottom: i < next.exercises.length - 1 ? `1px solid ${colors.border}` : 'none'
             }}>
               <div>
-                <p style={{ fontWeight: type.weight.semibold, fontSize: '0.9rem' }}>{ex.name}</p>
+                <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body }}>{ex.name}</p>
                 {ex.alt && <p style={{ color: colors.muted2, fontSize: type.size.base }}>{ex.alt}</p>}
               </div>
               <p className="font-mono" style={{ color, fontSize: type.size.md, fontWeight: type.weight.bold, whiteSpace: 'nowrap', marginLeft: 12 }}>
@@ -170,13 +171,25 @@ export default function Home() {
           <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             Last session
           </Eyebrow>
-          <div className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            onClick={() => nav('/history')}>
-            <div>
-              <p style={{ fontWeight: type.weight.semibold }}>{lastPlan.emoji} {lastPlan.name}</p>
-              <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
-            </div>
-            <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
+          {/* A real <button>, not a <div onClick>, for the same reason
+              DisclosureRow's header row is one: a click handler on a <div>
+              has no role, no keyboard access and no :active feedback. The
+              chrome-reset lives on the inner button, same as DisclosureRow's
+              two-layer split — putting it on the same element as `.card`
+              cancels out `.card`'s own background/border (caught in UI/UX
+              review: the card lost its visible box entirely on first try). */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <button type="button" onClick={() => nav('/history')} style={{
+              width: '100%', background: 'none', border: 'none', margin: 0, font: 'inherit',
+              color: 'inherit', textAlign: 'left', cursor: 'pointer', padding: space.xl,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <p style={{ fontWeight: type.weight.semibold }}><DayIcon day={lastPlan.id} /> {lastPlan.name}</p>
+                <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{lastSession.date}</p>
+              </div>
+              <span style={{ color: colors.muted, fontSize: '1.2rem' }}>›</span>
+            </button>
           </div>
         </div>
       )}
@@ -185,17 +198,22 @@ export default function Home() {
         <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
       )}
 
-      <button
-        className="tap-target"
-        onClick={async () => {
-          try { await downloadExport() }
-          catch { showToast('Export failed — is the backend up?', 'error') }
-        }}
-        style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
-                 fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
-      >
-        Export my data
-      </button>
+      {/* Nothing to export on a first-run install — reuses the same
+          sessions.length check the EmptyState above already relies on,
+          rather than a second empty-state condition. */}
+      {sessions.length > 0 && (
+        <button
+          className="tap-target"
+          onClick={async () => {
+            try { await downloadExport() }
+            catch { showToast("Couldn't export your data — try again", 'error') }
+          }}
+          style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
+                   fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          Export my data
+        </button>
+      )}
       <VersionStamp />
     </div>
   )

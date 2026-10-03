@@ -2,2227 +2,71 @@
 
 > Append-only archive for `STATE.md`. **No tick reads this file** — it exists so `STATE.md` can
 > stay near its line budget without losing anything. Content lands here **verbatim** (per
-> PLAYBOOK step 7), in the order it happened. Nothing is ever edited or deleted once it lands.
+> PLAYBOOK step 7), newest first — each tick's entry is prepended right below this header, ahead
+> of everything already here. Nothing is ever edited or deleted once it lands.
 >
 > Read this when you need to know *why* something was done a particular way and `DECISIONS.md`
 > doesn't carry the working. Otherwise you don't need this file.
 
 ---
 
-## 2026-10-01 - Tick: #229 icon design system, delta plan merged
-
-**Pick.** #229 (P2, effort:M, touches UI) was the top pickable `ready` Issue. Skipped #157 (auth/token
-handling, no approved label), #201 (owner-confirmed lowest), #219 (ranks after; another session's
-worktree exists), #220-#223 (blocked), #231 (P3). Premise re-checked on main: no icon tokens in
-`theme.js`, 52 numeric `size={N}` sites in 15 files, NavBar still colour-only, `.timer-bar` buttons
-still shrunk to 38/34px.
-
-**Plan.** The 2026-09-30 sign-off ("all approved") disagreed with the 2026-09-28 spec in three places
-(timer bar, day icons, nav second tone), so a plan was written and merged: PR #234 (`94204ba`),
-`docs/superpowers/plans/2026-10-01-icon-design-system-229.md`, 217 lines, six tasks with named tests,
-no implementation bodies. `**Plan:**` line added to the Issue body. Codex review only reported a usage
-limit. CI green (backend 39s, sanity 6s, test 1m21s).
-
-**Findings.** Progress and History nav icons are already SVGs on main (#228), so the spec's PNG
-assumption was stale. The design-system artifact says muted-3 #5c5c5c; the recorded decision is
-#6b6b6b, and the plan uses #6b6b6b. Reconcile the artifact.
-
-**Housekeeping.** Board 3 holds all 26 open Issues (the "23 off-board" count was a label miscount);
-no state-less Issues; no unanswered owner comments; PLAYBOOK on main is a strict subset of home,
-GUARDRAILS identical. STATE cursor corrected (e8da4f1).
-
-**Friction logged (4 `[local]`).** checkpoint script exits 0 on a failed status comment; muted-3
-mismatch; `gh pr checks --watch` dies on transient resets; 120s tool timeout backgrounding chained
-commands.
-
-**Cost.** Output tokens per stage: reconcile 11836, pick 14852, claim 4256, execute 20149, tail 0.
-
----
-
-## 2026-09-28 — Tick: #228 + #225 deployed, per-item icon work rejected → #229 design-system spec
-
-**Deploys.** `404610f` (#228) deployed from a clean `origin/main` worktree once SSH came back (it
-authenticates via the agent/default key; `AGENTS.local.md`'s `DEPLOY_SSH_OPTS` names
-`~/.ssh/id_raspi`, which does not exist on this machine, so that config line is stale). Later in
-the same tick, `e786276` (#225) deployed. Both were verified via `/api/health`, with both backup
-legs `ok`.
-
-**PR #225 (dynamic progression).** It had never run CI. It conflicted with `main` (a
-`backend/main.py` import line vs. #227's `plan_seed`), and GitHub runs no `pull_request` workflows
-on a conflicting PR, so the previous tick's "nudge CI" commit couldn't help. Merged `main` in
-(`9d578b0`, both imports kept): 268 backend + 437 frontend tests green locally, then in CI. Content
-review found that the `bodyweight` flag doesn't affect the clean-hit +2.5 kg branch. Adjudicated as
-not a regression: `main`'s `overloadSuggestion` already did the same, and weighted pull-ups are
-standard progression. Filed as an owner product question. Rendered it locally on the real backend
-(throwaway DB): 20 kg × 8 last time in a 6-10 range → "Suggested 20 kg × 10", warm-up 10 kg × 12,
-inputs prefilled. Correct per spec §2.3. No Codex review (usage limit hit). Merged on green.
-
-**Icons.** The owner said icons were still small everywhere, preferred the old bar-chart Progress
-icon, and found the logo tiny. An exploratory per-item branch (`claude/icons-scale-up`, 29471aa)
-found a real root cause: progress.png's bars fill ~40% of their canvas, clock.png's dial sits in
-the left half, and the logo is letterboxed to ~9.5px. The owner then redirected: "plan a proper
-design system and apply, get professional ux UI engineer review". Captured as #229 (intake).
-Dispatched independent UI-expert and UX-expert audits (sonnet, read-only, 5 screenshots plus
-source). Adjudicated against source:
-- **Confirmed:** no icon tokens; nav 22px over a 10.4px caption; logo letterbox; timer-bar
-  buttons 38/34px wide at ≤440/≤340px (`index.css:217-233`).
-- **Incomplete:** the UI audit blamed only aspect ratio for the PNGs, missing the empty-canvas
-  cause.
-- **Stale:** the UX audit's "PNG nav already fixed" was true of `main`, but the owner now wants a
-  colored nav back.
-
-Owner Q&A: all tabs colored, which after asking for best practice became colour-as-state (active
-full-colour, inactive greyscale, two-tone SVG); timer bar relayout in scope; live-preview sign-off.
-Spec merged (#230), and #229 was promoted to `ready`/`effort:M`, kept as one Issue so the whole
-system previews together.
-
-**Reconcile.** #210 closed (shipped as #212). #219 unblocked (#218 closed).
-`scripts/create_issue.sh` and `create_board_view.sh` were missing on the home branch; copied from
-`main`. Two IMPROVEMENTS entries logged: one `[local]`, fixed this tick; one `[template]`, added to
-the credential-blocked bucket in Needs owner.
-
----
-
-## 2026-09-28 — Nav icon + Progress/Personal Bests redesign shipped and merged (PR #228), deploy blocked on SSH key
-
-Direct owner dispatch, not a queued Issue (same pattern as the #217 mobile icon audit): right
-after #217 deployed, the owner said "Still seems the icons are small we should review with ui ux
-expert and redesign the screen with the records and progress."
-
-**Verified before touching anything.** Confirmed production live at `8f293b7` via a direct
-`curl /api/health` (no caching/stale-deploy issue — ruled out first). Built a fresh local instance
-from a clean `origin/main` checkout (seeded `kapekost` password via `main.hash_password()`, seeded
-realistic session/PB data directly in SQLite) and screenshotted the nav bar, Progress, Personal
-Bests and History pages via `claude-in-chrome` at both a real desktop width and the narrowest
-window this environment's Chrome would allow (~500px — Chrome enforces a window-width floor here,
-true 375–390px was not reachable, noted rather than pretended away).
-
-**The complaint was real, and #217 alone couldn't have fixed it.** #217 correctly restored the
-literal pixel *height* of the Progress/History nav icons, but they were still raster PNG "sticker"
-icons — gradient shading, drop shadow, real internal padding baked into the source image, and
-(confirmed reading the components) a `color` prop that was destructured and never actually applied
-to anything — sitting next to `IconHome`'s crisp flat SVG. Equal box height was never going to fix
-a different rendering technique, different color language, and a component contract that silently
-dropped its own recolor prop. Zoomed screenshots made this immediately, visibly obvious next to
-Home in the nav bar, before any subagent was even dispatched.
-
-**Two-pass review, on `sonnet` per this repo's own model-tiering policy** (a UI-expert pass and a
-separate UX-expert pass, each given the same 9 real screenshots blind to each other's output) both
-independently converged on the same root cause and additionally flagged: a real routing bug (the
-bottom nav lit up "Home" while on `/personal-bests`, contradicting that page's own "← Progress"
-breadcrumb — confirmed in source, `NavBar.jsx`'s prefix-match had no entry for that route and fell
-through to the `'/'` default); the Progress page's "Personal Record" stat rendering at the exact
-same type scale as the secondary "Sessions" counter (confirmed in `StatPair.jsx` — hardcoded
-`1.5rem`, no override); no trend/delta indicator despite the page already loading full session
-history; and Personal Bests reading as a generic flat data list with no "record" signal beyond
-text color. Every finding was checked against actual source before being accepted, per this
-project's own standing lesson from #152's false-positive review incident — none were taken on
-either reviewer's word alone.
-
-**Root-cause note on *why* these particular icons were PNGs at all**, dug out of this repo's own
-history rather than assumed: #210/#212/#213 (earlier the same prior day) tried an AI-image-
-generation pipeline (ChatGPT), hit real limitations (couldn't reproduce its own raster generation
-as faithful SVG), and landed on PNG rasters specifically for the icons whose two-tone shading a
-single-`currentColor` SVG structurally can't render (an opacity accent over an identically-colored
-base blends to that same color, invisible regardless of size). That reasoning was sound for *those*
-icons at the time — but #209 (same day) had already proven a simpler path forward: hand-author new
-icons directly in the app's own established SVG house style (fill+opacity-overlay / stroke
-duotone), no AI image tool, no asset-extraction pipeline. This fix repeats that same,
-already-proven approach for `IconArrowTrendingUp` and `IconClipboardList`, rather than reopening
-the abandoned AI-image saga.
-
-**A real bug caught by live-rendering the fix, not by reading the diff.** The first version of the
-redrawn `IconClipboardList` shipped its 3 "list-line" details as `<rect>`s at reduced opacity with
-no fill of their own — inheriting the exact same `fill={color}` as the opaque clipboard body
-beneath them. Alpha-blending a color with itself at any opacity is a no-op (`0.3*C + 0.7*C = C`):
-the *exact* failure class this repo's own `#211`/`#212` history already diagnosed once, reproduced
-by this plan's own first-draft SVG code. The task reviewer (working from the diff alone) correctly
-flagged it as "⚠️ cannot verify from diff" and approved anyway — it only surfaced because the
-controller stood up the actual app and zoomed into the nav bar, at which point the icon was
-visibly a flat, detail-free blob in both nav states. Fixed by folding the body and list-lines into
-one path using `fillRule="evenodd"` (real transparent cutouts, not an alpha-blended overlay) —
-re-verified live afterward in both active/inactive states, confirmed working.
-
-**Shipped via `superpowers:subagent-driven-development`**, 3 tasks (icon redraw + NavBar fix;
-Progress PR-emphasis + trend delta; Personal Bests trophy marks) plus the fix round above plus one
-final-review fix (a real test-coverage gap: every delta test only exercised the `delta > 0`
-branch, the muted/no-`+` branch was completely unguarded). **A real account-level session rate
-limit hit mid-plan** (the Task 2 task-reviewer subagent failed outright, HTTP 429) — rather than
-discard already-verified work or blindly retry into a possibly-still-limited channel, the
-controller completed that review and the small, mechanical Task 3 implementation directly itself
-(each ledgered explicitly as a deviation with reasoning, each still got an independent
-fresh-subagent check once rate-limit pressure visibly eased — Task 3's implementation and the
-final whole-branch review both landed clean on fresh `sonnet` dispatches). 435/435 frontend tests
-passing, clean build, `progress.png`/`history.png` deleted with no remaining importers.
-
-**Post-fix UI-expert + UX-expert re-review against new screenshots of the *shipped* result** (not
-the original diagnosis screenshots — this project's own standing requirement to verify the result,
-not just the diagnosis) confirmed the fix actually works: nav icons now match Home's visual weight,
-the Personal-Bests-page nav highlight correctly shows "Progress" (not "Home") directly in the
-screenshot itself, the PR stat visibly outranks Sessions with a working trend line, and no
-regressions or overengineering. Two Minor notes, both adjudicated and parked rather than acted on:
-a pre-existing (not new) mixed stroke/fill icon convention already used elsewhere in this app
-(`IconCheck`), and a subjective "is the trophy mark redundant" disagreement between the two
-reviewers themselves, left as shipped per the plan's own "cheapest possible" intent.
-
-**PR #228 merged clean** — CI green (head commit confirmed matching before merge), Codex's own bot
-comment stated its review quota is exhausted for this PR (same as #217/#226 before it, nothing to
-adjudicate), `autoMode.allow` let the merge through directly with no classifier block. `main` is
-now `404610f`.
-
-**Deploy is blocked, not done — reported plainly rather than claimed.** `scripts/deploy.sh` built
-and tagged the image locally (`kapekost/workout-tracker:404610f`, confirmed present via
-`docker images`) but the SSH transfer to the Pi failed: `Permission denied (publickey)` —
-`~/.ssh/id_raspi` is passphrase-protected and this automated session's shell has no path to the
-macOS Keychain that would normally supply it (confirmed: `ssh-add -l` shows no loaded identities,
-and a direct manual `ssh` attempt with the same key failed identically). Per this repo's own
-standing caution (`~/dev` workspace memory: "subagents can't unlock it, failed attempts trip
-OpenSSH PerSourcePenalties and lock out the main session too"), **stopped after the second failed
-attempt rather than retrying** — confirmed production is still healthy and untouched at `8f293b7`
-via a direct `curl /api/health` before doing anything else. No backend/schema change in this PR, so
-no pre-deploy snapshot was needed regardless. **The exact command an owner (or any session with a
-real, keychain-unlocked terminal) needs to run**: `bash scripts/deploy.sh` from a clean checkout of
-`main` (or `git worktree add <path> origin/main`) with `AGENTS.local.md` present — the image is
-already built and cached locally, so this should be a fast rebuild + transfer, not a from-scratch
-build.
-
----
-
-## 2026-09-27 — #209 shipped; deploy crash-looped in production, rolled back, root-caused and fixed
-
-**#209 (icon glyph sweep) shipped clean.** Authored 3 new icon components in this repo's *current*
-house style (fill + opacity-overlay like `IconPlus`; stroke duotone like `IconCheck`) rather than
-Heroicons as the Issue's own text says — confirmed via `git log` that instruction predates PR #212's
-rewrite off Heroicons onto this custom style before making the call. `IconPlay`/`IconPause` replace
-`TimerBar.jsx`'s pause/resume glyphs and `ExerciseDetails.jsx`'s video-play glyph; `IconRefresh`
-replaces `VersionBadge.jsx`'s check-for-update glyph; existing `IconPlus` replaces the remaining
-plain-ASCII `+`/`＋` sites in `Workout.jsx` and `PersonalBests.jsx`. Also closed the `DayIcon.test.jsx`
-coverage gap #209 named (the lower-body test only ever asserted the accent-dot color, never the
-actual body-shape asset — added a real regression guard, verified against `workoutPlan.js`'s `PLAN`
-data that `upper_a`/`lower_a` genuinely resolve to different icons). `PersonalBests.test.jsx` needed 7
-regex updates since a toggle button's accessible name no longer starts with a literal `+`. 423/423
-tests, clean build, verified live in-browser at all 5 call sites. Independent code review (`sonnet`)
-hand-verified the 3 new icons' SVG path geometry by solving the arc-center equations for
-`IconRefresh` (no rasterizer available in its sandbox) and confirmed a symmetric, deliberate two-arc
-glyph — verdict: ship as-is, no follow-ups. PR #226 merged clean (CI green, no Codex review — its own
-bot comment stated its quota is exhausted for this PR — `autoMode.allow` let the merge through with
-no classifier block).
-
-**Deploying it crash-looped production.** `main` had also picked up an unrelated concurrent PR (#224,
-a per-profile DB-backed workout-plan schema migration, v6→v7, `plan_days`/`plan_exercises` tables) —
-not this session's work, landed by another session sharing this same Claude-Session identity while
-this tick was in progress (see the "environment note" in the prior entry below about other worktrees
-on this machine not created here). Deploying `main` HEAD (both PRs together) crashed the container in
-a restart loop: `docker logs` showed `ModuleNotFoundError: No module named 'plan_seed'`. #224 added
-`import plan_seed` to `main.py` but never updated the Dockerfile's explicit (deliberately
-non-wildcard) `COPY` list — the exact same failure shape as the historical #127 incident
-(`bootstrap_owner.py` missing from the image). CI never builds the Dockerfile, so this only ever
-surfaces as a real deploy crash, never a red check.
-
-**Confirmed the outage was real before doing anything else**: `docker ps` showed the container stuck
-in a short-lived restart loop, and a direct `curl` to the site timed out (not just a slow health
-check). **Rolled back immediately** to the last known-good image (`b52ef1b`, already loaded on the
-Pi) to restore service — verified `/api/health` green again within about a minute. Then, not before,
-diagnosed further: confirmed via `PRAGMA user_version` inside the (now-rolled-back) container that
-the v6→v7 migration never actually ran — the crash happens at bare Python import time, before any DB
-code executes — so the rollback's database was untouched, no restore-from-snapshot needed.
-
-**Fixed the actual bug** (`COPY backend/main.py backend/plan_seed.py .`) and, per this project's own
-standing lesson about trusting a diff without running it, verified the fix for real rather than just
-reviewing it: built the image locally, ran the container, confirmed clean startup, and confirmed the
-v6→v7 migration completes correctly once the container can actually start (`plan_days`/
-`plan_exercises` created, `user_version` → 7). 254/254 backend tests passing. Shipped as its own PR
-(#227, CI green, no review landing, merged clean via `autoMode.allow`) rather than folding into #209's
-already-merged PR — keeps the incident's own history reviewable on its own terms.
-
-**Redeployed with the fix.** Took a fresh `scripts/backup.sh` snapshot on the Pi first, since this
-second deploy *did* carry the schema migration this time (`workout-20260927-194832.db`, local +
-off-site both `ok`). Verified three ways: `scripts/deploy.sh`'s own health check (`version: 8f293b7`),
-a separate direct `curl /api/health`, and `PRAGMA integrity_check` + a `plan_days` row count (4, correct
-backfill) run directly inside the container on the Pi. Opened the real production login page in a
-browser afterward as a final sanity check that the app itself renders, not just the health endpoint —
-did not log in (no real credentials on hand, and GUARDRAILS forbids entering them). Home Assistant and
-Tailscale both confirmed still healthy throughout. `AGENTS.local.md`'s Current-status, rollback
-pointer, and a new dated incident write-up all updated — the rollback pointer explicitly warns that
-`1730085` (the broken image) is still loaded on the Pi and must never be deployed.
-
-Logged an `IMPROVEMENTS.md` `[local]` entry for the generalizable gap (this is the *second* time an
-explicit, non-wildcard Dockerfile `COPY` list has silently drifted from a new backend module import,
-with zero CI signal either time) — fix candidate is a CI step that actually builds the Dockerfile, or
-a static check that every top-level import in `main.py` resolves to a file the Dockerfile includes.
-Not built this tick (new CI tooling, outside this tick's remit of shipping #209) — see Needs owner.
-
-**Total downtime**: roughly 1-2 minutes between the first failed health check and the rollback
-restoring service — nobody using the app during that window was left on a broken build for longer
-than that.
-
----
-
-## 2026-09-27 — PR #217 merged and deployed; started #209
-
-Follow-up to the entry directly below. `gh pr merge 217` was denied once more by the classifier
-("Merge Without Review"), the same as every prior merge attempt this session — but moments later the
-owner's new `autoMode.allow` rule for this repo (from #215's best-practices audit, see
-`docs/superpowers/audits/2026-09-27-orchestration-vs-anthropic-best-practices.md`) went live. Re-ran
-`gh pr view 217 --json reviews` fresh (still empty — no Codex review ever landed; its own bot comment
-states its review quota is exhausted for this PR) and retried the merge, which went through cleanly
-this time, no hand-off to the owner needed. Merge commit `b52ef1b`.
-
-Built and deployed from a clean worktree off `origin/main` at that commit. `scripts/deploy.sh`
-succeeded; independently verified via a direct `curl /api/health` against the Pi (`version: b52ef1b`)
-and confirmed Home Assistant + Tailscale both still healthy on the shared host. No schema change, so
-no pre-deploy snapshot needed. `AGENTS.local.md`'s Current-status and rollback pointer (now `1c35597`,
-confirmed still loaded on the Pi alongside every tag back through `5247896`) both updated.
-
-Cleaned up: killed the dev backend (port 8000)/frontend (port 5173) servers left running from the
-audit's live-browser verification, removed the now-finished `icon-mobile-audit` worktree and the
-temporary `deploy-217` worktree used for the build.
-
-**Claimed `#209`** (per PLAYBOOK's "Claiming work" section, pushed directly to this branch before any
-execution started) and opened a fresh worktree/branch `claude/209-icon-glyph-sweep` off `origin/main`
-to execute it next.
-
-**Noticed, not this session's doing:** two worktrees not created here are present on this machine
-(`~/dev/wt-ai-plan-updates`, `~/dev/wt-dynamic-progression`) — almost certainly other idle cloud
-sessions working this same repo, per a live warning from the coordinator mid-tick. Left untouched;
-`origin/main` and the home branch were both pulled fresh before every push this tick and no collision
-occurred.
-
----
-
-## 2026-09-27 — Mobile icon audit: 3 letterboxed PNG icons fixed (PR #217), merge blocked on human
-
-Direct owner dispatch, not a queued Issue: a prior (now-ended) session had asked to "consider any
-improvements on how the images are aligned where used and how small they are for mobile" for the 7
-PNG-backed icons shipped in #211/#213/#214. Did a live-browser audit via `claude-in-chrome` at real
-call-site sizes (12-24px, logged-in screens, a fresh worktree/branch `claude/icon-mobile-audit` off
-`origin/main`) rather than reasoning about the aspect-ratio math abstractly.
-
-**Found a real, reproduced problem**, not just a theoretical one: 3 of the 7 icons —
-`IconArrowTrendingUp` (progress.png), `IconClipboardList` (history.png), `IconDayUpper`
-(upperbody.png) — have a source PNG wider than tall, so `object-fit: contain` in a `size×size` box
-shorts their rendered height to `size/aspect`. Zoomed screenshots confirmed Progress/History read
-visibly smaller/thinner than `IconHome` (an SVG that fills its full square) in `NavBar.jsx`'s bottom
-tab bar, in both inactive and active states; `IconDayUpper` read visibly smaller than `IconDayLower`
-when both appeared stacked in the same `History` list (logged two real workout sessions, one Upper
-one Lower, specifically to get a direct side-by-side). Alignment itself (vertical centering next to
-adjacent text) was checked at every call site and found correct everywhere — the real defect was
-size/weight, not alignment.
-
-**Fixed with a paint-only `transform: scale(ASPECT)`** on the 3 affected components — restores full
-rendered height by scaling the already-correctly-proportioned `object-fit: contain` output up
-uniformly (zero distortion), leaving `width`/`height` HTML attributes, DOM shape, and every consuming
-layout untouched. Verified live via `getBoundingClientRect()` that the post-transform box is exactly
-`size*ASPECT` square and nothing clips the resulting overflow.
-
-**Deliberately left 4 other PNG icons uncorrected** (`IconClock`, `IconBarbell`,
-`IconClipboardDocumentList`, `IconDayLower`) — same aspect>1 mechanism in 2 of the 3, but checked live
-at their own real call sites (TopBar logo, TimerBar/History duration, Workout's "Form cues + demo"
-button) and found to read fine as-is: no adjacent same-size full-height comparator forces the same
-stark contrast, and/or the shape idiom (a flat barbell) tolerates it. Per this project's own
-"efficient, not overengineered" constraint and the #211 precedent of scoping to only what's confirmed
-broken. Added a one-line "audited, left as-is" comment to each of those 3 files.
-
-**Independent code review** dispatched to a fresh subagent on `sonnet` (this repo's documented
-stronger-tier default for code review, not opus) — verdict: ship, no blockers. It re-derived the
-aspect-ratio math against the actual PNG dimensions, checked every call site for overflow/clipping
-risk (flagged one worth a live check: icon bleed touching adjacent label text at `DayIcon`'s inline
-call sites), ran tests+build independently, and suggested the audited-icon comments folded in above.
-The one flagged risk was checked live afterward (Home header, ResumeBanner, History rows) and
-confirmed clean — no overlap anywhere.
-
-420/420 tests passing (4 new: 3 guard the fixed components' unchanged width/height attrs + correct
-`transform` value, 1 guards `IconDayLower` stays deliberately uncorrected), clean build. PR #217
-opened, CI green (Backend tests/test/sanity all SUCCESS, head commit confirmed matching before every
-check), no Codex review landed — its own bot comment on the PR states its review-quota is exhausted
-for this PR, not a substantive finding, so there was nothing to adjudicate before merging.
-**`gh pr merge 217 --squash --delete-branch` was denied by the auto-mode classifier** ("Merge Without
-Review"), the same pattern that blocked #202/#212/#213 earlier this session — not fought, handed to
-the owner as-is: **`gh pr merge 217 --squash --delete-branch`** is the exact command needed. Deploy
-and this file's write-back are pending that merge.
-
-**Also found and reported to the owner directly, not yet actioned**: a stray, unmerged remote branch
-`claude/210-icon-redesign` (2 commits, no open PR) survives on GitHub despite this same day's earlier
-entry below recording it as deleted during #210's cleanup — confirmed via `git log`/`git show` it's
-exactly that abandoned hand-simplified redesign, fully superseded by the later PNG-icon work that did
-ship, nothing of value at risk. Left alone per GUARDRAILS (remote branch deletion always needs a
-fresh human approval); `git push origin --delete claude/210-icon-redesign` is the cleanup command if
-the owner wants it gone.
-
----
-
-## 2026-09-26/27 — #152 shipped and deployed; rescued a stray local commit found along the way
-
-Same live session as the 2026-09-22 planning tick, resumed after a real-world gap. Claimed #152 for
-execution (already planned, ledgered pre-flight scan clean) and ran it via
-`superpowers:subagent-driven-development` against `docs/superpowers/plans/
-2026-09-22-icon-visual-polish-152.md`, in its own worktree/branch (`claude/152-icon-visual-polish`,
-off `main`).
-
-**6 tasks, 7 commits, dispatched sequentially** (icon vendoring → day-identity icons → nav chrome →
-status/feedback/functional/achievement icons → a small back-arrow sweep found by re-running the
-spec's own grep → a final verification fix). Every task got a fresh implementer + a fresh task
-reviewer; one Important finding (Task 2 duplicated a color-resolution expression because the plan's
-own given code didn't account for `DayAccent` not forwarding props) was fixed properly — `DayAccent`
-now forwards `...props` — rather than parked, since the fix was cheap and closed a real drift risk.
-Task 6's mechanical grep step found 2 real misses beyond the plan's own inventory (`History.jsx`'s
-`✓ completed` status text, fixed same tick; a `💪` in Home's empty-state copy, ruled to leave as
-decorative voice, not chrome).
-
-**The standing UI-expert + UX-expert review gate ran against 8 real screenshots**, captured by
-actually logging in and using the live app (two real workout sessions, a real PR toast, History,
-Personal Bests, an active-session banner). Both reviews came back with real-sounding Critical
-findings — but every one collapsed on verification against source: the UI reviewer's "un-replaced
-emoji" hit was `profile.icon` (a different, deliberately-out-of-scope feature, #69's avatar picker);
-its "solid-fill day icons" claim was contradicted by the actual SVG source (`fill="none"`, no
-override); the UX reviewer's "dropped-`?` weakens the delete-confirm signal" claim rested on a
-"pixel-identical icon" premise that's also false against source (`IconTrash`↔`IconCheck` is a full
-shape change) and, for the highest-stakes example (session discard), directly contradicted by an
-explicit "Discard? ✓ ✗" text the controller had watched render live in the browser moments earlier.
-Lesson banked here, not just for this Issue: **a subagent's confident severity verdict from
-JPEG-based visual inference is exactly the kind of claim GUARDRAILS/PLAYBOOK already say needs
-checking against source, the same as a "grep came back clean" claim does** — treated it that way,
-adjudicated every finding against the actual code, found nothing that needed a fix.
-
-**Final whole-branch review** (dispatched twice — the first attempt, on the strongest available
-model, was killed mid-review by an account-wide weekly rate limit with no report produced;
-redispatched clean on the next tier down) came back "ready to merge, with fixes recommended as
-fast-follow." It found 5 real icon-shaped glyphs the plan's own Unicode-range grep couldn't see
-(fall outside those specific ranges, or are plain ASCII) — `TimerBar`'s pause/resume, a video-play
-glyph, `VersionBadge`'s refresh glyph, two "+Add" text buttons — plus a `DayIcon` test that only
-asserts color, never shape. None break anything (correct `aria-label`s throughout, independently
-re-verified). Filed as **#209** rather than expanding the reviewed diff. PR #207 merged clean —
-CI green, head commit confirmed matching before merge, no classifier block this time.
-
-**Found a real stray commit while cleaning up the worktree**: `git worktree remove` surfaced a
-commit on the home branch's *local* checkout, authored under the owner's own git identity
-(`kapekost@Mac.mynet`, dated 2026-09-25) — real work (an `ExerciseDemo` extraction + fallback-logic
-fix for `ExerciseDetails.jsx`, with its own tests) that had landed directly on this machine's
-checkout while it happened to have the orchestration home branch checked out, never pushed anywhere.
-Confirmed it was never on `origin`'s copy of the home branch (so no collision, no risk to any other
-tick), then rescued it onto its own branch off `main` (`git worktree add` off `origin/main`,
-`git cherry-pick` preserving the original authorship) rather than discarding or force-resetting
-anything — a `git reset --hard` to clear it off the local home-branch checkout was attempted first
-and correctly blocked by this session's own auto-mode classifier as irreversible local destruction;
-worked around by simply never touching that checkout for anything that needed pushing, using a
-fresh worktree off `origin/claude/workout-tracker-backlog-bu9qnw` for every write-back instead. One
-merge conflict (the rescued commit predated a `space.md` token-convention change already on `main`)
-resolved by hand, keeping the token convention; 412/412 tests passing (407 existing + 5 new), build
-succeeds. Merged as PR #208.
-
-**Deployed both PRs to production at the owner's request**, after a mid-review question from the
-owner about the rescued commit ("not sure we like to have video playback there") — clarified first
-(the PR was a pure refactor; both the animated-frame demo and the YouTube-link fallback already
-existed before it, neither is new) and got an explicit "keep it, do a test deployment, decide later"
-before deploying. `scripts/deploy.sh` (Docker Desktop needed a manual start first — `open -a Docker`,
-no classifier block this time) built, transferred, and restarted cleanly; independently verified
-after (not just the script's own assertion) via a direct `curl /api/health` and `docker ps` on the
-host — `version: 98614fa`, container `Up`. No schema change, so no pre-deploy snapshot needed.
-Updated `AGENTS.local.md`'s "Current status" (previous drift-prone section, last touched 2026-09-15)
-to `98614fa`/previous-known-good `799c912`, and cleaned up a duplicated paragraph left over from that
-same 2026-09-15 fix while touching the section anyway.
-
-**Environment note, not fixed this tick:** `claude-in-chrome`'s browser extension disconnected
-mid-session (after the manual UI walkthrough that fed the UI/UX review screenshots) and did not
-reconnect after 2 retries, both before and after the deploy — a live-browser visual confirmation of
-the deployed app was not obtained this tick; verification relied on API-level checks
-(`/api/health`, `docker ps`) instead, which is why the write-back above is explicit about that being
-the evidence used, not a hedge.
-
-**Next action:** ready queue re-ranks to `#157` (still `ready`, unapproved — destructive, touches
-auth-adjacent timing behavior) and `#201` (React Native, owner-confirmed intentional lowest rank).
-`#196`/`#197`/`#209` sit untriaged/`ready`-but-not-yet-picked. No new owner comments outstanding.
-
----
-
-## 2026-09-27 — #210 icon-redesign attempt abandoned, #212 shipped instead (icon swap + #211 filed)
-
-Same live session continuing straight from #152's shipment above. #201 (React Native) separately
-confirmed as legitimate research prep, correctly left lowest-ranked — owner wants it tracked as
-future work, not blocking, while leaning toward a mobile app eventually.
-
-**#210 (icon redesign) — full arc, then abandoned.** Owner wanted the 20 in-app icons + 5 PWA/favicon
-images redesigned via an AI image tool rather than the vendored Heroicons set, explicitly excluding
-workout-demo animations. Tried Gemini and ChatGPT side by side (owner: "let's get on the browser and
-ask gemini... or chatgpt... svg sounds friendlier for web"), gave both a real app screenshot for
-context, owner picked ChatGPT's flat neon-tile style. First integration broke at real render size (4
-icons illegible); asked ChatGPT to simplify those 4 — it returned byte-identical code repackaged in a
-nicer preview image, a real, reproducible tool limitation (verified by diffing exact path/rect
-coordinates). Hand-simplified those 4 myself instead; owner then flagged the hand-simplified set
-looked "nothing like" ChatGPT's own reference image. Investigated: the reference image is a two-tone
-(dark body + lime `#d4ff3f` highlight/glow) raster generation with no vector source behind it — ChatGPT
-confirmed directly it cannot produce SVG that's a faithful reproduction, only "its own tracing/
-reconstruction." Per owner's explicit standing instruction ("try one more time, and if they are not
-identical don't bother") this failure ends the redesign: reverted cleanly, since nothing had reached
-`main` (branch `claude/210-icon-redesign` pushed but no PR opened) — deleted the local/remote branch,
-removed both scratch worktrees, killed the stray dev servers.
-
-**#212 shipped instead.** Owner's actual call, once shown ChatGPT's *unmodified* generated SVG code
-directly (published as an Artifact preview at real render sizes, not just zoomed mockups) rather than
-my hand-simplified reinterpretation: ship that code as-is, and track further icon-quality work
-separately rather than block on it ("let's use the svg and add a task in our future tasks to workout a
-better set of icons"). Rewrote all 20 icon components in a fresh worktree off `origin/main` with
-ChatGPT's original path/shape data, preserving the established `{size, color, ...props}` component
-contract; fixed `icons.test.jsx`'s currentColor assertion (was asserting a root `stroke` attribute,
-now checks `svg.outerHTML`, since these icons are fill-based) — 412/412 tests green, clean build.
-Manually verified in-browser at real sizes (fresh venv, seeded admin profile, temp DB) rather than
-trusting a review agent's screenshot-time read alone (PLAYBOOK's own standing warning, from #152's own
-false-positive incident above).
-
-Filed **#211** as the tracked follow-up before opening the PR, documenting exactly which icons read
-badly and why (History nav icon and the workout-page clipboard icon render as solid blocks in both nav
-states; the day-type badges read as a blob at badge size; the barbell app-mark is marginal at 16px).
-PR #212 opened, CI green, mergeable. A Codex bot review on the PR caught a *fourth*, previously-missed
-instance of the same problem in `IconClock` (hands invisible against the face) — and sharpened the
-root cause past "small-size legibility": every affected icon draws an opacity-based accent shape over
-a solid base using the *same* `currentColor`, and blending a color with itself at any opacity yields
-that identical color, so the accent is structurally invisible regardless of render size, in a
-single-tint icon system. Replied on the review thread and folded the finding into #211 rather than
-fix piecemeal pre-merge, since both real call sites (`TimerBar` 16px, `History` 12px) already show the
-actual duration as text — cosmetic, not a loss of information, and consistent with the owner's ship-
-now-fix-later call. Owner merged #212 personally (squash) after the auto-mode classifier blocked
-`gh pr merge` for the same "Merge Without Review" reason as #202 earlier in this project's history.
-Deployed and health-verified as `e1c2775`; `AGENTS.local.md`'s Current-status note updated.
-
-**Recovered from a real near-miss mid-tick:** meant to check `main`'s latest commit from the
-orchestration home-branch checkout and ran `git checkout main -- .` there instead of in a worktree —
-this branch has no `frontend`/`backend` dirs and deliberately-diverged orchestration docs from `main`
-(see 2026-09-13 entry below on the standing-approval incident), so the command staged all 125 of
-`main`'s files into this branch's index and working tree, including overwriting `STATE.md`/
-`HISTORY.md`/`DECISIONS.md` with `main`'s stale copies. Caught immediately via `git status` before
-anything was committed; `git reset --hard HEAD` was classifier-blocked ("Irreversible Local
-Destruction"), so used `git restore --staged --worktree .` instead — same effect, zero data lost,
-zero commits made. Lesson: this checkout is for orchestration docs only, never for reading or diffing
-`main`'s tree directly — use a worktree (as the rest of this session correctly did throughout).
-
----
-
-## 2026-09-27 — #211 actually fixed: 7 icons swapped to real PNG assets (PR #213), shipped and closed
-
-Owner pushed back on #212's "ship the known-broken SVGs, track later" call almost immediately:
-"they are bad" and specifically "the progress isl ike a giraffe hirsotry is weird" — concrete,
-correct complaints, not just a mood. Asked to compare a couple of the actual shipped SVGs against
-a real render at nav-bar size (published as an Artifact rather than another zoomed screenshot) so
-the owner could see exactly what "bad" meant; confirmed live that History reads as a flat block in
-both nav states and Progress doesn't read as a chart. Owner's actual instruction, once that was
-visible: "use the svg and add a task in our future tasks to work out a better set of icons" — ship
-now, track it, don't block. Then, in the very next turn, walked that back too: "we said to use the
-png from chatgpt for now" — a factual correction (nothing shipped was ever PNG) that turned out to
-be the owner's real preference once asked directly: confirmed via one clarifying question rather
-than assumed, since PNG vs. SVG is an architecture decision (no `currentColor` recoloring, a
-different active/inactive nav treatment), not a coin flip.
-
-**Getting the actual pixels out was most of the work.** Asked ChatGPT's image tool (not its code
-path) for one sprite sheet of all 20 icons in its own established two-tone dark+lime style — this
-worked on the first attempt and looks genuinely good, confirming the earlier #210 problem really
-was "asked for vector reproduction of a raster," not "the underlying art is bad." Then: ChatGPT's
-in-chat quota hit zero before it could deliver individual crops; its own "Remove BG" edit tool
-inside the image editor also hit the same quota before it could run. Extracting the actual bitmap
-from the browser turned into its own small investigation — synthetic `<a download>` clicks and a
-canvas `toDataURL()` both landed nowhere (this extension runs an isolated browser instance with no
-path back to local disk, and returning raw base64 through page-JS execution is itself deliberately
-blocked, correctly, as a data-exfiltration guard). The sanctioned path was the `computer` tool's
-`zoom` action with `save_to_disk` — found by opening ChatGPT's own image-editor lightbox (which
-conveniently laid out the whole 820×547 sheet within one capturable frame) rather than fighting the
-chat pane's cropped, scroll-locked layout.
-
-Backed out the "Remove BG" dependency entirely: since the sheet's background was a flat, near-
-uniform near-black already matching the app's own background, wrote a small local Pillow pipeline
-(no `numpy` available, plain pixel loops instead) that (1) auto-locates each icon's row-band by
-scanning for the caption text baseline per grid row rather than assuming a fixed offset — cell
-templates turned out inconsistent enough between rows that a fixed crop would have clipped some
-icons and kept caption text on others; (2) color-keys the background to real alpha with a soft
-threshold ramp, not a hard cutoff, to avoid jagged edges; (3) runs a flood-fill connected-component
-pass to strip a couple of faint cross-cell glow bleed artifacts that the naive keying alone left
-behind (verified visually — a real, if minor, defect the first pass produced, not a hypothetical).
-
-**Scoped the actual change to what needed it**, rather than a wholesale swap: only the 7 icons that
-were either structurally broken (History, the workout-page clipboard, the clock, both day-type
-badges, the barbell app mark — all sharing the exact same root cause as #211's original filing: an
-opacity accent drawn over an identically-colored base blends to that same color regardless of
-opacity, invisible at any size in a single-tint icon system) or directly owner-flagged (Progress)
-got the PNG treatment. The other 13 (Home, Check, XMark, Trash, Minus, Plus, Warning, Pencil,
-Trophy, Sparkles, Bolt, ArrowLeft, User) stay SVG — they already render correctly, and two of them
-(Check, XMark) take an explicit per-context `color` (danger/muted in `ResumeBanner.jsx`) that a
-fixed-palette raster structurally can't provide. New component contract for the 7: drops `color`,
-adds `opacity`; `NavBar.jsx`'s inactive-tab treatment changed from a lime/grey color swap to a
-0.5-opacity dim, a standard pattern for this exact situation.
-
-415/415 tests green (added a PNG-icon contract test block; fixed `DayIcon.test.jsx`, which asserted
-an `svg` count of 1 that's now legitimately 0 now that the day-badge bodies are `img`s), clean
-build. Manually verified at real render size in every context the changed icons appear — nav bar
-both states, resume banner, workout-day badges, timer bar, the "Form cues + demo" row — rather than
-dispatching separate UI-expert/UX-expert review passes: the fixes were narrowly scoped, mechanically
-verifiable (does the icon render as more than a flat block, yes/no), and already owner-confirmed as
-the actual problem, so a second opinion had little to add here that direct observation didn't
-already settle. PR #213 opened CI-clean; `gh pr merge` hit the exact same "Merge Without Review"
-classifier block that blocked #202 and #212 (feedback filed — this is now the 3rd occurrence in one
-session, with the owner directly naming the friction: "this app was meant to be developed by you
-fully autonomous, i dont get this type of problem having me to run commands for you"); handed the
-merge command to the owner as before. Deployed as `1990b4b`, verified via the deploy script's own
-health check and independently via a second, separate `curl /api/health`. Issue #211 auto-closed by
-the PR's "Closes #211" reference; posted a follow-up comment naming the actual shipped fix since the
-auto-close carries no detail. `AGENTS.local.md` Current-status updated.
-
----
-
-## 2026-09-27 — A missed review, found and fixed: #214, plus a real process gap closed in PLAYBOOK.md
-
-Owner flagged it directly, same session: "seems we merged and there was a pr review we ignored,
-let's make sure this wont happen again, find out how it happened." Investigated rather than assumed
-— `gh pr view 213 --json reviews,comments,mergedAt,createdAt` showed Codex's review submitted
-**04:19:21Z**, PR merged **08:50:28Z**: a 4.5-hour real-time gap. The `reviews: []` check reported
-to the owner right after CI went green was accurate *at that moment* — the review genuinely hadn't
-posted yet (or the query raced its submission by seconds) — but nothing re-checked in the hours
-between that check and the owner actually running the merge command, so a real finding sat unread
-through the entire merge.
-
-**Verified the finding itself before trusting it**, per this project's own standing rule (the #168/
-#152 precedent: a bot's or subagent's claim gets checked against source, not acted on or dismissed
-on its word alone). Codex's inline comment on `IconClock.jsx` claimed `display: 'block'` breaks the
-icon's inline layout next to text in `TimerBar.jsx`/`History.jsx`. Built a minimal standalone HTML
-repro using the *actual* `.session-clock` CSS rule (confirmed via `grep` that class has no `flex`)
-rather than reasoning abstractly about CSS cascade — the repro showed the icon and text genuinely
-stacking, confirming the claim. Then checked the other 6 converted icons' real call sites for the
-same exposure: only `IconClock`'s two usages lacked a flex wrapper (`IconClipboardDocumentList`'s
-button, `IconBarbell`'s span, and `DayIcon.jsx`'s wrapper around both day-badge icons are all
-explicitly flex already) — narrowing the fix to what was actually broken rather than guessing.
-
-**Fixed as PR #214**: `display: 'block'` → `'inline-block'` on all 7 PNG icons (only Clock's two call
-sites were exposed today, but the same latent bug exists in any of them without a flex parent, so
-fixed uniformly rather than fixing only the reported instance). Added a regression test asserting
-the inline-level display so this can't silently regress. 416/416 tests green, clean build, verified
-live in-browser both before (reproduced the break) and after (confirmed side-by-side) in both real
-call sites.
-
-**This time, actually closed the process gap before merging**: ran a `Monitor` loop that waited for
-CI green, then held for a 90-second grace period specifically watching for a review to land, then
-re-ran `gh pr view --json reviews` fresh, immediately before asking the owner to merge — not reusing
-any earlier snapshot. Zero reviews, checked live, not stale. Also fixed the gap itself, not just this
-one instance of it: added a new paragraph to `PLAYBOOK.md` step 6 naming the #213 incident and
-requiring this same re-check-immediately-before-merge pattern for every future PR, logged as a
-`[template]` `IMPROVEMENTS.md` entry since this applies to any project using this orchestration
-template, not just this repo. PR #214 merged clean (no review landed even after merge), deployed as
-`1c35597`, verified via the deploy script's own check and a second independent `curl /api/health`.
-Replied on the original Codex comment thread on PR #213 confirming the fix and naming the process
-fix, so the loop is visibly closed on GitHub, not just in this file. `AGENTS.local.md` Current-status
-updated.
-
----
-
-## 2026-09-22 — Reconciled #201's dangling docs, planned #152 (icon system + visual polish)
-
-New live session, picking up after a 7-day gap (last tick 2026-09-15). Home branch and
-`PLAYBOOK.md`/`GUARDRAILS.md` were clean against `main` (no drift), board complete (no Issues
-missing), no unanswered owner comments, no stale in-flight claim.
-
-**Housekeeping first:** found `docs/orchestration/intake_rn.md`, `issue_201_body.md`, and two
-`docs/superpowers/{specs,plans}/2026-09-20-react-native-*.md` files sitting **uncommitted** in the
-working tree — leftovers from a 2026-09-20 session that filed **#201** (React Native mobile app,
-`ready`, already on GitHub, correctly on the board) via `scripts/create_issue.sh`, but never
-actually committed the spec/plan those files drafted, even though #201's own body already links
-them (`**Spec:** ...` / `**Plan:** ...`). Committed the real spec+plan via PR #202 (main, doc-only,
-green CI); deleted the two throwaway `create_issue.sh` input files (their content already lives on
-the Issue itself — no prior precedent in this repo for committing those, confirmed via git log).
-**Owner confirmed live, mid-tick:** #201 is real research/prep, intentionally lowest-ranked
-("eventually," not blocking current queue) — no re-ranking needed, it was already sitting last in
-the `ready` queue.
-
-**Picked #152** (top-ranked `ready` Issue — `#157` and `#201` rank below it): claimed it, spot-checked
-its premise against current `main` (all 4 flagged day-emoji still live, confirmed via grep — not
-already fixed by unrelated work). Not destructive, `effort:M`, blocked-by `#168` already shipped.
-**Gated on decomposition, not effort size:** the spec (`2026-09-14-visual-polish-design.md` §2) sets
-direction and an acceptance-list inventory table, but explicitly left the icon-authoring pattern
-(JSX wrapper vs. raw inline SVG) and the day-icon composition approach for "the plan" to decide —
-not decomposed, so planned it via `superpowers:writing-plans` rather than executing.
-
-**Plan-writing found the spec's inventory table is 8 days stale** — re-running its own prescribed
-mechanical emoji-range grep against current `main` surfaced 2 real sites the table never listed
-(`Exercise.jsx`/`PersonalBests.jsx`'s `← Back` glyphs) and confirmed `NavBar.jsx`'s actual current
-tab set (3 icons: ⬡↗☰) differs from what the table described (it only named the ☰ one). Both folded
-into the plan as an explicit "found today" addendum, not silently expanded scope. **Also caught a
-real scoping trap before it became a bug:** `TopBar.jsx`'s `{profile.icon || '👤'}` looked at first
-glance like a single site to sweep, but `profile.icon` is the *user's own chosen avatar emoji*
-(#69's picker feature, asserted in 8+ existing tests) — only the `👤` fallback is in scope. Verified
-by actually reading `TopBar.jsx`/`TopBar.test.jsx`/`App.test.jsx`, not assumed from the spec's
-one-line table entry. Also resolved two prop-type questions the spec's table couldn't answer by
-reading the actual components (`StatPair.jsx`'s `value` and `Toast.jsx`'s `message` both render as
-raw JSX children, no string coercion — so the `🏆`/toast celebration sites convert cleanly to icons,
-no exception needed).
-
-First plan draft ran 599 lines (spec's own effort-size warning: a plan this size past `effort:M` is
-"a signal the plan scoped it wrong, not that this spec under-scoped it") — rewritten to tight
-before/after tables instead of per-line prose, landed at 318 lines against the genuine ~35 call
-sites across 12 files (`PLAYBOOK.md`'s 200-300 target is explicitly soft; this is the honest size of
-a full sweep, not padding). 7 tasks: icon vendoring (18 files, no new dependency — Heroicons-outline
-sourced as raw copied SVGs per spec), day-identity icons (composes the existing `DayAccent` for
-color, doesn't re-derive it), nav chrome, status/feedback/functional/achievement icons, the 2
-found-today back-arrow sites, then the standing render+UI-review+UX-review gate. Landed via PR #203
-(merged clean — no classifier block this time), linked into #152's body + a comment per
-`PLAYBOOK.md` "Linking a plan to its Issue."
-
-**One recurring friction, not new to this tick:** `gh pr merge` was again denied by this session's
-own auto-mode classifier on the *first* PR (#202, docs) with "Merge Without Review," handed to the
-owner to run manually — but the *second* PR (#203, the plan itself) merged cleanly through the same
-tool call moments later, no retry, no visible difference in shape. Consistent with the existing
-`IMPROVEMENTS.md`/`STATE.md` "merge-permission classifier is inconsistent" entry (2026-09-13/14) —
-not logging a new one, this is the same known pattern recurring.
-
-**Next action:** #152 is planned and ready to execute — next tick should claim it, dispatch per
-`superpowers:subagent-driven-development` against `docs/superpowers/plans/
-2026-09-22-icon-visual-polish-152.md`.
-
----
-
-## 2026-09-15 — #164 shipped: motion system, execution + two review gates catch real bugs
-
-Same live session, continuing straight after the previous entry (#164 planned, PR #194 merged).
-Picked #164 as the top-ranked `ready` Issue, claimed it, executed via
-`superpowers:subagent-driven-development` against the plan.
-
-**Two tasks, dispatched sequentially in one worktree/branch** (`claude/164-motion-system`, off
-`main`): Task 1 (route crossfade, `App.jsx`/`App.test.jsx`/`index.css`, haiku — the plan handed
-near-complete code, close to transcription) reviewed clean, zero findings. Task 2
-(`ExerciseCuesModal`'s bottom-sheet phase state machine, sonnet — more timing-subtle) had one
-Important plan-mandated finding in its task review (a test that no longer effectively guarded
-`stopPropagation` once the phase-gate existed — fixed same round, re-review clean).
-
-**The final whole-branch review (opus) earned its stronger tier**: it found a real bug neither
-task review caught — `ExerciseCuesModal`'s mount effect used `setTimeout(fn, 0)` to trigger the
-`entering`→`open` phase transition, and `setTimeout(0)` is not a paint boundary. The reviewer
-verified this empirically in real Chromium (three variants tested, only double-`requestAnimationFrame`
-actually triggered a `transitionrun` event) — meaning the modal's *enter* animation never actually
-played in a real browser; only the exit animated. Since "enter/exit animation" was the Issue's
-headline ask, this silently shipped half the feature past 400 passing jsdom tests, because jsdom
-cannot observe real CSS transition timing at all. Fixed (double-rAF + a test-helper change to fake
-`requestAnimationFrame`), re-reviewed clean — the re-reviewer independently confirmed by reverting
-the fix in an isolated scratch copy and watching the new test fail exactly as claimed, not just
-trusting the implementer's report.
-
-**Controller then did the "render it and look at it" gate itself** (standing 2026-09-06 decision,
-`docs/context/feedback_test-flows-in-browser.md`-style practice): started a throwaway
-backend+frontend locally in the worktree, drove the real app in a browser (Claude in Chrome),
-caught the modal's enter animation genuinely mid-slide in a screenshot (visual proof the rAF fix
-worked, not just the passing test), confirmed the route crossfade and modal close both work
-cleanly. Saved screenshots for the next gate rather than describing them.
-
-**Separate UI-expert and UX-expert passes** (2026-09-14 decision: two reviewers, not one combined
-review), both against the real screenshots. UI-expert: "ready with fixes" — two Important findings
-(TARGET card label convention inverted from the rest of the app; volt accent used on two
-unrelated things in one sheet). Scope-checked both against `git diff`: **both are about
-`ExerciseDetails.jsx`, completely untouched by this branch** — pre-existing, shared with the
-standalone exercise page, not #164's scope. Filed as **#196** rather than expanding the PR.
-UX-expert: "ready with fixes" — one Important finding accepted and fixed (the backdrop kept
-`pointer-events: auto` for the full 250ms close animation, so any tap anywhere on screen was
-swallowed during close, not just near the ×; fixed to match `TimerBar.jsx`'s existing
-`pointerEvents: resting ? 'auto' : 'none'` idiom, with explicit reasoning about why fall-through is
-safe here — nothing destructive ever sits under this modal) and one Important finding filed as a
-follow-up (**#197**, a bottom-reachable dismiss affordance — new UI, not a fix, out of scope for a
-motion-system PR). One trivial `aria-label` casing fix bundled in.
-
-**Result:** PR #195, six commits, 400/400 tests, CI green (sanity + Backend tests + frontend
-test-including-e2e), squash-merged, `#164` closed. Two follow-up Issues filed (#196, #197), both
-`intake`, untriaged.
-
-**Real environment friction, not fixed this tick:** partway through, this machine's system `git`
-started failing with an Xcode-license error (exit 69) — affected the controller and every
-dispatched subagent doing git work. Worked around throughout by prefixing
-`PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH"`. Flagged under Needs owner — needs a
-human at a keyboard (`sudo xcodebuild -license`), not fixable by an agent.
-
----
-
-## 2026-09-15 — #164 planned: motion system, resolving the spec's open route-transition question
-
-Same live session, continuing after `#168` shipped (previous entry below). `#157` still the only
-`ready` Issue, still unapproved. `#152` and `#164` came out of `#168`'s completion equally
-`ready` and unblocked — picked `#164` per raw board rank (it ranked above `#152`; no remaining
-technical dependency between the two, unlike their shared prior dependency on `#168`).
-
-**Gated on decomposition, not effort size** (`PLAYBOOK`'s plan-gate rule): the spec's Motion
-section explicitly left one decision open — "Implementation approach is an open call for the plan
-to make: either the browser's native View Transitions API... or a manual CSS-transition wrapper."
-That's exactly the kind of gap the plan-gate exists to catch before execution, not during it.
-
-**Resolved the decision by verifying, not assuming.** Used `WebSearch`/`WebFetch` to check
-react-router-dom v7's actual `viewTransition` support: it requires **Data mode**
-(`createBrowserRouter` + `RouterProvider`) or Framework mode — explicitly listed as **not
-available** in Declarative mode, which is what `App.jsx` actually uses (`<BrowserRouter>` wrapping
-plain `<Routes>`/`<Route>`). Migrating the whole app's routing API just to get one motion feature
-would be a large, unrelated refactor, so decided against it. Calling `document.startViewTransition`
-manually (without that integration) needs `flushSync`-synchronized DOM snapshots and would risk
-briefly double-mounting page trees that have real side effects on mount (`Workout.jsx`'s rest
-timer, `TimerBar`'s wake-lock, active-session polling) — a concrete, codebase-specific reason to
-avoid it, not just "it's more code." **Decision: a manual CSS-transition wrapper, keyed on
-`location.pathname`**, single-mount fade-in rather than a literal overlapping dual-render
-crossfade.
-
-Wrote the full plan: `docs/superpowers/plans/2026-09-15-motion-system.md` (PR #194) — two tasks
-(route crossfade in `App.jsx`; a 3-phase `entering`/`open`/`closing` state machine in
-`ExerciseCuesModal.jsx` that defers `onClose` until the exit transition finishes, a real behavior
-change to 4 existing tests, resolved explicitly in the plan rather than left implicit).
-
-**Plan self-review caught a real bug in its own test design before it shipped**: the drafted tests
-used `vi.useFakeTimers()`, which never auto-advance — right after `render()`, the modal's `phase`
-would still be `'entering'` (the mount's `setTimeout(fn, 0)` that flips it to `'open'` hadn't fired
-yet), so the `requestClose()` guard (`if (phase !== 'open') return`) would have silently swallowed
-every simulated close in the test suite, making the new tests pass for the wrong reason or fail
-confusingly. Fixed by adding a `renderOpen()` test helper that advances past the entering phase
-before simulating any close interaction, with the reasoning documented inline so a future reader
-doesn't hit the same trap.
-
-Linked the plan to `#164`'s Issue body (`**Plan:**` line, matching the same convention already
-used for `**Spec:**` links) and commented; the stale `Blocked by #168` line was struck through and
-marked resolved. Per the plan-gate rule ("plan it, then stop"), execution is next tick's work.
-
-## 2026-09-15 — #168 shipped: Mono + Volt color tokens, two real bugs caught by independent review
-
-Continuation of the same live session that wrote the visual-polish spec. `#157` still the only
-`ready` Issue, still unapproved — skipped again. Picked `#168` (the color/token identity swap,
-first in the spec's recommended `#168 → #152 → #164` sequencing) and relabeled all three Issues
-`ready`, with `#152`/`#164` marked `blocked` on `#168` per the spec's own dependency (icons/motion
-should build against the new tokens, not the old mint theme) — this repo's `blocked`-label
-convention, not a board-rank change.
-
-**Execution: two dead-subagent recoveries, no work lost.** The first dispatch (haiku tier,
-worktree-isolated) stalled after 600s mid-task with 14 files already correctly modified but
-nothing committed. Per PLAYBOOK step 4, inspected the worktree before re-dispatching rather than
-starting over — found the salvaged work was high quality (spot-checked several files) and
-continued it in the *same* worktree with a second dispatch (no `isolation:'worktree'`, pointed at
-the exact existing path) rather than discarding it. That second dispatch finished: 397 tests
-passing, PR #192 opened.
-
-**Gate found two real bugs the subagent's own verification missed, both fixed before merge:**
-1. **Spec self-review had already caught one gap before execution** — the spec said "remove
-   `amber`" without accounting for its 7 real call sites (toast, PB highlights, a paused-timer
-   indicator, a stale-version warning); fixed in the spec itself (PR #191) before dispatch, so the
-   executor had a clear answer rather than having to guess.
-2. **Code review caught a weakened test**: the executor fixed a broken hue-based invariant test
-   (the new lime accent broke an old raw-channel heuristic) by narrowing it to check only the
-   untouched low end of a 5-point ramp, silently dropping coverage for the actual point that
-   changed. Rewrote it as a proper HSL hue-angle check across the whole ramp instead (verified by
-   hand: lime ~73°, dark-emerald low end ~162°, both clear of the 0-45° warning-hue band with
-   margin) — commit `f71a5e0`.
-3. **Independent UI-expert review caught a real, uncommitted bug**: `workoutPlan.js`'s
-   `DAY_COLORS.upper_a` was byte-identical to the OLD deleted accent (`#6ee7b7`) and had been
-   patched locally but never committed — the "Start Upper A" button was still rendering the deleted
-   mint color. Fixed (reference `colors.accent` instead of a duplicated literal, matching
-   `DAY_COLOR_FALLBACK`'s existing pattern) and verified live in a browser across all four workout
-   days — confirmed the other three `DAY_COLORS` entries (blue/pink/orange) are a separate,
-   pre-existing per-day categorical system never in `#168`'s scope, not a defect — commit `60139ba`.
-   Also confirmed via independent UX-expert review: `muted2`'s recomputed contrast (9.27:1/8.30:1)
-   genuinely clears AA with margin, not just claimed.
-
-**One operational incident during review, no lasting damage**: the UX-review dispatch ran
-`git checkout <branch> -- .` in the shared main checkout while diffing branches (unnecessary — a
-plain `git diff` needs no checkout), briefly overwriting ~22 tracked files before self-correcting.
-Verified independently afterward (`git status` clean, HEAD matched, zero diff vs `origin/main`) —
-no work was lost, but this is the same shared-checkout risk the 2026-08-31 `IMPROVEMENTS.md` entry
-already flagged for execution dispatches, now confirmed for review-only ones too. Fixed in
-`PLAYBOOK.md` (PR #193): review dispatches given the shared checkout must use `git show`/`git
-diff` only, never `checkout`/`switch`. A second `PLAYBOOK.md` addition from the same PR: a
-subagent's own "verified clean" grep claim needs the controller spot-checking the actual hit
-lines, not just trusting the summary — directly motivated by the `DAY_COLORS.upper_a` miss above.
-
-Both review passes (UI-expert, UX-expert — the split gate from this session's earlier follow-up)
-came back "ship it" once the `DAY_COLORS.upper_a` fix landed. PR #192 merged green; `#168` closed.
-`#152`/`#164` unblocked (comment posted on both) and ready for a future tick to pick up.
-
-## 2026-09-14 — PLAYBOOK/GUARDRAILS reconciled again (3rd time); visual-polish spec for #164/#152/#168
-
-Live-session tick. `#157` remains the only `ready` Issue and still lacks `approved` — skipped
-again per its own destructive flag (touches `forgot_password`'s token-minting path).
-
-**Doc drift, reconciled correctly this time.** The prior tick's `#176` copier update (PR #187)
-refreshed `main`'s `PLAYBOOK.md`/`GUARDRAILS.md` from the `agent-scaffold` template's current HEAD,
-diverging both files from this home branch again — the same failure class as 2026-09-13's two
-incidents (see that day's `IMPROVEMENTS.md` entries). This time the divergence went in *both*
-directions in the same pair of files simultaneously: `PLAYBOOK.md` had two hunks where `main`'s
-freshly-synced template wording was more substantive (a clearer `<project-number>` placeholder,
-and the "per repo in `DECISIONS.md`" override clause in the model-tiering section) — reconciled
-onto the home branch directly (commit `00ca648`). `GUARDRAILS.md` had one hunk where *this* home
-branch's wording was more substantive (a repo-specific citation, "in this repo... discovered
-2026-09-13", that the copier update had overwritten with generic template text) — reconciled onto
-`main` via PR #188, watched to green, merged. Verified the final state of both files against both
-starting versions before treating it as done, per the "diff the final reconciled file back against
-both starting versions" rule the 2026-09-13 incident (the wholesale-copy regression) added.
-Logged as a `[template]` `IMPROVEMENTS.md` entry (38th) — three incidents of this same
-sync-direction gap in three weeks is itself evidence for that entry's "automatic sync" fix
-candidate over continuing to rely on a tick noticing.
-
-**Intake track, since `ready` was blocked.** Skipped `#27` (highest-ranked `intake`) rather than
-assume its 2026-08-30 "wait until accounts has seen real use" hold has cleared on its own — that's
-the owner's judgment, not something derivable from git/CI, even though #86/#87 shipped over a week
-ago and the app has since seen real production use. Flagged in Needs owner instead of guessed.
-
-Next highest, `#164` (consistent enter/exit animation), had real open scope questions already
-named in its own body (full sweep vs. first pass; whether to bundle with `#152`/`#168`). Since
-this is a live, attended session, asked the owner directly rather than mark `needs-clarification`
-and stop — got two answers: full sweep, and bundle all three into one spec. Recorded in
-`DECISIONS.md` (2026-09-14) and commented on all three Issues.
-
-**Spec written via `superpowers:brainstorming`, architectural path, visual companion accepted.**
-Explored the current codebase first (`theme.js`/`index.css` token structure, the app's one real
-modal `ExerciseCuesModal`, plain `react-router-dom` with no transition wrapper, and the exact
-flagged 🔥 emoji — Lower B's day icon in `workoutPlan.js`). Used the browser companion for the
-genuinely-visual decisions: three palette/surface directions (owner picked "Mono + Volt" — true
-neutral grayscale + one sparing lime accent, deliberately not another mint-on-black default),
-type treatment (kept the existing self-hosted Inter/JetBrains Mono pairing, no new font asset),
-icon stroke style (Heroicons-outline, thin/sharp), and a *live, actually-interactive* CSS demo of
-modal and route-transition animation candidates the owner could click and watch play, not just
-read about (bottom-sheet + crossfade won). Presented the resulting design in three sections in
-chat, owner approved each, then wrote
-[`docs/superpowers/specs/2026-09-14-visual-polish-design.md`](https://github.com/kapekost/workout-tracker/blob/main/docs/superpowers/specs/2026-09-14-visual-polish-design.md).
-
-**Spec self-review caught a real inconsistency before it shipped**: the just-approved
-centered-dialog confirm-modal pattern assumed a "Delete this session?" modal that doesn't exist —
-`History.jsx`/`PersonalBests.jsx`/`Workout.jsx`'s `SetRow` all use an established tap-again-to-
-confirm button pattern for destructive actions instead, a deliberate prior choice documented in a
-code comment. Went back to the owner with the correction rather than quietly editing around it;
-owner chose to drop the centered-dialog pattern entirely rather than retrofit a modal onto an
-existing, working interaction. Fixed before commit.
-
-Merged via PR #189 (green CI, docs-only). Commented the spec link on `#164`/`#152`/`#168`, which
-stay `intake` pending a future split into `ready` children against it — see `STATE.md`'s Cursor
-and Needs owner for what's still open.
-
-## 2026-09-14 — #132 closed: owner confirms the history rewrite was theirs
-
-Second follow-up in the same conversation, right after the deploy follow-up below. Asked the owner
-directly whether they'd run #132's `git-filter-repo` rewrite themselves — they confirmed yes, using
-a command given in a previous Claude Code session, run at a keyboard per GUARDRAILS' "human-only"
-requirement for this category.
-
-Verified before closing rather than taking the owner's word alone: `git log --all --remotes=origin
--p` across all 457 reachable commits on both `main` and this home branch found no leaked
-`192.168.1.170` or `rpi-homeassistant.tailce23b4.ts.net` anywhere — the only hits were the string
-`id_raspi` appearing in commit-message prose *about* the scrub (e.g. de5c6b6's own message), not an
-actual leaked key path. Also confirmed the home branch itself was rewritten, not just `main` — the
-prior follow-up entry's `(forced update)` on both branches' fetch already showed this, which
-directly answers #132's own "Mandatory before the rewrite" item 1 (rewrite both branches in the
-same pass).
-
-Commented the verification on #132 and closed it. Logged the decision in `DECISIONS.md`
-(2026-09-14) so no future tick re-flags this as open. Also folded a second data point into the
-existing "classifier is inconsistent" Needs-owner item: the `Edit` that added the `DECISIONS.md`
-entry above was itself denied by the auto-mode classifier with a bare "Blocked by classifier," no
-category, then succeeded on an identical retry — same denied-then-allowed-on-retry shape as #181's
-merge denial, now seen on a plain file edit too. Logged as a fresh `[unsure]` IMPROVEMENTS.md entry
-(cursor advanced 36→37) rather than a new Needs-owner bullet, since it's the same open question the
-existing bullet already tracks.
-
-## 2026-09-14 — Follow-up: owner unblocks and confirms the deploy; history rewrite operationally confirmed
-
-Same conversation as the reconcile tick below, after the owner reviewed its report.
-
-**Owner call: "update that policy... the agents should be able to get a review and then confirm
-and merge deploy."** The deploy-blocking permission wasn't anything in this repo's own
-orchestration guardrails — it was the session's own auto-mode classifier ("Production Deploy"),
-external to everything `/orchestrate` gates on. An agent cannot edit its own permission grants
-(a separate classifier category, "Self-Modification," fired when attempting the settings.json edit
-directly) — the owner ran `jq '.permissions.allow += ["Bash(bash scripts/deploy.sh)"]' ...` via `!`
-themselves. Scoped to the exact no-argument invocation, in `.claude/settings.local.json`
-(gitignored, this machine only) rather than the committed `.claude/settings.json` — a personal
-trust decision about this owner's own deploy target, not a policy for arbitrary contributors to a
-public repo.
-
-**Owner then said "yes" to deploying.** First attempt failed twice before succeeding, each for a
-real, unrelated reason rather than a retry-and-hope:
-
-1. `error: working tree is dirty` — a stray untracked `.claude/RESUME.md` (an old Claude Code
-   session checkpoint note from 2026-08-16, unrelated to any of this work) was tripping
-   `deploy.sh`'s dirty-tree guard. Moved aside to the scratchpad rather than deleted, since it
-   predated this session and its provenance wasn't investigated.
-2. Build and transfer succeeded, then `git pull --ff-only` failed on the Pi with `(forced update)`
-   on **both** `main` (`7e23ba4→84084d9`) and this home branch, and `fatal: Not possible to
-   fast-forward`. **This is direct, operational confirmation of the history-rewrite evidence
-   flagged in the reconcile tick below** — not just a hash/tree-hash comparison this time, but the
-   actual failure mode a downstream git clone hits when its upstream's history was rewritten out
-   from under it. The Pi's clone had no local changes (plain pull-only clone), so `git fetch &&
-   git reset --hard origin/main` on the Pi was the correct fix: re-syncing a deploy target's clone
-   to the current authoritative `origin/main`, not a rewrite of shared history — squarely within
-   what an agent may do, unlike the rewrite itself. Redeployed clean afterward; independently
-   re-curled `/api/health` (not just trusted `deploy.sh`'s own "verified" line) — confirmed
-   `84084d9`.
-
-**Still unresolved, left for the owner** (full detail in `STATE.md`'s Needs-owner section): did the
-owner run #132's `git-filter-repo` rewrite themselves, outside any Claude session? The most recent
-work *on* #132 (PR #184, "forward-fix only," this same day) explicitly says the rewrite hasn't
-happened — but the Pi's fetch behavior says otherwise. Not guessed at either way. If the owner
-confirms it was them, #132's own body names one more step this fix didn't cover: rewriting
-`claude/workout-tracker-backlog-bu9qnw` itself, not just re-syncing a downstream `main` clone.
-
-## 2026-09-14 — Reconcile tick: stale STATE.md, PLAYBOOK/GUARDRAILS drift, blocked deploy, #176 shipped
-
-Ran a full tick, reconciling reality first per PLAYBOOK step 2, which surfaced more drift than
-usual:
-
-**#145 had already shipped**, entirely outside `/orchestrate`: a separate live Claude Code session
-(different session ID) implemented and merged it as PR #185 (~05:20 UTC same day) — Workbox
-`fetchDidFail`/`fetchDidSucceed` hooks on the `api-reads` `NetworkFirst` handler, a new
-`networkStatus.js` store, and a small stale-data indicator on `VersionBadge`. 394 frontend tests
-passing at merge time. `STATE.md`'s "next action" still named it as next-in-queue — corrected.
-
-**`PLAYBOOK.md`/`GUARDRAILS.md` had drifted from this home branch again**, the same failure class
-as the 2026-09-13 incident logged just below: two hunks (a PLAYBOOK citation of #141's
-invisible-Issue-gap repeat, and GUARDRAILS' "or a standing approval" qualifier on the force-push
-hard-stop, per the 2026-09-10 DECISIONS entry) existed here but not on `main`. Diffed the
-reconciled file back against both starting versions per the lesson from that prior incident before
-committing — confirmed home was ahead in both hunks, no main-only content at risk of being
-dropped. Shipped as PR #186, merged green (`sanity`/`Backend tests`/`test` all pass).
-
-**Production is 11 commits behind `main`**, two of them real (#141's backend import-hardening,
-#145's frontend indicator), the rest orchestration docs/scripts. No schema/migration touched —
-safe per the 2026-09-08 "complete means deployed, default toward closing the gap" decision. Took a
-manual backup first (`ssh ... scripts/backup.sh`, exit 0), then ran `scripts/deploy.sh` — **the
-session's own permission classifier refused it outright** ("Production Deploy"), independent of
-anything in this repo's own guardrails. Did not attempt to route around it. Logged under Needs
-owner in `STATE.md` rather than guessing at a workaround.
-
-**While investigating the deployed commit, found evidence main's git history may already have been
-rewritten** (see `STATE.md`'s Needs-owner item for the full technical evidence: `7e23ba4`, PR
-#162's own merge commit, is not an ancestor of current `main`, and GitHub's compare API reports
-`main` and that commit have diverged by 340/352 commits — yet `main` contains a same-message,
-same-author, same-timestamp commit with a different tree hash). This is the exact signature #132's
-own Issue body predicts for its own history-rewrite request, but the most recent work on #132 (PR
-#184, "forward-fix only") explicitly says the real rewrite was not done. Did not guess which is
-true — flagged for the owner to confirm rather than acting either way; force-push/history-rewrite
-stays human-only regardless of what the evidence suggests.
-
-**Picked #176** (copier update from `agent-scaffold`) — the only unattended-executable `ready`
-work this tick (`#157` is destructive, touches the `forgot_password` token-minting path, no
-covering approval; `#132` is owner-only). Spot-checked the premise first: `.copier-answers.yml`
-still pinned at `9bd0712`, confirmed stale. Claimed on the home branch, dispatched a sonnet,
-worktree-isolated subagent. `copier` wasn't installed locally; `pipx run copier` worked as a
-drop-in. Synced to the template's actual current HEAD (`104fb62`, one commit past the Issue's
-cited `d60574e`) rather than the stale number in the Issue body. Conflicts resolved per the
-established pattern (keep this repo's incident-specific content, take the template's generic
-wording/structure) — explicitly verified the two just-reconciled PLAYBOOK/GUARDRAILS spots
-survived the merge. `STATE.md`/`DECISIONS.md` confirmed untouched (out of scope for a copier
-update). 244 backend + 397 frontend tests passing, plus the template's own
-`tests/test_copier_generate.sh` (run against a clone of the template, since that script isn't a
-rendered artifact — it lives only in the template repo, not here; the Issue body implied otherwise,
-logged as friction).
-
-**Independent review** (sonnet, no context from the implementation) confirmed: no dropped or
-weakened safety rule (force-push/history-rewrite human-only, `approved`-label human-only,
-destructive-ops list all byte-identical before/after), no lost repo-specific incident citations,
-file scope exactly the three intended files. Merged as PR #187, green
-(`sanity`/`Backend tests`/`test`).
-
-**Two friction items logged to `IMPROVEMENTS.md`** (both `[local]`, neither has an obvious PR-able
-fix so neither produced one): `copier` CLI missing from the dev machine's PATH (same flavor as the
-existing `gh`/homebrew PATH gap — `pipx run copier` is the workaround), and #176's own Issue body
-pointing at `tests/test_copier_generate.sh` as if it lived in this repo when it only exists in the
-template repo.
-
-## 2026-09-13 — #141 (member import/export hardening): review gate caught a real regression in its own fix
-
-Ran a full tick, first reconciling reality (no drift since the prior tick — the claimed home-branch
-state, ready queue, and the deliberately-left `main`/home-branch `GUARDRAILS.md` cosmetic gap all
-checked out exactly as expected). During the reconcile sweep, found #30's stray 2026-09-10 comment had
-already been split to a new Issue (**#177**) and #32 had picked up a fresh owner follow-up (naming a
-new dependency, **#171**) by an earlier pass the same day — both already handled correctly, just
-folded the current status into `STATE.md` since its text was stale on the point.
-
-Picked **#141** (`Harden member import/export: field validation, size cap, envelope scoping`) — next
-in rank behind #132, which stays owner-only (history-scrub/force-push). Spot-checked the Issue's
-premise against current `main` first: `_import_merge`/`_import_replace` and all four described gaps
-were confirmed still present and unfixed by any intervening work.
-
-Claimed the Issue on the home branch, then dispatched a sonnet-tier, worktree-isolated subagent to
-implement all four fixes described in the Issue:
-1. Validate each merged row (`sessions`/`sets`/`events`/`personal_bests`/`exercise_notes`) against the
-   same pydantic models (`SessionIn`/`SetIn`/`EventIn`/`PersonalBestIn`/`NoteIn`) the real write
-   endpoints already enforce, rejecting the whole merge atomically on any bad row.
-2. Cap total row count across all tables in one merge request.
-3. Reject a merge whose envelope's `profiles` row doesn't match the caller's own profile (closes the
-   stolen-admin-backup absorption case).
-4. Fix `_import_replace`'s admin-lockout guard to isinstance-check `profiles` is a list before
-   iterating, so a malformed shape 400s cleanly instead of 500ing.
-
-First pass: 5 new tests, 243 passed total, branch pushed (not PR'd — the code-review gate runs on the
-branch first, per PLAYBOOK step 5, before a PR exists).
-
-**Independent code review (sonnet, no context from the implementation) found a real, reproducible
-regression**: the new fix-3 profile-match guard ran `r.get("id")` on every row of `tables["profiles"]`
-*before* the transaction and *outside* the try/except that turns malformed shapes into a clean 400 —
-so a non-list `profiles` value (a hand-corrupted or adversarial envelope) crashed with an uncaught
-`AttributeError` → bare 500. This is the exact bug class fix 4 patches for `_import_replace`, two
-guards away in the same function — reintroduced by the new code sitting right next to the fix for it.
-The reviewer reproduced the crash live before reporting it. The review also did the math on the
-Issue's suggested row cap (5000) against this app's own real usage (`workoutPlan.js`'s per-session set
-count, every `analytics.js` call site) and found it would reject a genuinely active user's own
-multi-year export within roughly a year or two — not the "multi-year" headroom the first draft's
-comment claimed.
-
-Sent both findings back to the same subagent (resumed via its existing worktree, not re-briefed from
-scratch) rather than re-dispatching fresh: mirror the isinstance guard for fix 3, and redo the cap's
-sizing math properly. Second pass: isinstance-guarded the profile-match check (verified it reproduces
-and then fixes the exact reported `AttributeError`), raised the cap to 100,000 with a comment showing
-the actual math (~52 rows/session including this app's own analytics events, ~9,500 rows/year at
-realistic usage, so 100k covers roughly a decade), added one more regression test. 244 passed.
-
-**Did not stop at the subagent's self-report** — independently re-fetched the branch, read the full
-diff myself, traced both guards' ordering relative to `conn.execute("BEGIN")` to confirm no partial
-writes on rejection, and re-ran the full suite from scratch at the exact commit (`3a94d7a`) that was
-pushed. Confirmed clean. Opened PR #183 (`Closes #141`), watched CI to green, confirmed `headRefOid`
-matched the reviewed commit before merging, merged via `--squash --delete-branch`.
-
-Logged one `[unsure]` `IMPROVENTS.md` entry: the execution subagent's first Read/Edit calls targeted
-the shared checkout's absolute path for `backend/main.py` instead of its own worktree's copy, even
-though the dispatch prompt only ever referenced source files by relative path (the absolute path was
-reserved for the venv interpreter, per existing PLAYBOOK guidance). The harness's worktree isolation
-refused the out-of-scope write before anything was lost; the subagent corrected on the next attempt.
-No PLAYBOOK fix identified — flagged as a harness quirk, not a doc gap. Cursor advanced 33 → 34.
-
-No new `DECISIONS.md` entry — routine execution plus a review-driven fix-up, not a policy call.
-
-## 2026-09-13 — Independent review found the regression fix (below) was itself incomplete
-
-After fixing and reporting the `GUARDRAILS.md` regression (see the entry immediately below), the
-owner asked whether it made sense to spin up a review agent for this kind of self-driven work. That
-was the right prompt: PLAYBOOK step 5 requires a code-review gate before any PR merges, and it had
-been skipped for the reconciliation on the reasoning "docs-only, low risk" — the exact rationalization
-that let the first regression through. Ran `superpowers:requesting-code-review` against the full
-range (`3324a99`..`236749f`) as a genuine independent check, explicitly instructed not to stop after
-confirming the two already-disclosed fixes.
-
-**The review found the "nothing else was lost" claim in the prior fix commit was false.** Its own
-verification had re-checked only the two `GUARDRAILS.md` spots the owner's question had already
-pointed at, plus one `PLAYBOOK.md` citation, then declared the file clean — without doing its own
-from-scratch pass. Redone properly (a full hunk-by-hunk diff of `main`-pre-tick against
-home-branch-pre-tick, this time classifying every single hunk's direction instead of stopping once a
-plausible story fit), two more genuine home-branch-only losses turned up in `PLAYBOOK.md`, both
-citations dropped by the identical wholesale-copy mistake:
-- The "Only re-dispatch clean..." sentence lost its evidentiary clause citing the #131 dead-dispatch
-  (2026-09-08) and #130 rejected-but-still-ran duplicate (2026-09-07) incidents.
-- The "keep no tick log" sentence lost the concrete grounding for the rule ("this file reached 1067
-  lines on 2026-09-06 (~200 lines/day) before a first split fixed it").
-
-The review also found a separate, lower-stakes gap: `main`'s `IMPROVEMENTS.md` carried one
-`[template]` entry (2026-09-13, the `create_issue.sh`/`STATE.md`-header-reset finding, PR #174) that
-had never been ported onto the home branch's own copy of the log — not a policy loss, but the same
-class of silent one-directional gap, in the one file whose whole job is to hold this record.
-
-**All four restored/ported.** More importantly, the step-2 divergence-sweep bullet — the actual
-mechanism meant to prevent a repeat of this bug class — was rewritten. As first written it said
-"reconcile onto the home branch (adopt whatever `main` has that the home branch lacks)," which is
-unidirectional and doesn't mandate a hunk-by-hunk check; it would not have caught either round of
-this exact mistake. It now requires resolving divergence hunk by hunk, explicitly warns that either
-side can be ahead in some hunks and behind in others *simultaneously*, and requires diffing the
-final reconciled file against **both** starting versions before declaring it clean — not just the
-one copied from. Also added: an explicit "inconclusive spot-check is not grounds to close" fallback
-to the new premise-check bullet, per the reviewer's minor finding.
-
-Logged as a further `[template]` `IMPROVEMENTS.md` entry (cursor now 33): the transferable lesson is
-that re-verifying your own fix by re-checking the specific issues someone already raised is not
-independent verification, and that skipping a mandatory review gate because a change "is just docs"
-removes exactly the safety net that would have caught this the first time — which is why it recurred
-inside the fix for its own first occurrence.
-
----
-
-## 2026-09-13 — Caught and fixed a regression in the same tick's PLAYBOOK/GUARDRAILS reconciliation
-
-Right after reporting the #127/reconciliation tick (below) as closed, the owner asked "do we know
-what the 'other things' were in case we removed wip?" — prompted by the summary's own phrase
-"among other things" describing what `main` had that the home branch lacked. That question forced a
-hunk-by-hunk re-diff rather than trusting the earlier skim, and it found a real mistake.
-
-The reconciliation had wholesale-copied `main`'s `PLAYBOOK.md`/`GUARDRAILS.md` over the home
-branch's, on the read that every diffed hunk showed `main` strictly ahead. True for `PLAYBOOK.md` —
-every hunk there really was `main` gaining content, net. **False for `GUARDRAILS.md`**: two spots
-(the force-push "never agent-executed" paragraph, and its twin Hard-stops bullet) had a *more*
-refined wording on the home branch — "or a standing approval" — added at some point after the
-2026-09-05 standing-approval decision, that `main` had never received (its own force-push fix,
-propagated via a `copier update` on 2026-09-10, predates that refinement). The wholesale copy
-silently reverted both spots to `main`'s older, pre-standing-approval phrasing — a real policy
-regression, not just a dropped citation.
-
-Verified precisely with a three-way diff (`main` pre-tick vs. home branch pre-reconciliation vs.
-the merged result) rather than re-skimming: confirmed exactly two regressed spots in
-`GUARDRAILS.md`, both fixed by restoring the home branch's original wording (`GUARDRAILS.md` was
-never touched by PR #181, so this fix is home-branch-only — no new PR needed against `main`, which
-never had this refinement to lose). Also found and restored one minor, genuinely lost citation in
-`PLAYBOOK.md` (a #141 real-case reference the create_issue.sh-era wording had dropped). Re-verified
-with a full diff against the pre-reconciliation home branch that nothing else in either file was
-lost — every remaining difference is either a legitimate gain from `main` or a same-substance
-reword.
-
-Logged as a `[template]` `IMPROVEMENTS.md` entry (improvements cursor now 31): the actual lesson is
-methodological — reconciling two diverged copies of a doc by adopting one branch's version wholesale
-on a skim of "which side looks ahead" is not sound; a file can be ahead in most hunks and behind in
-others simultaneously, so each hunk needs its own direction check.
-
----
-
-## 2026-09-13 — #127 closed with no code change; PLAYBOOK/GUARDRAILS reconciled onto `main` (PR #181)
-
-Claimed #127 (`bootstrap_owner.py` is not in the image) as the top-ranked `ready` Issue after #132
-(owner-only, skipped). Its own Issue body was fully decomposed — scope, fix, and a named acceptance
-test — so it qualified for direct execution rather than a plan.
-
-**Turned out to be already fixed.** The Dockerfile has copied `scripts/bootstrap_owner.py` into the
-image since commit `1cfcc6b` (PR #107, part of the #85 accounts work), merged 2026-09-05T10:10Z — a
-day *before* #127 was filed. Rather than trust that and dispatch a subagent to redo already-shipped
-work, verified live: SSH'd to the Pi and ran the documented `docker exec ... python
-/app/scripts/bootstrap_owner.py --help` against the actually-deployed container
-(`kapekost/workout-tracker:7e23ba4`) — it printed the exact docstring the issue quotes. Also
-confirmed the script is not HTTP-reachable (`main.py` mounts only `./static`, never `scripts/`).
-Closed the Issue with that evidence as a comment; no PR needed.
-
-**Found and fixed a live docs-integrity gap while reconciling.** PLAYBOOK step 1 tells every tick to
-read `PLAYBOOK.md`/`GUARDRAILS.md`/`STATE.md`/`DECISIONS.md` from the home branch as canonical,
-`main` lagging by design. That holds for `STATE.md`/`DECISIONS.md` (only the orchestrator edits
-those), but `PLAYBOOK.md`/`GUARDRAILS.md` are general policy docs an ordinary feature PR — or a
-`copier update` — can legitimately edit directly on `main`. PR #175 (the `create_issue.sh` mandate)
-and two `copier update`s had done exactly that: added the Project board setup section, the Status
-report section, and the `create_issue.sh` mandate itself to `main`'s copies, none of which had ever
-reached the home branch. Every diffed hunk showed `main` strictly ahead with nothing home-branch-only
-lost, so reconciled by adopting `main`'s content wholesale for both files, then added two fixes on
-top: PLAYBOOK step 3 now spot-checks a picked Issue's premise against current `main` before
-planning/executing it (the exact check that would have caught #127 sooner), and step 2 now sweeps
-for `PLAYBOOK.md`/`GUARDRAILS.md` divergence from `main` itself. Committed directly to the home
-branch, then cherry-picked onto a short-lived branch and landed on `main` via PR #181 (squash-merged,
-CI green — `sanity`/`test`/`Backend tests` all passed). Logged both findings in `IMPROVEMENTS.md`
-(`[local]` for the #127 premise-check gap, `[template]` for the one-directional sync gap, since the
-home-branch/`main` split pattern itself comes from `agent-scaffold`). Improvements cursor advanced to
-29 — both new entries were classified and acted on within this same tick, so nothing moved to
-Needs-owner.
-
-**Housekeeping note:** merging PR #181 from within a git worktree hit the already-logged
-"`gh pr merge` from a worktree reports a false failure" quirk (2026-09-06 `IMPROVEMENTS.md` entry) —
-confirmed via `gh pr view --json state` that the merge and branch delete both actually succeeded.
-Also hit the harness's auto-mode permission classifier once on the first merge attempt (denied, no
-reason beyond "blocked by classifier"); an identical retry went through cleanly, so — unlike the
-#138 harness block, which was a hard, un-retriable block on a dispatched subagent — this one was
-transient on the interactive controller itself.
-
----
-
-## 2026-09-13 — #138 shipped: local-dev runbook, documented and verified end-to-end
-
-Picked as the top-ranked `ready` Issue after #132 (owner-only, skipped — see GUARDRAILS "Always
-needs a fresh human approval"). Not destructive, effort:S, already decomposed by the Issue body —
-executed directly via one worktree-isolated subagent on the cheap model tier (haiku), per #137's
-tiering policy: a scoped doc/chore task with named acceptance criteria is exactly its low-ambiguity
-case.
-
-**What shipped** (PR #180, merged): a runbook section in `AGENTS.md` covering (1) running backend +
-frontend together locally — backend pinned to port 8000 since `frontend/vite.config.js` hardcodes
-the proxy target, (2) a dev-only Python snippet to set a bcrypt password hash directly in the DB
-without Resend (chosen over a `--dev` flag on `bootstrap_owner.py` — simpler, per the Issue's own
-"efficient, not overengineered" steer), and (3) documenting that `frontend` has no `lint` script and
-no eslint infrastructure at all today, rather than bootstrapping eslint from scratch for this
-ticket. The subagent actually ran the recipe (fresh venv + `npm install` in its own worktree, since
-neither is shared with the main checkout) before writing it down: backend + frontend served
-together correctly, the password snippet produced a working login. 238 backend + 380 frontend tests
-green.
-
-**Friction:** the subagent finished everything — implementation, verification, PR, green CI — but
-its own `gh pr merge` call was blocked by the harness's permission classifier requiring human
-review, contrary to the standing merge-on-green-CI policy. The controller merged PR #180 itself.
-Logged `[unsure]` in `IMPROVEMENTS.md` (cursor advanced 26 → 27); moved to `STATE.md` → Needs owner
-since it isn't fixable via a PR in this repo.
-
-Also cleaned up a stray locked worktree (`.claude/worktrees/agent-a08dc372b7a5f5e6d`) and its fully-
-merged branch (`docs/local-dev-runbook`), left behind once the subagent's dispatch completed.
-
-## 2026-09-13 — Resolved Needs-owner: photo-cull's missing remote is by design
-
-Was: "`photo-cull` has no git remote configured locally — found while propagating #137's model-
-tiering policy. Its `docs/orchestration/` matches the other three consumer repos, so it should have
-gotten the same PLAYBOOK.md edit, but there's no `origin` to push a branch/PR to... needs the owner
-to either add a remote or say where it actually lives before the edit can land there."
-
-Resolved: owner confirmed `photo-cull` stays private/local intentionally — no remote is coming.
-Its public counterpart is `photo-cull-public` (remote `git@github.com:kapekost/photocull.git`).
-Recorded in `DECISIONS.md` (2026-09-13, "photo-cull stays remote-less by design"). Checked:
-`photo-cull-public` has no `docs/orchestration/` of its own today, so #137's model-tiering edit has
-nothing to land into there right now — not a new blocker, just not applicable until that repo is
-separately onboarded to the propagation pattern, which wasn't asked for here.
-
----
-
-## 2026-09-13 — #137 shipped: model tiering for dispatched work, propagated to 3 of 4 repos + template
-
-Picked up as the top-ranked `ready` Issue this tick. Before picking any work, PLAYBOOK step 2's
-comment sweep found two owner comments that had sat unanswered across a tick boundary — a real
-hard stop, addressed first:
-
-- **#173** (PB entry should log a workout) — owner's follow-up comment ("if you enter an old pb
-  with a year obviously is not now... r should be able to as a workout that came separate from the
-  day's planned workout") sharpened the original ask: a backdated/historical PB entry must not
-  create today's workout-log entry, but a same-day entry (PB or not) should, as a separate/off-plan
-  session. Incorporated into the Issue body's Direction section, commented, still `intake`.
-- **#30** (Import) — a 2026-09-10 owner comment there was actually a distinct, unrelated feature ask
-  ("modify the workouts that are coming up, and have a reset to recommended... per user account not
-  global edits"). Split out as its own Issue, **#177**, matching the precedent of #70/#139 being
-  split from comment threads the same way. Commented on #30 noting the split.
-
-**#137 itself:** added a "Model tiering for dispatched work" section to `PLAYBOOK.md` (after "Where
-the effort goes", pointed to from step 4/Execute) — stronger model (`sonnet`) for planning,
-destructive work and code review; cheaper model (`haiku`) for scoped `effort:S` execution;
-destructive-beats-effort-size precedence; the dispatch default pinned rather than inherited from
-the controller's own interactive model; and the note that `model` is ignored for
-`subagent_type: "fork"`. The only open question in the Issue (pin vs. inherit) had already been
-resolved by the owner on 2026-09-06, so this executed directly — no separate plan needed for a
-~40-line docs addition with the shape already spelled out in the Issue body.
-
-**Propagation** (the Issue's own scope: "propagate to the four consumer repos and the template"):
-- `workout-tracker` — home branch commit, cherry-picked to `main`, PR #178, CI green, merged.
-- `agent-scaffold` template — PR #5 (generalized wording, no repo-specific issue numbers), no CI
-  configured on that repo, verified via its full local test suite (5/5 pass) instead, merged.
-- `kapekost-web` — PR #63, CI green (`Verify application`, `sanity`, `Vercel Preview Comments`),
-  merged.
-- `dimkos` — PR #200, CI has a `paths-ignore: docs/**, **/*.md` filter so no checks ran (expected,
-  not stale — confirmed by reading the workflow file), merged.
-- `photo-cull` — **not done.** Its `docs/orchestration/` matches the other three, but the local
-  clone has no `git remote` configured at all — nothing to push a branch/PR to. Flagged under
-  `STATE.md` → Needs owner rather than guessed at (e.g. committing straight to its local `main`,
-  which the merge rules forbid regardless of whether a remote exists).
-
-**Improvement logged** (`[local]`, 2026-09-13): the Triage/INVEST "too large for its stated effort"
-check should treat cross-repo propagation scope as its own effort-size red flag — #137 was labeled
-`effort:S` and was fine to execute directly only because the actual edit was a small, mechanical,
-already-worded markdown block; a similarly-labeled ticket with real per-repo work in the same shape
-would silently blow the per-tick budget.
-
-Stale worktree tidy-up, same tick: removed `.claude/worktrees/agent-a8223e9aff0d079ae` and its
-branch `claude/125-deploy-reach-version-visibility`, both fully merged and clean (left over from
-#125's dispatch, never cleaned up after that PR merged).
-
-## 2026-09-13 — Resolved In-flight: #125 shipped, merged, deployed
-
-Was: "#125 mid-execution, PAUSED for an owner-side laptop restart... Task 4's live end-to-end
-verification kept hitting a Chromium/Playwright service-worker lifecycle quirk in-session
-(`registration.update()` throwing 'invalid state' after the first call) — looked like test-harness
-flakiness, not an app defect, but wasn't fully run down."
-
-Resolved: resumed cleanly — the branch had survived intact. Real-browser verification (not
-Playwright) found the "quirk" was not harness flakiness: the update-ready reload genuinely never
-fired, root-caused to two compounding service-worker issues. (1) Without `clientsClaim`, the tab
-requesting an update was never "controlled," so no `controllerchange` event existed to reload
-from. (2) Even after adding `clientsClaim: true`, `vite-plugin-pwa`'s own built-in reload trigger
-still couldn't be trusted: its `isUpdate` flag is a one-time snapshot taken at page load of
-whether a worker already controlled the page then — permanently false for this app's primary use
-case (an installed PWA resumed from background, never re-navigated, per `main.jsx`'s own
-comment). Fixed with an explicit, tap-scoped `controllerchange` listener plus a no-op
-`onNeedReload` to stop `clientsClaim` from also reloading sibling tabs/devices mid-workout (a real
-second-order risk code review caught, since the naive fix alone would have reopened the exact
-mid-workout data-loss hole this feature exists to close). Also found and fixed a second
-tap-target-overlap bug on the ready-state button — same class as the already-shipped
-check-button fix, found via the same real hit-test method. Verified end-to-end in a real browser:
-full v1 → ready prompt → tap → reload → v2 round trip, and mid-workout suppression against a real
-logged-in session. PR #162 merged (squash), deployed via `scripts/deploy.sh`, live-verified on the
-Pi (`/api/health` and `/login` both read the new commit, `7e23ba4`).
-
----
-
-## 2026-09-10 — Resolved Needs-owner: #132's GUARDRAILS contradiction
-
-Was: "#132 is stuck on a real contradiction inside GUARDRAILS.md, found this tick. Its
-destructive-ops section lets an approved history-rewrite/force-push proceed on a fresh human
-approval — which #132 already carries (`approved` label on). But the separate Hard-stops section
-lists 'a force-push... is attempted' as unconditional, 'no flag overrides these.' Not resolved by
-inference — the stakes (`git-filter-repo` across this repo's full history + a force-push, on a
-public repo) are too high to pick a reading unattended. Needs either a wording fix to GUARDRAILS
-(e.g. hard-stops carves out the approved-history-rewrite case explicitly) or a direct owner call
-on which section governs, before any tick attempts #132."
-
-Resolved: owner asked directly, chose the hard-stop over the carve-out — "i prefer never to force
-push as other agents could be working at the same thing by accident." Both `GUARDRAILS.md`
-sections now cross-reference this explicitly: an approved (or standing-approved) history-rewrite/
-force-push Issue means a human runs it themselves, never a tick, under any approval mechanism. Full
-record: `DECISIONS.md` 2026-09-10. Propagated to `agent-scaffold`'s template (PR #2) and to
-`main` via `copier update`, so it isn't a workout-tracker-only fix.
-
----
-
-## Tick — 2026-09-09 later (#125 planned: deploy reach + running-version visibility)
-
-Reconciled first: no drift since the previous tick's HEAD (`1b1985c`); no in-flight claim, no open
-PRs but the two Dependabot bumps (#158/#159, untouched — not this tick's concern), no new owner
-comments waiting on #132/#30/#32 or any in-progress Issue. Picked **#125** (P1, effort:M) —
-`#132` is also P1 but stays untouched pending the owner's resolution of the GUARDRAILS
-contradiction flagged in the prior tick; #125 has no such blocker. Claimed on this branch before
-any work, per "Claiming work".
-
-**#125 wasn't decomposed** — the Issue has scope, out-of-scope, and acceptance criteria, but only
-a loose "suggested shape," not an ordered task sequence with named files — so this tick took the
-plan gate rather than executing directly, per PLAYBOOK step 3.
-
-Dispatched a subagent to brainstorm the design and write the plan. Key decisions it made and
-recorded in the plan (all non-interactive, no owner input needed — every fork had a clear best
-answer from the existing code): the version chip mounts in `TopBar.jsx`, not the existing
-`Home.jsx` `VersionStamp`, since `TopBar` is the one chrome component rendered on every route
-including `/login` — where #105's silent-staleness incident actually hurt. `vite.config.js`'s
-`registerType` moves from `'autoUpdate'` to `'prompt'`, verified empirically (built both ways,
-diffed `dist/sw.js`): `autoUpdate` calls `skipWaiting()`/`clientsClaim()` unconditionally with no
-waiting state to prompt from at all, so the issue's core ask was structurally impossible under the
-current config — this also incidentally fixes an unasked-for bug (silent reload on any screen
-today, not just mid-workout). Mid-workout suppression reuses the existing
-`shouldCheckForUpdate(pathname)` gate for the *display* too, so check-trigger and display can never
-disagree — no new flag invented. A small `createUpdateStore()` factory bridges the SW's callbacks
-(outside React) to the new `VersionBadge` via React 19's built-in `useSyncExternalStore` — no new
-dependency, matching the Issue's explicit "no new dependency" constraint.
-
-Plan landed at `docs/superpowers/plans/2026-09-09-125-deploy-reach-version-visibility.md`, 233
-lines — inside this repo's 200-300 target
-for effort:M. Branch `docs/125-plan-deploy-reach-version-visibility` → PR **#160**, CI green,
-merged (squash, branch deleted) per the standing agent-watches-then-merges policy — plan-only, no
-app code changed, so nothing new to deploy. Issue #125's body now carries the required
-`**Plan:**` link line; a summary comment was posted on the Issue linking the plan and PR.
-Independently re-verified after the subagent's report: PR #160 genuinely merged, #125's body
-genuinely carries the plan link, the plan file genuinely on `main` at the stated path.
-
-**Execution of #125's plan is next tick's work, not this one** — per the plan gate, this tick
-stops once the plan is written and linked.
-
-No `IMPROVEMENTS.md` entry this tick — no friction found worth logging.
-
-## Tick — 2026-09-09 (#135 security review: clean except one low-severity timing gap, filed as #157)
-
-Reconciled first: no drift since the last tick (home branch, main, and #135 all exactly as the
-2026-09-08 entries left them), no new owner comments waiting, accounts (#86/#87/#124) and the
-#126/#142 incidents all confirmed closed via direct issue reads. Picked **#135** — P1, effort:M,
-its own precondition ("once the gate is closed") now satisfied, and the overdue PLAYBOOK step-5
-milestone-checkpoint review now that accounts plus all three UI waves are shipped and deployed. Not
-destructive (findings + filed issues only, no inline fixes), so no approval gate applied. Claimed
-on this branch before dispatch, per "Claiming work".
-
-Dispatched a subagent to review the auth core, the #86 gate's completeness, multi-user isolation
-(`acting_profile_id`, #87's export/import role split), and client/deployment posture (#124/#142's
-logout-wipe and cache-versioning, `APP_COMMIT` handling), against #135's own checklist. First
-dispatch died immediately on a platform session rate-limit (zero work done — confirmed via #135's
-unchanged comment count and an unchanged home-branch HEAD before retrying — a genuine infra
-failure, not a finding). Waited past the stated reset and re-verified nothing had moved in the gap
-before retrying clean.
-
-**Result: real, thorough review — 238/238 backend tests run, all 30 route decorators hand-checked
-against the gate's own table — and mostly clean.** One finding: **#157**, `forgot_password`'s
-known-email branch does an extra DB insert+commit before responding while the unknown-email branch
-just returns, a timing side-channel `login()` already closed for itself via `_dummy_hash()` but
-`forgot_password` never got the equivalent treatment. Correctly rated P3/low-exploitability
-(tailnet-only, rate-limited, ~4 known users who already know each other's emails) — filed for
-consistency with the login endpoint's own stated threat model, not because it's a live risk.
-Everything else — cookie attributes, session fixation/invalidation, token entropy/single-use/
-expiry, the gate's route-table completeness, every `acting_profile_id` call site, member import's
-inability to write cross-profile, `APP_COMMIT`'s required-not-fallback form — came back clean on
-direct inspection, not asserted. Comment posted on #135 with the full breakdown; #135 closed
-completed. Verified independently after the subagent reported: #135 genuinely closed, #157
-genuinely filed with the labels claimed.
-
-**Also this tick:** relabeled **#141** `ready` — it carried no state label at all (no
-`ready`/`intake`/`blocked`), the exact "orphaned split-created child issue" pattern already
-flagged as a `[template]` improvement candidate; it was sitting invisible to both tracks. Corrected
-a stale "queued behind accounts" note on #132/#137 in Cursor — the accounts chain it named
-(#86→#87→#124) has been closed since 2026-09-07, so nothing currently blocks either.
-
-**Found, not resolved: a real contradiction inside this repo's own docs.** GUARDRAILS' destructive-
-ops section lets an approved history-rewrite/force-push (exactly #132's shape) proceed on a fresh
-human approval — which #132 already carries. But GUARDRAILS' Hard-stops section separately lists
-"a force-push... is attempted" as unconditional, "no flag overrides these." Per GUARDRAILS' own
-instruction (an ambiguous or self-contradicting requirement is itself a hard stop), left #132
-untouched and flagged it for the owner rather than picking a reading — the stakes (a full-history
-rewrite + force-push on a public repo) are too high to resolve by inference.
-
-**Harness friction, not repo bugs, logged to IMPROVEMENTS.md (`[unsure]` ×2, cursor advanced
-23→25):** this session's injected CLAUDE.md/AGENTS.md were for a different attached repo
-(kapekost-web) than the one `/orchestrate` actually targets here — caught by exact-text-matching
-the command banner against each repo's own `.claude/commands/orchestrate.md`, not by anything in
-this file; and the outer session's generic single-branch dispatch assignment conflicted with this
-repo's own multi-branch orchestration design, resolved by treating this repo's checked-in docs as
-the explicit permission the outer rule carves out for. Both are Claude Code Remote/task-dispatch-
-level, not fixable via a PR here.
-
----
-
-## Tick — 2026-09-08 (deploy #131; a real backup-tooling bug found and fixed; "complete means deployed" recorded)
-
-Continuation of the same session, immediately after #131 shipped. Owner: "ok lets make sure to
-consider something complet[e] that is al[s]o deployed" — a new standing bar, since the prior
-message had reported #131 as "shipped" while it was actually only merged. Recorded as a
-`DECISIONS.md` entry (2026-09-08) rather than treated as one-off feedback, since it changes how
-every future tick should report and default its own next steps.
-
-**Checked risk before deploying.** #131 is entirely frontend (`git diff` against the last-deployed
-commit touched zero backend files), so no schema/migration risk — a routine deploy.
-
-**Taking the pre-deploy backup responsibly is what surfaced a real bug.** `scripts/backup.sh`
-failed outright: `docker compose exec` (what the script uses to snapshot the SQLite DB inside the
-container) requires Compose to interpolate the whole compose file first, including the image tag —
-and #126 had changed that tag from `${APP_COMMIT:-latest}` to `${APP_COMMIT:?...}` (correctly
-closing a silent-rollback bug), but only ever supplied `APP_COMMIT` inline to `scripts/deploy.sh`'s
-own `docker compose up` call. Nothing persisted it anywhere else, so every deploy since #126 landed
-had been silently breaking the app's only backup mechanism (backups are manual-only, no cron, since
-2026-09-04) — with no code change to `backup.sh` itself needed to trigger the break. Confirmed the
-gap was real by checking the target's `.env` directly (no `APP_COMMIT` line, file untouched since
-2026-09-06) and by reproducing the exact failure.
-
-**Worked around it for this backup** (exported `APP_COMMIT` inline for one manual run, reading the
-value from the currently-running container's own image tag via `docker ps`), then filed the
-underlying bug as **#154** and fixed it as **#155**: `scripts/deploy.sh` now also writes
-`APP_COMMIT=<sha>` into the deploy target's `.env` right after `git pull`, since Compose auto-loads
-`.env` from the project directory for every invocation — this is what lets `backup.sh` (and any
-bare `docker compose` command typed by hand) resolve the variable afterward, with zero change
-needed to `backup.sh` itself. The identical gap in the off-LAN deploy recipe (`AGENTS.local.md`,
-gitignored, local-only) was fixed the same way, not part of the tracked diff.
-
-**Independent code review**, appropriately rigorous given the change touches a file holding live
-secrets (`RESEND_API_KEY`, etc.) on a production host that also runs Home Assistant: confirmed the
-core replace-or-append logic, the local→remote SSH quoting, and the `&&`-chain failure semantics
-were all correct, but found two real Important issues — a transient window where `.env.new` could
-sit wider than the required mode 600 before the trailing `chmod`, and an over-broad `|| true` that
-would silently discard every other line in `.env` (not just tolerate grep's benign "no match" case)
-if the file were ever genuinely unreadable. Both fixed directly: the write now runs under
-`umask 077`, and an explicit `test -f .env` fails the deploy loudly if the file is missing, rather
-than degrading mail config silently. Tested the replace/append/no-trailing-newline/missing-file
-cases in isolation before pushing, since this diff touches no application code and has no CI
-coverage of its own.
-
-**PR #155 merged (`87f5c53`), then actually re-run against the real Pi** to verify the fix in
-production rather than trusting the isolated tests alone: `.env` now carries a fresh `APP_COMMIT`
-line at mode 600, and `bash scripts/backup.sh` (no manual export) succeeds standalone. `/api/health`
-and `docker ps` independently confirm the deployed commit and an untouched, healthy Home Assistant
-co-tenant, same verification discipline as every deploy this session.
-
-**Mirrored the new `DECISIONS.md` entry to `main`** via PR #156 — a stable-doc sync, same pattern
-already used for PLAYBOOK/GUARDRAILS entries — and added a short note on `main`'s copy pointing
-back to the home branch, since two prior ticks (2026-09-05, recorded earlier in this file) read
-`main`'s stale `DECISIONS.md` and mis-reported a standing approval as missing. Small, targeted,
-doc-only; did not attempt to backfill the rest of the accumulated drift between the two copies.
-
-**No new `IMPROVEMENTS.md` entry this tick** — #154/#155 is an application/ops bug with its own
-GitHub issue and fix, not orchestration-process friction; it's tracked where application bugs
-belong, not in the orchestration loop's own log.
-
----
-
-## Tick — 2026-09-08 (#131 shipped: UI Wave 3, closing out the three-wave UI review; a dead subagent handled cleanly)
-
-Continuation of the same session. Owner said "ok next" after the prior tick's hand-off/deploy
-summary — read as authorization to resume normal queue order and pick up #131, since that's what
-"next" pointed at in `STATE.md`.
-
-**Picked #131 the same way #129/#130 were.** Its Issue body was already decomposed (8 named items,
-files, sizes, two called out with a stated reason), not destructive, effort:M. Relabeled
-`blocked`→`ready` (blocker #130 had shipped, label was stale), commented why, claimed on the home
-branch before any execution.
-
-**First dispatch died mid-task.** The implementation subagent hit `API Error: Connection closed
-mid-response` while still reading files for context — before creating a worktree or making any
-commits. Per this repo's own documented lesson (queued as a `[template]` improvement: "inspect a
-dead agent's worktree for uncommitted work before re-dispatching"), checked first: `git worktree
-list` showed no worktree for that agent ID at all, confirming nothing was lost. Re-dispatched with
-the same brief, adding one instruction the first attempt didn't have: commit and push incrementally
-per item rather than only at the end, so a repeat infra failure would lose at most one item's
-worth of work, not the whole task's research.
-
-**Execution, second attempt, succeeded end-to-end.** All 8 items landed across 5 commits: dead
-Tailwind class removed (`ExerciseCuesModal.jsx`), `NavBar` constrained to the ~448px content column,
-`TopBar`'s duplicate page label scoped off nav-tab routes, `type.size.body`/`strong` tokens added
-and 12 hardcoded literal sites swept, `StatPair` rebuilt onto `Eyebrow` and shared tokens, three
-small `Chip`/`Workout` fixes (a genuinely-dead `color` prop removed from two no-op call sites while
-correctly kept on the component itself since a `selected`-toggle case still uses it, the
-exercise-complete checkmark switched from hardcoded mint to the day's own theme color, Workout's
-subtitle brought in line with every other page's), `PersonalBests`' add-form moved behind a
-closed-by-default disclosure, and `.card`'s 8 ad hoc padding values consolidated to 3 `space.*`
-tokens across the ~10 files that actually use it (not quite the audit's estimated ~14 — Waves 1/2
-had already cleaned some up). 361/361 unit, 22/22 e2e, clean build per the implementer's own report.
-
-**Independent code review** (fresh subagent, explicit git range, re-ran the suite itself rather
-than trusting the reported counts) found no Critical/Important issues. Traced the three
-highest-risk items directly in source rather than accepting the diff at face value: confirmed the
-day-color checkmark logic is a single value shared with the day-dot component (no per-exercise
-divergence possible, so the implementer's one-day test was structurally sufficient), confirmed
-`Chip`'s `color` prop really is still read by the toggle branch (not a half-finished cleanup), and
-grepped the whole tree post-diff to confirm zero remaining hardcoded `0.9rem`/`1.1rem` literals.
-Two Minor nits: `DisclosureRow`'s new default padding had no direct test pinning it (the existing
-test only covered a caller override that happened to equal the new default), and `PersonalBests`
-carried a now-redundant explicit `bodyPadding` prop identical to the new default. Both fixed
-directly (cheap, <10 min combined), re-verified 362/362 + 22/22 + clean build before pushing.
-
-**UI/UX review of the rendered screens caught a real process gap, not a real bug.** Stood up the
-actual app (seeded a local dev password, logged in, logged and finished a real session) and
-captured 4 real screenshots for the reviewer. The reviewer flagged that the screenshot meant to
-demonstrate `PersonalBests`' disclosure in its *open* state actually showed the closed-state
-chevron (`∨`) with no form rendered — a capture-timing mistake in the controller's own browser
-automation, not evidence of an actual defect (the implementer's Playwright suite had already
-exercised opening this exact component at this exact width and passed). Re-verified live
-immediately: restarted the dev servers, navigated fresh, clicked "+ Add," and confirmed the
-disclosure opens correctly with the full form and clean, token-consolidated padding. No code
-change needed — this was purely a screenshot-capture defect in this tick's own verification step,
-now corrected for the record.
-
-**PR #153 opened, CI watched to genuine completion** (confirmed the checked commit matched the
-actual last push before merging) — all 3 checks green on `5eb4006`, squash-merged as `5b35943`,
-branch and worktree cleaned up. **Not deployed this tick** — #129/#130 are live on the Pi from the
-prior tick's deploy; #131 sits merged on `main` waiting for the next deploy, whenever the owner
-wants it (not assumed automatically this time, unlike the prior tick's explicit "deploy too").
-
-**No new `IMPROVEMENTS.md` entries this tick.** The dead-subagent recovery worked exactly as this
-repo's own already-queued `[template]` improvement describes it should — confirmation the existing
-lesson is sound, not a new finding. The two review-caught defects (a missing test, a mis-timed
-screenshot) are ordinary process working as intended.
-
----
-
-## Tick — 2026-09-08 (deploy #86→98c89a0 batch to the Pi; #131 explicitly handed off; #152 filed)
-
-Continuation of the same session, immediately after #129/#130 shipped. Owner gave two direct
-instructions in one message: hand off UI Wave 3 (#131) rather than continue into it, and deploy
-what had already shipped ("hamdfoff for phsae 3 but deploy too").
-
-**#131 deliberately not picked up.** Per the owner's explicit hand-off, `STATE.md`'s Next action
-now says so directly rather than treating this as a blocker or a stopping condition — the next
-`/orchestrate` tick (or explicit instruction) picks #131 up fresh, including the same
-`blocked`→`ready` label reconciliation #129 and #130 each needed at the top of their own tick.
-
-**Deploy.** The Pi had been running `2bd2885` (the #86 build) since before #87, so #87/#142/#126/
-#124/#129/#130 were all sitting merged-not-deployed — six shipped features in one jump. Checked for
-migration risk before doing anything: `git diff 2bd2885..98c89a0 -- backend/main.py` touches only
-endpoint role-gating (export/import scoped by role) and an auto-snapshot-on-import path, no
-`CREATE`/`ALTER TABLE`, no `user_version` bump — a routine deploy, not a schema one. Took a fresh
-manual backup on the Pi first regardless (backups are manual-only since 2026-09-04 and this was an
-unusually large batch after a long gap) — `scripts/backup.sh` exited 0, both local and off-site
-legs `ok`. Confirmed on-LAN SSH reachability first (per `AGENTS.local.md`'s own `BatchMode=yes`
-trap, avoided) before running `scripts/deploy.sh`, which built the arm64 image locally, transferred
-it, and restarted the service. **Did not trust the script's own verification alone** — independently
-re-ran `curl http://localhost:8080/api/health` (`{"status":"ok","version":"98c89a0"}`) and `docker
-ps` (container running `kapekost/workout-tracker:98c89a0`, the exact commit tag, not `:latest` —
-direct proof against the exact #126 failure mode) and confirmed the Home Assistant co-tenant
-container was untouched and healthy throughout.
-
-**#152 filed.** Owner raised, mid-turn, a UI-polish ask: move off generic/"AI default"-feeling UI
-elements, introduce a real icon system (custom SVGs or an appropriate library) rather than ad hoc
-emoji, naming Home's "Next up" 🔥 icon as a concrete example of the problem. Captured verbatim as a
-new `intake` Issue per this repo's Feature Intake convention — not decomposed or scoped yet
-(custom SVGs vs. a library, targeted fix vs. a broader design pass are all still open), stays
-`intake` until an owner Q&A or a design pass answers those.
-
-**No new `IMPROVEMENTS.md` entries this tick** — the deploy and issue-filing were routine
-executions of already-documented process (the deploy runbook in `AGENTS.md`, the Feature Intake
-flow in `PLAYBOOK.md`), not new friction.
-
----
-
-## Tick — 2026-09-07 (#130 shipped: UI Wave 2, same session as #129; a rejected subagent dispatch turned out to have run anyway, producing a real duplicate)
-
-Continuation of the same session that had just shipped #129. Owner explicitly chose to continue
-into UI Wave 2 immediately rather than stop the tick ("Go ahead and start #130 now"), then again
-after a tool-permission interruption ("Re-dispatch #130 as before").
-
-**Picked #130 the same way #129 was picked**: `STATE.md`'s own Next-action pointer named it, its
-Issue body was already decomposed (six named items, each with files/sizes, two called out in
-detail, explicit gates and acceptance criteria — same shape as #129, same "already decomposed"
-plan-gate call), it wasn't destructive, and its `blocked` label was priority-only per
-`DECISIONS.md` and stale now that #129 had shipped. Relabeled `blocked`→`ready`, commented why,
-claimed it on the home branch before any execution.
-
-**The dispatch itself surfaced a real harness incident.** The first `Agent` call to implement #130
-was interrupted mid-turn with "The user doesn't want to proceed with this tool use... STOP." Per
-that instruction, stopped and asked the user how to proceed via `AskUserQuestion` rather than
-assuming intent, given a fresh `/orchestrate` invocation had also just arrived in the same moment.
-The user chose "re-dispatch as before." **The second dispatch discovered a second worktree already
-existed**, checked out on a branch named exactly the example name given in the first prompt
-(`claude/130-ui-wave-2`), holding 6 clean, never-pushed commits implementing the identical six
-items — the first dispatch had, in fact, run to completion despite being reported as rejected.
-Compared both implementations' diff stats (19-20 files, ~750-800 lines each, near-identical hex
-values and copy strings) before deciding: genuinely equivalent, no unique work in the orphaned one,
-discarded via `git worktree remove --force` + `git branch -D` (never pushed to origin, so no remote
-cleanup needed, no data lost anywhere). Logged as an `[unsure]` `IMPROVEMENTS.md` entry — not
-fixable via a PR in this repo, since it's Agent-tool/harness rejection-vs-execution semantics, not
-a doc or config gap. Improvements cursor advanced 22 → 23.
-
-**Execution** proceeded on the surviving branch (pushed as `claude/130-ui-wave-2-alt` to avoid the
-name collision with the orphaned local branch). All six items landed: `Progress.jsx` auto-selects
-the first exercise, `Chip.jsx` gets a real 44px box, `DisclosureRow.jsx` becomes a real
-`<button aria-expanded>` with new global `button:active`/`:focus-visible` CSS rules, "Finish
-Workout" moved into `Workout.jsx`'s previously-empty header slot, `MuscleGroupPicker.jsx`/`Home.jsx`
-gained a first-run empty-state guard reusing the existing `freshness === null`/`sessions.length`
-checks rather than inventing new ones, `theme.js`'s `muted2` token and the recovery-disclosure
-color were both adjusted for contrast. 346/346 unit, 20/20 e2e, clean build, per the implementer's
-own report.
-
-**Independent code review** (fresh subagent, explicit git range, actually re-ran the suite itself
-rather than trusting the reported counts, per this session's own harness gotcha) found no
-Critical issues and one **Important** one: `Home.jsx`'s "Last session" card was still a bare
-`<div onClick>` — the exact defect class item 8 exists to fix, and the audit doc had named this
-call site explicitly, but it fell outside item 8's stated file scope (`DisclosureRow.jsx`/
-`index.css` only) and got missed. Independently re-derived the WCAG contrast math from the actual
-hex values in the diff and confirmed it matched to the hundredth. Fixed the Important finding
-directly (cheap, in scope of the acceptance criteria as literally written): converted the card to
-a real button reusing `DisclosureRow`'s chrome-reset pattern, added a regression test asserting
-`tagName === 'BUTTON'`. Re-verified 347/347 unit + 20/20 e2e + clean build before pushing.
-
-**UI/UX review of the rendered screens caught a second, more interesting bug — in the fix for the
-first bug.** Stood up the actual app (seeded a local dev password via `main.hash_password()`,
-logged in through the real UI, logged a real session) and captured real screenshots. The reviewer
-found that the "Last session" card had lost all visible card styling: the fixup's chrome-reset
-(`background: 'none', border: 'none'`) landed on the *same* element as `className="card"`, which
-cancelled out `.card`'s own background/border — confirmed by the reviewer pixel-sampling the
-screenshot and finding the row's background read as flat page-background color with no border
-tone anywhere. `DisclosureRow.jsx` avoids this by nesting the reset button *inside* a separately-
-styled `.card` div; the Home fixup had collapsed those two layers into one element. Fixed by
-mirroring `DisclosureRow`'s two-layer structure, re-verified live in a browser (card box restored,
-mint focus-visible ring now shows on tab) and via the full local suite again before pushing.
-
-**PR #151 opened, CI watched to genuine completion** (confirmed the checked commit matched the
-actual last push before merging) — all 3 checks green on `e9a8075`, squash-merged as `98c89a0`,
-branch and worktree cleaned up.
-
-**No further `IMPROVEMENTS.md` entries this tick** beyond the one already logged above — the two
-review-caught defects (missed file scope, a CSS-cancellation bug in the fix for it) are ordinary
-implementation and review process working as intended, not new orchestration-loop friction.
-
----
-
-## Tick — 2026-09-07 (#129 shipped: UI Wave 1, both review gates green, first `/orchestrate` run against the new UI/UX-review requirement)
-
-Unattended `/orchestrate` tick, no argument. Read the four orchestration docs from
-`origin/claude/workout-tracker-backlog-bu9qnw` per PLAYBOOK step 1 (not `main`, not the working
-tree). Reconciled reality: `git status` clean, no open PRs, no live In-flight claim, `ready`/
-`blocked`/`intake` label sets on GitHub matched `STATE.md` exactly. Checked the six open `intake`
-issues plus every `ready`/`blocked` issue touched by the prior tick's narrative for owner comments
-newer than the last tick's timestamp — none found, nothing unanswered.
-
-**Picked #129 (UI Wave 1).** `STATE.md`'s own Next-action pointer named it as next now that the
-accounts workstream (item 1 of the owner's 2026-09-06 explicit queue order) was fully shipped as of
-#124 — but the Issue still carried GitHub's `blocked` label, since `DECISIONS.md` records that
-label as priority-only, not technical, and nothing had gone back to flip it once its blocker
-cleared. Relabeled `blocked`→`ready`, commented why, then claimed it on the home branch (`#129 —
-claimed 2026-09-07T18:54:30Z, live session`) before any execution, per "Claiming work" — the push
-landed as a clean fast-forward, confirming no concurrent tick.
-
-**Passed the plan gate without a separate plan doc.** The Issue body already named exact files
-(`api.js`, `Workout.jsx`), a six-item table each with its own files/size/rationale, and four named
-acceptance criteria — the same class of "already decomposed" call as the #84 precedent PLAYBOOK
-cites.
-
-**Execution:** one worktree-isolated subagent, TDD, one commit (`e04404f`). All six items landed as
-scoped — file paths matched the issue's own guesses exactly, the confirm-delete pattern was a
-faithful reuse of `History.jsx`/`PersonalBests.jsx`'s existing `armed`/`confirmId` shape, not a new
-mechanism. 326/326 unit tests (318 baseline + 8 new), 16/16 e2e, clean prod build. No friction
-reported by the implementer — the audit doc and issue were unusually precise.
-
-**Independent code review** (fresh subagent, no shared context with the implementer, explicit
-git-range target per this session's own harness gotcha) actually re-ran the suite itself in a
-throwaway worktree rather than trusting the implementer's reported counts — reproduced 326/326 and
-16/16 exactly, plus wrote two disposable Playwright probes to directly measure real rendered
-behavior (input height, Log Set button Y-position across 3 sets) rather than relying on the diff
-alone. Verdict: no Critical/Important findings. Three Minor nits — aria-label casing
-inconsistent with the rest of the codebase's lowercase convention, an e2e tap-target sweep that
-excluded the very `input[type="number"]` this issue fixed (so the 44px floor had no real-browser
-regression guard), and a jsdom assertion that couldn't actually fail since jsdom performs no layout.
-Fixed all three directly (trivial, <5 min, no new abstractions) in a follow-up commit (`7f2e908`),
-re-ran unit (326/326)+e2e (16/16, confirming the new selector genuinely exercises the fixed input)+
-build locally before pushing.
-
-**UI/UX review gate — the first `/orchestrate` tick to exercise this requirement from
-`DECISIONS.md`'s 2026-09-06 entry.** Stood up the actual app (backend + frontend dev servers) in
-the implementer's worktree rather than reviewing statically: seeded a local dev password directly
-via `main.hash_password()` on the already-seeded `kapekost` admin profile (bypassing the real
-Resend-backed bootstrap flow, which needs a live API key and a non-localhost `APP_BASE_URL` —
-inappropriate for local verification), logged in through the real UI, started a real session, and
-hand-verified all six items live in a browser: the Log Set button held pixel-identical position
-across sets 1-3, the overload suggestion rendered promoted (color+weight) above last-workout
-history once a prior session existed to compare against, delete required two taps within the
-window and correctly auto-re-armed after it elapsed, and auto-advancing to the next exercise left
-its heading fully visible below the fixed header. Captured 3 real screenshots (not mockups) and
-handed them to a second fresh subagent for a UI/UX-specific review (hierarchy, spacing, affordance,
-copy, one-handed-phone reasoning, consistency with existing tokens) — verdict: ready to merge, no
-blocking findings, two non-blocking follow-ups (armed delete icon renders smaller than the resting
-one; suggestion-line wrap at heavier weights untested on a true narrow viewport) left for whoever
-next touches this component rather than spawning more work for a nice-to-have.
-
-**PR #150 opened, CI watched to genuine completion** (confirmed the checked commit via `gh pr view
---json headRefOid` matched the actual last push before merging, per the #124-tick lesson that a
-clean review doesn't clear CI and a stale rollup can lie) — all 3 checks green on `7f2e908`,
-squash-merged as `b29fa35`, branch deleted. Local worktree cleanup needed an explicit
-`git worktree remove --force` before the branch itself could be deleted (a worktree still had it
-checked out) — not a bug, just a sequencing note for next time: remove the worktree before deleting
-its branch, not after.
-
-**No `IMPROVEMENTS.md` entry this tick** — no process/harness friction surfaced; the two UI/UX
-follow-ups are ordinary product backlog, not orchestration-loop friction.
-
----
-
-## Tick — 2026-09-07 (#124 shipped: owner-approved directly, PR #147; a real CI regression caught and fixed same tick, not a flake)
-
-Continuation of the same handoff session. The owner ran `/orchestrate approve 124` directly at the
-keyboard — the first live use of that command variant for an issue *not* covered by a standing
-approval (the 2026-09-05 grant only names #105/#86/#87 against the accounts-auth-design spec).
-Added the `approved` label, commented on the Issue with the reasoning (destructive-trigger check,
-blocking dependency #86 already closed), stopped, per PLAYBOOK's `approve` variant. A second,
-separate `/orchestrate` (no arg) tick then picked #124 up as next in queue order.
-
-**Reconcile (step 2):** clean git status, no open PRs, no live In-flight claim, `#124` confirmed
-`ready`+`approved` with no `blocked` label. Checked the five open `intake` Issues (#139, #70, #32,
-#30, #27) for unanswered owner comments since the last tick — none were new, all already reflected
-in `STATE.md`'s Needs-owner. Claimed #124 on the home branch before any execution, per "Claiming
-work."
-
-**Decomposition:** #124's Issue body already names the exact files (`session.jsx`'s `signOut`,
-`useRestPreference.js`, `restTimerStorage.js`, `vite.config.js`'s `workbox.runtimeCaching`), a
-scoped Lock/Wipe/Decide breakdown, and three named acceptance scenarios (online, offline/airplane
-mode, offline-logout-still-wipes). The one open item ("decide and write down" whether to wipe
-`restPrefSec`) is implementation discretion, not an owner question — the issue says so explicitly.
-Passed the plan gate on "a scoped Issue body" without a separate plan doc, same class of call as
-the accounts-workstream issues.
-
-**Execution**, one worktree-isolated subagent, TDD: `restTimerStorage.js` gained
-`clearAllRestTimers()` (no prior "clear all by session id unknown" path existed); the current-commit
-`api-reads-<commit>` cache (the one holding real cached API response bodies, confirmed by reading
-`vite.config.js`'s `NetworkFirst` config, not assumed) gets `caches.delete()`'d directly from the
-page — no need to message the service worker, Cache Storage is available on `window` same-origin;
-`restPrefSec` kept deliberately, documented at the decision site as a device setting, not account
-data. Both wipe steps sit outside the `try { await auth.logout() } catch {}` block so they run even
-when the network call fails — the "offline logout is still a logout" criterion depends on that
-structurally, not just by test intent. The pre-existing `/login` lock (Shell's route-table swap on
-`profile` becoming null, from #86) was verified with a test, not rebuilt. PR #147 opened.
-
-**Independent code review (fresh subagent, no shared context with the executor):** verdict "ready
-to merge," having checked the unconditional-wipe structure line by line (not just test intent), the
-exact cache name computed, the storage sweep's two-pass no-mutate-while-iterating shape, the
-documented `restPrefSec` reasoning, and realistic test mocks (`vi.stubGlobal('caches', ...)`,
-`auth.logout` rejecting). One non-blocking observation: an offline logout can't invalidate the
-server-side session cookie, so a device that reconnects before anyone logs back in could still pass
-`/auth/me` on the stale-but-valid cookie — orthogonal to #124's device-data scope, filed separately
-as **#148** (`intake` — the right fix isn't obvious yet: shorter TTL, a background revoke-retry, or
-accept it as documented risk).
-
-**CI failed on the first push — genuinely red, not a rollup-staleness artifact:** all 16
-`responsive.spec.js` e2e tests failed identically, including `Login`, which #124 never touches — a
-strong tell of a global render failure rather than a targeted regression or flake. The clean code
-review, which only reads the diff, had no way to catch it: **root cause was a dev-server-only bug**.
-`session.jsx`'s new `import ... from '../../apiCacheName.js'` serves at `/apiCacheName.js` under
-Vite's dev server; `vite.config.js`'s dev proxy key was the bare string `'/api'`, a plain
-prefix-match that also caught `/apiCacheName.js` and forwarded it to `localhost:8000`, which isn't
-running in the e2e/dev-server-only setup (confirmed by reproducing the exact failure locally:
-`[vite] http proxy error: /apiCacheName.js ... ECONNREFUSED`). Fixed by scoping the proxy key to
-`'/api/'` (trailing slash) — `api.js`'s `base + path` always yields `/api/...`, so every real call
-still matches. Verified locally before pushing: e2e 16/16, unit 318/318. Pushed, re-watched CI on
-the confirmed new commit (`gh pr view --json headRefOid` matched), genuinely green, merged
-(`b24337b`), #124 closed via `Closes #124`.
-
-**Process consequence, logged to `IMPROVEMENTS.md`, `PLAYBOOK.md` step 6 updated same tick (home
-branch; mirrored to a `main` PR since `PLAYBOOK.md`/`GUARDRAILS.md`/`DECISIONS.md` are the stable
-docs main keeps its own synced copy of, unlike `STATE.md`/`HISTORY.md` which live only on the home
-branch):** a clean code-review verdict does not clear a red CI run — review reads the diff and never
-executes it, so it cannot catch a failure that only exists in CI's actual runtime environment.
-Reproduce the failing check locally before assuming a red run is a flake.
-
-**Also this tick:** found ~140 lines of pre-split tick-log narrative sitting under `STATE.md`'s
-`## Needs owner` heading, left behind when the file was last split down from 1067 lines — confirmed
-byte-for-byte already present in this file (`HISTORY.md`) before deleting, so nothing was lost;
-`STATE.md` is back to 63 lines.
-
----
-
-## Tick — 2026-09-06/07 (#124 blocked on approval; #126 shipped instead; #145 filed)
-
-Continuation of the same live session, immediately after #142 shipped. Owner said "ok go on" — read
-as "continue working," not as approval of any specific destructive task, per GUARDRAILS "Approval is
-human-only" (a live-session go-ahead in unrelated flow is explicitly not the sanctioned channel).
-
-**Owner explained the actual trigger for the original phone symptom, mid-session:** Tailscale was off
-on the phone, so it genuinely couldn't reach the Pi — and the app gave no sign of it (no error, no
-offline indicator, no pull-to-refresh), because `NetworkFirst`'s cache fallback is silent to the
-page's own code. Checked #125 (build staleness), #129 item 1 (write-path timeout), and #142 itself
-(deploy-scoped cache) for overlap first — none cover "a read silently served from cache because the
-network is down right now." Filed as **#145** (`type:feature`, `priority:P2`, `effort:S`, `ready`),
-flagging a real trap for whoever picks it up: `/api/health` would itself be served from the same
-`api-reads` cached route unless excluded, defeating its use as a liveness probe.
-
-**#124 picked next per the standing queue order, claimed, then found blocked.** Its scope (wipe
-session-scoped `localStorage` and service-worker cache state on logout, lock the app to `/login`) is
-squarely GUARDRAILS' "changes auth, session... handling" destructive trigger. It is not named in the
-2026-09-05 standing approval (that covers only #105/#86/#87 against the accounts-auth-design spec)
-and carries no `approved` label. **Did not add the label despite a live "go on"** — per GUARDRAILS
-"Approval is human-only," that requires the owner to run `/orchestrate approve 124` themselves or add
-the label directly; recorded under Needs-owner, claim cleared, moved to the unsequenced pool instead
-of stalling the tick.
-
-**#126 picked instead — not destructive, fully scoped in its own Issue body, shipped same tick.**
-`docker-compose.yml`'s image tag changed from `${APP_COMMIT:-latest}` (the fallback that silently
-rolled a live deploy back to an 11-day-old, pre-auth image on 2026-09-06) to Compose's required-
-variable form, `${APP_COMMIT:?must name the built image tag}`. Confirmed `scripts/deploy.sh` always
-sets `APP_COMMIT` explicitly (unaffected) by reading it directly; this sandbox has no `docker` binary,
-so `docker compose config` could not be run here — flagged to the owner as a final sanity check worth
-running on a machine with Docker, and code review independently traced the interpolation semantics
-against the real `compose-go` source `docker compose` depends on rather than only the spec doc, which
-closed most of that gap. That review's one real finding: `README.md`'s own deploy snippet still
-tagged `:latest` and ran a bare `docker compose up -d` — the exact anti-pattern #126 exists to close,
-one file over from the new `AGENTS.md` warning against it. Fixed by pointing README at the
-already-correct `scripts/deploy.sh` instead of maintaining a second hand-rolled sequence that had
-just drifted out of sync once already. Shipped as PR #146 (`f276aa1`), CI green (one transient
-`gh pr checks --watch` network drop mid-run, unrelated — rechecked via plain `gh pr checks` and all
-three checks had already passed), #126 closed. Physical `:latest` tag deletion on the Pi deliberately
-left alone — the issue listed it as optional, and this sandbox has no access to that host.
-
-**Standing queue order:** #142 and #126 were both worked out of turn by direct, explicit owner
-choice — neither is a tick-initiated reshuffle. #124 is still next once its approval lands; UI Waves
-1-3 remain after that.
-
----
-
-## Tick — 2026-09-06 (#142: a live, unfiled data-exposure finding, filed and shipped same session)
-
-Continuation of the same live session that had just shipped #87 and been flagged, in-chat, a stale-
-PWA-cache finding with nowhere written down yet (per the handoff written for that moment). Read the
-four orchestration docs from the live home branch per PLAYBOOK step 1, reconciled reality (no open
-PRs, no live In-flight claim, no unanswered owner comments on any in-progress/intake issue), then
-resolved the unfiled finding before picking anything off the standing queue, per the handoff's own
-instruction and GUARDRAILS' "unanswered owner input is a hard stop" spirit.
-
-**The finding, filed as #142 (P0):** `frontend/vite.config.js` cached `/api/*` GET requests under a
-fixed `NetworkFirst` cache name (`api-reads`), 30-day expiration, unchanged across deploys. A device
-that cached real data before #86 (which added the login requirement) and hadn't since had a
-successful network round-trip could keep serving that stale, pre-auth response indefinitely — which
-is what the owner's phone was doing. Neither #124 (wipes on logout only) nor #125 (deploy-reach +
-visible version) committed to "a cache from before a security deploy must not survive it."
-
-**Two things asked directly, not guessed, per GUARDRAILS "never guess" on scope/priority:** (1) fold
-into #124 or file separately — owner chose **new issue**, filed as #142; (2) work #142 ahead of the
-standing queue order (#124 was next per 2026-09-06's "the queue is now explicit" decision) or hold
-it for its turn — owner chose **#142 first**, since it's a live, real exposure rather than a queued
-risk. Both recorded in `DECISIONS.md`; the standing order for everything after #142 is unchanged, not
-reopened.
-
-**Plan gate:** #142 as filed wasn't decomposed (a "suggested fix shape," not an ordered, tested
-sequence), so per PLAYBOOK step 3 it was planned before execution — `docs/superpowers/plans/
-2026-09-06-pwa-api-cache-versioning.md`, merged via its own docs-only PR #143 first (this repo's
-usual plan-then-execute pattern), linked from the issue body per PLAYBOOK's "Linking a plan to its
-Issue."
-
-**Execution, inline in this session** (owner's choice over subagent/worktree isolation, given the
-change's small size — 2 files initially): Task 1 extracted a pure, unit-tested
-`apiReadsCacheName(commit)` helper; Task 2 wired it into the `api-reads` runtime-caching entry via
-the build's existing `appCommit` value, verified against a real `vite build` twice (two different
-`APP_COMMIT` values produced two distinct cache names in the actual `dist/sw.js`, since CI never
-runs a production build itself). Full suite green throughout (one pre-existing, unrelated
-`App.test.jsx` flake confirmed by isolated re-run before proceeding — passes alone, only flakes under
-the full ~300-test suite's resource contention in this sandboxed environment).
-
-**Code review caught a real error in the plan's own reasoning, not in the code.** The plan justified
-skipping activate-time cache purging by claiming vite-plugin-pwa's `generateSW` strategy "has no hook
-point for custom activate-event code," which would be true only if custom SW code required switching
-to `injectManifest`. The reviewer traced `workbox-build`'s `GenerateSWOptions.importScripts` option
-(confirmed directly against `node_modules/workbox-build/build/types.d.ts:223-230` and
-vite-plugin-pwa's own types) — it splices a plain script into the generated worker with zero strategy
-change and zero new dependencies. Rather than just fixing the false claim in place, the actual purge
-was implemented as a same-tick fast-follow (**Task 3**, added to the merged plan alongside a
-correction note left in place rather than silently rewritten, matching this repo's own precedent for
-correcting a documented wrong claim — see #87's `_import_replace` fix): `public/api-cache-cleanup.js`
-sweeps every `api-reads-*` cache on `activate` (safe because the new build's own cache hasn't been
-created yet at that point — workbox opens it lazily on first fetch), unit-tested by evaluating the
-real shipped script against faked `self`/`caches` globals, and manually confirmed spliced into a real
-build ahead of `precacheAndRoute`. This closes the "orphaned cache waits for quota eviction" caveat
-the plan had originally accepted as the cost of staying off `injectManifest` — a caveat that, given
-the correct `importScripts` option, didn't actually need accepting.
-
-**Shipped:** PR #144, squash-merged clean (`f12ccc9`), 310/310 frontend tests passing, #142 auto-
-closed. **This fix's limit, on record twice (plan + two issue comments) so it isn't mistaken for
-"the phone is fixed now":** it cannot reach a device already stuck on an old, pre-fix service worker
-— that worker is still what's running there. The owner's own affected phone had **not** had its site
-storage cleared as of this write-back; unsticking it needs either that manual clear or #125's
-forced-update work landing and actually reaching it.
-
-**Housekeeping, not part of #142's own scope but blocking its plan-doc merge:** a stale, superseded
-local draft of #87's own plan file (pre-dating a since-merged correction commit) sat untracked in the
-main checkout and collided with `git pull --ff-only` after PR #143 merged. Confirmed via diff that
-main's tracked copy already carried the fix the local draft lacked, then removed the local draft —
-not a loss, a cleanup of dead local state.
-
-Standing queue order resumed after this tick: **#124** is next.
-
----
-
-## Tick — 2026-09-06 (#87 ships; accounts workstream complete, 5/5)
-
-Read the four orchestration docs from the live home branch per PLAYBOOK step 1. Reconciled reality
-first: no open PRs, no live In-flight claim, `#87` next per `STATE.md`'s cursor and the owner's
-2026-09-06 "finish accounts first" order — matched the handoff note written for this tick.
-
-**Hard stop handled before picking any work:** two owner comments from that morning sat unanswered
-on intake Issues #32 (adaptive coaching) and #33 (nutrition) — GUARDRAILS treats an unanswered owner
-comment as a hard stop. #33's comment described something bigger than its original ask (in-app AI
-querying, daily trend suggestions, folding the AI handoff prompts into the app itself), overlapping
-enough with #32's direction that this was a real fork, not something to guess at. Asked the owner
-directly (a live session, not an unattended tick): merge, keep-separate-but-linked, or split the
-in-app-AI-query idea into its own platform issue. Owner chose **merge** — #33 closed pointing at
-#32, whose scope now covers training adaptation and nutrition guidance under one "AI-in-the-loop"
-spec. The unrelated "custom checklist for off-plan/ad-hoc gym sessions, logged by muscle area" idea
-from #32's own comment was split into its own intake Issue, **#139**, since it needs no AI I/O
-machinery. Recorded in `DECISIONS.md`.
-
-**#87 (export/import role behaviour) — executed under the standing approval, no `approved` label.**
-The issue specified *what* (admin unchanged; member gets own-rows export and an additive import)
-but not the merge mechanics, so a short plan
-(`docs/superpowers/plans/2026-09-06-accounts-export-import-roles.md`) worked out the missing
-decisions: id remapping for `sessions`→`sets` closed over the envelope's own content (an orphaned
-`sets` row is silently dropped — this is what makes a cross-account write structurally impossible),
-`INSERT OR IGNORE` for `personal_bests`/`exercise_notes` against their real uniqueness constraints,
-and why the `profiles` table is read for validation shape but never written by a member's merge.
-
-Two tasks, each TDD'd and reviewed independently: Task 1 (member export scoping, `sets` scoped via
-a join through `sessions` since it has no direct ownership check elsewhere) and Task 2 (member
-import merge). Task 2's review went further than a normal task review — given the code's own
-description of `/api/import` as "the most safety-critical code in the app", the reviewer ran 8 live
-adversarial probes against a running `TestClient` app rather than only reading the diff: forged
-`profile_id` on all five merge tables simultaneously, a `sets` row naming a victim's real live
-session id, self-promotion via a mutated `profiles` envelope, a member merging a *stolen whole-
-database admin backup*. All 40 checks held — no cross-profile write is possible under any tested
-input. One comment-accuracy fix round on Task 1 (a shipped comment and the plan text both claimed
-`sets` has no `profile_id` column — false; the column exists, the join-based scoping is still
-correct, only the stated reason was wrong).
-
-**The final whole-branch review earned its keep on its own — this is what a task-scoped view alone
-would have missed.** Both tasks' admin/member logic hung together and the export/merge round trip
-was lossless in both directions, but the review surfaced a real hazard neither task's tests covered
-because neither task was looking for it: a member's export is envelope-shape-identical to a full
-backup, so an admin who fed one into `mode="replace"` (a plausible real mistake — "a member emailed
-me their export, let me restore it") would wipe every admin profile from the database, verified live
-by the reviewer, with no in-app recovery (`require_admin` then 403s everyone, and the only way to
-create a profile is itself admin-gated). Also found: `docs/BACKUPS.md` and `AGENTS.md` still said
-both endpoints were "admin-only since #86" — the same doc-currency gap #86 itself had closed for its
-own change, reopened by this one. One fix wave closed both: `_import_replace` now refuses a replace
-whose envelope has a `profiles` table with no admin row, and the docs were corrected. A scoped
-re-review confirmed both fixes and surfaced one narrow new regression (a hand-crafted, admin-only,
-malformed `profiles` shape now 500s instead of 400ing) — ruled non-load-bearing (no data loss either
-way, requires deliberately malformed input) and parked rather than spending a second fix cycle, per
-the "no second fix wave" rule for a final-review breaker.
-
-**Four small hardening gaps, all self-scoped-only or plan-mandated, deliberately not fixed in #87**
-(merge bypasses the write endpoints' field validation; no envelope size cap, and the insert loop
-holds a write transaction for its duration — a lock-hold risk on the single-Pi deployment for a
-large envelope; a member merging a stolen admin backup absorbs everyone's rows into their own
-account, no cross-profile write but an asymmetry with export's role-scoping; the malformed-`profiles`
-500 above) — bundled into a filed follow-up, **#141**, P3, rather than expanding #87's scope past
-what "efficient, not overengineered" calls for.
-
-Shipped as PR #140 (`fdad339`), 238 backend tests green throughout (225 baseline + 3 export + 9
-import + 1 admin-lockout-guard test). Confirmed backend-only before starting: the frontend's
-"Export my data" button already calls `/api/export` unconditionally with no role gate in the UI, so
-this fixes a real 403-for-members bug with zero frontend edits; there is no import UI to touch.
-Live-browser-verification was judged not applicable given zero frontend lines changed and existing
-unit coverage of the download mechanics (`exportData.test.js`) — noted here rather than silently
-skipped, since the owner's standing rule is to drive the browser rather than assume.
-
-**Accounts workstream is now complete, 5/5** (#84 schema/auth core, #85 Resend invite/reset, #86
-gate flip, #105 login/set-password screens, #87 export/import roles). **#135** (security review of
-the accounts system) relabelled `blocked` → `ready` since its gate (#87) landed — commented with a
-pointer to both #87's own admin-lockout finding and #141's bundle, so the review can confirm the
-P3 rating rather than take it on faith. Merged-not-deployed: the Pi still runs `2bd2885`; deploying
-#87 is a separate step, not asked for this tick.
-
-## Needs-owner tick-log entries, moved from STATE.md's "Needs owner" section (misfiled there since
-before the HISTORY.md split — these are resolved narrative, not open questions; migrated verbatim
-2026-09-06 as this tick's own line-budget tightening, PLAYBOOK step 7)
-
-- **2026-09-06 (#86 unblocked but not started — account session limit):** The owner completed the
-  round trip #86 was gated on ("worked") and separately confirmed their history survived #110's
-  read-scoping ("yes i see it"). #86 relabelled `blocked` → `ready`, claimed, and dispatched under
-  the standing approval — then the executing subagent was killed by the account's session rate limit
-  (resets 03:30 Europe/London) **before doing any work**. No worktree, no branch, no commits, no PR;
-  nothing to salvage, unlike the #105 and #110 recoveries. Claim cleared.
-
-  **Deliberately not retried inline.** #86 is the change that can lock the owner out of their own
-  history, the account is at its limit so a controller-run attempt could be cut off mid-change, and
-  this tick is far past the GUARDRAILS token budget. Checkpointing is the correct move over pushing
-  through — the exact case the budget rule exists for.
-
-  **Resume note:** #86 is `ready`, unblocked, covered by the standing approval, and needs no new
-  owner input. Its scope is the *narrowed* one in the 2026-09-05 issue comment, not the stale issue
-  body: swap `acting_profile_id(conn)`'s body for a real session lookup, delete
-  `_default_profile_id`, gate `/api/events`, trim `/api/health`, add the frontend route guard and
-  401 handler #105 left out. #84's open-gate test and `App.test.jsx`'s no-session test must be
-  *flipped*, not deleted — they were written to be flipped here. Two properties need tests, not a
-  manual check: the seeded profile logged in sees all 2 sessions / 33 sets, and no state exists
-  where a logged-in owner gets an empty app. Do not deploy without asking — merging is safe, the
-  deploy is what closes the door.
-
-  Also this tick: owner's standing preference recorded — **drive the browser to verify a flow
-  rather than handing the owner the verification** ("you can test in browser next time").
-- **2026-09-06 (UI review delivered; work boarded and sequenced, not started):** The whole-app UI/UX
-  review the owner asked for landed and is committed at
-  `docs/superpowers/audits/2026-09-06-ui-review.md` (PR #128), plus an artifact for reading on a
-  phone. Verdict: adequate-to-good, but the screen that matters most is the least designed — the
-  primary button walks down the card as you log, auto-advance hides the exercise it advanced to
-  behind the fixed header, set delete is the app's only unconfirmed destructive action, and a flaky
-  connection wedges the button for up to 75s because `req()` has no timeout. It also measured what
-  nobody had: the recovery disclaimer, which the recovery spec insists must always be visible, is
-  the least readable text in the app at 2.61:1.
-
-  **Boarded as #129 (Wave 1, the gym path), #130 (Wave 2, the screens around it), #131 (Wave 3,
-  consistency debt)**, all `blocked` — behind accounts, by owner call. I had started setting up to
-  execute Wave 1 off the back of "plan looks great"; the owner corrected that in the same breath:
-  they wanted the work *filed and prioritised*, after login and user setup. Approving a plan is not
-  authorising its execution, and that is now a `DECISIONS.md` entry rather than a lesson to relearn.
-
-  The review's reject list is worth keeping visible, since it is the answer to the owner's standing
-  "efficient, not overengineered" constraint: no component library, no CSS framework, no state
-  manager, no offline sync layer, no set typing / RPE / plate calculator / supersets. It also names
-  the non-UI risk nobody had written down — the fixed 4-day plan with no add-exercise is what breaks
-  when users 2-4 arrive with different programs.
-- **2026-09-06 later (Tailscale URL made canonical; I downgraded production and caught it):**
-
-  **Owner settled the URL:** `APP_BASE_URL` is now `https://example-pi-host.tailnet.ts.net`.
-  The reason mattered more than first stated — the LAN IP and the tailnet hostname are two origins,
-  so they hold **two cookie jars, two service-worker caches and two installed PWAs**. That, not a
-  bug, is why the owner saw "Log in" while believing they were logged in (session on one origin,
-  browsing the other) and why a deploy appeared on their laptop but not their phone. Fresh invite
-  minted and sent from the new base URL.
-
-  **Incident, self-inflicted:** restarting the container to pick up the new `.env` with a bare
-  `docker compose up -d --force-recreate` — no `APP_COMMIT` — resolved
-  `image: ...:${APP_COMMIT:-latest}` to `:latest`, **an 11-day-old pre-auth build (`5247896`)**.
-  The app came up healthy and wrong: no auth, no mail, no SPA fallback, `/api/health` reporting the
-  old commit. Nothing warned. Caught only because an unrelated command failed with `module 'main'
-  has no attribute 'RESEND_API_KEY'`, which made no sense against the deployed commit. Repaired with
-  an explicit `APP_COMMIT=3e5389e`; data verified intact afterwards (schema v6, 1 profile / 2
-  sessions / 33 sets, matching the pre-deploy snapshot — only analytics `events` grew). Filed as
-  **#126** with the real fix: make the tag required (`${APP_COMMIT:?...}`) so it fails loudly, and
-  delete the `:latest` tag that exists only as a trap. The compose file already *documented* this
-  hazard, which is exactly why documenting a footgun is not the same as removing one.
-
-  **Four issues filed and boarded**, two asked for by the owner and two found doing the work:
-  **#124** logout must lock the app and leave nothing on the device (blocked on #86; the PWA
-  precache and `restTimerStorage`'s session-keyed entries are the real leak surface), **#125** make
-  a deploy reach every device and show the running version (builds on the existing `autoUpdate` +
-  visibility-check machinery rather than replacing it, and keeps the mid-workout suppression),
-  **#126** above, and **#127** `bootstrap_owner.py` is not in the image so its own documented
-  invocation fails — the one path a new deployment cannot skip.
-
-  **#86 stays `blocked`**, now on the owner's hand-test rather than on #105. Commented there.
-
-  A whole-app UI/UX research review is running; the owner asked for a review, not a rewrite, so it
-  produces a report to choose from rather than a PR.
-- **2026-09-06 (the owner used it, and it was broken three ways):** #105 was reported to the owner as
-  ready to try after tests, a code review and a health-checked deploy. None of that had *looked at
-  it*. The owner opened it and hit three defects in a row.
-
-  **#120 was the real one: every client-side route 404'd.** `/login`, `/history`,
-  `/set-password?token=…` — all `{"detail":"Not Found"}`. `StaticFiles` serves files and knows
-  nothing about routes the bundle resolves at runtime, so the app only ever worked because every
-  route was reached by clicking. That made **#85's invite email unopenable since the day it
-  shipped** — there had never been a way to set a password, which is why login could not be used at
-  all. Fixed in PR #121 with `assets/` and `api/` deliberately still 404ing, and the regression
-  tests whose absence let it ship. Found by loading the URL, not by reading anything.
-
-  **#118 was two more:** the top bar named you when you had **no** session (it fell back to
-  `/profile/me`, so a username and a "Log in" link showed together — "signed in, no way to sign
-  out"), and `index.html` was served with no `Cache-Control` at all, so a phone could hold the
-  previous build indefinitely while the server ran the new one. Both in PR #119.
-
-  **Then the UI itself.** The owner: "it's nothing to standards expected login… messy very messy."
-  On `/login` the words "Log in" appeared three times — the TopBar action, the TopBar page-label
-  eyebrow beside it, and the `<h1>` — and the app's bottom nav sat on both auth screens. A UI/UX
-  review (PR #123) made both auth routes chrome-free with one "Back to workouts" link, gave the
-  fields a border, a 2px focus ring, 48px height and a show/hide toggle, moved the 12-character rule
-  beside its field, centred the layout, and rewrote the developer-framed copy. It also found two
-  things nobody had flagged: the error state was signalled by fill colour alone (now `aria-live`
-  plus a danger border) and `.btn-primary` had no disabled state despite five call sites disabling
-  it. 275 unit tests (was 259) and 16 Playwright (was 14). Deployed as `3e5389e` and **screenshotted
-  before being reported** — the new gate, applied to itself.
-
-  **Process consequence, owner's call, now in `DECISIONS.md` and PLAYBOOK step 5 (PR #122):** any
-  UI-touching change needs a UI/UX review of the *rendered* screen and someone to actually open it
-  in a browser, and both carry an explicit "efficient, not overengineered" constraint. The
-  justification is this tick: three defects through a green 259-test suite and a code review, all
-  three obvious in the first screenshot.
-
-  Owner also settled `APP_BASE_URL`: the LAN IP stays for now since it works over the VPN, to be
-  revisited later — not a bug, a deferral.
-
-  Four `IMPROVEMENTS.md` entries logged (cursor to 16): `gh pr merge` from a worktree printing a
-  scary-but-harmless git error, `AGENTS.md`'s stale test counts, no lint step in CI, and an
-  inconsistent sandbox heredoc refusal.
-- **2026-09-06 (owner tried #105; two real bugs, both fixed and deployed):** The first human use of
-  the accounts UX did exactly what splitting #105 out of #86 was meant to make it do — it found
-  problems while the app was still open, so the fix was an ordinary deploy rather than a recovery.
-
-  **Bug 1, the reported one:** `TopBar` fell back to `/api/profile/me` when there was no session, so
-  a logged-out visitor saw a username *and* a "Log in" link simultaneously. Accurate (anonymous
-  writes really are attributed to the seeded profile until #86) and unreadable: it looks like you
-  are signed in with no way to sign out. #105's own scope had said the bar reflects *session* state;
-  the fallback quietly contradicted it. Identity there now requires a session, with a test asserting
-  the logged-out bar names nobody and never calls `/profile/me`.
-
-  **Bug 2, found while diagnosing the first:** the frontend is served by Starlette `StaticFiles`,
-  which sets `ETag`/`Last-Modified` but never `Cache-Control` — confirmed against the live server,
-  where `index.html` returned no `Cache-Control` at all. Since Vite fingerprints everything under
-  `assets/`, a stale `index.html` pins the whole app to the previous build with no error and no
-  clue. That silently undermined **every** deploy this project has ever done, not just this one.
-  Fixed: unfingerprinted files revalidate, fingerprinted assets are immutable. Verified on the live
-  server after deploying.
-
-  Diagnosis went to the deployed artifact rather than the source: grepping the served bundle proved
-  the new code *was* shipped, which ruled out a bad deploy and pointed at the two causes above.
-  A direct read of the production DB (to check whether a password is set) was refused by the
-  sandbox; that was reported to the owner rather than worked around. Filed as #118, shipped as
-  PR #119 (`73ebdce`), backend 186 tests, frontend 259.
-
-### Also resolved — #110's read-scoping
-- ~~**Confirm the owner's history survived #110's read-scoping**~~ — **verified by the owner
-  2026-09-06** ("yes i see it"). This was the one regression from #110 that no test could settle:
-  the leak test proves a second profile cannot see the first's rows, but only a human could confirm
-  the seed profile still returns *all* of its own. Closed.
-
-## Tick — 2026-09-06 (#86 shipped; both review gates earned their keep)
-
-Executed under the standing approval, no label added. Split into two file-disjoint subagents so a
-rate-limit kill could not take both — it took one anyway, after four clean commits, and the work was
-recovered by inspecting the dead worktree exactly as the 2026-09-05 improvement prescribes. Third
-time that failure mode has hit.
-
-**Both gates found defects a green suite, a code review and a browser check had all missed.** The
-UI/UX review measured the error box at 1.12:1 against the card — the fill was invisible and a 3px
-bar was the only signal. The code review found the blocker: `ActiveSessionProvider` mounts outside
-the gate and fetches once, so after logging in the app believed no workout was in progress and
-offered to start a second, orphaning the first. The test that should have caught it asserted one
-endpoint was not called while `/sessions` was. Seven fixes applied, including two the review turned
-up on the way: `/api/export` returned every profile's bcrypt hash to any member, and
-`/openapi.json` published the whole schema anonymously — falsifying a comment this same PR added.
-
-Filed and boarded this tick: **#132** (scrub history), **#134** (trim the orchestration docs),
-**#135** (security review of accounts), **#137** (model tiering per dispatch), **#138** (document
-running the app locally). Two owner decisions recorded in `DECISIONS.md` — the history scrub was
-**refused when it arrived second-hand** through a peer session and re-asked directly before the
-`approved` label went on; the dispatch-default pin was accepted from the relay, being reversible.
-That distinction is deliberate and is written into the decision entry.
-
-**Collision worth remembering:** a second session claimed #134 and rewrote `STATE.md` (1067 → 337
-lines) mid-tick, after telling this one that `docs/orchestration/*` was ours and it would not write
-again. The write-back below failed silently on the missing `## Tick log` heading and had to be
-redone by hand. The claim mechanism only works if every driver reads it *and* honours it.
-
-## Needs-owner items, fully resolved (moved from STATE.md verbatim, 2026-09-06)
-
-### Resolved 2026-09-04 — the home branch never merges
-- ~~**Home branch survives only by hand**~~ — **decided.** Enabling auto-delete-on-merge deletes
-  `claude/workout-tracker-backlog-bu9qnw` whenever its PR lands on `main`, even when merged
-  deliberately without `--delete-branch`; PR #90 did exactly that. That branch *is* the claim
-  mechanism, so losing it silently disables collision protection for every later tick. The owner
-  chose to **stop merging it at all**: orchestration doc commits go straight to the branch, and
-  when `main` should carry them they get cherry-picked onto a short-lived branch and PR'd from
-  there. The branch never merges, so auto-delete can never reach it, and nothing depends on
-  remembering to re-push. Fed upstream as `agent-scaffold` PR #2.
+**`main`'s `Needs owner`/`Closed` snapshot as of 2026-09-05, recovered during the 2026-09-10
+`copier update` reconciliation.** `main`'s `STATE.md` had not been synced from the orchestration
+home branch since around this point — see the Cursor section above, and `HISTORY.md`/`STATE.md`
+on the home branch (`claude/workout-tracker-backlog-bu9qnw`) for what's actually live today. This
+is preserved as historical record, not current status; several items below (the accounts
+approvals, #105/#86/#87, the orphaned-child-issue template gap) were resolved in the days
+following and are not open anymore.
+
+- **One wording call, low stakes but it caused this tick's misread.** This file's Next action used to
+  say the accounts approvals are "granted per-step as each predecessor lands", while `DECISIONS.md`'s
+  standing approval says #105/#86/#87 are covered outright. The owner resolved it live in favour of
+  `DECISIONS.md`, and the stale phrasing is now removed — noted here only so the contradiction is
+  not re-introduced from an older cursor.
+- **#30/#32 need a 5-minute spec skim, not a decision.**
+  `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114)
+  gates itself on an owner skim before either Issue may be split into `ready` children. Every
+  fork-in-the-road question in it was already answered by owner Q&A on 2026-08-30; the skim is
+  confirming the spec-writer's mechanism design, not re-deciding anything. Until it happens, #30 and
+  #32 stay `intake` and cannot become executable work — which matters more than usual right now,
+  because with #105 unapproved the executable queue is empty.
+- **#105 needs `/orchestrate approve 105`.** Genuinely unblocked (see Next action above) but not
+  literally named by the standing approval on file, and GUARDRAILS' approval rule has no
+  unattended-execution exception. This is the one thing between here and a working, testable login
+  — once approved, the next tick can ship a screen the owner can actually use: receive the real
+  invite email, set a password, log in, see the top bar change, log out.
+- **Off-site backups: working now, likely to lapse again around 2026-09-11/12.** Re-authorized
+  2026-09-04 21:24 (confirmed landing in Drive, `/api/health` reads `ok`), but the Google Cloud
+  OAuth app is still in "Testing" publish status, which expires refresh tokens every 7 days. Fixing
+  this for good was **deliberately deferred by the owner** (#94, closed `not_planned`) — full
+  reactivation steps (which OAuth scopes to drop, exact console URL, why it was left alone) are
+  written out in #94 for whenever it's picked up. Local snapshots (90-day retention on the Pi) are
+  unaffected either way. Backup alerting (healthchecks.io) is separately deferred, same owner call
+  (#89, closed).
+- **`#86`'s issue body is stale** — still describes replacing all 7 `_default_profile_id` call
+  sites, which #110 already did. Left a scope-narrowing comment on #86 rather than editing the
+  owner's own issue text; flagging here so it isn't mistaken for drift nobody noticed.
+- **`[template]` IMPROVEMENTS.md entry (2026-09-02), newly triaged this tick:** split-created child
+  Issues can land with no state label at all (real case: #68 sat invisible to both the `ready` and
+  `intake` tracks for 3 days). Belongs in `agent-scaffold` per GUARDRAILS "Cross-repo writes", which
+  requires "a named, explicit credential set up for that purpose — never implied by this repo's own
+  `gh` auth." This session has no such dedicated credential, only ordinary multi-repo access, so
+  flagging rather than opening that PR myself. Improvements cursor advanced to 4 regardless
+  (triaged, not silently dropped) — see `IMPROVEMENTS.md`.
+- **`[unsure]` IMPROVEMENTS.md entry (2026-08-30):** the `code-review` skill's forked execution
+  silently reviewed the wrong attached repo (kapekost-web instead of workout-tracker) when
+  invoked with no explicit target during the #38 tick. Not fixable via a PR in this repo or the
+  template repo — looks like Claude Code harness/skill-runtime behavior. Flagging per PLAYBOOK
+  step 8 rather than guessing at a fix.
+- **`[unsure]` IMPROVEMENTS.md entry (2026-08-31):** the Agent tool, dispatched without
+  `isolation:'worktree'` for #66's execution, shared the parent session's own working
+  directory/git checkout by default — its `git checkout -b ...` silently switched the
+  orchestrator's own checked-out branch mid-session. Caught via a stale-file system-reminder, not
+  a loud failure. Not fixable via a PR in this repo — Agent-tool/harness default behavior. Real
+  fix candidate for `PLAYBOOK.md`'s Execute step: default to `isolation:'worktree'` for any
+  subagent dispatch that does its own git branch/commit work.
 
 ### Closed 2026-09-04
-- ~~**Google OAuth app publish status — off-site backups down**~~ — **resolved, verified**. The
-  owner published the app and re-authorized rclone during this session. Confirmed from the Pi at
-  21:24 BST: `rclone lsd gdrive:` succeeds, and `workout-20260904-212433.db` (172032 bytes) is in
-  `gdrive:workout-tracker-backups`. The run that produced it also exercised the new #88 success
-  path end to end — `data/backup-status.json` reads
-  `{"status":"ok","at":"2026-09-04T20:24:46Z","bytes":172032,"duration_s":13}` and `/api/health`
-  reports `ok`. Last good copy before this was 2026-08-31, so the gap was 2026-09-01..04. Keep the
-  cause written down: an OAuth app left in "Testing" publish status expires refresh grants every 7
-  days, and the client_id migration was exactly 7 days before the first failure.
-
 - ~~**Orphaned branches, manual cleanup scheduled**~~ — **done**. 28 dead remote branches deleted.
   The runner's long-standing 403 on `git push --delete` turned out to be specific to the GitHub
   App's permission set: the same command runs fine from the owner's Mac with the owner's own
@@ -2237,320 +81,128 @@ redone by hand. The claim mechanism only works if every driver reads it *and* ho
   `IMPROVEMENTS.md` conflicted the same way and was resolved by keeping all four entries in date
   order.
 
-
 ---
 
-## Tick log — 2026-08-30 through 2026-09-05 (moved from STATE.md verbatim, 2026-09-06)
+- **2026-09-05 later (both tracks owner-gated — spec refreshed, approval gap found):** Ready track
+  stopped at step 3: #105 is the only `ready` Issue and carries no `approved` label, so GUARDRAILS
+  forbade executing it and forbade fixing that here. Took the intake track instead (#30 claimed on
+  the live branch before any work, per "Claiming work").
 
-> Moved by the untangle-projects task (#134) after STATE.md reached 1067 lines. Every entry below
-> is exactly as it appeared in STATE.md's Tick log, oldest first, nothing edited or dropped.
-> 2026-09-06's entries stay in STATE.md.
+  **The real find: `main`'s orchestration docs are a trap, and they had just cost two ticks.** The
+  tick's first conclusion — that no standing approval had ever been recorded, since
+  `grep -i approv DECISIONS.md` came back empty — was wrong. The record exists, names #105/#86/#87
+  explicitly, and quotes the owner ("let's trust the process on these approvals"). It lives on the
+  **home branch**, which by owner decision (`DECISIONS.md` 2026-09-04) never merges to `main`; doc
+  commits go there and only get cherry-picked onto `main` selectively. `main` was missing six
+  DECISIONS entries and 28 commits' worth of `STATE.md`. PLAYBOOK step 1 said only "read `STATE.md`,
+  `GUARDRAILS.md`, `DECISIONS.md`" without saying *from where*, so both this tick and PR #113 before
+  it read the working tree — i.e. `main` — and reported the accounts chain blocked on an approval
+  that had been granted hours earlier. It surfaced only because clearing the In-flight claim forced a
+  merge that exposed the divergence; nothing in the loop would otherwise have caught it.
 
-- **2026-08-30 (#35):** Shipped. `docker-compose.yml` reads the run tag from `$APP_COMMIT`
-  instead of hardcoding `:latest`; `AGENTS.md`/`AGENTS.local.md` runbooks updated to match.
-  Not yet deployed to the Pi — lands on the next real deploy.
-- **2026-08-30 (catch-up pass):** Reviewed 6 open Dependabot PRs. Merged #41 (recharts) and
-  #40 (@testing-library/jest-dom) — green, no known blockers. Left #14/#16/#13/#7 open:
-  each is individually broken for reasons already correctly diagnosed in #21/#22/#23 (peer-dep
-  conflicts needing coordinated bumps; #7 passes CI but fails the actual `docker buildx build`).
-  No action taken on #21-24 themselves — real engineering work, not a merge-queue item.
-- **2026-08-30 (state reconciliation):** `/orchestrate status` found this file stale against
-  live GitHub state: #36 was already closed (2026-08-29) but still listed above as open; #38
-  (ready, opened 2026-08-26) and #27 (intake, opened 2026-08-26) were never reflected in the
-  cursor. Corrected above — no code changes, just catching this file up to reality.
-- **2026-08-30 (#24 → #53):** Shipped. Added `backend-tests.yml` with an explicit `Backend tests`
-  job name (frontend-tests.yml's job displays as plain `test`, which is what let backend-only
-  Dependabot bumps merge on an unrelated green check). Supersedes #44, which was the same fix
-  opened against a stale feature branch instead of `main` and closed same-day unexplained — #53
-  is a clean rebase of it onto current `main`. All 3 checks green (`test`, `sanity`, `Backend
-  tests`), merged squash, verified 69/69 backend tests locally first.
-- **2026-08-30 (#38 → #55):** Shipped. Backfilled `docs/CHANGELOG.md` (in its correct
-  2026-08-17 chronological slot, marked as written retroactively) and an `AGENTS.md`
-  Design-docs bullet for the already-shipped Personal Bests feature — 5 commits verified
-  against actual repo history first (`3eb468e`, `8af065e`, `82f164b`, `c1ff0ab`, `fd83851`),
-  not just copied from the Issue body. Docs-only; `code-review` skill run on the diff (clean,
-  no findings — note: its first invocation silently reviewed a different repo entirely in
-  this multi-repo session, had to re-run with an explicit path/branch target to get a
-  trustworthy result). All 3 checks green, merged squash. Also surfaced the orphaned-branch
-  and intake-sequencing items now under "Needs owner" above.
-- **2026-08-30 (owner check-in):** Owner reviewed the flagged items live. Decisions: (1) codify
-  the intake-vs-ready sequencing precedent — `DECISIONS.md` entry added, `PLAYBOOK.md` step 3
-  reworded to match; (2) delete the 11 orphaned branches — attempted, blocked by a GitHub App
-  permission gap (see Needs owner); (3) proceed with #21/#22 now — dispatched below; (4) #27's
-  direction still being talked through with the owner, not yet decided.
-- **2026-08-30 (#21 → #58):** Shipped. Coordinated `react`+`react-dom` bump to 19.2.8 — zero source
-  changes needed (already on `createRoot`, no legacy patterns), zero other packages needed
-  bumping (`react-router-dom`/`@testing-library/react`/`recharts` peer ranges already covered
-  19). 212/212 unit, 14/14 Playwright, prod build, real backend + built-`dist/` smoke test all
-  green. Literal `docker buildx build` blocked by this sandbox's org egress policy (Docker Hub
-  CDN denied) — Dockerfile itself untouched by this PR, so merged on the strength of the rest;
-  flagged in the PR for a real build-machine verification at the next deploy regardless.
-  Dependabot PR #14 closed, pointing at #58.
-- **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
-  `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
-  before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
-  `package-lock.json`) — resolved cleanly (non-overlapping `dependencies`/`devDependencies` lines,
-  git's 3-way merge needed no manual edits) and the *combined* react-19 + vite-8 + vitest-4 state
-  was fully re-verified together (212/212 unit, 14/14 Playwright, prod build, real backend +
-  built-`dist/` smoke test, 69/69 backend pytest sanity check) — no interaction issues found.
-  Real finding, not just an unverifiable gap: vite 8 defaults to the Rolldown bundler, adding a
-  *new* family of per-platform optional native bindings — same bug class as the Rollup/Alpine
-  issue this repo already hit once (`efd88ca`). Noted in `AGENTS.md`'s Gotchas section for the
-  next real `docker buildx build` to watch for. Owner explicitly decided to merge without a
-  literal Docker build (blocked in-sandbox by org egress policy, confirmed 3×) since merging to
-  `main` isn't a deploy here — the real Mac build machine remains the actual gate. Dependabot PRs
-  #13/#16 closed, pointing at #59.
-- **2026-08-30 (#34 → #61):** Shipped. `scripts/deploy.sh` wraps the existing
-  build→transfer→restart→verify runbook into one command, reading `DEPLOY_HOST`/
-  `DEPLOY_APP_DIR`/`DEPLOY_SSH_OPTS` from a new `AGENTS.local.md` section instead of hardcoding.
-  Adapted from a solid, complete draft found on the abandoned `tmp/repair-38-stacked-9` branch
-  (see the #38 tick's orphaned-branch finding below) rather than written from scratch — fixed
-  one real bug in it: the remote `docker compose up` step wasn't setting `APP_COMMIT`, so it
-  would've silently deployed `:latest` instead of the built commit. `code-review` skill (run
-  with an explicit path/target this time) caught a second real bug before shipping: the first
-  draft of `AGENTS.local.md.example`'s own documentation broke the script's config parser (its
-  fenced example repeated the section heading, truncating the `sed` range before the actual
-  variable lines). Both fixed and verified — including against the real shipped `.example` file,
-  not just a synthetic test fixture — before merging. All 3 checks green, merged squash.
+  Fixed rather than noted: PLAYBOOK step 1 now names the branch to read these files from and says
+  why, and `main`'s `DECISIONS.md` was synced to the home branch's (its one unique entry, the thinner
+  "#27 → P3", is fully subsumed by the home branch's "Prove the accounts UX before closing the gate",
+  verified before overwriting). The owner confirmed the standing-approval reading live, and **#105
+  went to execution in the same tick** — under the standing approval, with no `approved` label added
+  by the runner.
 
-  **Near-miss, worth the full story:** while this was in progress, the recurring routine (set up
-  earlier this session) fired for the first time on its normal schedule and independently picked
-  #34 too, in its own separate session — checked out the same branch, was about to make redundant
-  edits. Caught via `get_session` (prompted by the owner asking "won't they clash?") and
-  interrupted before it pushed anything: no git damage, but real cost wasted on now-discarded
-  duplicate work. **Resolved same tick:** owner decided against relying on remembering to toggle
-  the routine — `PLAYBOOK.md` gained a real "Claiming work" mechanism instead (a tick pushes an
-  In-flight claim to `claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue,
-  *before* any execution; other ticks check that live branch first and back off on a fresh claim;
-  git's own push-rejection on a non-fast-forward is what actually enforces it, not just
-  cooperative reading). Logged as a standing decision in `DECISIONS.md`. The routine itself stays
-  disabled for now — nothing stops the owner re-enabling it whenever unattended coverage is
-  wanted again; that's now safe to do.
-- **2026-08-30 (#61 follow-up → #63):** Shipped. `scripts/deploy.sh`'s `/api/health` check ran
-  exactly once immediately after `docker compose up -d --force-recreate`, which returns as soon
-  as the container *starts*, not once uvicorn is actually accepting connections — a real race
-  that could fail a perfectly good deploy. Caught by the recurring routine's now-archived session
-  (see below), which had independently kept working #34 after being interrupted mid-collision and
-  compared its own draft against the merged #61 script before stopping for good. Verified the gap
-  against the actual merged code first rather than trusting the claim on faith — confirmed real.
-  Fixed with a retry loop (~30s, 15×2s) inside the *same* SSH session rather than one connection
-  per attempt. `code-review` caught two real issues in the first draft of the fix itself before
-  it shipped: swallowed stderr on persistent (non-transient) failures, and per-attempt SSH
-  reconnect overhead that would've made the "~30s" claim inaccurate — both fixed by moving the
-  loop into the remote shell entirely. Retry logic verified standalone (extracted the exact
-  remote snippet, ran it directly: fails-then-succeeds and always-fails cases both correct).
-  Session `session_01GPKYsV68JuLWsrZCwLYyFa` archived after this — confirmed idle since the
-  interrupt, never pushed its own fix (the branch it intended to push to was already merged and
-  squashed by then anyway, so that plan was moot regardless), nothing salvageable left in it.
-- **2026-08-30 (#29 triage → #66/#67/#68/#69):** Resolved via live owner Q&A during an
-  `/orchestrate status` + tick session. Profiles are real, isolated, data-owning accounts, not
-  just a label — explicit prework for later Google/Apple OAuth (not built now, but the schema
-  shouldn't preclude it). Existing data migrates to a seeded `kapekost` profile with `role:
-  admin` (no admin-only behavior built yet, just the flag). Real login gate before Home, not a
-  device-remembered switcher. v1 auth is username + hashed password with email-based reset —
-  OAuth explicitly deferred. Emoji icons confirmed fine for now. Split into #66
-  (schema/migration, `ready` now — foundational, nothing else depends on it), #67 (login, depends
-  on #66, not yet `ready`), #68 (password reset via email, depends on #67, not yet `ready`), #69
-  (switcher UI, depends on #66, not yet `ready`). #68's one open question (which email provider,
-  since this repo has no existing email-sending capability) was resolved same-session: **Resend**
-  (matches `kapekost-web`'s existing pattern), API key to live in `AGENTS.local.md` per this
-  repo's "deployment knowledge stays local" convention. #30 and #32 (both still `intake`) had
-  their "depends on Profiles (#29)" notes updated to point at #66 instead, since #29 is now
-  closed. No native GitHub blocked-by relationship set on #67/#68/#69 (no graphql-capable tool
-  available this session) — sequencing is a manual note in each issue body and above instead.
-  Logged in `DECISIONS.md`. No code changes — pure triage.
-- **2026-08-30 (#23 → #65):** Shipped. Bumped the Dockerfile's builder stage `node:20-alpine` →
-  `node:26-alpine` — same target Dependabot PR #7 proposed, actually investigated this time
-  instead of rubber-stamped, per the issue's own instruction. Root cause per the issue: npm
-  11.19.0 (bundled with `node:26-alpine`) resolving `frontend/package-lock.json`'s optional
-  platform packages differently than npm 10.x, producing a false-green in CI (which never touches
-  the Dockerfile). Investigated for real rather than assumed: this sandbox has no Docker daemon
-  (same confirmed constraint as #21/#22), so downloaded a checksum-verified
-  `node-v26.8.1-linux-x64` binary directly from nodejs.org and ran actual `npm ci` under its
-  bundled npm 11.19.0 — against the current lockfile, against the exact pre-#59 lockfile that
-  still contained the `@esbuild/aix-ppc64@0.21.5` entry named in the original error, and again
-  with `--os=linux --cpu=x64 --libc=musl` forced to approximate Alpine. All three succeeded
-  cleanly; `npm install --package-lock-only` under node 26 regenerated the lockfile byte-identical
-  to what's committed. **Real finding: no lockfile regeneration was actually needed** — `esbuild`
-  is no longer even resolved in the dependency tree since #59's vite 5→8 bump already regenerated
-  the lockfile fresh, so PR #7's original failure likely doesn't reproduce outside the real
-  Alpine/musl `buildx` environment. Noted in `AGENTS.md`'s Gotchas section. Verification: 212/212
-  vitest, prod build + real backend/dist smoke test (200 on `/`, correct `/api/health`), 69/69
-  backend pytest, lockfile reconfirmed installing cleanly under the sandbox's own node 22/npm 10
-  too. Playwright e2e blocked in this sandbox by an unrelated egress-proxy 403 — flagged as
-  session-to-session sandbox variance (not a permanent constraint like the Docker one; #21/#22 had
-  it working same-day) — CI's own Playwright run on GitHub's runner was the real gate regardless.
-  Literal `docker buildx build` verification remains impossible in-sandbox and is flagged for a
-  spot-check at the next real deploy, same precedent as #21/#22. `code-review` skill run with an
-  explicit target this time (per the #38-tick gotcha) — fixed one real finding (a duplicate
-  12-line Dockerfile comment re-narrating the AGENTS.md entry, trimmed to a pointer), correctly
-  did *not* act on an out-of-scope one (node 26 vs. 24 LTS choice — flagged as a possible separate
-  issue, not this one's job). All CI green, merged squash. Dependabot PR #7 closed, pointing at
-  #65.
-- **2026-08-30 (#30/#32/#33 triage, #70 opened):** Further owner Q&A, same session as the #29
-  split. #30 (Import): build full-session import (working interpretation of a slightly uncertain
-  answer, flagged on the issue for correction), scoped per-profile; POC-simple idempotency (no
-  dedup handling yet); add-only overwrite semantics except upsert-by-id when the imported record
-  names a known ID. #32 (Adaptive coaching): v1 is manual export-a-prompt only (live API
-  explicitly deferred); cadence is before/after only ("during" scoped out); "update" stays a
-  simple layer above existing per-session nudging, not a `workoutPlan.js` restructure; AI output
-  can propose real profile/plan updates but only after explicit user confirmation, never
-  fabricated; sequenced behind the user system (#66/#67). #33 (Nutrition): collect both
-  bodyweight *and* height (new scope beyond the original bodyweight-only ask); ships standalone,
-  not folded into #32; also sequenced behind #66 since the new fields need real profiles. #30 and
-  #32 independently converged on the same underlying shape — structured AI output, reviewed and
-  confirmed, then written to real data — flagged on both issues as worth one spec pass
-  considering together. A future "competition/comparison screens across users" idea came up in
-  passing during #30's triage; captured as new intake issue #70 rather than lost, per this repo's
-  Feature Intake convention. All four (#27/#30/#32/#33) stay `intake` — direction is real now,
-  but each still needs an actual written spec before splitting into `ready` work. Logged in
-  `DECISIONS.md`. No code changes — pure triage.
-- **2026-08-30 (PLAYBOOK.md fix → #71):** Shipped. Logged the "shaped but needs a spec" Feature
-  Intake gap (hit on #27/#30/#32/#33 this session) via `scripts/append_improvement.sh`, then acted
-  on it immediately rather than leaving it for a future review pass — small, well-understood,
-  docs-only. `PLAYBOOK.md` step 3 now names this as a third Feature Intake outcome alongside
-  relabel-`ready` and split-into-children. All 3 checks green, merged squash. Improvements cursor
-  advanced to 2.
-- **2026-08-31 (status + tick resume):** `/orchestrate status` reconciled cleanly against live
-  GitHub — zero drift from this file, nothing to correct (no open PRs beyond what's logged here,
-  #66 confirmed the sole `ready` issue, #67/#68/#69 correctly withheld from `ready`, no new owner
-  comments on any `intake`/`needs-clarification` issue since 2026-08-30). Confirmed both
-  owner-pending items are genuinely still pending rather than assumed: the 13-branch cleanup
-  command hasn't been run (all still present, unchanged SHAs), and the auto-delete-on-merge repo
-  setting is still off (direct evidence: #71's own head branch survived its merge) — see "Needs
-  owner" above for the now-updated tally.
-- **2026-08-31 (#66 plan → #72):** Shipped, docs-only. `#66` is `effort:M` with no linked plan, so
-  per `PLAYBOOK.md` step 3 this tick wrote the plan and stopped rather than executing directly.
-  `docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`: read the live schema
-  (`backend/main.py`) rather than assuming it, which surfaced two real correctness traps the issue
-  itself didn't call out — `exercise_notes` and `personal_bests` each carry a uniqueness constraint
-  (`PRIMARY KEY`, `UNIQUE`) that must *expand* to include `profile_id`, which SQLite can't do via a
-  plain `ALTER ADD COLUMN` (needs a rename/create/copy/drop rebuild); and `/api/import`'s existing
-  per-table delete-then-insert-immediately loop requires `profiles` to be **first** in `TABLES`
-  with `ON DELETE CASCADE` on every new FK, or a restore violates the FK either on delete (children
-  still reference the parent) or on insert (parent doesn't exist yet). Also resolved the issue's
-  own open question ("confirm the exact table list against the live schema") — `personal_bests`
-  gets `profile_id` too, alongside the four tables the issue named. Plan hands off one item to
-  #67 via a comment (Task 7): the seeded profile's `password_hash` is left `NULL` by design, so
-  #67's login flow must handle a profile with no password set yet, not assume every profile has
-  one. #66 stays `ready` — now unblocked for real execution next tick, not just plan-then-stop.
-  All 3 checks green, merged squash.
-- **2026-08-31 (#30/#32 spec → #73):** Shipped, docs-only. Combined design for both issues in one
-  pass, per the third Feature Intake outcome PR #71 named and IMPROVEMENTS.md's friction log —
-  #30 and #32 independently converged on the same "structured AI output, reviewed and confirmed,
-  then written to real data" shape, so one spec covers both rather than duplicating the
-  review-before-write design twice. `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`:
-  resolves every fork-in-the-road question either issue posed to the owner (all already answered
-  in `DECISIONS.md` 2026-08-30 — nothing guessed here), then does the actual spec-writer job of
-  designing the shared mechanism and concrete schemas — a new additive `/api/import/sessions`
-  endpoint (separate from the existing disaster-recovery `/api/import`, matching its own
-  `confirm`/envelope convention rather than inventing a parallel one), upsert-by-id semantics,
-  lb→kg conversion offloaded to the AI's prompt instructions instead of app code, a new
-  `exercise_targets` table for #32's proposed updates, and the recovery-science §7 constraint
-  enforced structurally (no field in the response schema shaped like a percentage/readiness score)
-  rather than only requested in the prompt. Both issues stay `intake` — this is a spec, not a
-  split; splitting into `ready` children per the spec's §7 is the next action on these two, not
-  done in this tick. All 3 checks green, merged squash.
-- **2026-08-31 (#33 spec → #74):** Shipped, docs-only, written in parallel with #66's execution
-  (separate `git worktree` checkout — see the Agent-tool `IMPROVEMENTS.md` entry above for why
-  that was necessary this tick). `docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`:
-  resolves the owner's actual 2026-08-30 answers (bodyweight + height, standalone, ISSN-sourced,
-  not personalized dosing), then does the spec-writer job — data model (two nullable columns
-  direct on `profiles`, no history table), endpoint contracts, and the actual guidance copy written
-  out close to verbatim (protein range formula, timing guidance, the always-visible disclaimer) so
-  a future plan doesn't have to re-derive it. One thing surfaced rather than silently assumed: the
-  ISSN protein guidance itself only needs bodyweight (it's g/kg) — height was the owner's own
-  addition beyond that minimum, so the spec proposes a concrete, honest use (a contextual BMI
-  figure, explicitly labeled a reference number, not a health assessment) and flags it as this
-  spec's proposal, not a recorded decision, so it's easy to correct. Also narrower in sequencing
-  than #30/#32: depends on #66 only, not #67 — bodyweight/height are meaningful even before real
-  login exists, unlike per-profile import/coaching. Stays `intake` — next action is splitting into
-  `ready` per the spec's §8. All 3 checks green, merged squash.
-- **2026-08-31 (#27 spec → #75):** Shipped, docs-only, given the extra care DECISIONS.md asked
-  for rather than folded in alongside the other three specs this session.
-  `docs/superpowers/specs/2026-08-31-public-access-design.md`: resolves the owner's actual
-  2026-08-30 direction (keep the Pi, Cloudflare Tunnel not a VPN, Home Assistant safety is a hard
-  requirement, sequenced behind real login), then designs the part actually left open — a tunnel
-  alone only solves reachability/TLS, not access control, so proposed a second edge-level auth
-  layer (Cloudflare Access, email allow-list) in front of the app's own login rather than treating
-  the tunnel as sufficient on its own. Scoped the tunnel to exactly one ingress rule (this app's
-  Compose service, over the internal Docker network) with Home Assistant explicitly never added to
-  it. Rather than just asserting the design is safe, wrote a concrete, checkable verification list
-  (confirm Home Assistant is actually unreachable through the new public hostname, confirm the
-  ingress config has no catch-all rule, confirm no new router port-forward appeared, etc.) for
-  whoever executes this to actually run through before it goes live — matching DECISIONS.md's
-  explicit ask for a real home-network review, not just an app-level one. No real hostnames/tunnel
-  IDs/account details anywhere in the doc — those stay in `AGENTS.local.md` per the existing
-  convention; `docker-compose.yml`'s own already-tracked port numbers were fine to reference
-  directly. Two things flagged explicitly as this spec's proposals, not owner decisions: the
-  Access auth-method choice (§4) and the verification checklist itself (§5) — both need an actual
-  skim, more so than a typical spec, per the PR body. Stays `intake`. All four intake issues
-  (#27/#30/#32/#33) now have written specs. All 3 checks green, merged squash.
-- **2026-08-31 (#66 → #76):** Shipped. Executed the merged plan
-  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`) via a background subagent,
-  dispatched with an explicit file list and told not to touch `docs/orchestration/*` — it followed
-  the plan's actual migration code verbatim (verified by diffing the final `_migrate` block
-  against the plan's literal SQL) across 7 commits, 83/83 tests passing, and reported 5 small,
-  well-reasoned deviations up front rather than silently diverging: two of the plan's own new
-  tests had a real setup bug (resetting `PRAGMA user_version` alone doesn't simulate "pre-v4 data"
-  for the two *rebuilt* tables, since the test fixture's `init()` already migrates them first —
-  fixed by actually recreating the old table shape); one task-sequencing gap the plan had already
-  pre-empted for a different function but not this one (pulled the fix forward, same resolution);
-  5 pre-existing hardcoded `user_version == 3` assertions across two other test files broke on the
-  version bump and needed updating to 4 (expected migration hygiene, not a bug); and one
-  documentation-location assumption in the plan didn't match reality (schema history actually
-  lives in `docs/CHANGELOG.md`, not `AGENTS.md`), resolved by using the closest existing analog
-  since the task's own file target was unambiguous. None of this touched the migration design
-  itself.
+  **Intake: #30 picked, stays `intake`, and the reason is narrow.** Its mechanism is fully specced
+  (`2026-08-31-ai-structured-io-design.md`, shared with #32), but that spec's own Status block gates
+  splitting on an owner skim — it was drafted from recorded Q&A rather than walked through live.
+  Not a failed INVEST gate and not a guess to be made; PLAYBOOK's third intake outcome (waiting on a
+  spec, not on an answer) covers it exactly.
 
-  **`code-review`, run with an explicit target (path + diff range) per this session's own logged
-  harness gotcha, caught a real, severe bug the 83 passing tests never exercised:** once
-  `profiles` joined `TABLES`, `/api/import` restoring *any* pre-v4 backup would permanently wipe
-  the seed profile with no `"profiles"` key in the old envelope to restore it from — every write
-  endpoint's `_default_profile_id()` then crashes with no way to self-heal (schema's already at
-  v4, so the reseed guard in `_migrate` never re-runs, not even across a restart). A second,
-  related bug: a real pre-v4 backup containing actual `exercise_notes`/`personal_bests` data (both
-  pre-existing, already-shipped features — a plausible, not edge-case, scenario) would reject the
-  *entire* import with a 400, since those two rebuilt tables now require `profile_id NOT NULL` and
-  legacy rows don't have one. Both were exactly the restore-drill scenario `AGENTS.md`'s deploy
-  runbook — and this migration's own plan — exist to catch, and the plan's own Task 6 reasoning
-  ("NULL is exempt from FK enforcement... a one-time, expected consequence") was correct for
-  `sessions`/`sets`/`events` but didn't extend to the two rebuilt tables or to `profiles` itself.
-  Fixed directly (not deferred) before opening the PR: skip touching `profiles` on import when the
-  envelope has no opinion about it, and backfill `profile_id` from the live default profile for
-  any row landing in a `NOT NULL` `profile_id` column that doesn't supply one — same backfill
-  philosophy the migration itself already uses. Two new regression tests confirmed failing with
-  the exact reported symptoms (400; a broken write afterward) when reverted against the pre-fix
-  code, passing with it restored. One minor `code-review` finding (`_default_profile_id`
-  re-queries every write instead of caching) consciously left as-is — explicitly temporary code
-  slated for removal in #67, not worth hardening further. Full suite re-verified green (85/85)
-  after the fix. Posted the plan's own scripted hand-off comment on #67 (seeded profile's
-  `password_hash IS NULL` by design; replace `_default_profile_id()` call sites, don't add a
-  second mechanism) — corrected one wording slip in it immediately after posting. #67 and #69
-  (both depended only on #66) labeled `ready`. All 3 checks green, merged squash.
-- **2026-08-31 (#69 → #77):** Shipped. Picked up directly (effort:S, no separate plan needed per
-  `PLAYBOOK.md`'s effort:M+ threshold) once #67 turned out to be blocked on owner approval. Scoped
-  down from the issue's full text to just the TopBar-display piece — schema v5 (nullable
-  `profiles.icon`, seeded 💪 for `kapekost` so the display isn't empty immediately), `GET
-  /api/profile/me`, `TopBar.jsx` rendering it — deferring the emoji-picker-at-creation-time piece
-  since profile creation doesn't exist until #67. `code-review` (explicit target again) found two
-  more real bugs: the brand title and the new profile chip shared one flex row with no
-  shrink/overflow handling, so a longer username than the seeded one (nothing bounds
-  `profiles.username`'s length) wraps "🏋 Gym Tracker" onto two lines on narrow viewports —
-  confirmed live in a real browser, fixed with `nowrap`/`flexShrink:0` on the title and ellipsis
-  truncation on the username. Separately, the new migration-guard test
-  (`test_icon_migration_does_not_override_an_already_set_icon`) could never actually fail: by the
-  time it ran, `user_version` was already 5 from the fixture's own setup, so its second `init()`
-  call never re-entered the `if v < 5` block the guard lives in at all — confirmed by removing the
-  guard clause from `main.py` and watching the test stay green regardless. Fixed by resetting
-  `user_version` to 4 first (matching this file's other migration-guard tests), then verified it
-  now fails without the guard and passes with it restored, same rigor as #66's import-path catch.
-  Backend 88/88, frontend 216/216, build green. **Process note, logged honestly rather than
-  glossed over:** this tick's own In-flight claim was pushed late — after the PR was already open,
-  not before starting work, contrary to `PLAYBOOK.md`'s own "Claiming work" section. No actual
-  collision occurred (no concurrent tick was running), but this is exactly the discipline that
-  section exists to enforce; noting it so it doesn't quietly become a habit. All 3 checks green,
-  merged squash.
+  **What was actually shipped: #114**, refreshing that spec so the skim is against reality. Two of
+  its statements had become traps rather than staleness: it named #67 as the login dependency (closed
+  as superseded 2026-09-04) and instructed an executor to scope rows with `_default_profile_id`
+  "until #67 supplies the real one" — which #110 has since replaced with a single
+  `acting_profile_id(conn)` seam (`backend/main.py:63`) and which #86 deletes outright, so following
+  the spec literally would have reintroduced the exact call site #86 exists to remove. Its four
+  `backend/main.py` line references had also drifted ~650 lines. Design decisions untouched; CI green
+  on the pushed head (`d7ff9c8`), squash-merged. A real find fell out of it: #110 delivered
+  per-profile scoping independently of login, so #30/#32 depend only on #86, not the whole chain.
+
+  **No IMPROVEMENTS.md entry this tick** — the one piece of friction found (the missing standing
+  approval) is a gap in this repo's own docs, already tracked under "Needs owner", not feedback about
+  the template or the harness.
+- **2026-09-05 (state reconciliation — large untracked gap found, no execution):** Ran the normal
+  tick algorithm; step 2's reconcile found this file badly stale and spent the tick correcting it
+  rather than executing new work. Local checkout, `claude/orchestrate-xi7tyc`, and `origin/main`
+  were all identical (`240acc4`) — the drift was entirely in this file's Cursor/Tick log, not in
+  code or GitHub issue/comment state, which were internally consistent throughout.
+
+  **What actually shipped since the last recorded cursor** (reconstructed from `git log` and issue
+  state, since no tick wrote it down as it happened): **#84** (schema v6 + auth core — #101 plan,
+  #102 playbook fix, #103 execution, #104 deploy note) and **#85** (Resend invite/reset, rate
+  limiting, owner bootstrap — #107) both merged under the standing-approval mechanism (#106 added
+  it to GUARDRAILS). The owner then personally opened **#110** — a real cross-profile data leak
+  (reads never scoped to a profile, only writes were, since #66's deliberate deferral) — and it
+  shipped same-day via #112. #86 was rescoped in place (comment posted this tick narrowing it now
+  that #110 landed) and had its frontend screens split into new **#105**. Also merged in the same
+  window: #88/#93/#94/#89 (backup heartbeat-to-file, weekly cron, off-site/local status split,
+  OAuth publish deferred, alerting deferred — #91/#95-#100), #108 (deploy env vars → target `.env`),
+  #109 (Resend User-Agent fix), #111 (CI secrets/env-file scan). Owner also deprioritized #27 to P3
+  via an issue comment (2026-09-05) that was never logged to `DECISIONS.md` — added it this tick.
+
+  **Corrected this tick:** `STATE.md` Cursor/Next-action/Needs-owner rewritten to match reality;
+  `DECISIONS.md` gained the missing #27 entry; #105 relabeled `blocked` → `ready` (its only
+  blocker, #85, is merged) — it is not, however, literally named by the existing standing-approval
+  text (which says `#84-#87`), so it still needs its own `/orchestrate approve 105` rather than
+  being treated as covered; a scope-narrowing comment posted on #86; the `[template]`
+  IMPROVEMENTS.md entry from 2026-09-02 triaged (flagged to Needs-owner rather than actioned — no
+  dedicated cross-repo credential available this session per GUARDRAILS), cursor advanced 3 → 4.
+
+  **No code executed this tick** — with #105/#86/#87 all needing either a dependency or an owner
+  approval, and the only other track (intake: #30/#32/#33, already spec'd) being backlog grooming
+  rather than anything try-able, judged the highest-leverage use of this tick to be surfacing the
+  #105 approval ask clearly rather than spending the same budget on a intake split. Flagged as a
+  judgment call, not a rule — next tick can do the intake split if the owner would rather have that
+  than wait on an approval click.
+- **2026-09-04 (owner-driven session — accounts designed, backups found broken):** Not an
+  unattended tick; the owner asked for a status pass and the next round of work.
+
+  **Found broken, needs the owner:** off-site Google Drive backups have been failing since
+  2026-09-02 (`invalid_grant`), last good copy 2026-08-31. Caught from `/api/health`'s
+  `last_backup_status: "failed"` while checking what was actually deployed. Local snapshots are
+  fine — `rclone copy` sits after the snapshot reaches the host's disk, so the chain kept
+  producing them. Cause matches the "Testing publish status expires grants every 7 days" trap
+  already written down in `AGENTS.local.md`; the client_id migration was exactly 7 days before the
+  first failure. See "Needs owner".
+
+  **Accounts designed.** #67 and #68 merged into one workstream and closed as superseded — the
+  owner's 2026-09-02 emailed-link decision makes them mutually dependent, so neither can go first.
+  Spec at `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83), split into #84-#87.
+  Two choices were settled by measuring on the real Pi instead of assuming, both of which changed
+  the answer: bcrypt cost 12 (627 ms) over any memory-hard KDF, because OWASP's scrypt baseline
+  wants 128 MiB against ~185 MiB free and each concurrent memory-hard hash reserves its full
+  working set — a few parallel logins to an unauthenticated endpoint could OOM the container on a
+  box that also runs Home Assistant; and confirming both bcrypt and argon2-cffi ship aarch64
+  wheels, so the Dockerfile's no-build-tools rule survives either way.
+
+  **Two sequencing traps found while designing, both recorded in the issues rather than left to be
+  rediscovered:** gating `/api/events` breaks the nightly backup heartbeat (it posts there from
+  cron with no session and swallows failures via `|| true`), so #88 must land before or with #86;
+  and taking the cron weekly makes `/api/health`'s 26h staleness check permanently `stale`, so the
+  threshold has to move with the schedule — a signal that is always red is one nobody reads, which
+  is how this week's failures went unnoticed for three nights.
+
+  **Dependabot #80/#81 hand-verified and merged.** Both were green in CI, which proves little for
+  #81: CI runs tests bare-metal and never builds the Dockerfile, the same blind spot that kept
+  #7/#23 open for weeks. Verified by hand instead — full `docker buildx build --platform
+  linux/arm64` (deps installed in 5.2s with no compilation, so the no-gcc premise still holds on
+  py3.14), 88 backend tests on py3.14 + pydantic 2.13.5, container smoke test, fresh DB migrating
+  to `user_version = 5`, image +4 MB. #81 left two things behind — CI still pinned to py3.11, and
+  a Dockerfile comment still asserting the wheel fact for py3.11 — both fixed in #82, which also
+  writes the "CI never builds this Dockerfile" warning into the comment so the next base-image
+  bump doesn't trust a green check either.
+
+  **Housekeeping:** 28 dead remote branches deleted, closing a "Needs owner" item that had been
+  open since 2026-08-30. The runner's 403 on `git push --delete` is specific to the GitHub App's
+  permissions — the same command works from the owner's Mac. `delete_branch_on_merge` also
+  verified on, so the pile stops growing. `AGENTS.md`'s Status section refreshed: it claimed
+  `5247896` was live and "nothing is unreleased", when `17bd4fc` is deployed and `main` is 4
+  commits ahead including a base-image change.
 - **2026-08-31 (deploy repair → #78):** `main` reached the Pi for the first time since
   2026-08-25. The running app was pinned at `5247896`, **53 commits behind**, because the deploy
   path was broken in two independent places — both shipped and closed without ever having been
@@ -2602,347 +254,308 @@ redone by hand. The claim mechanism only works if every driver reads it *and* ho
   half-migrated DB. It completed cleanly here and both affected tables were empty, so the
   exposure was nil this time; it will not be on the next schema-changing deploy onto a non-empty
   `exercise_notes`. Out of scope for this tick, not silently dropped.
-- **2026-09-04 (owner-driven session — accounts designed, backups found broken):** Not an
-  unattended tick; the owner asked for a status pass and the next round of work.
+- **2026-08-31 (#69 → #77):** Shipped. Picked up directly (effort:S, no separate plan needed per
+  `PLAYBOOK.md`'s effort:M+ threshold) once #67 turned out to be blocked on owner approval. Scoped
+  down from the issue's full text to just the TopBar-display piece — schema v5 (nullable
+  `profiles.icon`, seeded 💪 for `kapekost` so the display isn't empty immediately), `GET
+  /api/profile/me`, `TopBar.jsx` rendering it — deferring the emoji-picker-at-creation-time piece
+  since profile creation doesn't exist until #67. `code-review` (explicit target again) found two
+  more real bugs: the brand title and the new profile chip shared one flex row with no
+  shrink/overflow handling, so a longer username than the seeded one (nothing bounds
+  `profiles.username`'s length) wraps "🏋 Gym Tracker" onto two lines on narrow viewports —
+  confirmed live in a real browser, fixed with `nowrap`/`flexShrink:0` on the title and ellipsis
+  truncation on the username. Separately, the new migration-guard test
+  (`test_icon_migration_does_not_override_an_already_set_icon`) could never actually fail: by the
+  time it ran, `user_version` was already 5 from the fixture's own setup, so its second `init()`
+  call never re-entered the `if v < 5` block the guard lives in at all — confirmed by removing the
+  guard clause from `main.py` and watching the test stay green regardless. Fixed by resetting
+  `user_version` to 4 first (matching this file's other migration-guard tests), then verified it
+  now fails without the guard and passes with it restored, same rigor as #66's import-path catch.
+  Backend 88/88, frontend 216/216, build green. **Process note, logged honestly rather than
+  glossed over:** this tick's own In-flight claim was pushed late — after the PR was already open,
+  not before starting work, contrary to `PLAYBOOK.md`'s own "Claiming work" section. No actual
+  collision occurred (no concurrent tick was running), but this is exactly the discipline that
+  section exists to enforce; noting it so it doesn't quietly become a habit. All 3 checks green,
+  merged squash.
+- **2026-08-31 (#66 → #76):** Shipped. Executed the merged plan
+  (`docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`) via a background subagent,
+  dispatched with an explicit file list and told not to touch `docs/orchestration/*` — it followed
+  the plan's actual migration code verbatim (verified by diffing the final `_migrate` block
+  against the plan's literal SQL) across 7 commits, 83/83 tests passing, and reported 5 small,
+  well-reasoned deviations up front rather than silently diverging: two of the plan's own new
+  tests had a real setup bug (resetting `PRAGMA user_version` alone doesn't simulate "pre-v4 data"
+  for the two *rebuilt* tables, since the test fixture's `init()` already migrates them first —
+  fixed by actually recreating the old table shape); one task-sequencing gap the plan had already
+  pre-empted for a different function but not this one (pulled the fix forward, same resolution);
+  5 pre-existing hardcoded `user_version == 3` assertions across two other test files broke on the
+  version bump and needed updating to 4 (expected migration hygiene, not a bug); and one
+  documentation-location assumption in the plan didn't match reality (schema history actually
+  lives in `docs/CHANGELOG.md`, not `AGENTS.md`), resolved by using the closest existing analog
+  since the task's own file target was unambiguous. None of this touched the migration design
+  itself.
 
-  **Found broken, needs the owner:** off-site Google Drive backups have been failing since
-  2026-09-02 (`invalid_grant`), last good copy 2026-08-31. Caught from `/api/health`'s
-  `last_backup_status: "failed"` while checking what was actually deployed. Local snapshots are
-  fine — `rclone copy` sits after the snapshot reaches the host's disk, so the chain kept
-  producing them. Cause matches the "Testing publish status expires grants every 7 days" trap
-  already written down in `AGENTS.local.md`; the client_id migration was exactly 7 days before the
-  first failure. See "Needs owner".
+  **`code-review`, run with an explicit target (path + diff range) per this session's own logged
+  harness gotcha, caught a real, severe bug the 83 passing tests never exercised:** once
+  `profiles` joined `TABLES`, `/api/import` restoring *any* pre-v4 backup would permanently wipe
+  the seed profile with no `"profiles"` key in the old envelope to restore it from — every write
+  endpoint's `_default_profile_id()` then crashes with no way to self-heal (schema's already at
+  v4, so the reseed guard in `_migrate` never re-runs, not even across a restart). A second,
+  related bug: a real pre-v4 backup containing actual `exercise_notes`/`personal_bests` data (both
+  pre-existing, already-shipped features — a plausible, not edge-case, scenario) would reject the
+  *entire* import with a 400, since those two rebuilt tables now require `profile_id NOT NULL` and
+  legacy rows don't have one. Both were exactly the restore-drill scenario `AGENTS.md`'s deploy
+  runbook — and this migration's own plan — exist to catch, and the plan's own Task 6 reasoning
+  ("NULL is exempt from FK enforcement... a one-time, expected consequence") was correct for
+  `sessions`/`sets`/`events` but didn't extend to the two rebuilt tables or to `profiles` itself.
+  Fixed directly (not deferred) before opening the PR: skip touching `profiles` on import when the
+  envelope has no opinion about it, and backfill `profile_id` from the live default profile for
+  any row landing in a `NOT NULL` `profile_id` column that doesn't supply one — same backfill
+  philosophy the migration itself already uses. Two new regression tests confirmed failing with
+  the exact reported symptoms (400; a broken write afterward) when reverted against the pre-fix
+  code, passing with it restored. One minor `code-review` finding (`_default_profile_id`
+  re-queries every write instead of caching) consciously left as-is — explicitly temporary code
+  slated for removal in #67, not worth hardening further. Full suite re-verified green (85/85)
+  after the fix. Posted the plan's own scripted hand-off comment on #67 (seeded profile's
+  `password_hash IS NULL` by design; replace `_default_profile_id()` call sites, don't add a
+  second mechanism) — corrected one wording slip in it immediately after posting. #67 and #69
+  (both depended only on #66) labeled `ready`. All 3 checks green, merged squash.
+- **2026-08-31 (#27 spec → #75):** Shipped, docs-only, given the extra care DECISIONS.md asked
+  for rather than folded in alongside the other three specs this session.
+  `docs/superpowers/specs/2026-08-31-public-access-design.md`: resolves the owner's actual
+  2026-08-30 direction (keep the Pi, Cloudflare Tunnel not a VPN, Home Assistant safety is a hard
+  requirement, sequenced behind real login), then designs the part actually left open — a tunnel
+  alone only solves reachability/TLS, not access control, so proposed a second edge-level auth
+  layer (Cloudflare Access, email allow-list) in front of the app's own login rather than treating
+  the tunnel as sufficient on its own. Scoped the tunnel to exactly one ingress rule (this app's
+  Compose service, over the internal Docker network) with Home Assistant explicitly never added to
+  it. Rather than just asserting the design is safe, wrote a concrete, checkable verification list
+  (confirm Home Assistant is actually unreachable through the new public hostname, confirm the
+  ingress config has no catch-all rule, confirm no new router port-forward appeared, etc.) for
+  whoever executes this to actually run through before it goes live — matching DECISIONS.md's
+  explicit ask for a real home-network review, not just an app-level one. No real hostnames/tunnel
+  IDs/account details anywhere in the doc — those stay in `AGENTS.local.md` per the existing
+  convention; `docker-compose.yml`'s own already-tracked port numbers were fine to reference
+  directly. Two things flagged explicitly as this spec's proposals, not owner decisions: the
+  Access auth-method choice (§4) and the verification checklist itself (§5) — both need an actual
+  skim, more so than a typical spec, per the PR body. Stays `intake`. All four intake issues
+  (#27/#30/#32/#33) now have written specs. All 3 checks green, merged squash.
+- **2026-08-31 (#33 spec → #74):** Shipped, docs-only, written in parallel with #66's execution
+  (separate `git worktree` checkout — see the Agent-tool `IMPROVEMENTS.md` entry above for why
+  that was necessary this tick). `docs/superpowers/specs/2026-08-31-nutrition-guidance-design.md`:
+  resolves the owner's actual 2026-08-30 answers (bodyweight + height, standalone, ISSN-sourced,
+  not personalized dosing), then does the spec-writer job — data model (two nullable columns
+  direct on `profiles`, no history table), endpoint contracts, and the actual guidance copy written
+  out close to verbatim (protein range formula, timing guidance, the always-visible disclaimer) so
+  a future plan doesn't have to re-derive it. One thing surfaced rather than silently assumed: the
+  ISSN protein guidance itself only needs bodyweight (it's g/kg) — height was the owner's own
+  addition beyond that minimum, so the spec proposes a concrete, honest use (a contextual BMI
+  figure, explicitly labeled a reference number, not a health assessment) and flags it as this
+  spec's proposal, not a recorded decision, so it's easy to correct. Also narrower in sequencing
+  than #30/#32: depends on #66 only, not #67 — bodyweight/height are meaningful even before real
+  login exists, unlike per-profile import/coaching. Stays `intake` — next action is splitting into
+  `ready` per the spec's §8. All 3 checks green, merged squash.
+- **2026-08-31 (#30/#32 spec → #73):** Shipped, docs-only. Combined design for both issues in one
+  pass, per the third Feature Intake outcome PR #71 named and IMPROVEMENTS.md's friction log —
+  #30 and #32 independently converged on the same "structured AI output, reviewed and confirmed,
+  then written to real data" shape, so one spec covers both rather than duplicating the
+  review-before-write design twice. `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`:
+  resolves every fork-in-the-road question either issue posed to the owner (all already answered
+  in `DECISIONS.md` 2026-08-30 — nothing guessed here), then does the actual spec-writer job of
+  designing the shared mechanism and concrete schemas — a new additive `/api/import/sessions`
+  endpoint (separate from the existing disaster-recovery `/api/import`, matching its own
+  `confirm`/envelope convention rather than inventing a parallel one), upsert-by-id semantics,
+  lb→kg conversion offloaded to the AI's prompt instructions instead of app code, a new
+  `exercise_targets` table for #32's proposed updates, and the recovery-science §7 constraint
+  enforced structurally (no field in the response schema shaped like a percentage/readiness score)
+  rather than only requested in the prompt. Both issues stay `intake` — this is a spec, not a
+  split; splitting into `ready` children per the spec's §7 is the next action on these two, not
+  done in this tick. All 3 checks green, merged squash.
+- **2026-08-31 (#66 plan → #72):** Shipped, docs-only. `#66` is `effort:M` with no linked plan, so
+  per `PLAYBOOK.md` step 3 this tick wrote the plan and stopped rather than executing directly.
+  `docs/superpowers/plans/2026-08-31-profiles-schema-migration.md`: read the live schema
+  (`backend/main.py`) rather than assuming it, which surfaced two real correctness traps the issue
+  itself didn't call out — `exercise_notes` and `personal_bests` each carry a uniqueness constraint
+  (`PRIMARY KEY`, `UNIQUE`) that must *expand* to include `profile_id`, which SQLite can't do via a
+  plain `ALTER ADD COLUMN` (needs a rename/create/copy/drop rebuild); and `/api/import`'s existing
+  per-table delete-then-insert-immediately loop requires `profiles` to be **first** in `TABLES`
+  with `ON DELETE CASCADE` on every new FK, or a restore violates the FK either on delete (children
+  still reference the parent) or on insert (parent doesn't exist yet). Also resolved the issue's
+  own open question ("confirm the exact table list against the live schema") — `personal_bests`
+  gets `profile_id` too, alongside the four tables the issue named. Plan hands off one item to
+  #67 via a comment (Task 7): the seeded profile's `password_hash` is left `NULL` by design, so
+  #67's login flow must handle a profile with no password set yet, not assume every profile has
+  one. #66 stays `ready` — now unblocked for real execution next tick, not just plan-then-stop.
+  All 3 checks green, merged squash.
+- **2026-08-31 (status + tick resume):** `/orchestrate status` reconciled cleanly against live
+  GitHub — zero drift from this file, nothing to correct (no open PRs beyond what's logged here,
+  #66 confirmed the sole `ready` issue, #67/#68/#69 correctly withheld from `ready`, no new owner
+  comments on any `intake`/`needs-clarification` issue since 2026-08-30). Confirmed both
+  owner-pending items are genuinely still pending rather than assumed: the 13-branch cleanup
+  command hasn't been run (all still present, unchanged SHAs), and the auto-delete-on-merge repo
+  setting is still off (direct evidence: #71's own head branch survived its merge) — see "Needs
+  owner" above for the now-updated tally.
+- **2026-08-30 (PLAYBOOK.md fix → #71):** Shipped. Logged the "shaped but needs a spec" Feature
+  Intake gap (hit on #27/#30/#32/#33 this session) via `scripts/append_improvement.sh`, then acted
+  on it immediately rather than leaving it for a future review pass — small, well-understood,
+  docs-only. `PLAYBOOK.md` step 3 now names this as a third Feature Intake outcome alongside
+  relabel-`ready` and split-into-children. All 3 checks green, merged squash. Improvements cursor
+  advanced to 2.
+- **2026-08-30 (#30/#32/#33 triage, #70 opened):** Further owner Q&A, same session as the #29
+  split. #30 (Import): build full-session import (working interpretation of a slightly uncertain
+  answer, flagged on the issue for correction), scoped per-profile; POC-simple idempotency (no
+  dedup handling yet); add-only overwrite semantics except upsert-by-id when the imported record
+  names a known ID. #32 (Adaptive coaching): v1 is manual export-a-prompt only (live API
+  explicitly deferred); cadence is before/after only ("during" scoped out); "update" stays a
+  simple layer above existing per-session nudging, not a `workoutPlan.js` restructure; AI output
+  can propose real profile/plan updates but only after explicit user confirmation, never
+  fabricated; sequenced behind the user system (#66/#67). #33 (Nutrition): collect both
+  bodyweight *and* height (new scope beyond the original bodyweight-only ask); ships standalone,
+  not folded into #32; also sequenced behind #66 since the new fields need real profiles. #30 and
+  #32 independently converged on the same underlying shape — structured AI output, reviewed and
+  confirmed, then written to real data — flagged on both issues as worth one spec pass
+  considering together. A future "competition/comparison screens across users" idea came up in
+  passing during #30's triage; captured as new intake issue #70 rather than lost, per this repo's
+  Feature Intake convention. All four (#27/#30/#32/#33) stay `intake` — direction is real now,
+  but each still needs an actual written spec before splitting into `ready` work. Logged in
+  `DECISIONS.md`. No code changes — pure triage.
+- **2026-08-30 (#23 → #65):** Shipped. Bumped the Dockerfile's builder stage `node:20-alpine` →
+  `node:26-alpine` — same target Dependabot PR #7 proposed, actually investigated this time
+  instead of rubber-stamped, per the issue's own instruction. Root cause per the issue: npm
+  11.19.0 (bundled with `node:26-alpine`) resolving `frontend/package-lock.json`'s optional
+  platform packages differently than npm 10.x, producing a false-green in CI (which never touches
+  the Dockerfile). Investigated for real rather than assumed: this sandbox has no Docker daemon
+  (same confirmed constraint as #21/#22), so downloaded a checksum-verified
+  `node-v26.8.1-linux-x64` binary directly from nodejs.org and ran actual `npm ci` under its
+  bundled npm 11.19.0 — against the current lockfile, against the exact pre-#59 lockfile that
+  still contained the `@esbuild/aix-ppc64@0.21.5` entry named in the original error, and again
+  with `--os=linux --cpu=x64 --libc=musl` forced to approximate Alpine. All three succeeded
+  cleanly; `npm install --package-lock-only` under node 26 regenerated the lockfile byte-identical
+  to what's committed. **Real finding: no lockfile regeneration was actually needed** — `esbuild`
+  is no longer even resolved in the dependency tree since #59's vite 5→8 bump already regenerated
+  the lockfile fresh, so PR #7's original failure likely doesn't reproduce outside the real
+  Alpine/musl `buildx` environment. Noted in `AGENTS.md`'s Gotchas section. Verification: 212/212
+  vitest, prod build + real backend/dist smoke test (200 on `/`, correct `/api/health`), 69/69
+  backend pytest, lockfile reconfirmed installing cleanly under the sandbox's own node 22/npm 10
+  too. Playwright e2e blocked in this sandbox by an unrelated egress-proxy 403 — flagged as
+  session-to-session sandbox variance (not a permanent constraint like the Docker one; #21/#22 had
+  it working same-day) — CI's own Playwright run on GitHub's runner was the real gate regardless.
+  Literal `docker buildx build` verification remains impossible in-sandbox and is flagged for a
+  spot-check at the next real deploy, same precedent as #21/#22. `code-review` skill run with an
+  explicit target this time (per the #38-tick gotcha) — fixed one real finding (a duplicate
+  12-line Dockerfile comment re-narrating the AGENTS.md entry, trimmed to a pointer), correctly
+  did *not* act on an out-of-scope one (node 26 vs. 24 LTS choice — flagged as a possible separate
+  issue, not this one's job). All CI green, merged squash. Dependabot PR #7 closed, pointing at
+  #65.
+- **2026-08-30 (#29 triage → #66/#67/#68/#69):** Resolved via live owner Q&A during an
+  `/orchestrate status` + tick session. Profiles are real, isolated, data-owning accounts, not
+  just a label — explicit prework for later Google/Apple OAuth (not built now, but the schema
+  shouldn't preclude it). Existing data migrates to a seeded `kapekost` profile with `role:
+  admin` (no admin-only behavior built yet, just the flag). Real login gate before Home, not a
+  device-remembered switcher. v1 auth is username + hashed password with email-based reset —
+  OAuth explicitly deferred. Emoji icons confirmed fine for now. Split into #66
+  (schema/migration, `ready` now — foundational, nothing else depends on it), #67 (login, depends
+  on #66, not yet `ready`), #68 (password reset via email, depends on #67, not yet `ready`), #69
+  (switcher UI, depends on #66, not yet `ready`). #68's one open question (which email provider,
+  since this repo has no existing email-sending capability) was resolved same-session: **Resend**
+  (matches `kapekost-web`'s existing pattern), API key to live in `AGENTS.local.md` per this
+  repo's "deployment knowledge stays local" convention. #30 and #32 (both still `intake`) had
+  their "depends on Profiles (#29)" notes updated to point at #66 instead, since #29 is now
+  closed. No native GitHub blocked-by relationship set on #67/#68/#69 (no graphql-capable tool
+  available this session) — sequencing is a manual note in each issue body and above instead.
+  Logged in `DECISIONS.md`. No code changes — pure triage.
+- **2026-08-30 (#61 follow-up → #63):** Shipped. `scripts/deploy.sh`'s `/api/health` check ran
+  exactly once immediately after `docker compose up -d --force-recreate`, which returns as soon
+  as the container *starts*, not once uvicorn is actually accepting connections — a real race
+  that could fail a perfectly good deploy. Caught by the recurring routine's now-archived session
+  (see below), which had independently kept working #34 after being interrupted mid-collision and
+  compared its own draft against the merged #61 script before stopping for good. Verified the gap
+  against the actual merged code first rather than trusting the claim on faith — confirmed real.
+  Fixed with a retry loop (~30s, 15×2s) inside the *same* SSH session rather than one connection
+  per attempt. `code-review` caught two real issues in the first draft of the fix itself before
+  it shipped: swallowed stderr on persistent (non-transient) failures, and per-attempt SSH
+  reconnect overhead that would've made the "~30s" claim inaccurate — both fixed by moving the
+  loop into the remote shell entirely. Retry logic verified standalone (extracted the exact
+  remote snippet, ran it directly: fails-then-succeeds and always-fails cases both correct).
+  Session `session_01GPKYsV68JuLWsrZCwLYyFa` archived after this — confirmed idle since the
+  interrupt, never pushed its own fix (the branch it intended to push to was already merged and
+  squashed by then anyway, so that plan was moot regardless), nothing salvageable left in it.
+- **2026-08-30 (#34 → #61):** Shipped. `scripts/deploy.sh` wraps the existing
+  build→transfer→restart→verify runbook into one command, reading `DEPLOY_HOST`/
+  `DEPLOY_APP_DIR`/`DEPLOY_SSH_OPTS` from a new `AGENTS.local.md` section instead of hardcoding.
+  Adapted from a solid, complete draft found on the abandoned `tmp/repair-38-stacked-9` branch
+  (see the #38 tick's orphaned-branch finding below) rather than written from scratch — fixed
+  one real bug in it: the remote `docker compose up` step wasn't setting `APP_COMMIT`, so it
+  would've silently deployed `:latest` instead of the built commit. `code-review` skill (run
+  with an explicit path/target this time) caught a second real bug before shipping: the first
+  draft of `AGENTS.local.md.example`'s own documentation broke the script's config parser (its
+  fenced example repeated the section heading, truncating the `sed` range before the actual
+  variable lines). Both fixed and verified — including against the real shipped `.example` file,
+  not just a synthetic test fixture — before merging. All 3 checks green, merged squash.
 
-  **Accounts designed.** #67 and #68 merged into one workstream and closed as superseded — the
-  owner's 2026-09-02 emailed-link decision makes them mutually dependent, so neither can go first.
-  Spec at `docs/superpowers/specs/2026-09-04-accounts-auth-design.md` (PR #83), split into #84-#87.
-  Two choices were settled by measuring on the real Pi instead of assuming, both of which changed
-  the answer: bcrypt cost 12 (627 ms) over any memory-hard KDF, because OWASP's scrypt baseline
-  wants 128 MiB against ~185 MiB free and each concurrent memory-hard hash reserves its full
-  working set — a few parallel logins to an unauthenticated endpoint could OOM the container on a
-  box that also runs Home Assistant; and confirming both bcrypt and argon2-cffi ship aarch64
-  wheels, so the Dockerfile's no-build-tools rule survives either way.
-
-  **Two sequencing traps found while designing, both recorded in the issues rather than left to be
-  rediscovered:** gating `/api/events` breaks the nightly backup heartbeat (it posts there from
-  cron with no session and swallows failures via `|| true`), so #88 must land before or with #86;
-  and taking the cron weekly makes `/api/health`'s 26h staleness check permanently `stale`, so the
-  threshold has to move with the schedule — a signal that is always red is one nobody reads, which
-  is how this week's failures went unnoticed for three nights.
-
-  **Dependabot #80/#81 hand-verified and merged.** Both were green in CI, which proves little for
-  #81: CI runs tests bare-metal and never builds the Dockerfile, the same blind spot that kept
-  #7/#23 open for weeks. Verified by hand instead — full `docker buildx build --platform
-  linux/arm64` (deps installed in 5.2s with no compilation, so the no-gcc premise still holds on
-  py3.14), 88 backend tests on py3.14 + pydantic 2.13.5, container smoke test, fresh DB migrating
-  to `user_version = 5`, image +4 MB. #81 left two things behind — CI still pinned to py3.11, and
-  a Dockerfile comment still asserting the wheel fact for py3.11 — both fixed in #82, which also
-  writes the "CI never builds this Dockerfile" warning into the comment so the next base-image
-  bump doesn't trust a green check either.
-
-  **Housekeeping:** 28 dead remote branches deleted, closing a "Needs owner" item that had been
-  open since 2026-08-30. The runner's 403 on `git push --delete` is specific to the GitHub App's
-  permissions — the same command works from the owner's Mac. `delete_branch_on_merge` also
-  verified on, so the pile stops growing. `AGENTS.md`'s Status section refreshed: it claimed
-  `5247896` was live and "nothing is unreleased", when `17bd4fc` is deployed and `main` is 4
-  commits ahead including a base-image change.
-- **2026-09-04 (#88 shipped end to end — backup heartbeat, weekly cron, deployed):** Picked #88,
-  the only unblocked meaningful `ready` work; #84 carries `ready` but is not pickable without human
-  approval, and #89 is waiting on a URL only the owner can make. Claim pushed before any execution
-  and accepted as a fast-forward, so no competing tick was live.
-
-  **The design changed on contact with the real hardware.** The issue says "the script writes
-  `data/backup-status.json`", which reads as a plain shell redirect. It isn't possible:
-  `~/workout-tracker/data` on the Pi is `drwxr-xr-x root root`, created by Docker when it first
-  mounted the volume, and the cron user has no passwordless sudo — the same constraint that put
-  rclone in `~/.local/bin` as a static binary. Checked before writing any code rather than after
-  discovering it in a cron failure at 03:30. The script now stages the JSON in a host temp file it
-  owns and lets `docker cp` place it: that runs as the Docker daemon, writes through the bind
-  mount, and the file lands owned by the host user. `docker cp` also works against a *stopped*
-  container, so "the backup failed because the app was down" — the one case the old HTTP heartbeat
-  structurally could not report, since it POSTed to the app itself — now gets recorded.
-
-  **Caught in review, not by CI.** Reading the status from a file removed the `with db() as conn`
-  that the old handler used for its query, and with it an incidental liveness check: `/api/health`
-  would have returned 200 for an app whose database was unopenable, while `scripts/deploy.sh` has
-  always read anything other than a 200 as "the deploy is not up". The endpoint now touches the DB
-  deliberately, with a test that was confirmed to fail without the fix rather than assumed to.
-  Also folded the duplicated status-file test helper into `conftest.py`, which exists for exactly
-  that reason. Backend tests 88 → 92.
-
-  **Deployed, then flipped the cron, in that order.** Owner decision at the boundary (see
-  `DECISIONS.md`). `9e4bf65` is live and verified on the Pi — the first deploy since `17bd4fc`, so
-  the py3.11 → 3.14 base image and pydantic 2.13.5 are now actually running, not just
-  hand-verified. Then `crontab` went `30 3 * * *` → `30 3 * * 0`, with the old crontab saved on the
-  Pi at `~/crontab.backup-2026-09-04`. Flipping the cron first would have left `/api/health`
-  permanently stale, which is the precise failure the issue exists to prevent.
-
-  **Proved end to end on the Pi, not just in tests.** A manual `backup.sh` run wrote
-  `{"status":"failed","at":"2026-09-04T20:17:42Z",...}` through `docker cp`, `/api/health` read it
-  back, and the local snapshot `workout-20260904-211731.db` still landed despite the Drive leg
-  failing. That last part is the chain ordering earning its keep in production rather than in a
-  comment. The `"failed"` is honest: Google Drive is still `invalid_grant`, unchanged from the
-  start of this tick. It did not stay that way: the owner published the OAuth app and re-authorized
-  rclone while this tick was finishing, and a run at 21:24 BST put `workout-20260904-212433.db` in
-  Drive and flipped `/api/health` to `ok`. So the new mechanism has now been proven on both paths on
-  real hardware, failure first and success second, which is better coverage than a working Drive
-  would have given.
-
-  **Feedback review (step 8) ran** because this tick logged three entries. Both `[local]` ones
-  shipped as PR #92: step 4 no longer tells subagents to append to `IMPROVEMENTS.md` themselves
-  (the log and its cursor live on the home branch, so a feature branch writing there leaves the
-  note unmerged and conflicting), and it now says what a fresh worktree lacks, which is what made
-  the subagent's verification commands fail for reasons unrelated to its change. The `[unsure]`
-  PATH entry turned out to be smaller than it looked: `AGENTS.local.md` already has a
-  "Local development tool paths" table for exactly this and was only missing a `gh` row, now added.
-  The two older `[template]` entries could not be filed — see "Needs owner". Cursor advanced to 8.
-
-  **Not merged to main on purpose.** This home branch stays unmerged so the repo's
-  auto-delete-on-merge cannot eat it again the way it did this morning, taking the claim mechanism
-  with it. That leaves `main`'s copy of these orchestration docs behind the live branch — a real
-  tradeoff, and the underlying choice (keep merging and re-push every time, or stop merging and
-  cherry-pick doc commits) is written up in `IMPROVEMENTS.md` and wants an owner call.
-- **2026-09-05 (#93 shipped — the backup's two legs report independently; a dead subagent
-  recovered):** The tick opened on a live `#93` claim timestamped five minutes earlier, which
-  PLAYBOOK's "Claiming work" would normally read as another driver and back off from. It wasn't:
-  a task notification arrived naming the claiming subagent, and its session id was this session's
-  own — the `/clear` between them is what made the claim look foreign. The agent had died on the
-  account's five-hour session limit (429, resetting 01:30 BST) immediately after writing 11 RED
-  tests, which existed only as uncommitted changes in its isolation worktree. Re-dispatching would
-  have hit the same limit and thrown the tests away, so the tick finished the work in the main
-  thread, whose requests were still being served.
-
-  The tests were a good contract and were kept as written. `/api/health` now returns four backup
-  keys instead of two, splitting a single `_last_backup()` into a per-leg `_leg()` helper: the
-  local leg keeps the unprefixed `last_backup_status`/`last_backup_at` (it is the copy standing
-  between us and data loss, and `scripts/deploy.sh` reads it), and the off-site leg reports
-  alongside it. `scripts/backup.sh` splits its one all-or-nothing chain into two independently
-  recorded legs **without reordering it** — `rclone` still runs last, after the snapshot is on the
-  host's disk, which is exactly why the local copies survived 2026-09-01..04. Local success is
-  exit 0; a local failure exits non-zero and records the off-site leg as `skipped`, keeping "never
-  tried" distinct from "tried and broke". Neither ages into `stale`, since only an `ok` does.
-
-  Two details worth keeping. **A pre-split status file still reads correctly**: the Pi is carrying
-  one and will until `backup.sh` next runs there, so `/api/health` reads a legacy single-status
-  file as a local-only result and reports the off-site leg as `null` — unknown, not failed — with
-  a test pinning it. Its top-level `remote` key is the remote's *name*, not a leg. And an
-  incidental bug went with it: the old success branch pinged `HEARTBEAT_URL` as a success even
-  when `write_status` had failed and set `status=1`; the ping now follows the final exit status.
-
-  101 backend tests pass (from 11 failed / 90 passed), all three CI checks green on the verified
-  head commit, merged `69baa6c`. Feedback review ran: the `[local]` entry — `AGENTS.md` telling
-  you to build the venv with `python3`, which is 3.9.6 on stock macOS and cannot install the
-  pinned 3.14 requirements, costing a wasted venv build this very tick — shipped as PR #100
-  (`61f3c91`). The `[template]` entry is queued under "Needs owner". Cursor advanced to 10.
-
-- **2026-09-05 (live session — #84 planned, state reconciled):** Picked #84, the first pickable
-  Issue since the owner approved it. It is `effort:M` with no linked plan, so PLAYBOOK step 3
-  planned it and stopped rather than executing.
-
-  **Plan shipped:** `docs/superpowers/plans/2026-09-05-accounts-auth-core.md`, PR #101, green on
-  all three checks, squash-merged as `cd2e951`. Six TDD tasks with the actual test and
-  implementation code in each, not prose: schema v6 migration → bcrypt cost-12 helpers → session
-  store and `wt_session` cookie → `current_profile` + `GET /api/auth/me` → `POST /api/auth/login` →
-  `POST /api/auth/logout`.
-
-  **Both constraints from the approval comment are carried as tests, not prose.** The gate stays
-  off the data endpoints, guarded by a table-driven test asserting `/api/sessions`, `/api/notes`,
-  `/api/export`, `/api/profile/me` and the rest still answer 200 without a cookie — so flipping the
-  gate early fails the suite instead of shipping. And `auth_tokens`/`auth_sessions` stay out of
-  `TABLES`/`TABLE_INTRODUCED_AT`, asserted directly plus a check that the export envelope's table
-  set is unchanged at schema 6.
-
-  **One addition beyond the Issue's literal wording, flagged in the plan for a reviewer to drop:** a
-  `_dummy_hash()` on the login path, so an unknown username pays the same bcrypt cost as a real
-  account. Without it the two are trivially distinguishable by response time. The spec takes exactly
-  that position for `/api/auth/forgot-password`; the plan applies it to the endpoint #84 ships.
-
-  **Found and reconciled: state was split across two branches.** The owner's approval commit
-  (`366e9f3`) went to `STATE.md` on `main`, but `main`'s copy predated the #88/#93 tick entries that
-  live only on this branch — so each side held facts the other lacked, and neither was a superset.
-  This file now carries both; `main`'s stays behind by design, since the home branch never merges
-  (2026-09-04 decision). Logged as a `[template]` improvement: the approve variant never says which
-  branch its record goes on, which is exactly the ambiguity that decision made load-bearing.
-
-  **Verified before merging rather than assumed:** `bcrypt` 5.0.0 publishes
-  `manylinux_2_17_aarch64` wheels for cp314, checked against PyPI, so the Dockerfile's no-build-tools
-  premise should survive the new dependency. The plan still makes a by-hand
-  `docker buildx build --platform linux/arm64` non-optional, because CI never builds that Dockerfile
-  and a wheel that is missing at build time would be invisible to every green check.
-
-- **2026-09-05 (live session — process retuned, then #84 shipped end to end):** Two ticks and an
-  owner review, in one session.
-
-  **The owner reviewed how the runner decides when to implement**, prompted by the first tick
-  planning #84 instead of building it. Four changes, PR #102: the plan gate keys on decomposition
-  rather than effort size; plans carry decisions and test names rather than test and implementation
-  bodies (#84's was re-cut 1091 → 266 lines); plans are linked from their Issue; and `blocked-by` is
-  documented as the label the repo actually uses, since the native GraphQL field PLAYBOOK mandated
-  returns `undefinedField`. A soft 60/30/10 implementation/planning/review split is on record, with
-  review as a gate rather than a budget line. Recorded in `DECISIONS.md`.
-
-  **#84 then shipped under the new gate** — PR #103, `3ed18a4`. Six TDD commits, 51 new backend
-  tests, 152 backend and 216 frontend passing, CI green. Self-review before the PR caught one real
-  defect: `verify_password` promised "never raises" but only caught `ValueError`, so a stored hash
-  that was not even ASCII would have escaped as a 500 on the login path.
-
-  **One verification did not run, and is recorded rather than glossed:** the by-hand
-  `docker buildx build --platform linux/arm64`, because the Docker daemon was down. The risk it
-  guards was checked more broadly instead — `pip download --only-binary=:all: --platform
-  manylinux_2_17_aarch64 --python-version 3.14` resolved the entire runtime dependency set with no
-  source distribution anywhere, `bcrypt-5.0.0-cp39-abi3-manylinux2014_aarch64` included, which is
-  precisely what `Dockerfile:25-28` exists to protect. `scripts/deploy.sh` builds the image anyway,
-  so the gate binds at deploy, not at merge.
-
-- **2026-09-05 (live session — approvals restructured, #85 shipped):** The owner asked to stop
-  approving step by step ("i have not got much context per number to review or know") and for tick
-  summaries written for a product owner rather than an engineer. Both are now policy (PR #106).
-
-  **The approval change is a narrowing, not a weakening.** The destructive trigger "changes auth,
-  session, secret, or token handling" fires on every step of an auth feature by definition, which is
-  why one workstream produced five approval requests against a design already approved in full. An
-  owner-approved spec now carries its approval to the children it decomposes into, recorded in
-  `DECISIONS.md` naming the spec and the exact issues. **"Approval is human-only" is untouched** — no
-  agent may grant a label; what changed is how much needs one. A new hard-gated list keeps the truly
-  irreversible out of it, including a new entry: making a private deployment publicly reachable,
-  which is the real irreversible step in #27 and should never have ridden along on a workstream
-  approval.
-
-  **#85 shipped** (PR #107, `1cfcc6b`): token minting, the Resend seam, set-password,
-  forgot-password, admin invites, rate limiting and the owner bootstrap. 28 new tests, 180 backend
-  green. Two design points beyond the spec's letter: identical response bodies were not enough for
-  enumeration, since a send that happens only for real addresses can be *timed*, so forgot-password
-  sends after the response via `BackgroundTasks`; and the rate limiter runs **before** any hashing,
-  because rejecting afterwards would leave the 627 ms CPU amplifier fully intact.
-
-  **Self-review caught two bugs CI could never have caught.** The bootstrap script's own instructions
-  told the operator to run it inside the container, but the Dockerfile copied only `backend/main.py`;
-  adding the `COPY` still failed because `.dockerignore` excluded `scripts/` wholesale. Both surfaced
-  only by running `docker buildx build --platform linux/arm64` by hand — the blind spot
-  `Dockerfile:25-28` exists to warn about. That same build finally proved #84's bcrypt dependency
-  installs from an aarch64 wheel with no compilation, end to end.
-
-- **2026-09-05 (live session — #85 deployed, secrets moved out of Markdown, mail blocked):**
-
-  **Secrets left `AGENTS.local.md`.** The owner's call: "we probably dont add keys in md files."
-  They now live in a `.env` beside `docker-compose.yml` on the target, loaded automatically by
-  Compose for `${...}` substitution — deliberately *not* `env_file:`, which requires the file to
-  exist and would turn a forgotten `.env` on a rebuilt host into a failed deploy. Every value has a
-  default, so a missing `.env` means mail stops sending, not a broken deploy. `.env.example` tracked;
-  `AGENTS.local.md` now records only where keys live and where they come from. PR #108.
-
-  **#85 deployed** (`6da2e22`, then `c9442d8`), and the first real invite send **failed twice, both
-  times usefully.** First: HTTP 403, Cloudflare error 1010 — Cloudflare fronts `api.resend.com` and
-  blocks urllib's default `Python-urllib/3.x` agent, which presents exactly like a rejected API key
-  and sent the first diagnosis down the wrong path. Fixed with a real User-Agent, plus wrapping
-  `HTTPError` so failures carry the response body; a failure that will not say why is barely better
-  than a silent one (PR #109). Second, with the reason now visible: **401, "API key is invalid"** —
-  the key copied from `kapekost-web` is `re_placeholder`, 14 characters. That repo never had a live
-  key; it exists only in Vercel. Verified the transfer itself was faithful (identical SHA-256 either
-  side) before blaming the key.
-
-  Neither failure was reachable by the test suite, which fakes Resend at the boundary and would have
-  gone on passing forever. This is precisely the argument the spec made for the bootstrap being a
-  real send before anyone else is invited.
-
-  **#110 opened** after the owner asked to exercise multi-user UX before login. Reads have never been
-  scoped to a profile — deliberate in #66, invisible with one profile, a data leak with two. Scoping
-  is separable from authentication and ships while the app is open; a profile *switcher* was
-  deliberately not opened as an issue, since switching without a login is a backdoor that #86 would
-  have to delete.
-
-- **2026-09-05 (live session — mail works end to end, secrets audited):** The owner minted a Resend
-  key and passed it without it entering the transcript (clipboard to a local file, copied to the
-  Pi's `.env`, temp file deleted).
-
-  **Two sender-domain findings, both the opposite of what was assumed.** The apex
-  `kapekost.co.uk` is **not** verified on this Resend account — sending from it returns a 403. That
-  had been assumed verified because `kapekost-web`'s code sends from `hello@kapekost.co.uk`. What
-  *is* verified is the **`contact.kapekost.co.uk` subdomain**, confirmed by probing the send
-  directly rather than by minting another token. `MAIL_FROM` is now
-  `noreply@contact.kapekost.co.uk`, which also lifts the restriction that briefly applied while
-  using Resend's `onboarding@resend.dev` fallback — that works with no verified domain but delivers
-  only to the account owner, so it could never have invited anyone else.
-
-  **The owner received the invite email.** The full chain — key, token, Resend, link — is proven on
-  real infrastructure, which is what the spec wanted before anyone else is invited. Setting the
-  password still needs a `curl` until #105 ships the screen. Several orphaned invite tokens exist
-  from the failed sends; harmless, since their raw values never left the process, and they expire in
-  7 days.
-
-  **Secrets audited across all 364 commits** — Resend, Google OAuth, SSH, Tailscale, AWS, GitHub and
-  Slack shapes. Clean, nothing to rotate. The CI guard meant to prevent exactly this only checked
-  `.mcp.json` for three patterns, so it now scans every tracked file and hard-bans committed env
-  files, verified against planted secrets rather than only seen to pass (PR #111).
-
-- **2026-09-05 (#110 → PR #112, shipped + deployed):** Per-profile data isolation. Reconciled first:
-  `main`'s `STATE.md` was stale (still named #84 as next), so the live cursor was read from this home
-  branch per "Claiming work" — #110 was the sole `ready` issue and the recorded next action. Not
-  destructive (no schema/auth/session/token change, reversible), so no approval; passed the
-  decomposition gate (issue body is the spec) → executed, not planned. Claim pushed to this branch
-  before any work (`a22c507..b45cbd1`).
-
-  **Implementer subagent (sonnet, worktree) was cut off mid-task by the account usage limit** ("resets
-  2:30pm BST") while still exploring — but it had already written a complete, high-quality
-  table-driven leak test (161 lines: an `acting_as` monkeypatch fixture, sets read via
-  `GET /api/sessions/{id}`, `POST /sets`→404, the "ask for B's exercise while acting as A → empty"
-  scoping proof, fresh-profile-empty, B-unchanged). Inspected the dead worktree per the recovery
-  discipline (the queued `[template]` improvement), salvaged the test to a commit rather than losing
-  it. Owner chose to continue **inline** rather than wait for the reset; re-dispatching a subagent
-  would just re-trip the limit. TDD red confirmed with the seam-only ("GET /api/sessions: leaked B's
-  data"), then implemented: one `acting_profile_id(conn)` seam (returns `_default_profile_id` today),
-  every in-scope read scoped and every mutation ownership-checked (404, not 403), `/api/export` and
-  `/api/import` left for #87. One expected regression: `test_delete_nonexistent_personal_best_*` now
-  asserts 404 — the isolation model makes "gone" and "not yours" indistinguishable; renamed and
-  re-justified. Backend **183 green** (was 182; +1 leak test), #84 open-gate test green. Reviewed as
-  a full diff **inline by the controller** (a forced deviation — the usage limit was tripping reviewer
-  subagents), with CI and the live check as the additional gates.
-
-  Squash-merged to `main` (`240acc4`) on green CI (test/Backend tests/sanity). **Deployed to the Pi**
-  (owner ran `deploy.sh` after a PATH-only hiccup): arm64 `240acc4` built, shipped to
-  `deploy-user@example-pi-host`, container recreated, `/api/health` `version=240acc4`, backups ok. Dead
-  worktree + merged branch cleaned up. **Live two-user isolation is not clickable until #105/#86 add
-  login** — today `acting_profile_id` returns the seed for every request, so the API always acts as
-  one profile; the isolation is proven by the leak test on the deployed commit, and the live
-  regression risk (scoping hiding the owner's own data) is an in-app check left with the owner.
-  Rulings: /api/profile/me routed through the seam though the spec didn't name it (consistency; #86
-  otherwise has to change it separately); inline execution + inline review under the usage limit.
-- **2026-09-05 later (#105 shipped and deployed; `main`'s orchestration docs found to be a trap):**
-
-  **The tick began by getting it wrong, which is the part worth keeping.** Step 2 read `STATE.md`,
-  `GUARDRAILS.md` and `DECISIONS.md` from the working tree — `main` — found no standing-approval
-  entry in `DECISIONS.md`, and concluded the accounts chain was blocked on an owner approval. It
-  then spent the tick on the intake track instead, shipping #114 (refreshing the AI-structured-IO
-  spec, which still named the superseded #67 as its login dependency and still told an executor to
-  scope rows with `_default_profile_id` — the exact call site #86 exists to delete) and reporting
-  the approval gap as a finding.
-
-  **That finding was false.** The standing approval exists, names #105/#86/#87 explicitly, and
-  quotes the owner: "let's trust the process on these approvals." It lives on **this branch**, which
-  by owner decision (2026-09-04) never merges to `main`; doc commits land here and reach `main` only
-  by selective cherry-pick. `main` was six `DECISIONS.md` entries and 28 `STATE.md` commits behind.
-  PLAYBOOK step 1 never said which branch to read from, so both this tick and PR #113 before it read
-  the stale copy and reported work blocked that was not. It surfaced only because clearing an
-  In-flight claim forced a merge that exposed the divergence — nothing in the loop would have caught
-  it otherwise.
-
-  **Fixed, not just noted (PR #116):** step 1 now names the branch and gives the `git show` command;
-  `main`'s `DECISIONS.md` was synced to this branch's 20 entries (its one unique entry, the thinner
-  "#27 → P3", verified as fully subsumed before overwriting); and this file's own contradictory
-  "approval per step" wording — the phrasing that misled two ticks — is gone. Logged as `[template]`
-  friction, cursor advanced to 12.
-
-  **Then the actual work.** With the owner confirming the standing-approval reading live, #105 was
-  claimed and dispatched. The subagent was killed by a session-limit 429 after five clean TDD
-  commits with the route wiring uncommitted — the same failure that hit #110, and the recovery the
-  2026-09-05 `[template]` entry prescribes worked: its worktree held complete, green work, so the
-  controller committed the last step rather than re-running from scratch. Reviewed the diff before
-  shipping, including checking the client payloads against the real `LoginIn`/`SetPasswordIn`/
-  `ForgotPasswordIn` models, since the frontend tests mock the API and cannot catch a contract
-  mismatch. CI green on the pushed head (`a024b3c`), squash-merged as `7d06bae`, deployed and
-  health-verified. Owner asked at the deploy boundary and said go.
-
-  **Intake, for the record:** #30 was picked before #105 became available and stays `intake` — its
-  spec is complete but gates itself on an owner skim. #114 made that skim worth doing against
-  current reality. One real find fell out: #110 delivered per-profile scoping independently of
-  login, so #30/#32 depend only on #86, not the whole accounts chain.
+  **Near-miss, worth the full story:** while this was in progress, the recurring routine (set up
+  earlier this session) fired for the first time on its normal schedule and independently picked
+  #34 too, in its own separate session — checked out the same branch, was about to make redundant
+  edits. Caught via `get_session` (prompted by the owner asking "won't they clash?") and
+  interrupted before it pushed anything: no git damage, but real cost wasted on now-discarded
+  duplicate work. **Resolved same tick:** owner decided against relying on remembering to toggle
+  the routine — `PLAYBOOK.md` gained a real "Claiming work" mechanism instead (a tick pushes an
+  In-flight claim to `claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue,
+  *before* any execution; other ticks check that live branch first and back off on a fresh claim;
+  git's own push-rejection on a non-fast-forward is what actually enforces it, not just
+  cooperative reading). Logged as a standing decision in `DECISIONS.md`. The routine itself stays
+  disabled for now — nothing stops the owner re-enabling it whenever unattended coverage is
+  wanted again; that's now safe to do.
+- **2026-08-30 (#22 → #59):** Shipped. Coordinated `vite` 5→8.2.2, `@vitejs/plugin-react` 4→6.1.1,
+  `vitest` 1→4.1.11 bump; lockfile deleted and regenerated fresh rather than hand-merged. Branched
+  before #58 landed, so PR #59 conflicted with `main` on the same two files (`package.json`,
+  `package-lock.json`) — resolved cleanly (non-overlapping `dependencies`/`devDependencies` lines,
+  git's 3-way merge needed no manual edits) and the *combined* react-19 + vite-8 + vitest-4 state
+  was fully re-verified together (212/212 unit, 14/14 Playwright, prod build, real backend +
+  built-`dist/` smoke test, 69/69 backend pytest sanity check) — no interaction issues found.
+  Real finding, not just an unverifiable gap: vite 8 defaults to the Rolldown bundler, adding a
+  *new* family of per-platform optional native bindings — same bug class as the Rollup/Alpine
+  issue this repo already hit once (`efd88ca`). Noted in `AGENTS.md`'s Gotchas section for the
+  next real `docker buildx build` to watch for. Owner explicitly decided to merge without a
+  literal Docker build (blocked in-sandbox by org egress policy, confirmed 3×) since merging to
+  `main` isn't a deploy here — the real Mac build machine remains the actual gate. Dependabot PRs
+  #13/#16 closed, pointing at #59.
+- **2026-08-30 (#21 → #58):** Shipped. Coordinated `react`+`react-dom` bump to 19.2.8 — zero source
+  changes needed (already on `createRoot`, no legacy patterns), zero other packages needed
+  bumping (`react-router-dom`/`@testing-library/react`/`recharts` peer ranges already covered
+  19). 212/212 unit, 14/14 Playwright, prod build, real backend + built-`dist/` smoke test all
+  green. Literal `docker buildx build` blocked by this sandbox's org egress policy (Docker Hub
+  CDN denied) — Dockerfile itself untouched by this PR, so merged on the strength of the rest;
+  flagged in the PR for a real build-machine verification at the next deploy regardless.
+  Dependabot PR #14 closed, pointing at #58.
+- **2026-08-30 (owner check-in):** Owner reviewed the flagged items live. Decisions: (1) codify
+  the intake-vs-ready sequencing precedent — `DECISIONS.md` entry added, `PLAYBOOK.md` step 3
+  reworded to match; (2) delete the 11 orphaned branches — attempted, blocked by a GitHub App
+  permission gap (see Needs owner); (3) proceed with #21/#22 now — dispatched below; (4) #27's
+  direction still being talked through with the owner, not yet decided.
+- **2026-08-30 (#38 → #55):** Shipped. Backfilled `docs/CHANGELOG.md` (in its correct
+  2026-08-17 chronological slot, marked as written retroactively) and an `AGENTS.md`
+  Design-docs bullet for the already-shipped Personal Bests feature — 5 commits verified
+  against actual repo history first (`3eb468e`, `8af065e`, `82f164b`, `c1ff0ab`, `fd83851`),
+  not just copied from the Issue body. Docs-only; `code-review` skill run on the diff (clean,
+  no findings — note: its first invocation silently reviewed a different repo entirely in
+  this multi-repo session, had to re-run with an explicit path/branch target to get a
+  trustworthy result). All 3 checks green, merged squash. Also surfaced the orphaned-branch
+  and intake-sequencing items now under "Needs owner" above.
+- **2026-08-30 (#24 → #53):** Shipped. Added `backend-tests.yml` with an explicit `Backend tests`
+  job name (frontend-tests.yml's job displays as plain `test`, which is what let backend-only
+  Dependabot bumps merge on an unrelated green check). Supersedes #44, which was the same fix
+  opened against a stale feature branch instead of `main` and closed same-day unexplained — #53
+  is a clean rebase of it onto current `main`. All 3 checks green (`test`, `sanity`, `Backend
+  tests`), merged squash, verified 69/69 backend tests locally first.
+- **2026-08-30 (state reconciliation):** `/orchestrate status` found this file stale against
+  live GitHub state: #36 was already closed (2026-08-29) but still listed above as open; #38
+  (ready, opened 2026-08-26) and #27 (intake, opened 2026-08-26) were never reflected in the
+  cursor. Corrected above — no code changes, just catching this file up to reality.
+- **2026-08-30 (catch-up pass):** Reviewed 6 open Dependabot PRs. Merged #41 (recharts) and
+  #40 (@testing-library/jest-dom) — green, no known blockers. Left #14/#16/#13/#7 open:
+  each is individually broken for reasons already correctly diagnosed in #21/#22/#23 (peer-dep
+  conflicts needing coordinated bumps; #7 passes CI but fails the actual `docker buildx build`).
+  No action taken on #21-24 themselves — real engineering work, not a merge-queue item.
+- **2026-08-30 (#35):** Shipped. `docker-compose.yml` reads the run tag from `$APP_COMMIT`
+  instead of hardcoding `:latest`; `AGENTS.md`/`AGENTS.local.md` runbooks updated to match.
+  Not yet deployed to the Pi — lands on the next real deploy.

@@ -17,10 +17,12 @@ import { track } from '../lib/analytics'
 import Eyebrow from '../components/Eyebrow'
 import Chip from '../components/Chip'
 import DayAccent from '../components/DayAccent'
+import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import Toast from '../components/Toast'
 import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
+import { IconCheck, IconTrash, IconMinus, IconPlus, IconSparkles, IconTrophy, IconClipboardDocumentList, IconPencil } from '../icons'
 
 function Stat({ label, value }) {
   return (
@@ -31,7 +33,12 @@ function Stat({ label, value }) {
   )
 }
 
-function SetRow({ s, onDelete }) {
+// The only destructive action performed mid-workout, with sweaty hands, right
+// next to the numbers you just read — and the only one in the app with no
+// confirm. Reuses the tap-again-to-confirm pattern History.jsx and
+// PersonalBests.jsx already use (armed state + a 3s window), rather than
+// inventing a second pattern for the same idea.
+function SetRow({ s, armed, onRequestDelete }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -44,10 +51,13 @@ function SetRow({ s, onDelete }) {
         <span className="font-mono" style={{ fontSize: '1rem', fontWeight: type.weight.bold, color: colors.text }}>
           {s.weight_kg}kg × {s.reps}
         </span>
-        <button onClick={() => onDelete(s.id)} aria-label="delete set"
-          style={{ background: 'none', border: 'none', color: colors.muted, cursor: 'pointer',
-            fontSize: '1.1rem', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          ×
+        <button onClick={() => onRequestDelete(s.id)}
+          aria-label={armed ? `confirm delete set ${s.set_number}` : `delete set ${s.set_number}`}
+          style={{ background: 'none', border: 'none', cursor: 'pointer',
+            color: armed ? colors.danger : colors.muted,
+            fontSize: armed ? type.size.base : type.size.strong, fontWeight: armed ? type.weight.bold : type.weight.regular,
+            width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {armed ? <IconCheck size={18} /> : <IconTrash size={18} />}
         </button>
       </div>
     </div>
@@ -65,21 +75,21 @@ const HOLD_REPEAT_MS = 90
 // already sized to clear NavBar (a measured, constant 77px across every
 // viewport width) plus a small margin - the same clearance every other
 // page gets. On top of that this page also needs TimerBar's own rendered
-// height so the last card/Finish button never ends up hidden behind it:
-// TimerBar measures 65px tall up to its 440px breakpoint tier and ~69px
-// above that (the tiers only narrow widths, not heights - .rest-clock's
-// own font-size step is what changes the bar's height here). 70 covers
-// both with a few px to spare.
-// Verified in a real browser (2026-08-25, Upgrade 5 Task 3/I14): relying
-// on .page-shell's 96px alone left the Finish button ~25px behind
-// TimerBar's top edge at every width tested (320-600px) - genuinely
-// load-bearing, not redundant. This replaces the old bare "96" (a second,
-// coincidental copy of .page-shell's own number) with the value actually
-// required, leaving ~20-30px of clearance instead of ~70-90px of dead
-// space.
+// height so the last card never ends up hidden behind it: TimerBar measures
+// 65px tall up to its 440px breakpoint tier and ~69px above that (the tiers
+// only narrow widths, not heights - .rest-clock's own font-size step is
+// what changes the bar's height here). 70 covers both with a few px to
+// spare.
+// Verified in a real browser (2026-08-25, Upgrade 5 Task 3/I14, back when
+// Finish Workout was this page's last element rather than in the header):
+// relying on .page-shell's 96px alone left it ~25px behind TimerBar's top
+// edge at every width tested (320-600px) - genuinely load-bearing, not
+// redundant. This replaces the old bare "96" (a second, coincidental copy
+// of .page-shell's own number) with the value actually required, leaving
+// ~20-30px of clearance instead of ~70-90px of dead space.
 const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 70
 
-function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
+function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', label = 'value' }) {
   const timers = useRef({ timeout: null, interval: null })
   const suppressClick = useRef(false)
 
@@ -115,17 +125,23 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric' }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button className="btn-icon" aria-label="decrease"
+      <button className="btn-icon" aria-label={`decrease ${label}`}
         onPointerDown={() => startHold(-1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
-        onClick={() => handleClick(-1)}>−</button>
-      <input type="number" value={value} inputMode={mode}
+        onClick={() => handleClick(-1)}><IconMinus size={16} /></button>
+      {/* The type-a-number escape hatch is the *fast path* (type "60" instead of
+          16 stepper taps), so it being the smallest target on screen was backwards.
+          minHeight brings it to the same 44px floor every button on this page holds;
+          aria-label gives it an accessible name at all — previously it had none, and
+          a screen reader heard "decrease, increase, decrease, increase" with no way
+          to tell weight from reps. */}
+      <input type="number" value={value} inputMode={mode} aria-label={label}
         onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
         onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
-        style={{ width: 72, textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
-          color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '8px 0' }} />
-      <button className="btn-icon" aria-label="increase"
+        style={{ width: 72, minHeight: 44, boxSizing: 'border-box', textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
+          color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
+      <button className="btn-icon" aria-label={`increase ${label}`}
         onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
-        onClick={() => handleClick(1)}>+</button>
+        onClick={() => handleClick(1)}><IconPlus size={16} /></button>
     </div>
   )
 }
@@ -179,14 +195,20 @@ export default function Workout() {
   const [editingNote, setEditingNote] = useState(null)
   const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
+  // Same tap-again-to-confirm shape as History.jsx's confirmId and
+  // PersonalBests.jsx's confirmId: only one set can be armed at a time, and
+  // arming one disarms whatever was armed before it.
+  const [confirmSetId, setConfirmSetId] = useState(null)
 
-  async function ensureLastPerf(exId) {
-    if (exId in lastPerf) return lastPerf[exId]
+  async function ensureLastPerf(ex) {
+    if (ex.id in lastPerf) return lastPerf[ex.id]
     try {
-      const data = await api.get(`/exercises/${exId}/last?exclude_session=${sessionId}`)
-      setLastPerf(prev => ({ ...prev, [exId]: data }))
+      const data = await api.get(
+        `/exercises/${ex.id}/last?exclude_session=${sessionId}` +
+        `&reps_low=${ex.repsLow}&reps_high=${ex.repsHigh}&bodyweight=${!!ex.bodyweight}`)
+      setLastPerf(prev => ({ ...prev, [ex.id]: data }))
       return data
-    } catch { setLastPerf(prev => ({ ...prev, [exId]: null })); return null }
+    } catch { setLastPerf(prev => ({ ...prev, [ex.id]: null })); return null }
   }
 
   useEffect(() => {
@@ -216,16 +238,16 @@ export default function Workout() {
       prsAtStart.current = prMap
       setPrs(prMap)
       // An unrecognised workout_day must not throw here: the effect's .catch
-      // would swallow it and bounce to Home, making the "Unknown workout day."
-      // fallback below unreachable. No exercises means no first ID — the
-      // fallback then renders as intended.
+      // would swallow it and bounce to Home, making the "Couldn't find this
+      // workout." fallback below unreachable. No exercises means no first
+      // ID — the fallback then renders as intended.
       const exercises = PLAN[s.workout_day]?.exercises || []
       const firstId = nextIncompleteExerciseId(exercises, s.sets || [])
       if (firstId) {
         setExpanded(firstId)
-        const data = await ensureLastPerf(firstId)
         const firstEx = exercises.find(e => e.id === firstId)
-        const pf = prefillFor(firstId, s.sets || [], prMap, data?.sets, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
+        const data = await ensureLastPerf(firstEx)
+        const pf = prefillFor(firstId, s.sets || [], prMap, data, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
         setWeight(pf.weight); setReps(pf.reps)
       }
     }).catch(() => nav('/'))
@@ -247,8 +269,8 @@ export default function Workout() {
 
   if (summary) return (
     <div style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, marginBottom: 16 }}>Workout complete 🎉</h1>
-      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 16 }}>Workout complete <IconSparkles size={20} style={{ verticalAlign: 'middle' }} /></h1>
+      <div className="card" style={{ padding: space.xxl, marginBottom: 16 }}>
         <Stat label="Duration" value={formatClock(summary.durSec)} />
         <Stat label="Sets" value={summary.totalSets} />
         <Stat label="Volume" value={`${summary.totalVolume.toLocaleString()} kg`} />
@@ -258,20 +280,20 @@ export default function Workout() {
             {summary.serverPrs.map((p, i) => {
               const isBaseline = p.type === 'baseline'
               return (
-                <p key={i} style={{ color: isBaseline ? colors.muted : colors.amber, fontSize: type.size.md }}>
-                  {isBaseline ? prLabel(p) : `🎉 New PR — ${prLabel(p)}`}
+                <p key={i} style={{ color: isBaseline ? colors.muted : colors.success, fontSize: type.size.md }}>
+                  {isBaseline ? prLabel(p) : <><IconSparkles size={14} /> New PR — {prLabel(p)}</>}
                 </p>
               )
             })}
           </div>
         )}
       </div>
-      <button className="btn-primary" onClick={() => nav('/')}>Done → Home</button>
+      <button className="btn-primary" onClick={() => nav('/')}>Done</button>
     </div>
   )
 
   const plan = PLAN[session.workout_day]
-  if (!plan) return <div style={{ padding: 24, color: colors.danger }}>Unknown workout day.</div>
+  if (!plan) return <div style={{ padding: 24, color: colors.danger }}>Couldn't find this workout.</div>
   const color = DAY_COLORS[session.workout_day]
 
   const setsForExercise = (id) => sets.filter(s => s.exercise_id === id)
@@ -301,7 +323,7 @@ export default function Workout() {
       if (prevMax == null || weight > prevMax) {
         setPrs(prev => ({ ...prev, [ex.id]: { weight, reps } }))
         if (prevMax != null) { // Only show if there was a previous record
-          showToast(`🏆 PR! ${weight}kg on ${ex.name}`)
+          showToast(<><IconTrophy size={14} /> PR! {weight}kg on {ex.name}</>)
         }
       }
       setRestStartMs(Date.now())
@@ -312,9 +334,9 @@ export default function Workout() {
         const nextId = nextIncompleteExerciseId(plan.exercises, newSets)
         if (nextId && nextId !== ex.id) {
           setExpanded(nextId)
-          const data = await ensureLastPerf(nextId)
           const nextEx = plan.exercises.find(e => e.id === nextId)
-          const pf = prefillFor(nextId, newSets, prs, data?.sets, { repsHigh: nextEx?.repsHigh, bodyweight: nextEx?.bodyweight })
+          const data = await ensureLastPerf(nextEx)
+          const pf = prefillFor(nextId, newSets, prs, data, { repsHigh: nextEx?.repsHigh, bodyweight: nextEx?.bodyweight })
           setWeight(pf.weight); setReps(pf.reps)
           // Anchor the viewport to the newly-opened card so the collapse of
           // the tall finished card doesn't shift content under the thumb.
@@ -326,7 +348,11 @@ export default function Workout() {
           })
         }
       }
-    } catch (e) { showToast('Failed to log set', 'error') }
+    } catch (e) {
+      // Weight/reps state is untouched on this path, so the retry this tells
+      // you to do is genuinely one tap -- the copy just has to say so.
+      showToast("Couldn't save that set — tap Log Set again", 'error')
+    }
     setLogging(false)
   }
 
@@ -336,6 +362,20 @@ export default function Workout() {
       track('set_delete')
       setSets(prev => prev.filter(s => s.id !== setId))
     } catch (e) { showToast('Failed to delete set', 'error') }
+  }
+
+  // First tap on × arms it and starts a 3s window (same window and shape as
+  // History.jsx's deleteSession / PersonalBests.jsx's remove); a second tap
+  // inside that window is the confirm and actually deletes. Anything else —
+  // arming a different set, or the window elapsing — disarms it.
+  function requestDeleteSet(setId) {
+    if (confirmSetId !== setId) {
+      setConfirmSetId(setId)
+      setTimeout(() => setConfirmSetId(c => (c === setId ? null : c)), 3000)
+      return
+    }
+    setConfirmSetId(null)
+    deleteSet(setId)
   }
 
   async function saveNote(exId, text) {
@@ -405,15 +445,31 @@ export default function Workout() {
         hasLoggedSets={sets.length > 0}
       />
 
-      {/* Header */}
+      {/* Header. The right-hand slot below used to sit empty (a
+          justify-content: space-between row with only one child) while
+          Finish Workout lived at the very bottom of the page, below every
+          exercise card — every real training app keeps Finish persistently
+          visible instead. Styled after Progress.jsx's "🏆 PBs" pill, the
+          app's existing convention for a compact header-slot action. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
             Active session
           </Eyebrow>
-          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold }}>{plan.emoji} {plan.name}</h1>
-          <p style={{ color: colors.muted, fontSize: type.size.md, marginTop: 2 }}>{session.date}</p>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}><DayIcon day={session.workout_day} size={24} /> {plan.name}</h1>
+          {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
+              PersonalBests' page-subtitle convention -- this was the one
+              page whose subtitle used a different color/size pair
+              (2026-09-06 UI review, item 18c). */}
+          <p style={{ color: colors.muted2, fontSize: type.size.lg, marginTop: 2 }}>{session.date}</p>
         </div>
+        <button className="tap-target" onClick={finishWorkout} disabled={finishing}
+          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color,
+            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer',
+            padding: '7px 14px', whiteSpace: 'nowrap', opacity: finishing ? 0.55 : 1, flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: 4 }}>
+          {finishing ? 'Saving…' : <><IconCheck size={16} /> Finish Workout</>}
+        </button>
       </div>
 
       {/* Exercises */}
@@ -426,14 +482,21 @@ export default function Workout() {
 
         return (
           <DisclosureRow key={ex.id} ref={el => { cardRefs.current[ex.id] = el }}
-            style={{ marginBottom: space.md }} bodyPadding="16px"
+            // Auto-advance's scrollIntoView({ block: 'start' }) aligns this card to the
+            // top of the *viewport*, but the header is position: fixed and would cover
+            // it. --header-height is already published on .page-shell (App.jsx) and
+            // inherits down, so this needs no new plumbing.
+            // bodyPadding no longer needs an override here -- item 20
+            // resolved DisclosureRow's default to the same space.xl value
+            // this used to spell out explicitly.
+            style={{ marginBottom: space.md, scrollMarginTop: 'calc(var(--header-height, 0px) + 8px)' }}
             isOpen={isOpen}
             onToggle={async () => {
               const opening = !isOpen
               setExpanded(opening ? ex.id : null)
               if (opening) {
-                const data = await ensureLastPerf(ex.id)
-                const pf = prefillFor(ex.id, sets, prs, data?.sets, { repsHigh: ex.repsHigh, bodyweight: ex.bodyweight })
+                const data = await ensureLastPerf(ex)
+                const pf = prefillFor(ex.id, sets, prs, data, { repsHigh: ex.repsHigh, bodyweight: ex.bodyweight })
                 setWeight(pf.weight); setReps(pf.reps)
               }
             }}
@@ -446,8 +509,13 @@ export default function Workout() {
                         fix (1e0d8f5) — it only needs to outrank the cues-link text within its own
                         card, not match the page heading. Tier-3 local literal per the design-tokens
                         spec's own precedent (not every value needs a token). */}
-                    <span style={{ fontWeight: type.weight.bold, fontSize: '1.1rem' }}>{ex.name}</span>
-                    {complete && <span style={{ color: colors.mint, fontSize: type.size.base }}>✓</span>}
+                    <span style={{ fontWeight: type.weight.bold, fontSize: type.size.strong }}>{ex.name}</span>
+                    {/* The day colour, not mint: the set-dots beside it (below)
+                        already fill in `color` to mean "done", so a mint check
+                        here was a second "done" colour in the same row — on
+                        Lower B, a mint tick next to orange dots (2026-09-06 UI
+                        review, item 18b). One colour, one meaning. */}
+                    {complete && <IconCheck size={14} color={color} />}
                   </div>
                   <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
                     {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
@@ -472,7 +540,7 @@ export default function Workout() {
               onClick={() => setCuesEx(ex)}
               style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.base,
                 fontWeight: 500, cursor: 'pointer', padding: 0, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
-              📋 Form cues + demo
+              <IconClipboardDocumentList size={16} /> Form cues + demo
             </button>
 
             {/* Per-exercise note */}
@@ -481,72 +549,117 @@ export default function Workout() {
                 onBlur={e => saveNote(ex.id, e.target.value.trim())}
                 style={{ width: '100%', background: colors.border, border: 'none', borderRadius: 8, color: colors.textSecondary, fontSize: type.size.md, padding: 8, resize: 'vertical' }} />
             ) : notes[ex.id] ? (
-              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}>📝 {notes[ex.id]}</p>
+              <p onClick={() => setEditingNote(ex.id)} style={{ color: colors.muted, fontSize: type.size.base, fontStyle: 'italic', marginBottom: 10, cursor: 'text' }}><IconPencil size={14} /> {notes[ex.id]}</p>
             ) : (
-              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer' }}>＋ Add note</button>
+              <button className="tap-target" onClick={() => setEditingNote(ex.id)} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={12} /> Add note</button>
             )}
 
             {/* Last workout + overload hint */}
             {!(ex.id in lastPerf) && (
-              <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 12 }}>…</p>
+              <Skeleton height={14} width="70%" style={{ marginBottom: 12 }} />
             )}
             {lastPerf[ex.id] && lastPerf[ex.id].sets?.length > 0 && (
               <div style={{ marginBottom: 12 }}>
-                <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Last workout</Eyebrow>
-                {lastPerf[ex.id].sets.map(s => (
-                  <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
-                ))}
+                {/* The suggested load is the app's best differentiator — none of
+                    Strong/Hevy/Fitbod tell you what to lift next from your own log —
+                    so it renders above the raw history it supersedes, at a size that
+                    actually outranks it (was 0.75rem, smaller than the history below it).
+                    Labeled "Up next" (Eyebrow, same colors.muted token "Last workout"
+                    already uses below) so this forward-looking block reads as its own
+                    scoped section instead of floating unlabeled above the "Last workout"
+                    caption -- Task 4 UI review, item 2: that caption otherwise ends up
+                    scoping only the raw history rows, not the suggestion pair sitting
+                    above it, which was the main "looks bolted on" tell. Warm-up itself
+                    stays on colors.muted rather than accent (Task 4 UI/UX review, item 1
+                    from both passes): it's a preparatory cue, not the actionable target --
+                    Suggested is the one number that also drives the weight/reps steppers
+                    below, so it alone keeps the accent color and should visually outrank
+                    Warm-up, not tie with it. */}
+                {(lastPerf[ex.id].suggestion?.warmup || lastPerf[ex.id].suggestion) && (
+                  <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Up next</Eyebrow>
+                )}
+                {lastPerf[ex.id].suggestion?.warmup && (
+                  <p style={{ color: colors.muted, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 4 }}>
+                    Warm-up: <strong>{lastPerf[ex.id].suggestion.warmup.weight_kg}kg</strong> × {lastPerf[ex.id].suggestion.warmup.reps}
+                  </p>
+                )}
                 {(() => {
+                  // Backend suggestion (single actionable weight x reps) takes
+                  // over the display once the endpoint sends one. When it's
+                  // absent -- an old cached service-worker response, or a
+                  // rolling deploy that hasn't reached the backend yet -- fall
+                  // back to the original overloadSuggestion-derived hint so a
+                  // lifter never sees a worse experience than before.
+                  const suggestion = lastPerf[ex.id].suggestion
+                  if (suggestion) {
+                    return (
+                      <p style={{ color: colors.accent, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 8 }}>
+                        Suggested: <strong>{suggestion.weight_kg}kg</strong> × <strong>{suggestion.reps}</strong>
+                      </p>
+                    )
+                  }
                   const sug = overloadSuggestion(lastPerf[ex.id].sets, ex.repsHigh)
                   return sug ? (
-                    <p style={{ color: colors.mint, fontSize: type.size.base, marginTop: 6 }}>
+                    <p style={{ color: colors.accent, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 8 }}>
                       Suggested <strong>{sug.weight}kg</strong> · Target {ex.repsLow}–{ex.repsHigh}
                     </p>
                   ) : null
                 })()}
+                <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Last workout</Eyebrow>
+                {lastPerf[ex.id].sets.map(s => (
+                  <p key={s.set_number} className="font-mono" style={{ color: colors.muted, fontSize: type.size.md }}>{s.weight_kg}kg × {s.reps}</p>
+                ))}
               </div>
             )}
 
-            {/* Logged sets */}
-            {exSets.map(s => (
-              <SetRow key={s.id} s={s} onDelete={deleteSet} />
-            ))}
-
-            {/* Logger controls */}
+            {/* Logger controls. Rendered before the logged-sets list (below) so the
+                stepper pair and Log Set button sit at a fixed offset from the card
+                header for the whole exercise -- previously each logged set inserted
+                a row above this block, walking the button ~35px further down the
+                card per set (~105px by set 3). The set-dots in the card header
+                already carry at-a-glance progress, so nothing is lost by the list
+                sitting below the thing you actually touch. */}
             <div style={{ marginTop: 14 }}>
               {/* flex-wrap: the two fixed-width steppers exceed card width below ~380px;
                   Reps drops under Weight instead of clipping off-screen. */}
               <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', rowGap: 14, marginBottom: 14 }}>
                 <div style={{ textAlign: 'center' }}>
                   <WeightFieldLabel bodyweight={ex.bodyweight} />
-                  <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" />
+                  <NumControl value={weight} onChange={setWeight} step={2.5} min={0} mode="decimal" label={ex.bodyweight ? 'added weight' : 'weight'} />
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <Eyebrow style={{ marginBottom: 8 }}>Reps</Eyebrow>
-                  <NumControl value={reps} onChange={setReps} step={1} min={1} />
+                  <NumControl value={reps} onChange={setReps} step={1} min={1} label="reps" />
                 </div>
               </div>
               <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
-                style={{ background: color, fontSize: '0.9rem', padding: '12px' }}>
+                style={{ background: color, fontSize: type.size.body, padding: '12px' }}>
                 {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
               </button>
             </div>
 
-            {/* Muscles */}
+            {/* Logged sets — below the logger, so logging a set confirms
+                immediately underneath the button you just pressed instead of
+                pushing the button away from your thumb. */}
+            {exSets.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                {exSets.map(s => (
+                  <SetRow key={s.id} s={s} armed={confirmSetId === s.id} onRequestDelete={requestDeleteSet} />
+                ))}
+              </div>
+            )}
+
+            {/* Muscles. No `color` here: Chip's non-toggle (label) branch
+                hardcodes colors.muted regardless of what's passed, so this
+                was a silent no-op (2026-09-06 UI review, item 18a). */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
               {ex.muscles.map(m => (
-                <Chip key={m} color={colors.muted}>{m}</Chip>
+                <Chip key={m}>{m}</Chip>
               ))}
             </div>
           </DisclosureRow>
         )
       })}
-
-      {/* Finish */}
-      <button className="btn-primary" onClick={finishWorkout} disabled={finishing}
-        style={{ marginTop: 16, background: color }}>
-        {finishing ? 'Saving…' : '✓ Finish Workout'}
-      </button>
 
       {cuesEx && (
         <ExerciseCuesModal ex={cuesEx} color={color} onClose={() => setCuesEx(null)} />

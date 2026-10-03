@@ -12,26 +12,49 @@ function hexToRgb(hex) {
 
 describe('Chip', () => {
   it('renders the stateless label form as a plain, non-interactive span', () => {
-    render(<Chip color={colors.muted}>Chest</Chip>)
+    render(<Chip>Chest</Chip>)
     const el = screen.getByText('Chest')
     expect(el.tagName).toBe('SPAN')
     expect(el.style.color).toBe(hexToRgb(colors.muted))
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  // 2026-09-06 UI review, item 18a: `color` used to be passed to label chips
+  // at two call sites even though this branch never reads it -- a silent
+  // no-op. Both call sites were cleaned up; this guards against either the
+  // prop quietly starting to apply here unnoticed, or (the actual bug) a
+  // caller passing it and expecting an effect it doesn't have.
+  it('ignores an explicit color on the stateless label form (non-toggle branch always renders colors.muted)', () => {
+    render(<Chip color={colors.success}>Chest</Chip>)
+    const el = screen.getByText('Chest')
+    expect(el.style.color).toBe(hexToRgb(colors.muted))
+  })
+
   it('renders as a clickable button when onClick is given, and fires it', () => {
     const onClick = vi.fn()
     render(<Chip onClick={onClick} selected={false}>Bench Press</Chip>)
     const btn = screen.getByRole('button', { name: 'Bench Press' })
-    expect(btn.className).toContain('tap-target')
     fireEvent.click(btn)
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
-  it('selected=true renders the color-tinted active treatment (defaults to mint)', () => {
+  it('gives the toggle chip a real 44px box on the element itself, not the .tap-target overlay', () => {
+    // .tap-target's ::after hit area is centred and sized independently of
+    // where the element actually sits, so on a wrapped row of chips with a
+    // gap smaller than the overlay's overflow, neighbouring hit areas
+    // overlapped (2026-09-06 UI review, item 7). The toggle chip must own
+    // its real box instead.
+    render(<Chip onClick={() => {}} selected={false}>Bench Press</Chip>)
+    const btn = screen.getByRole('button', { name: 'Bench Press' })
+    expect(btn.className).not.toContain('tap-target')
+    expect(parseInt(btn.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+    expect(parseInt(btn.style.minWidth, 10)).toBeGreaterThanOrEqual(44)
+  })
+
+  it('selected=true renders the color-tinted active treatment (defaults to accent)', () => {
     render(<Chip onClick={() => {}} selected={true}>Bench Press</Chip>)
     const btn = screen.getByRole('button', { name: 'Bench Press' })
-    expect(btn.style.color).toBe(hexToRgb(colors.mint))
+    expect(btn.style.color).toBe(hexToRgb(colors.accent))
   })
 
   it('selected=false renders the distinct inactive treatment, not the stateless one', () => {
@@ -42,8 +65,8 @@ describe('Chip', () => {
   })
 
   it('an explicit color prop drives the selected treatment for a non-default accent', () => {
-    render(<Chip onClick={() => {}} selected={true} color={colors.amber}>Upper A</Chip>)
+    render(<Chip onClick={() => {}} selected={true} color={colors.success}>Upper A</Chip>)
     const btn = screen.getByRole('button', { name: 'Upper A' })
-    expect(btn.style.color).toBe(hexToRgb(colors.amber))
+    expect(btn.style.color).toBe(hexToRgb(colors.success))
   })
 })

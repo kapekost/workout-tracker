@@ -66,6 +66,28 @@ describe('Workout page', () => {
     expect(finishButtons).toHaveLength(1)
   })
 
+  it('puts Finish Workout in the header, above the exercise cards, not at the bottom of the page', async () => {
+    mockSession()
+    renderWorkout()
+    const exerciseTitle = await screen.findByText(ex1.name)
+    const finishBtn = screen.getByRole('button', { name: /finish workout/i })
+    // The header slot was previously empty (a space-between row with only
+    // one child) while Finish sat below every exercise card. It must now
+    // precede the first exercise card in document order.
+    expect(finishBtn.compareDocumentPosition(exerciseTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('finishing from the header Finish control still calls the finish endpoint', async () => {
+    mockSession()
+    api.patch.mockResolvedValue({ id: 1, completed: 1, ended_at: '2026-07-09 11:00:00' })
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const finishBtn = screen.getByRole('button', { name: /finish workout/i })
+    await act(async () => { fireEvent.click(finishBtn) })
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/sessions/1', { completed: true }))
+    await screen.findByText(/workout complete/i)
+  })
+
   it('logs the next set with max(set_number)+1, not count+1', async () => {
     // set #1 of two was deleted earlier; only #2 remains
     mockSession([{ id: 5, exercise_id: ex1.id, exercise_name: ex1.name,
@@ -121,6 +143,9 @@ describe('Workout page', () => {
     await screen.findByText(/workout complete/i)
     expect(screen.getByText(new RegExp(`${ex1.name}.*baseline`, 'i'))).toBeInTheDocument()
     expect(screen.queryByText(/new pr/i)).not.toBeInTheDocument()
+    // Plain "Done", not the developer-shorthand "Done → Home".
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument()
   })
 
   it('prefills the very first exercise from a historical PB when there is no in-app history', async () => {
@@ -168,10 +193,13 @@ describe('Workout page', () => {
     renderWorkout()
     await screen.findByText(ex1.name)
     await waitFor(() => expect(screen.getByDisplayValue('100')).toBeInTheDocument())
-    fireEvent.click(screen.getAllByRole('button', { name: 'increase' })[0])  // weight stepper is first
+    fireEvent.click(screen.getByRole('button', { name: /increase weight/i }))
     await waitFor(() => expect(screen.getByDisplayValue('102.5')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /log set/i }))
-    await waitFor(() => expect(screen.getByText(/🏆 PR! 102.5kg/)).toBeInTheDocument())
+    // The trophy is now an aria-hidden IconTrophy SVG and the message text is split
+    // across multiple JSX text nodes ("PR! ", "102.5", "kg on ", name), so match on
+    // the toast's full textContent rather than a single contiguous text node.
+    await waitFor(() => expect(document.querySelector('.toast')).toHaveTextContent('PR! 102.5kg on Bench Press'))
   })
 
   it('a quick tap on a stepper bumps by exactly one step', async () => {
@@ -180,7 +208,7 @@ describe('Workout page', () => {
     await screen.findByText(ex1.name)
     const weightInput = screen.getAllByRole('spinbutton')[0]
     const before = parseFloat(weightInput.value)
-    fireEvent.click(screen.getAllByRole('button', { name: 'increase' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /increase weight/i }))
     expect(parseFloat(weightInput.value)).toBe(before + 2.5)
   })
 
@@ -192,7 +220,7 @@ describe('Workout page', () => {
     await screen.findByText(ex1.name)
     const weightInput = screen.getAllByRole('spinbutton')[0]
     const before = parseFloat(weightInput.value)
-    const incBtn = screen.getAllByRole('button', { name: 'increase' })[0]
+    const incBtn = screen.getByRole('button', { name: /increase weight/i })
 
     vi.useFakeTimers()
     fireEvent.pointerDown(incBtn)
@@ -207,6 +235,25 @@ describe('Workout page', () => {
     // own first tick — not the arming timeout — is the first repeat).
     expect(parseFloat(weightInput.value)).toBe(before + 2.5 * 3)
     vi.useRealTimers()
+  })
+
+  it('a dead connection surfaces retry copy and keeps the typed weight/reps', async () => {
+    mockSession()
+    api.post.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const repsInput = screen.getAllByRole('spinbutton')[1]
+    fireEvent.change(weightInput, { target: { value: '77.5' } })
+    fireEvent.change(repsInput, { target: { value: '6' } })
+    const btn = screen.getByRole('button', { name: /log set/i })
+    await act(async () => { fireEvent.click(btn) })
+    // The message must say to retry, not just that it failed.
+    expect(await screen.findByText(/tap log set again/i)).toBeInTheDocument()
+    expect(weightInput).toHaveValue(77.5)
+    expect(repsInput).toHaveValue(6)
+    // The button must come back so retrying is actually possible.
+    expect(screen.getByRole('button', { name: /log set/i })).not.toBeDisabled()
   })
 
   it('a bodyweight exercise shows the Added Weight label and hint', async () => {
@@ -240,6 +287,97 @@ describe('Workout page', () => {
     expect(screen.queryByText('0 = bodyweight only')).not.toBeInTheDocument()
   })
 
+  it('keeps the Log Set button above the logged-sets list, so it does not walk down the card', async () => {
+    // set #1 already logged; the button for set #2 must not have moved
+    // below it in the DOM, or its screen position drifts every set.
+    mockSession([{ id: 1, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    renderWorkout()
+    const btn = await screen.findByRole('button', { name: /log set/i })
+    const loggedSetRow = screen.getByText('Set 1')
+    expect(btn.compareDocumentPosition(loggedSetRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('gives every exercise card a scroll-margin-top matching the fixed header, so auto-advance never lands behind it', async () => {
+    mockSession()
+    renderWorkout()
+    const title = await screen.findByText(ex1.name)
+    const card = title.closest('.card')
+    expect(card.style.scrollMarginTop).toBe('calc(var(--header-height, 0px) + 8px)')
+  })
+
+  it('requires a second tap to delete a logged set, and does not delete on the first', async () => {
+    mockSession([{ id: 42, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const deleteBtn = screen.getByRole('button', { name: /delete set/i })
+
+    fireEvent.click(deleteBtn)
+    // First tap must not call the API or remove the row.
+    expect(api.delete).not.toHaveBeenCalled()
+    expect(screen.getByText('Set 1')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('button', { name: /confirm delete set/i })
+
+    api.delete.mockResolvedValue(null)
+    await act(async () => { fireEvent.click(confirmBtn) })
+    expect(api.delete).toHaveBeenCalledWith('/sessions/1/sets/42')
+    await waitFor(() => expect(screen.queryByText('Set 1')).not.toBeInTheDocument())
+  })
+
+  it('re-arms to a plain delete button after the confirm window elapses', async () => {
+    mockSession([{ id: 42, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: /delete set/i }))
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(screen.getByRole('button', { name: /^delete set/i })).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('promotes the overload suggestion above the last-workout history and gives it more visual weight', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) {
+        // Hit the top of the rep range on both sets so overloadSuggestion returns a bump.
+        return { sets: [{ set_number: 1, weight_kg: 60, reps: ex1.repsHigh }, { set_number: 2, weight_kg: 60, reps: ex1.repsHigh }] }
+      }
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const suggestion = await screen.findByText(/Suggested/)
+    const history = screen.getByText('Last workout')
+    expect(suggestion.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(suggestion.style.fontSize).toBe(type.size.lg)
+    expect(parseFloat(suggestion.style.fontSize)).toBeGreaterThan(parseFloat(type.size.md))
+  })
+
+  it('gives the number steppers real, distinct aria-labels and a 44px-tall input', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    expect(screen.getByRole('button', { name: /decrease weight/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /increase weight/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /decrease reps/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /increase reps/i })).toBeInTheDocument()
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const repsInput = screen.getAllByRole('spinbutton')[1]
+    expect(weightInput).toHaveAccessibleName(/weight/i)
+    expect(repsInput).toHaveAccessibleName(/reps/i)
+    expect(parseInt(weightInput.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+    expect(parseInt(repsInput.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+  })
+
   it('the exercise title outweighs the cues link', async () => {
     mockSession()
     renderWorkout()
@@ -257,6 +395,56 @@ describe('Workout page', () => {
     // expectation is derived from colors.muted rather than hardcoded —
     // the contract under test is "matches the token", not one literal string.
     expect(cuesLink.style.color).toBe(hexToRgb(colors.muted))
+  })
+
+  // 2026-09-06 UI review, item 18b: a completed exercise's ✓ used to be
+  // colors.mint regardless of day, while the set-dots beside it (DayAccent)
+  // already fill in that day's own colour to mean the same "done" -- two
+  // different "done" colours in the same row. On Lower B (day colour
+  // #fb923c, orange) that read as a mint tick next to orange dots. upper_a's
+  // day colour happens to equal colors.mint, which would mask a regression
+  // here, so this uses lower_b specifically.
+  it("colours a completed exercise's checkmark with the day's own colour, not colors.mint", async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return {
+          id: 1, workout_day: 'lower_b', date: '2026-07-09', completed: 0,
+          created_at: '2026-07-09 10:00:00', ended_at: null,
+          sets: [
+            { id: 1, exercise_id: 'deadlift', exercise_name: 'Deadlift', set_number: 1, reps: 6, weight_kg: 100 },
+            { id: 2, exercise_id: 'deadlift', exercise_name: 'Deadlift', set_number: 2, reps: 6, weight_kg: 100 },
+            { id: 3, exercise_id: 'deadlift', exercise_name: 'Deadlift', set_number: 3, reps: 6, weight_kg: 100 },
+          ],
+        }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    const title = await screen.findByText('Deadlift')
+    // The checkmark is now an IconCheck SVG (not a <span>text</span>); the day
+    // colour is passed straight through as its `stroke` attribute rather than
+    // a CSS style, so read that attribute directly instead of style.color.
+    const check = title.parentElement.querySelector('svg')
+    expect(check).toBeInTheDocument()
+    expect(check.getAttribute('stroke')).toBe('#fb923c')
+    expect(check.getAttribute('stroke')).not.toBe(colors.accent)
+  })
+
+  // 2026-09-06 UI review, item 18c: this was the only page whose subtitle
+  // used colors.muted/type.size.md instead of the colors.muted2/type.size.lg
+  // pair Home, Progress, History and PersonalBests all share.
+  it('styles the session-date subtitle like every other page subtitle in the app', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const subtitle = screen.getByText('2026-07-09')
+    expect(subtitle.style.color).toBe(hexToRgb(colors.muted2))
+    expect(subtitle.style.fontSize).toBe(type.size.lg)
   })
 })
 
@@ -300,7 +488,7 @@ describe('unknown workout_day', () => {
       throw new Error(`unmocked GET ${path}`)
     })
     renderWorkout()
-    expect(await screen.findByText('Unknown workout day.')).toBeInTheDocument()
+    expect(await screen.findByText("Couldn't find this workout.")).toBeInTheDocument()
     expect(screen.queryByText('home')).not.toBeInTheDocument()
   })
 })

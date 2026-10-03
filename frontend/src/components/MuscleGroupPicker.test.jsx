@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import MuscleGroupPicker, { RecoveryRing, ringColor, DISCLOSURE } from './MuscleGroupPicker'
+import { colors } from '../lib/theme'
+
+// jsdom's CSSOM serializes an inline hex color back out as rgb(...) — see
+// Workout.test.jsx's identical helper.
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
 
 const group = (over = {}) => ({
   id: 'quads', label: 'Quads', freshness: 0.63,
@@ -25,11 +33,34 @@ const untrained = group({
 })
 
 describe('ringColor', () => {
+  // HSL hue angle, degrees. Reused instead of the old raw-channel comparison
+  // (g >= r, b >= r) because that check assumed a blue-leaning accent: the
+  // Mono+Volt accent is lime (#d4ff3f, hue ~73°), whose red channel (212) is
+  // second-highest, not lowest, so the old per-channel check fails even
+  // though lime is nowhere near a warning hue. Hue angle is what the design
+  // intent ("must not look like a red/amber warning") actually means.
+  function hue([r, g, b]) {
+    const [rn, gn, bn] = [r, g, b].map(c => c / 255)
+    const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn), d = max - min
+    if (d === 0) return 0
+    let h
+    if (max === rn) h = ((gn - bn) / d) % 6
+    else if (max === gn) h = (bn - rn) / d + 2
+    else h = (rn - gn) / d + 4
+    h *= 60
+    return h < 0 ? h + 360 : h
+  }
+
   it('never returns a red or amber hue — no warning semantics', () => {
+    // Checked across the whole ramp, not just one endpoint: RING_LOW (dark
+    // emerald, ~162°) and RING_HIGH (lime accent, ~73°) sit at different
+    // hues, and linear RGB interpolation between them doesn't guarantee the
+    // midpoints stay in between — verify every step, not just the ends.
+    // Red/amber/orange warning hues sit in roughly 0-45°; requiring >50°
+    // keeps clear of that band with margin while still allowing lime's ~73°.
     for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-      const [r, g, b] = ringColor(f).match(/\d+/g).map(Number)
-      expect(g).toBeGreaterThanOrEqual(r)   // green channel always leads
-      expect(b).toBeGreaterThanOrEqual(r)
+      const rgb = ringColor(f).match(/\d+/g).map(Number)
+      expect(hue(rgb)).toBeGreaterThan(50)
     }
   })
 
@@ -82,6 +113,15 @@ describe('MuscleGroupPicker', () => {
     render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(screen.getByText(DISCLOSURE)).toBeInTheDocument()
     expect(DISCLOSURE).toContain('Trust how you feel over this estimate.')
+  })
+
+  it('renders the disclosure at colors.muted2 (AA contrast), not the old sub-AA raw hex', () => {
+    // The one paragraph the recovery research doc insists must always be
+    // visible used to render at a raw #4b5563 (2.61:1 on --bg — see
+    // theme.test.js's contrast measurements). 2026-09-06 UI review item 11.
+    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    const disclosure = screen.getByText(DISCLOSURE)
+    expect(disclosure.style.color).toBe(hexToRgb(colors.muted2))
   })
 
   it('renders no percentage anywhere', () => {
@@ -171,5 +211,23 @@ describe('MuscleGroupPicker', () => {
     const { container } = render(
       <MuscleGroupPicker groups={[]} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('renders nothing on a first-run install — every group present but untrained (all-empty rings)', () => {
+    // groupRecovery([]) always returns every MUSCLE_GROUPS entry, each with
+    // freshness: null (lib/recovery.js's own "not trained yet" signal) — so
+    // groups.length is never 0 on a fresh install. An all-null freshness
+    // list is the real "nothing to show" condition here.
+    const firstRunGroups = [untrained, group({ id: 'quads', label: 'Quads', freshness: null,
+      band: 'Not trained yet', hoursSince: null, daysSince: null,
+      daysSinceLabel: 'Not trained yet', fractionalSets: 0, lastDate: null })]
+    const { container } = render(
+      <MuscleGroupPicker groups={firstRunGroups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('still renders once at least one group has been trained', () => {
+    render(<MuscleGroupPicker groups={[group(), untrained]} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    expect(screen.getByText('Quads')).toBeInTheDocument()
   })
 })

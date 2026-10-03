@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getDemoFrames } from '../lib/demos'
 import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
-import { colors, type } from '../lib/theme'
+import { colors, type, space } from '../lib/theme'
 
 export default function ExerciseDemo({ ex, color, showTitle = true, style = {}, children }) {
   const [demoFailed, setDemoFailed] = useState(false)
@@ -22,7 +22,7 @@ export default function ExerciseDemo({ ex, color, showTitle = true, style = {}, 
   if (!frames || demoFailed) return children || null
 
   return (
-    <div className="card" style={{ padding: 12, ...style }}>
+    <div className="card" style={{ padding: space.md, ...style }}>
       {showTitle && <Eyebrow style={{ marginBottom: 10 }}>Demo: {ex.name}</Eyebrow>}
       <img
         src={frames[frameIdx % frames.length]}

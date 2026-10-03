@@ -35,7 +35,7 @@ other, so they are one piece of work.
 
 Both were run on the actual Pi (Raspberry Pi 3 B+, aarch64, 4 cores, ~185 MiB free) rather than
 assumed, because the Dockerfile deliberately ships no build tools and the box is shared with
-Home Assistant.
+another service.
 
 **Key-derivation cost**, in the running container:
 
@@ -63,8 +63,8 @@ parameters at usable latency, so the choice is which way to fall short.
 
 Memory-hard KDFs are the wrong way to fall short *on this specific machine*. Each concurrent
 hash reserves its full working set — at N=2¹⁵ that is ~32 MB, so a handful of parallel requests
-to an unauthenticated login endpoint could OOM a container on a box with ~185 MiB free and Home
-Assistant running beside it. The failure mode is a killed container, and it gets easier to reach
+to an unauthenticated login endpoint could OOM a container on a box with ~185 MiB free and another
+service running beside it. The failure mode is a killed container, and it gets easier to reach
 once #27 exposes the app publicly.
 
 bcrypt uses ~4 KB per hash regardless of cost, so concurrency is bounded by CPU rather than RAM.
@@ -230,8 +230,8 @@ In-memory is honest for a single-container deployment — there is one process, 
 to share state with, and a restart clearing counters is acceptable for this threat. A table would
 add write amplification on the login path for no benefit at this scale.
 
-This exists because cost-12 hashing is 627 ms of CPU on a 4-core box that also runs Home
-Assistant; an unthrottled login endpoint is a CPU amplifier pointed at the house.
+This exists because cost-12 hashing is 627 ms of CPU on a 4-core box shared with another
+service; an unthrottled login endpoint is a CPU amplifier pointed at the house.
 
 ## Configuration
 
