@@ -327,6 +327,53 @@ posture is `/api/admin/backup-status`, admin-only.
 > almost certainly wrong now. Re-check with an admin session before trusting
 > them in a restore decision.
 
+### Handoff note (2026-10-03) — read before touching this repo
+
+Left by a review session. Delete or rewrite once triaged.
+
+**The running version is `1f1e390`, not the branch HEAD.** The branch
+(`claude/import-auth-hardening`, HEAD `84d03df`) is three documentation commits
+ahead of what is deployed. Nothing above `1f1e390` changes app behaviour, so a
+redeploy is optional — but don't read `git log` and assume HEAD is live.
+
+**Unresolved and needing an owner call: the orchestration home branch is itself
+stale.** `STATE.md:7` points `main`'s copy at
+`claude/workout-tracker-backlog-bu9qnw` for the real orchestration state. That
+branch has *diverged* from `main` and sits 59 commits behind it — it is the very
+branch that caused the 2026-10-03 bad deploy. So this is not "an agent happened
+to branch from something old": the designated home branch is the old one, and
+every tick resolves its state through it. **The new `deploy.sh` gate will block
+any deploy from it**, which is correct but will surprise whoever tries. Either
+merge `main` into the home branch or re-point `STATE.md` at a branch that tracks
+`main`. Not done unilaterally — `STATE.md` is off-limits to feature branches by
+its own header, and choosing the home branch is an owner decision.
+
+**What was verified, and how.** Externally, from outside the box: `/api/health`
+returns `{"status":"ok","version":"1f1e390"}`; `/api/sessions`, `/api/export`,
+`/api/notes` and `/api/plan` all return `401` with no cookie (so the #86 gate is
+genuinely closed, not just present in source); and the served JS bundle contains
+`req('PUT', …)`, `aria-current`, five `aria-live` sites, and the `1f1e390`
+stamp agreeing with `/api/health`.
+
+**What was NOT verified — do not assume these work.**
+- That a note actually survives a save-and-reload. The `PUT` code is deployed;
+  the round-trip needs a session and was never exercised end to end.
+- The three auth fixes (token supersede, atomic redemption, limiter sweep). They
+  are token/bcrypt paths behind the gate; code inspection only. Each has a
+  regression test confirmed to fail without its fix, which is not the same thing.
+- Row counts, for the reason above.
+
+**Still open:** the `password_hash`-in-exports decision (recorded in
+`DECISIONS.md`, 2026-10-03 — needs an owner call *and* a fresh restore drill);
+`deploy.sh` `eval`s a gitignored file its own dirty-tree gate cannot see;
+the container runs as root with no compose limits and unhashed requirements; and
+the agentic tooling has no prompt-injection trust boundary, which is the largest
+unaddressed risk in the repo. All detailed in
+[`docs/superpowers/research/2026-10-03-review-corrected.md`](docs/superpowers/research/2026-10-03-review-corrected.md).
+
+**No PR is open** for this branch. It is pushed; the diff against `main` is
+five fixes and one doc replacement.
+
 **Break-glass, for an owner locked out of their own app.** With the gate closed
 there is no anonymous way in, so the recovery path is on the host rather than
 over HTTP: `scripts/bootstrap_owner.py`. It mints a fresh invite/reset token for
