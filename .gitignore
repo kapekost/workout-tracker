@@ -63,4 +63,4 @@ AGENTS.local.md
 # `??` for exactly that reason. Treat every line here as a hard requirement.
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
-opencode.json
+# opencode.json
