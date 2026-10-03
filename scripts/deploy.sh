@@ -7,7 +7,7 @@
 #   ## Scripted deploy configuration
 #   DEPLOY_HOST=pi.example
 #   DEPLOY_APP_DIR=/home/user/workout-tracker
-#   DEPLOY_SSH_OPTS='-o BatchMode=yes'
+#   DEPLOY_SSH_OPTS='-o ConnectTimeout=10'
 #
 # DEPLOY_HOST and DEPLOY_APP_DIR are required. DEPLOY_SSH_OPTS is optional.
 set -euo pipefail
@@ -29,6 +29,10 @@ eval "$(sed -n '/^## Scripted deploy configuration$/,/^## /p' "$LOCAL_DOC" \
 : "${DEPLOY_HOST:?AGENTS.local.md must define DEPLOY_HOST under '## Scripted deploy configuration'}"
 : "${DEPLOY_APP_DIR:?AGENTS.local.md must define DEPLOY_APP_DIR under '## Scripted deploy configuration'}"
 DEPLOY_SSH_OPTS="${DEPLOY_SSH_OPTS:-}"
+if [[ "$DEPLOY_SSH_OPTS" == *BatchMode* ]]; then
+  echo "error: DEPLOY_SSH_OPTS must not set BatchMode; it blocks the passphrase prompt and reads as a publickey denial." >&2
+  exit 1
+fi
 
 short_sha="$(git -C "$ROOT" rev-parse --short HEAD)"
 image="kapekost/workout-tracker"
@@ -90,20 +94,26 @@ fi
 # Fails closed: an unreachable host, a "dev" stamp or a SHA this clone does not
 # have all stop the deploy. DEPLOY_ALLOW_STALE=1 is the rollback path.
 if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
+  ssh_err="$(mktemp)"
   # shellcheck disable=SC2086
-  live_health="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" 'curl -fsS --max-time 8 http://127.0.0.1:8080/api/health' 2>/dev/null || true)"
+  if ! live_health="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" 'curl -fsS --max-time 8 http://127.0.0.1:8080/api/health' 2>"$ssh_err")"; then
+    echo "error: could not query /api/health on $DEPLOY_HOST:" >&2
+    sed 's/^/         /' "$ssh_err" >&2
+    rm -f "$ssh_err"
+    exit 1
+  fi
+  rm -f "$ssh_err"
   live_sha="$(printf '%s' "$live_health" | sed -n 's/.*"version":"\([0-9a-f]\{7,40\}\)".*/\1/p')"
   if [[ -z "$live_sha" ]]; then
-    echo "error: could not read a commit SHA from /api/health on $DEPLOY_HOST (got: ${live_health:-nothing})." >&2
-    echo "       Cannot tell what is running, so cannot tell whether this deploy goes backwards." >&2
-    echo "       Re-run with DEPLOY_ALLOW_STALE=1 only if that is intended." >&2
+    echo "error: /api/health on $DEPLOY_HOST has no commit SHA (got: $live_health)." >&2
+    echo "       Cannot tell what is running. DEPLOY_ALLOW_STALE=1 skips this check." >&2
     exit 1
   fi
-  if ! git -C "$ROOT" cat-file -e "$live_sha^{commit}" 2>/dev/null; then
-    echo "error: live version $live_sha is not in this clone. Run 'git fetch --all' first." >&2
+  if ! live_full="$(git -C "$ROOT" rev-parse --verify --quiet "$live_sha^{commit}")"; then
+    echo "error: live version $live_sha is unknown or ambiguous in this clone. Run 'git fetch --all'." >&2
     exit 1
   fi
-  if ! git -C "$ROOT" merge-base --is-ancestor "$live_sha" HEAD; then
+  if ! git -C "$ROOT" merge-base --is-ancestor "$live_full" HEAD; then
     echo "error: HEAD does not contain the live version $live_sha; deploying would drop its changes." >&2
     git -C "$ROOT" log --oneline HEAD.."$live_sha" | sed 's/^/         missing: /' >&2
     exit 1
