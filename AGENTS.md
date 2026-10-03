@@ -136,6 +136,17 @@ services that must not be disrupted, hardware RAM limits) belongs in
 `AGENTS.local.md`, not here — see that file for what actually applies to
 the current deployment.
 
+## Code comments
+
+Write a comment only when the code cannot say it: a non-obvious constraint, a trap, or why
+an obvious alternative is wrong. State what is true now.
+
+- No history. Incident narratives, dates, "added after X", "previously" and "this used to"
+  belong in the commit message or `docs/orchestration/DECISIONS.md`, where `git blame` finds them.
+- No restating the code, and no counts or lists that go stale ("all four workflows").
+- Plain prose: no em-dashes, no formulaic fragments.
+- A comment-only change is proved with `git diff -w` showing only comment lines moved.
+
 ## Local development
 
 Frontend needs Node; backend needs Python 3.11+ and pip. If this machine's
