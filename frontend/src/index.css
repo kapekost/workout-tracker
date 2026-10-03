@@ -211,16 +211,39 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   width: 100%;
 }
 
+/* Bottom-anchored, not top-anchored.
+   It used to sit at `top: 20px`, which put it directly over the fixed header
+   (z-index 45 vs the toast's 100) — it covered the app name, the version stamp
+   and, on the workout screen, the top of the exercise card. Confirmed in a
+   real browser at 320px, not inferred: the 2026-10-03 screenshots caught it
+   covering "Gym Tracker" and clipping the h1.
+
+   The reason to move it rather than nudge it down is where the eyes are. Every
+   message this toast carries — a logged set, a failed save, a rejected value —
+   arrives while the user's thumb and gaze are at the BOTTOM of the screen, on
+   Log Set. A message that appears at the top is a message that has to be found.
+
+   --toast-lift is one token so the extra offset is decided in one place: the
+   NavBar is always the base, exactly as it is for the rest timer
+   (`bottom: calc(var(--navbar-height) + env(safe-area-inset-bottom))`), and the
+   lift is what has to clear whatever else is docked at the bottom. */
 .toast {
-  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--navbar-height) + var(--toast-lift, 16px) + env(safe-area-inset-bottom));
   background: var(--success); color: #0d0d0d; font-weight: 700;
   padding: 12px 24px; border-radius: 100px; z-index: 100; width: max-content;
   max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
-  animation: slideDown 0.3s ease;
+  animation: slideUp 0.3s ease;
 }
+/* The rest timer sits on top of the NavBar and is 70px of clearance
+   (Workout.jsx's EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR, the measured value), so
+   the toast needs 16 + 70. :has() is Safari 15.4+ / Chrome 105+, well inside
+   this app's floor, and it keeps the condition in CSS instead of a mount effect
+   that sets a style property on <html>. */
+body:has(.timer-bar) .toast { --toast-lift: 86px; }
 .toast.error { background: var(--danger); color: #0d0d0d; }
-@keyframes slideDown {
-  from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 .route-fade { animation: routeFadeIn 200ms ease; }
