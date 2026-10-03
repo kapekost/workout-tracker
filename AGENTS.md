@@ -207,6 +207,24 @@ to one deployment. What's true for any deployment of this project:
   `:latest` and rolled a live deploy back to an 11-day-old, pre-auth image with no
   warning; it now fails loudly instead, but the safe habit is to always set the
   variable, not to rely on the failure catching a forgotten one.
+
+- **`scripts/backup.sh` runs on the deploy target, not on the build machine.** It
+  hardcodes `COMPOSE_FILE="${COMPOSE_FILE:-$HOME/workout-tracker/docker-compose.yml}"`
+  and takes the snapshot *inside* the container with `docker compose exec`,
+  because the container runs as root and leaves WAL sidecar files the host cron
+  user cannot open. Run it on the Pi — over SSH, in one line:
+
+  ```bash
+  eval "$(sed -n '/^## Scripted deploy configuration$/,/^## /p' AGENTS.local.md | sed -n '/^DEPLOY_HOST=/p; /^DEPLOY_APP_DIR=/p; /^DEPLOY_SSH_OPTS=/p')"
+  ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" "cd '$DEPLOY_APP_DIR' && bash scripts/backup.sh"
+  ```
+
+  Run from your laptop it fails with `compose file .../docker-compose.yml: no such
+  file or directory`, then `no workout-tracker container to write ... into` —
+  which reads like a broken deployment and is not one. It exits non-zero, so in an
+  `a && b && c` chain it also silently stops the deploy that follows.
+  `scripts/deploy.sh` never calls it; it only prints `data/backup-status.json` off
+  the host at the end, so a deploy does not depend on a backup having run first.
 - Before any schema-changing deploy, snapshot via an **admin's** `GET /api/export` —
   that's the whole-database export a deploy snapshot needs (since #87 a member
   session gets only their own rows back). A bare `curl` from the host still 401s;
@@ -528,7 +546,8 @@ scratch repo, not by CI.
 **Backup posture as of this deploy:** last snapshot 2026-09-27, both legs `ok`
 (319,488 bytes local; off-site `gdrive:workout-tracker-backups`). That is 5 days
 old and crosses the 8-day stale threshold on 2026-10-05. Run `scripts/backup.sh`
-by hand before then — and note the `Testing`-publishing caveat below, which makes
+**on the deploy target** before then (see the runbook above — from your laptop it
+errors rather than backing anything up) — and note the `Testing`-publishing caveat below, which makes
 a *re-authorization* the likely failure rather than a code fix.
 
 **Still open, deliberately not in this deploy:** the admin export envelope
