@@ -10,12 +10,9 @@ name: Workflow lint
 # PyYAML accepts that file happily, which is how "verified by parsing the YAML"
 # missed it. actionlint models Actions' own validator and reports all three.
 # shellcheck and pyflakes are switched on because the ubuntu runners ship both;
-# all four workflows are currently clean under all three, so this costs nothing.
+# the workflows are clean under all three, so this costs nothing.
 #
-# Runs on every PR rather than targeting a base branch on purpose: the repo's
-# integration branch is not `main`, and a `branches: [main]` filter here would
-# mean this check never ran at all. That is exactly how the committed-secret
-# and deploy-specifics scans in scaffold-sanity.yml ended up dormant.
+# Runs on every PR, whatever the base branch.
 
 on:
   pull_request:

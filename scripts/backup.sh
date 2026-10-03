@@ -1,18 +1,13 @@
 #!/usr/bin/env bash
-# Off-site backup for the workout-tracker SQLite DB. Run by hand, when you want
-# one — there is no cron for this any more (removed 2026-09-04; the app isn't
-# used enough to justify a schedule). Everything below still assumes it runs on
-# the Raspberry Pi HOST.
-# Runs on the Raspberry Pi HOST via cron, but the DB snapshot (VACUUM INTO) is
-# taken INSIDE the container via `docker compose exec`, then copied out with
-# `docker cp`. Why: the app container runs as root and switches the DB to WAL
-# mode, which produces root-owned `-shm`/`-wal` sidecar files that the host
-# cron user (kapekost — docker group, no sudo) cannot open directly. Also,
-# python:3.11-slim has no `sqlite3` CLI — but it does have Python, so the
-# in-container step uses the stdlib `sqlite3` module instead.
+# Off-site backup for the workout-tracker SQLite DB. Run by hand on the Raspberry Pi
+# host; there is no cron (removed 2026-09-04).
+# The snapshot (VACUUM INTO) is taken inside the container with `docker compose exec`
+# and copied out with `docker cp`: the container runs as root, so the WAL sidecar
+# files it creates cannot be opened by the host user. The image has Python but no
+# sqlite3 CLI, so the in-container step uses the stdlib module.
 set -euo pipefail
 
-# cron runs with a minimal environment — pin PATH so docker/rclone/curl resolve.
+# Pin PATH so docker/rclone/curl resolve in a non-login shell.
 # $HOME/.local/bin included: rclone is installed there as a static binary
 # (no passwordless sudo on the Pi, so no apt / /usr/local/bin install).
 PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
@@ -55,15 +50,9 @@ mkdir -p "$STAGE"
 cleanup_ctmp() { $COMPOSE exec -T workout-tracker rm -f "$CTMP" >/dev/null 2>&1 || true; }
 trap cleanup_ctmp EXIT
 
-# Records the result where /api/admin/backup-status reads it. Same shape of problem as the
-# VACUUM above, from the other direction: the status file has to land inside
-# the data volume, but ~/workout-tracker/data on the host is drwxr-xr-x root
-# root — Docker created it when it first mounted the volume — and the cron user
-# (kapekost, docker group, no passwordless sudo) is denied when it writes there
-# directly. So stage the JSON in a host temp file the cron user does own and
-# let `docker cp` place it: that runs as the Docker daemon, writes through the
-# bind mount onto the host filesystem, and the file even lands owned by the
-# host user. Verified on the Pi, 2026-09-04.
+# The status file must land in the data volume, but ~/workout-tracker/data on the host
+# is root-owned (Docker created it) and the host user (docker group, no sudo) cannot
+# write there. So stage the JSON in a host temp file and let `docker cp` place it.
 # `ps -aq`, not `ps -q`: docker cp works against a *stopped* container, so
 # "the backup failed because the app was down" — precisely the case the old
 # HTTP heartbeat could never report, since it POSTed to the app itself — still
