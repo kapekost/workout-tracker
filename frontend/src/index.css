@@ -95,6 +95,14 @@ button:active { opacity: 0.7; }
 }
 .btn-icon:active { background: #2a2a42; }
 .btn-primary:disabled { opacity: 0.55; cursor: default; }
+/* 2026-10-03 design review, Wave 0.3: only .btn-primary had a disabled
+   state, and every rest-timer control uses .btn-icon/.btn-secondary — so
+   Skip and the +/-30s buttons kept cursor:pointer and looked armed while
+   TimerBar's pointerEvents:none made them inert. TimerBar already sets the
+   native `disabled` attribute on all four, so this rule only supplies the
+   missing visual half; no aria-disabled is needed, and adding one would be
+   redundant against native disabled. */
+.btn-secondary:disabled, .btn-icon:disabled { opacity: 0.55; cursor: default; }
 /* Focus rings used to be enumerated per component (5 selectors) and missed
    everything else: NavBar tabs, Chip, MuscleChip, every bare .tap-target
    button. Every button and link in the app gets one ring instead of a list
@@ -189,7 +197,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
   animation: slideDown 0.3s ease;
 }
-.toast.error { background: var(--danger); color: #fff; }
+.toast.error { background: var(--danger); color: #0d0d0d; }
 @keyframes slideDown {
   from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
