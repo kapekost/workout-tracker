@@ -32,35 +32,36 @@ jobs:
   review:
     # Four gates, all about not producing a false signal.
     #
-    # 1. Drafts are skipped to save tokens. `converted_to_draft` is listed because
-    #    a PR flipped to draft while this job sits in the queue still fires, and
-    #    `github.event.pull_request.draft` is false for that event.
+    # 1. Drafts are skipped to save tokens.
     # 2. Fork PRs are skipped because they CANNOT be reviewed here, not because
     #    they don't warrant it: on a `pull_request` event from a fork GitHub
     #    downgrades GITHUB_TOKEN to read-only, so nothing can be posted. This repo
     #    is public, so outside contributions are the normal path and the job would
     #    otherwise go red on exactly the untrusted-author PRs most worth reading.
     # 3. A push to the branch restarts nothing; `synchronize` covers it.
-    # 4. Dependabot is skipped because it is the one recurring case where a full
-    #    model review costs the most and is worth the least. Its branches are
-    #    same-repo (so gate 2 lets them through), they are the largest diffs
-    #    relative to review value — lockfile churn — and dependabot opens or
-    #    rebases PRs weekly across all four configured ecosystems, so each one is
-    #    a fresh `opened`/`synchronize` event and therefore a fresh model call.
-    #    On 2026-10-03 there were 7 open dependabot PRs, none excluded.
+# 4. Dependabot is skipped. NOTE this is currently a no-op and is kept as a
+    #    forward guard: `main` has never contained this file, and every open
+    #    dependabot PR targets `main`, so those runs cannot happen yet and zero
+    #    model calls have ever been spent on one. It starts mattering the moment
+    #    this workflow lands on `main`, at which point dependabot's same-repo
+    #    branches would clear gate 2, and it opens or rebases PRs weekly across
+    #    all four configured ecosystems — each a fresh `opened`/`synchronize`
+    #    event and so a fresh model call, against the largest and least
+    #    review-worthy diffs (lockfile churn).
     #
     # This is a cost gate, not a quality judgement: dependabot PRs still get the
     # full Backend tests / Frontend tests / Scaffold sanity suites, which are free
-    # on this public repo and are what actually protects them.
+    # on this public repo and are what actually protect them.
     if: >-
       github.event.pull_request.draft == false &&
-      github.event.action != 'converted_to_draft' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    # A ceiling, not a target. Run 3 sat 28 minutes before being cancelled by
-    # hand; run 6 took 5m35s. 20 leaves generous headroom over a normal run while
-    # stopping a stuck provider call from occupying a runner indefinitely.
+    # A ceiling, not a target. Run 6 took 5m35s. Run 3 ran 33m06s and was killed
+    # only because a new push superseded it — it was not cancelled by hand, so
+    # the `concurrency` group above is what ended it. 20 leaves generous headroom
+    # over a normal run while stopping a stuck provider call from occupying a
+    # runner indefinitely.
     timeout-minutes: 20
     # Union of what the two token steps need. See the note at the top of this file:
     # Actions has no per-step permissions, so this is job-wide by necessity, and the
@@ -71,7 +72,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout PR Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # Do not leave the job token in .git/config for the reviewer to read. With

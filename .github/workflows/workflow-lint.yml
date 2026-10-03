@@ -37,19 +37,25 @@ jobs:
       - uses: actions/checkout@v7
 
       # Pinned to an exact release rather than "latest": an unpinned download
-      # would mean CI runs whatever a third party published most recently. This
-      # is the same trade actions/checkout@v7 makes, and CODEOWNERS requires
-      # owner review on /.github/, so a substituted binary needs that review.
+      # would mean CI runs whatever a third party published most recently. The
+      # SHA-256 is checked against the checksum file published alongside the
+      # release, so pinning is not the only control — the tarball's contents are
+      # verified independently of its filename.
       - name: Install actionlint
         env:
           ACTIONLINT_VERSION: v1.7.12
+          ACTIONLINT_SHA256: >-
+            8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
           set -euo pipefail
-          url="https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}"
-          curl -fsSL --retry 3 -o /tmp/actionlint.tar.gz \
-            "${url}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz"
+          base="https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}"
+          archive="actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o /tmp/actionlint.tar.gz "${base}/${archive}"
+          echo "${ACTIONLINT_SHA256}  /tmp/actionlint.tar.gz" | sha256sum -c -
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           /tmp/actionlint --version
 
+      # No -color: the runner log is not a TTY, so actionlint disables colour by
+      # itself and forcing it only injects escape codes that break grep.
       - name: Lint workflows
-        run: /tmp/actionlint -color
+        run: /tmp/actionlint

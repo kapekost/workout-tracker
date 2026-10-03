@@ -33,16 +33,24 @@ jobs:
 
       # The browser is ~500MB and was being downloaded on every single run.
       # This suite is the largest block of CI wall-clock for the repo (53 of ~76
-      # non-review minutes over 14 days), and all of that saving is wall-clock
-      # rather than money — standard runner minutes are free on this public repo.
-      # Keyed on the lockfile hash, so the cache turns over exactly when
-      # Playwright is upgraded. Note GitHub expressions cannot run shell
-      # (`${{ node -e ... }}` does not work); hashFiles is the supported way.
+      # non-review minutes over 14 days), and the saving is wall-clock, not money
+      # — standard runner minutes are free on this public repo.
+      #
+      # Honest scope of this cache: the key is a hash of the WHOLE lockfile, so
+      # it turns over on any frontend dependency change, not specifically on a
+      # Playwright bump — there is no way to hash only part of a file with
+      # hashFiles. It also busts on every lockfile-changing PR, and a cache
+      # saved from a `pull_request` run is scoped to `refs/pull/N/merge` and is
+      # restorable only by re-runs of that same PR, so those uploads cannot be
+      # read by any other job. The reliable saving is on the `push: main` runs
+      # and on repeat pushes to a branch whose lockfile did not change.
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - run: npm ci
 
