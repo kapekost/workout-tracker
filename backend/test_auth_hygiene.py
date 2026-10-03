@@ -273,3 +273,52 @@ def test_the_cap_does_not_disable_the_limiter(fast, client):
     assert 429 in codes, f"IP was never throttled: {codes}"
     assert codes[-1] == 429
     fast.reset_rate_limits()
+
+
+def _req(host):
+    import types
+    return types.SimpleNamespace(client=types.SimpleNamespace(host=host))
+
+
+def test_a_full_store_does_not_let_a_fresh_ip_through(fast):
+    """One IP filling the store must not switch the limiter off for everyone
+    else. A key that cannot be tracked is treated as over the limit."""
+    fast.reset_rate_limits()
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(fast.time, "time", lambda: 6_000_000.0)
+        mp.setattr(fast, "_RATE_LIMIT_MAX_KEYS", 4)
+        for i in range(20):
+            try:
+                fast.enforce_rate_limit(_req("10.0.0.1"), f"user:spray{i}")
+            except fast.HTTPException:
+                pass
+        throttled = 0
+        for _ in range(12):
+            try:
+                fast.enforce_rate_limit(_req("10.0.0.2"), "user:victim")
+            except fast.HTTPException as e:
+                assert e.status_code == 429
+                throttled += 1
+    assert throttled > 0, "a fresh IP was never throttled once the store was full"
+    fast.reset_rate_limits()
+
+
+def test_an_ip_already_over_does_not_create_subject_keys(fast):
+    """Once the IP counter is over, further usernames must not grow the store."""
+    fast.reset_rate_limits()
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(fast.time, "time", lambda: 7_000_000.0)
+        for i in range(fast.RATE_LIMIT_MAX + 1):
+            try:
+                fast.enforce_rate_limit(_req("10.0.0.3"), f"user:a{i}")
+            except fast.HTTPException:
+                pass
+        before = len(fast._rate_windows)
+        for i in range(50):
+            try:
+                fast.enforce_rate_limit(_req("10.0.0.3"), f"user:b{i}")
+            except fast.HTTPException:
+                pass
+        after = len(fast._rate_windows)
+    assert after == before, f"store grew from {before} to {after} after the IP was over"
+    fast.reset_rate_limits()
