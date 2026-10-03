@@ -575,3 +575,71 @@ describe('number entry mid-workout (2026-10-03 review 1.5)', () => {
     expect(before).toBeGreaterThanOrEqual(1)
   })
 })
+
+// ── Wave 1.1 / 1.6, 2026-10-03 design review ──
+describe('Workout: a failed session read must not throw you out of the workout', () => {
+  it('stays on the page and says the sets are safe', async () => {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') throw Object.assign(new Error('offline'), { status: undefined })
+      if (path === '/notes') return {}
+      throw new Error(`unmocked GET ${path}`)
+    })
+    renderWorkout()
+    expect(await screen.findByText(/Your sets are safe/i)).toBeInTheDocument()
+    // The old code was `.catch(() => nav('/'))`, which rendered the "/" route.
+    expect(screen.queryByText('home')).not.toBeInTheDocument()
+  })
+})
+
+describe('Workout: Log Set failure messages match what can actually happen', () => {
+  function rejectPost(err) {
+    api.get.mockImplementation(async (path) => {
+      if (path === '/sessions/1') {
+        return { id: 1, workout_day: 'upper_a', date: '2026-07-09', completed: 0,
+                 created_at: '2026-07-09 10:00:00', ended_at: null, sets: [] }
+      }
+      if (path === '/notes') return {}
+      if (path === '/progress') return []
+      if (path === '/personal-bests') return []
+      if (path.startsWith('/exercises/')) return null
+      if (path === '/sessions/1/prs') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    api.post.mockRejectedValue(err)
+  }
+
+  async function logFirstSet() {
+    renderWorkout()
+    const btn = await screen.findByRole('button', { name: /log set/i })
+    fireEvent.click(btn)
+  }
+
+  it('a 422 does not tell you to retry — retrying cannot succeed', async () => {
+    rejectPost(Object.assign(new Error('API POST → 422'), { status: 422 }))
+    await logFirstSet()
+    expect(await screen.findByText(/not allowed/i)).toBeInTheDocument()
+    expect(screen.queryByText(/tap Log Set again/i)).not.toBeInTheDocument()
+  })
+
+  it('a 4xx says the server rejected it, with no retry hint', async () => {
+    rejectPost(Object.assign(new Error('API POST → 400'), { status: 400 }))
+    await logFirstSet()
+    expect(await screen.findByText(/server rejected it/i)).toBeInTheDocument()
+  })
+
+  it('a network failure keeps the retry hint but tells you to check first', async () => {
+    // No status at all: the 8s AbortSignal.timeout throws a TimeoutError, and the
+    // write may or may not have landed. That is the one case where "try again"
+    // is honest, and it has to come with the check-your-set-list instruction.
+    rejectPost(Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' }))
+    await logFirstSet()
+    expect(await screen.findByText(/check the sets above/i)).toBeInTheDocument()
+  })
+
+  it('a 401 stays silent — the logout handler is already tearing the screen down', async () => {
+    rejectPost(Object.assign(new Error('API POST → 401'), { status: 401 }))
+    await logFirstSet()
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(screen.queryByText(/Couldn't save that set/i)).not.toBeInTheDocument()
+  })
+})

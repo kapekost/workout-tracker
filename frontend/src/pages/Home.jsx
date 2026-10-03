@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, getNextWorkoutId, DAY_COLORS, DAY_COLOR_FALLBACK, CYCLE } from '../data/workoutPlan'
@@ -63,17 +63,49 @@ export function StartOrResumeButton({ active, plan, color, starting, onStart, on
 export default function Home() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  // Wave 1.1 (2026-10-03 design review): a rejected read is not an empty
+  // account. Before this, `.catch(() => setLoading(false))` left `sessions` at
+  // [] and the page rendered four simultaneous falsehoods: "No sessions logged
+  // yet", the wrong next workout day (getNextWorkoutId([]) always returns
+  // upper_a), an exercise preview for a day that may not be next, and Start
+  // replacing Resume over a live workout. `loadError` is what separates "no
+  // sessions" from "could not ask".
+  const [loadError, setLoadError] = useState(false)
   const [starting, setStarting] = useState(false)
   const { toast, showToast } = useToast()
   const [recency, setRecency] = useState([])
+  const [recencyError, setRecencyError] = useState(false)
   const nav = useNavigate()
-  const { active, refresh, ready } = useActiveSession()
+  const { active, refresh, ready, failed: activeFailed } = useActiveSession()
+
+  const load = useCallback(async () => {
+    try {
+      const s = await api.get('/sessions')
+      setSessions(s)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const loadRecency = useCallback(async () => {
+    // The picker is additive — if this fails, Home still works without it, but
+    // it must not be handed an empty list, which reads as "you have never
+    // trained anything" rather than "we could not check" (Wave 1.1).
+    try {
+      setRecency(await api.get('/exercises/recency'))
+      setRecencyError(false)
+    } catch {
+      setRecencyError(true)
+    }
+  }, [])
 
   useEffect(() => {
-    api.get('/sessions').then(s => { setSessions(s); setLoading(false) }).catch(() => setLoading(false))
-    // The picker is additive — if this fails, Home still works without it.
-    api.get('/exercises/recency').then(setRecency).catch(() => setRecency([]))
-  }, [])
+    load()
+    loadRecency()
+  }, [load, loadRecency])
 
   const nextId = getNextWorkoutId(sessions)
   const displayId = active ? active.workout_day : nextId
@@ -104,6 +136,51 @@ export default function Home() {
   if (loading || !ready) return (
     <div style={{ paddingTop: 32, textAlign: 'center', color: colors.muted }}>Loading…</div>
   )
+
+  // A rejected read renders none of the page's own claims. There is no honest
+  // version of "here is the next workout, here are its exercises, press Start"
+  // when we do not know what is in progress — getNextWorkoutId([]) answers
+  // `upper_a` by default, so the wrong day is not an unlikely edge case, it is
+  // what an empty list always produces. Try again is the only action offered:
+  // both Start and Resume are guesses right now.
+  //
+  // Deliberately not a toast. The failure is persistent, the toast lives 2.5s,
+  // and `.toast` renders at top:20px over the fixed header — nobody is looking
+  // there mid-workout. `.form-error` is the app's existing error surface (the
+  // one Wave 0.1 fixed to 4.62:1), so this adds no new visual language.
+  if (loadError || activeFailed) {
+    return (
+      <div style={{ paddingTop: 16 }}>
+        <Toast toast={toast} />
+        <Eyebrow color={colors.danger} size={type.size.base} style={{ marginBottom: 4 }}>
+          Couldn't load
+        </Eyebrow>
+        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
+          Check your connection
+        </h1>
+        <div className="form-error" style={{ marginTop: 16 }}>
+          We couldn't load your workouts. Nothing was lost.
+        </div>
+        <button className="btn-secondary" onClick={() => { setLoading(true); load(); refresh() }}
+          style={{ marginTop: 16 }}>
+          Try again
+        </button>
+        {/* The picker needs /exercises/recency, and an empty list reads as
+            "you have never trained anything" rather than "we could not check" —
+            so it is withheld on its own failure too. */}
+        {!recencyError && (
+          <MuscleGroupPicker
+            groups={groupRecovery(recency)}
+            lastTrainedByDay={lastTrainedByDay(sessions)}
+            activeSession={active}
+            starting={starting}
+            onStart={startDay}
+          />
+        )}
+        <VersionStamp />
+      </div>
+    )
+  }
 
   return (
     <div style={{ paddingTop: 16 }}>
@@ -157,13 +234,15 @@ export default function Home() {
       />
 
       {/* Muscle groups */}
-      <MuscleGroupPicker
-        groups={groups}
-        lastTrainedByDay={trainedByDay}
-        activeSession={active}
-        starting={starting}
-        onStart={startDay}
-      />
+      {!recencyError && (
+        <MuscleGroupPicker
+          groups={groups}
+          lastTrainedByDay={trainedByDay}
+          activeSession={active}
+          starting={starting}
+          onStart={startDay}
+        />
+      )}
 
       {/* Last session */}
       {lastSession && lastPlan && (

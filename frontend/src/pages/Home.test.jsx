@@ -10,19 +10,30 @@ import { PLAN } from '../data/workoutPlan'
 // ActiveSessionProvider, which itself needs a SessionProvider) keeps this a
 // self-contained unit test of Home's default export, same spirit as
 // Workout.test.jsx's `vi.mock('../lib/analytics', ...)`.
-vi.mock('../lib/activeSession', () => ({
-  useActiveSession: () => ({ active: null, refresh: vi.fn(), ready: true }),
+
+// Mutable so a test can simulate the provider's own read having failed, which
+// is a different failure from Home's /sessions read failing and matters just as
+// much: either way `active` is unknown, and Start is a guess.
+const mockActive = vi.hoisted(() => ({
+  value: { active: null, refresh: vi.fn(), ready: true, failed: false },
 }))
+vi.mock('../lib/activeSession', () => ({ useActiveSession: () => mockActive.value }))
 vi.mock('../api', () => ({ api: { get: vi.fn(), post: vi.fn() } }))
 import Home from './Home'
 import { api } from '../api'
 
 const ex1 = PLAN.upper_a.exercises[0]
 
-function mockHomeApi({ sessions = [], recency = [] } = {}) {
+function mockHomeApi({ sessions = [], recency = [], sessionsFail = false, recencyFail = false } = {}) {
   api.get.mockImplementation(async (path) => {
-    if (path === '/sessions') return sessions
-    if (path === '/exercises/recency') return recency
+    if (path === '/sessions') {
+      if (sessionsFail) throw new Error('offline')
+      return sessions
+    }
+    if (path === '/exercises/recency') {
+      if (recencyFail) throw new Error('offline')
+      return recency
+    }
     throw new Error(`unmocked GET ${path}`)
   })
 }
@@ -32,7 +43,10 @@ function renderHome() {
 }
 
 describe('Home (full page)', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockActive.value = { active: null, refresh: vi.fn(), ready: true, failed: false }
+  })
 
   it('first-run install: hides the muscle-group picker and the export link (no data at all yet)', async () => {
     mockHomeApi({ sessions: [], recency: [] })
@@ -156,5 +170,74 @@ describe('lastTrainedByDay', () => {
   it('ignores sessions whose workout_day is not a plan day', () => {
     expect(lastTrainedByDay([{ workout_day: 'bogus', date: '2026-08-12', completed: 1 }]))
       .toEqual({})
+  })
+})
+
+// ── Wave 1.1, 2026-10-03 design review: a failed read is not an empty account ──
+// Before this, `.catch(() => setLoading(false))` left `sessions` at [] and the
+// page asserted four things it had not checked: that there are no sessions, that
+// the next day is upper_a (getNextWorkoutId([]) always answers that), that upper_a's
+// exercises are what is next, and — via activeSession's own `setActive(null)` —
+// that nothing is in progress.
+describe('Home when a read fails', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockActive.value = { active: null, refresh: vi.fn(), ready: true, failed: false }
+  })
+
+  it('never claims you have no sessions', async () => {
+    mockHomeApi({ sessionsFail: true })
+    renderHome()
+    await screen.findByRole('button', { name: /Try again/ })
+    expect(screen.queryByText(/No sessions logged yet/i)).not.toBeInTheDocument()
+  })
+
+  it('offers neither Start nor Resume, because neither is knowable', async () => {
+    mockHomeApi({ sessionsFail: true })
+    renderHome()
+    await screen.findByRole('button', { name: /Try again/ })
+    expect(screen.queryByRole('button', { name: /^(Start|Resume) / })).not.toBeInTheDocument()
+  })
+
+  it('does not name a next workout day it could not read', async () => {
+    mockHomeApi({ sessionsFail: true })
+    renderHome()
+    await screen.findByRole('button', { name: /Try again/ })
+    expect(screen.queryByText(/Next up/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/In progress/i)).not.toBeInTheDocument()
+  })
+
+  it('says nothing was lost — the question behind the empty state', async () => {
+    mockHomeApi({ sessionsFail: true })
+    renderHome()
+    expect(await screen.findByText(/Nothing was lost/i)).toBeInTheDocument()
+  })
+
+  it('Try again re-reads instead of leaving the user stuck', async () => {
+    mockHomeApi({ sessionsFail: true })
+    renderHome()
+    await screen.findByRole('button', { name: /Try again/ })
+    api.get.mockClear()
+    api.get.mockImplementation(async (path) => (path === '/sessions' ? [] : []))
+    fireEvent.click(screen.getByRole('button', { name: /Try again/ }))
+    await screen.findByRole('button', { name: /^Start / })
+    expect(api.get).toHaveBeenCalledWith('/sessions')
+  })
+
+  it('withholds Start when the provider could not resolve the active session either', async () => {
+    mockHomeApi({ sessions: [] })
+    mockActive.value = { active: null, refresh: vi.fn(), ready: true, failed: true }
+    renderHome()
+    await screen.findByRole('button', { name: /Try again/ })
+    expect(screen.queryByRole('button', { name: /^Start / })).not.toBeInTheDocument()
+  })
+
+  it('a failed recency read hides the muscle picker rather than showing it empty', async () => {
+    // An empty group list reads as "you have never trained anything", which is
+    // a second false claim on the same page.
+    mockHomeApi({ recencyFail: true })
+    renderHome()
+    await screen.findByRole('button', { name: /^Start / })
+    expect(screen.queryByText('Muscle groups')).not.toBeInTheDocument()
   })
 })

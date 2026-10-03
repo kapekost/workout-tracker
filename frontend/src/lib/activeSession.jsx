@@ -11,6 +11,7 @@ export function findActiveSession(sessions) {
 export const ActiveSessionContext = createContext({
   active: null,
   ready: false,
+  failed: false,
   refresh: async () => {},
   discard: async () => {},
 })
@@ -19,13 +20,23 @@ export function ActiveSessionProvider({ children }) {
   const { profile } = useSession()
   const [active, setActive] = useState(null)
   const [ready, setReady] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
       const sessions = await api.get('/sessions')
       setActive(findActiveSession(sessions))
+      setFailed(false)
     } catch {
-      setActive(null)
+      // Deliberately NOT setActive(null). A rejected read says nothing about
+      // whether a session is in progress — it says we could not find out. The
+      // 2026-10-03 design review's Wave 1.1 finding: nulling here made Home
+      // replace Resume with Start over a live workout, which starts a second
+      // session and orphans the first. A stale `active` costs one useless tap
+      // (you land on Workout, which loads or shows its own error); a wrong
+      // Start costs real data. `failed` is the signal consumers need, so they
+      // can avoid offering either action rather than guessing.
+      setFailed(true)
     } finally {
       setReady(true)
     }
@@ -46,11 +57,11 @@ export function ActiveSessionProvider({ children }) {
   // unreachable.
   useEffect(() => {
     if (profile) refresh()
-    else setActive(null)
+    else { setActive(null); setFailed(false) }
   }, [profile, refresh])
 
   return (
-    <ActiveSessionContext.Provider value={{ active, ready, refresh, discard }}>
+    <ActiveSessionContext.Provider value={{ active, ready, failed, refresh, discard }}>
       {children}
     </ActiveSessionContext.Provider>
   )

@@ -198,6 +198,7 @@ export default function Workout() {
   const nav = useNavigate()
   const { refresh } = useActiveSession()
   const [session, setSession] = useState(null)
+  const [loadError, setLoadError] = useState(false)
   const [sets, setSets] = useState([])
   const [prs, setPrs] = useState({})
   const prsAtStart = useRef({})
@@ -276,7 +277,12 @@ export default function Workout() {
         const pf = prefillFor(firstId, s.sets || [], prMap, data, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
         setWeight(pf.weight); setReps(pf.reps)
       }
-    }).catch(() => nav('/'))
+    // A failed read must NOT navigate. `.catch(() => nav('/'))` threw the user
+    // out of their own live workout and landed on Home, which then said "No
+    // sessions logged yet" and offered to start a different day (Wave 1.1).
+    // This is the only one of the six read-failure sites that destroyed
+    // navigation context rather than merely mislabelling a state.
+    }).catch(() => setLoadError(true))
     // Load notes
     api.get('/notes').then(setNotes).catch(() => {})
   }, [sessionId])
@@ -284,6 +290,23 @@ export default function Workout() {
   useEffect(() => {
     saveRestTimer(sessionId, { restStartMs, pausedRem })
   }, [sessionId, restStartMs, pausedRem])
+
+  if (loadError) return (
+    <div style={{ paddingTop: 24 }}>
+      <Eyebrow color={colors.danger} size={type.size.base} style={{ marginBottom: 4 }}>
+        Couldn't load
+      </Eyebrow>
+      <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 16 }}>
+        Check your connection
+      </h1>
+      <div className="form-error">
+        We couldn't open this workout. Your sets are safe — nothing was logged or lost.
+      </div>
+      <button className="btn-secondary" style={{ marginTop: 16 }} onClick={() => window.location.reload()}>
+        Try again
+      </button>
+    </div>
+  )
 
   if (!session) return (
     <div style={{ paddingTop: 24 }}>
@@ -375,9 +398,30 @@ export default function Workout() {
         }
       }
     } catch (e) {
-      // Weight/reps state is untouched on this path, so the retry this tells
-      // you to do is genuinely one tap -- the copy just has to say so.
-      showToast("Couldn't save that set — tap Log Set again", 'error')
+      // Wave 1.6: one message for every failure told the user to "tap Log Set
+      // again" for a 422, which can never succeed on retry — the backend
+      // rejects reps < 1 and weight_kg < 0 or > 1000 (main.py:343-345), and the
+      // reps stepper moves in steps of 1, so a fractional value was not even
+      // reachable by stepping. The message demanded the impossible.
+      //
+      // `err.status` already exists (api.js). Branching on it:
+      //   401       — api.js is already routing this to the logout handler;
+      //               the screen is being torn down, so a toast is noise.
+      //   4xx       — the server rejected the request. Retrying changes nothing.
+      //   no status — network drop or the 8s abort. The write may or may not
+      //               have landed, which is why this branch keeps the retry
+      //               hint AND points at the set list to check first.
+      if (e?.status === 401) {
+        // api.js is already routing this to the logout handler and the screen
+        // is being torn down; a toast racing the redirect is noise. Falls
+        // through to setLogging(false) like every other branch.
+      } else if (e?.status === 422) {
+        showToast('That value is not allowed — check weight and reps', 'error')
+      } else if (e?.status >= 400 && e?.status < 500) {
+        showToast("Couldn't save that set — the server rejected it", 'error')
+      } else {
+        showToast("Couldn't save that set — check the sets above, then tap Log Set again", 'error')
+      }
     }
     setLogging(false)
   }

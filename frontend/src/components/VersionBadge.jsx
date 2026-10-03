@@ -85,11 +85,36 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           nothing. "may be out of date" rather than "showing saved data":
           on a cache miss (e.g. first-ever visit while offline) the fetch
           still fails and this still shows, but there is no saved data to
-          actually be showing. */}
-      <span role="status"
-        title={stale ? 'Network unreachable — data shown may be out of date' : undefined}
-        style={{ color: colors.text, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1 }}>
-        {stale ? <IconExclamationTriangle size={12} /> : null}
+          actually be showing.
+
+          Wave 1.7 (2026-10-03 design review): this was a 12px glyph and
+          nothing else, so it announced nothing and said nothing. Note where
+          the aria-hidden was: on the <svg>, a child -- the live region
+          itself was never hidden, so text dropped in here is announced
+          without any change to the markup's semantics. That makes this a
+          copy fix, not an a11y-mechanism fix.
+          "Data may be old", never "Offline": networkStatus.js also marks
+          stale on mere slowness (the SW's 4s NetworkFirst race resolves the
+          page's fetch from cache), so "offline" would be confidently wrong
+          on slow gym wifi. Hedged language is the same reasoning the comment
+          above already applied to the tooltip. */}
+      <span role="status" aria-atomic="true"
+        style={{ display: 'flex', alignItems: 'center', gap: 4,
+          color: colors.muted2, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1.2 }}>
+        {stale ? <>
+          <IconExclamationTriangle size={12} />
+          Data may be old
+          {/* The full sentence for anyone not reading the two words, which is
+              not the same as the short form's meaning. Not a `title`: there is
+              no hover on a phone, and with visible text a title would repeat
+              the same words on desktop. */}
+          <span style={{
+            position: 'absolute', width: 1, height: 1, margin: -1, padding: 0,
+            overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+          }}>
+            Network unreachable — data shown may be out of date.
+          </span>
+        </> : null}
       </span>
     </div>
   )
