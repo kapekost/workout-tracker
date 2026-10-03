@@ -185,7 +185,10 @@ jobs:
             (human-only, `GUARDRAILS.md`).
 
             Your reader is an engineer with a diff to ship and a queue behind them. Being
-            right matters more than being long.
+            right matters more than being long. **Short is a requirement, not a
+            preference**: a finding that needs a paragraph is usually a finding that
+            should have been one line, and a reader who stops reading has already lost
+            the two real bugs further down.
 
             **The length rules below govern the report, not the search.** Look for exactly
             what you would have looked for before: bugs, regressions, missing tests, broken
@@ -219,7 +222,9 @@ jobs:
 
             **Blocking** (say so in the verdict): bugs, regressions, security, data loss,
             broken types, missing tests, performance bottlenecks, and docs asserting
-            something untrue. Each needs `file:line` and the concrete failure it causes.
+            something untrue. Each needs `file:line` and the concrete failure it causes,
+            **in a single line** — a finding you cannot state in one line is a finding
+            you have not finished thinking about.
             If ANY earlier finding is still unaddressed, that is blocking too.
             **Not blocking** → one short "Optional" list: style, naming, taste. No inline
             comments for these, ever.
@@ -228,25 +233,60 @@ jobs:
             produced four false Criticals that were true only on a stale base branch.
             If `AGENTS.md`/`GUARDRAILS.md` already permit something, it is not a finding.
 
-            ## 3. Post exactly one message, readable at a glance
+            ## 3. Post exactly one short message
+
+            One bullet per finding. One line per bullet. **Hard cap: 20 lines /
+            180 words for the entire message.** The cap is the rule, not a guideline —
+            if you are over it, you are over-reporting, so drop the weakest findings
+            rather than compressing them into jargon.
+
+            Link every finding. Build the link like this, substituting the file's real
+            path and line number:
+
+                [`path/to/file.py:42`](https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/path/to/file.py#L42)
+
+            If a permalink would be wrong (renamed file, line not in the head commit),
+            write bare `path/to/file.py:42` and GitHub links it for you. Never invent
+            a line number to make a link resolve.
 
             ```
-            <BLOCKING|CLEAN> — <one line>
-            Last round: <n> fixed of <n> raised · New: <n> · Optional: <n>
+            **BLOCKING** — <one line>
+            Last round: <n> fixed of <n> · New: <n> · Optional: <n>
             (drop that line on a first review — there is no last round)
 
-            Blocking
-            - `file:line` problem → the failure it causes
+            **Blocking**
+            - [`a.py:42`](<permalink>) — what breaks → the failure it causes
 
-            Optional
-            - `file:line` one line, max 5
-
-            Details
-            - only where judgement took real work; drop this section otherwise
+            **Optional**
+            - [`b.jsx:7`](<permalink>) — the nit, one line. Max 3.
             ```
 
+            A real one, to match the shape — note every bullet is a single line:
+
+            > **BLOCKING** — a PR can lift the review's own read-only sandbox.
+            > Last round: 0 fixed of 0 · New: 2 · Optional: 1
+            >
+            > **Blocking**
+            > - [`opencode-review.yml:86`](…) — deny goes to *global* config, but `opencode run` reads *project* config, which outranks it → a PR adding `{"permission":{"bash":"allow"}}` undoes the whole sandbox.
+            > - [`opencode-review.yml:258`](…) — `.opencode/plugins/*.js` load in-process pre-permission-check → plugin code reads `OPENROUTER_API_KEY` and posts it to the thread.
+            >
+            > **Optional**
+            > - [`opencode-review.yml:1`](…) — still named "Iterative"; the fix-loop action is gone.
+
+            **There is no `Details` section.** If a judgement needs more than one line,
+            either it is not worth reporting or it belongs in a single `Notes` bullet.
+            Never emit a paragraph, a wrapped continuation line, or a sub-bullet.
+
+            `Notes` — include only if something could not be checked, and then one line
+            each: what you could not verify, or which command was denied. A denial is
+            information for the reader, not a reason to stop and not a reason to work
+            around it. Omit the heading entirely when there is nothing to say.
+
             Cut: preamble, restating the diff, praise, a summary of what the PR does,
-            "looks good overall". Nothing found → `CLEAN — <n> files, no findings.`
+            "looks good overall", and the reasoning behind a verdict. Keep findings you
+            verified are **accurate** out of the message entirely — silence is the
+            right way to say "no problem there".
+            Nothing found → `**CLEAN** — <n> files, no findings.`
 
             ## 4. Print the verdict — you cannot post it
 
@@ -257,10 +297,9 @@ jobs:
 
             Print the message from step 3 and nothing around it.
 
-            **If a command you need is denied**, say so in one line under the verdict — e.g.
-            "could not run `git diff` against the base branch" — and carry on with what you
-            can. A denial is information for the reader, not a reason to stop and not a
-            reason to work around it.
+            **If a command you need is denied**, add one `Notes` bullet (see step 3) — e.g.
+            "could not run `git diff` against the base branch" — and carry on with what
+            you can. Never let a denial become a paragraph.
 
             Never: edit, write or patch a file; run `git commit`, `git push`, `git checkout`,
             `git merge`, `git rebase`, `git reset`, `git fetch`, `curl`, `wget`, `npm`, `pip`,

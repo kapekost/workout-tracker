@@ -38,11 +38,16 @@ it cannot do damage:
   commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
   and `bash scripts/deploy.sh` were each denied with the repo unchanged.
 
-It posts **one short comment**, not a GitHub review: a verdict line, counts, `file:line`
-findings, and a `Details` section only where the judgement was hard. It **cannot** submit a
-formal `--approve` or `--request-changes`, and posts no inline per-line comments — both would
-need a token inside the agent. On a re-review it reads the history file and looks at the diff
-since its own last review.
+It posts **one short comment**, not a GitHub review: a verdict line, counts, then one
+single-line bullet per finding, each a `file:line` **hyperlinked to the line at the PR head
+commit** (`.../blob/<head-sha>/<path>#L<line>`). Hard cap **20 lines / 180 words** for the
+whole message, enforced by the prompt, and there is **no `Details` section** — anything needing
+more than a line is dropped or becomes a one-line `Notes` bullet (used only for what could not
+be verified). Keeping it this short is a deliberate trade: a reader who skims to the end has
+still seen every real finding. It **cannot** submit a formal `--approve` or
+`--request-changes`, and posts no inline per-line comments — both would need a token inside
+the agent. On a re-review it reads the history file and looks at the diff since its own last
+review.
 
 So when you see it:
 
