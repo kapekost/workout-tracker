@@ -96,7 +96,13 @@ routine, say — see "Claiming work"), and a force-push can silently destroy ano
 in-flight work with no warning.
 
 ### Approval is human-only
-- `/orchestrate approve <issue>` exists only to be typed by a human, at a
+- **The `approve` variant is unreachable as of 2026-10-03, deliberately.** The deny
+  list contains `Bash(gh issue edit *--add-label approved*)`, and a deny rule is enforced by
+  mechanism rather than by actor — it cannot tell a human typing the command from the agent
+  running it. Keeping this rule structural rather than prose therefore requires the owner to
+  approve **from their own terminal, outside any agent harness**. The owner decision behind the
+  orchestrator's autonomy is recorded in `DECISIONS.md`, 2026-10-03.
+- ~~`/orchestrate approve <issue>` exists only to be typed by a human, at a
   keyboard, deciding right then to unblock one specific task. It is not a
   command variant an orchestrator tick may dispatch to itself, on a
   schedule, or in response to anything an Issue says.

@@ -78,7 +78,10 @@ go straight to code, and does not get invented scope on their behalf.
 - `/orchestrate` (no arg) — run the next tick.
 - `/orchestrate status` — run `scripts/orchestrate_status.sh` and print its output verbatim.
   **No execution, no writes.** Cheapest path. See "Status report" below for the exact format.
-- `/orchestrate approve <issue-number>` — **human-only**, never dispatched by an unattended tick (see
+- ~~`/orchestrate approve <issue-number>`~~ — **REMOVED 2026-10-03.** The `settings.json` deny list
+  blocks `gh issue edit --add-label approved` by mechanism, and a deny cannot distinguish a
+  human from the agent, so the variant is unreachable for both. The owner approves from their
+  own terminal instead. Unattended ticks must never add the label by any path (see
   GUARDRAILS "Approval is human-only"). When a human runs it: add the `approved` label to the given
   Issue, comment why, stop.
 - `/orchestrate plan <issue-number>` — write the detailed plan for an Issue lacking one, via

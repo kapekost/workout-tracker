@@ -30,7 +30,6 @@
       "Bash(git reset --hard*)",
       "Bash(git clean -f*)",
       "Bash(gh issue edit *--add-label approved*)",
-      "Bash(gh pr merge*)",
       "Bash(gh release*)",
       "Bash(rm -rf*)",
       "Bash(docker system prune*)",
