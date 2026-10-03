@@ -362,3 +362,54 @@ Don't auto-create `.mcp.json` from `.mcp.json.example` or add MCP servers
 speculatively. The owner decides which MCP servers (if any) a given
 project actually needs, case by case. If a task seems to need one, ask
 rather than guessing.
+
+## 2026-10-03 — `password_hash` in the export envelope: open, deliberately not patched
+
+**Status: awaiting an owner decision.** Recorded here so it is not re-litigated
+or quietly "fixed" by the next agent that notices it.
+
+`backend/main.py`'s `export_data` uses `SELECT *` for the admin branch, so the
+envelope carries every profile's bcrypt hash — and those envelopes are what
+`scripts/backup.sh` ships to Drive. Requires an admin session, which is most of
+the mitigation.
+
+Stripping the column is a one-line change and it is **not** obviously right.
+Import deletes and re-inserts `profiles`, so a restore from a hash-free envelope
+leaves every account with a NULL `password_hash` and nobody able to log in over
+HTTP; recovery becomes `forgot-password` for every profile. That may well be the
+better trade — a backup should not be a store of credential material, which is
+the same reasoning that keeps `auth_sessions` and `auth_tokens` out of `TABLES` —
+but it changes the disaster-recovery path and needs a fresh restore drill before
+it goes anywhere near production.
+
+Needs an owner call plus a drill, not a patch. Deliberately excluded from the
+2026-10-03 deploy; see `AGENTS.md`'s Status section.
+
+## 2026-10-03 — Verify every review finding against the branch you are about to ship
+
+A review produced four **false** Critical security findings because it ran
+against `claude/workout-tracker-backlog-bu9qnw`, a branch that had diverged from
+`main` and sat 59 commits behind it. On that branch `POST /api/import` really
+was unauthenticated and really could wipe the database. On `main`, #86 had
+closed the gate months earlier and every data endpoint answered `401`.
+
+The generalisable rule: **a code review that is not re-verified against the
+branch you are about to ship is not a review.** Findings get cheaper to check
+than to retract, and a false Critical is worse than a missed one — it burns the
+reader's trust in the whole document.
+
+Two supporting changes:
+
+- `scripts/deploy.sh` refuses a `HEAD` that is not a descendant of `main`. The
+  dirty-tree check was never sufficient: a branch 59 commits behind `main` is a
+  clean tree. `DEPLOY_ALLOW_STALE=1` is the deliberate override.
+- The incorrect review was **deleted rather than edited**. A plan for a bug that
+  does not exist reads as current work, which is how the stale branch's version
+  would have kept misleading readers. The corrected write-up lists the false
+  findings explicitly as fixed-elsewhere, since "this was wrong and here is why"
+  is the part worth keeping.
+
+Cost of the mistake, for the record: a deploy from the stale branch replaced the
+running app with an older build and removed `Login`, `SetPassword` and
+`VersionBadge`. Data was never at risk — the change was schema-free — but the
+app lost three features for a deploy cycle.
