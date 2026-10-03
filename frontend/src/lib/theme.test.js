@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import { colors, type } from './theme'
 
 // 2026-09-06 UI review, item 16: the two literal font sizes duplicated
@@ -34,7 +36,14 @@ describe('theme colors match index.css :root', () => {
 // item 11). Reimplements the spec's relative-luminance formula directly
 // instead of pulling in a contrast-checker dependency for two numbers.
 function relativeLuminance(hex) {
-  const n = parseInt(hex.slice(1), 16)
+  // Expand the 3-digit shorthand first. colors.text is '#fff' and index.css
+  // writes '#fff' too, and parseInt('fff', 16) is 0x000fff = rgb(0,15,255) --
+  // a blue. Without this, any assertion using shorthand silently measures
+  // the wrong colour instead of failing.
+  const full = hex.length === 4
+    ? '#' + hex.slice(1).split('').map(c => c + c).join('')
+    : hex
+  const n = parseInt(full.slice(1), 16)
   const channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => {
     const cs = c / 255
     return cs <= 0.03928 ? cs / 12.92 : Math.pow((cs + 0.055) / 1.055, 2.4)
@@ -69,5 +78,59 @@ describe('contrast — item 11 of the 2026-09-06 UI review; updated 2026-09-14 f
     // both moved off the raw #4b5563 onto this token — this is the one
     // paragraph the recovery research doc insists must always be visible.
     expect(contrastRatio(colors.muted2, colors.bg)).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+// ── Wave 0 of docs/superpowers/plans/2026-10-03-design-review-findings.md ──
+// The existing parity guard above covers tier-1 colours only, and reads
+// neither index.css's non-:root rules nor index.html. These three were
+// found by the 2026-10-03 design review and each failed on arrival.
+
+// Vitest runs with cwd at the frontend project root, so these resolve
+// against the real stylesheet and the real index.html.
+const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8')
+
+// Resolves a CSS custom property's literal from the stylesheet, so a test
+// asserts against what the browser actually gets rather than a copy here.
+function cssVar(name) {
+  const m = css.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{3,8})`))
+  if (!m) throw new Error(`no ${name} in index.css`)
+  return m[1]
+}
+
+describe('Wave 0 — the error surface is the one that must be readable', () => {
+  it('error toast text meets WCAG AA against its fill', () => {
+    // The toast is the app's only error surface in the workout loop. At
+    // 16px bold the 4.5:1 floor applies (large text needs 18.66px bold),
+    // so a red fill under white ink is the highest-stakes contrast pair
+    // in the product.
+    const rule = css.match(/\.toast\.error\s*{([^}]*)}/)
+    expect(rule, '.toast.error rule not found in index.css').toBeTruthy()
+    const ink = rule[1].match(/color:\s*(#[0-9a-fA-F]{3,6})/)[1]
+    const fill = cssVar(rule[1].match(/background:\s*var\((--[\w-]+)\)/)[1])
+    // #fff on the current --danger (#ef4444) measures 3.76:1 — under the
+    // 4.5 floor at this size, on the app's only error surface.
+    expect(contrastRatio(ink, fill)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('index.html theme-color matches colors.bg', () => {
+    // The first pixel of every PWA launch. It had been left on the retired
+    // pre-Mono+Volt dark blue (#0a0a12), a colour that appears nowhere else
+    // in the app except as a fixture in the regression test above.
+    const m = html.match(/<meta name="theme-color" content="(#[0-9a-fA-F]{3,6})"/)
+    expect(m, 'no theme-color meta in index.html').toBeTruthy()
+    expect(m[1].toLowerCase()).toBe(colors.bg)
+  })
+
+  it('every button class the rest timer uses exposes a disabled state', () => {
+    // TimerBar's four controls use .btn-icon / .btn-secondary. Only
+    // .btn-primary had a :disabled rule, so Skip looked armed while
+    // pointerEvents:none made it inert — with no aria-disabled either.
+    for (const cls of ['btn-primary', 'btn-secondary', 'btn-icon']) {
+      expect(css, `${cls} has no :disabled rule`).toMatch(
+        new RegExp(`\\.${cls}:disabled`)
+      )
+    }
   })
 })

@@ -166,3 +166,55 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     expect(screen.getByRole('button', { name: /^Add(?! Personal)/ })).toBeInTheDocument()
   })
 })
+
+// ── 2026-10-03 design review, items 1.5 and 3.4 ───────────────────────
+describe('PersonalBests form (2026-10-03 review 1.5 / 3.4)', () => {
+  async function openForm() {
+    api.get.mockResolvedValue([])
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
+    return screen.getAllByRole('spinbutton')
+  }
+
+  it('clearing a field does not snap it back to a default', async () => {
+    const [, , year] = await openForm()
+    expect(year.value).not.toBe('')
+
+    fireEvent.focus(year)
+    fireEvent.change(year, { target: { value: '' } })
+    // was: setYear(parseInt('') || year) — so the current year reappeared
+    // immediately and typing "14" produced 202614, which the API rejects.
+    expect(year.value).toBe('')
+
+    fireEvent.change(year, { target: { value: '14' } })
+    expect(year.value).toBe('14')
+  })
+
+  it('reps is not forced back to 1 while being typed into', async () => {
+    const [, reps] = await openForm()
+    fireEvent.focus(reps)
+    fireEvent.change(reps, { target: { value: '' } })
+    expect(reps.value).toBe('')
+    fireEvent.change(reps, { target: { value: '12' } })
+    expect(reps.value).toBe('12')
+  })
+
+  it('every numeric field clears to empty', async () => {
+    const [weight, reps, year] = await openForm()
+    for (const el of [weight, reps, year]) {
+      fireEvent.focus(el)
+      fireEvent.change(el, { target: { value: '' } })
+      expect(el.value).toBe('')
+      fireEvent.blur(el)
+    }
+  })
+
+  it('numeric fields are at least 1rem so iOS Safari does not zoom the page', async () => {
+    const [weight, reps, year] = await openForm()
+    for (const el of [weight, reps, year]) {
+      const rem = parseFloat(el.style.fontSize)
+      expect(rem, 'fontSize must be set in rem so it tracks the root').toBeGreaterThanOrEqual(1)
+    }
+  })
+})

@@ -123,6 +123,21 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
 
   useEffect(() => () => endHold(), [])
 
+  // 2026-10-03 design review 1.5: while the field has focus it holds the raw
+  // string the user typed, not a parsed number. The old handler did
+  // `onChange(Number.isNaN(v) ? min : v)`, so deleting the contents wrote the
+  // minimum straight back and the caret ended up after that digit — the next
+  // keystroke appended to it. Clearing "8" and typing "5" logged 15.
+  const [draft, setDraft] = useState(value == null ? '' : String(value))
+  const [editing, setEditing] = useState(false)
+  useEffect(() => { if (!editing) setDraft(value == null ? '' : String(value)) }, [value, editing])
+
+  function commit(raw) {
+    setEditing(false)
+    const v = parseFloat(raw)
+    onChange(Number.isNaN(v) ? min : Math.max(min, v))
+  }
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <button className="btn-icon" aria-label={`decrease ${label}`}
@@ -134,9 +149,20 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
           aria-label gives it an accessible name at all — previously it had none, and
           a screen reader heard "decrease, increase, decrease, increase" with no way
           to tell weight from reps. */}
-      <input type="number" value={value} inputMode={mode} aria-label={label}
-        onChange={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : v) }}
-        onBlur={e => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? min : Math.max(min, v)) }}
+      <input type="number" value={draft} inputMode={mode} aria-label={label}
+        onFocus={() => setEditing(true)}
+        onChange={e => {
+          const raw = e.target.value
+          setEditing(true)
+          setDraft(raw)
+          // Commit every *valid* keystroke so the parent stays in sync (a
+          // subsequent Log Set must use what is on screen without waiting
+          // for a blur). Empty is the one transient state we refuse to
+          // write back — that refusal is the whole fix.
+          const v = parseFloat(raw)
+          if (!Number.isNaN(v)) onChange(Math.max(min, v))
+        }}
+        onBlur={e => commit(e.target.value)}
         style={{ width: 72, minHeight: 44, boxSizing: 'border-box', textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
           color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
       <button className="btn-icon" aria-label={`increase ${label}`}
