@@ -8,7 +8,34 @@
       "Bash(gh issue view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr view:*)",
-      "Bash(gh label list:*)"
+      "Bash(gh label list:*)",
+      "Bash(bash scripts/preflight.sh)",
+      "Bash(bash scripts/orchestrate_status.sh)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(~/.ssh/**)",
+      "Write(~/.ssh/**)",
+      "Edit(~/.ssh/**)",
+      "Read(./AGENTS.local.md)",
+      "Write(./AGENTS.local.md)",
+      "Edit(./AGENTS.local.md)",
+      "Read(./.mcp.json)",
+      "Write(./.mcp.json)",
+      "Edit(./.mcp.json)",
+      "Read(./data/**)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(gh issue edit *--add-label approved*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh release*)",
+      "Bash(rm -rf*)",
+      "Bash(docker system prune*)",
+      "Bash(curl *api/import*)",
+      "Bash(curl *api/auth*)"
     ]
   }
 }
