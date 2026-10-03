@@ -103,8 +103,9 @@ about the verb surface at all.
 
 Fixed: `put` added; `api.test.js` now asserts every verb the backend serves
 exists, sends its own HTTP method, and sets `Content-Type` only when it has a
-body. Verified by deleting `put` and watching three tests fail with
-`api.put is missing — the backend serves it`.
+body. Verified by deleting `put` and watching three tests fail — one asserting
+`api.put is missing — the backend serves it`, two `it.each` cases failing with
+`TypeError: api[verb] is not a function`.
 
 ## 2. Nothing stopped a stale-branch deploy (fixed)
 
@@ -176,7 +177,8 @@ gitignored, so it is invisible to the script's own dirty-tree gate — the one
 mechanical deploy control has a hole. Replacing `eval` with a parser is a
 three-line change but touches the deploy path, so it gets its own commit.
 
-**10. Admin export includes `password_hash`.** `main.py:1426` uses `SELECT *`,
+**10. Admin export includes `password_hash`.** `main.py:1430` (this branch;
+`:1395` on `main`) uses `SELECT *`,
 so the export envelope carries every profile's bcrypt hash, and those envelopes
 go to Drive. Requires an admin session, which is most of the mitigation. **This
 one needs an owner decision rather than a patch**, because stripping the column
@@ -199,7 +201,9 @@ rehearsal.
 **14. No prompt-injection boundary in the agentic tooling.** Across
 `AGENTS.md`, `PLAYBOOK.md`, `GUARDRAILS.md`, `orchestrate.md`, `STATE.md`,
 `DECISIONS.md` and `IMPROVEMENTS.md`, the strings `injection`, `untrusted`,
-`as data` and `not instructions` appear **zero times** — while
+`as data` and `not instructions` appear **zero times** *(true on `main`, where
+this was written — this branch adds an "Untrusted content" section to
+`GUARDRAILS.md`, so read the claim as about `main`)* — while
 `PLAYBOOK.md:215-219` instructs the orchestrator to read `gh issue view --comments`
 on a public repository and *"act on it"*, calling them "**owner** comments"
 with no authorship check anywhere. `docs/orchestration/` is not in `CODEOWNERS`

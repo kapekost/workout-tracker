@@ -49,7 +49,7 @@ cues for a 4-day Upper/Lower split.
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
-  volume. Never commit the DB; `data/` is gitignored. Schema **v6**: `profiles`
+  volume. Never commit the DB; `data/` is gitignored. Schema **v7**: `profiles`
   (#66, 2026-08-31) added accounts and a `profile_id` on every other table,
   backfilled to a seeded `kapekost`/admin profile; #84 (2026-09-05) added
   `profiles.email`, `auth_tokens` and `auth_sessions`. Every data endpoint now
@@ -313,7 +313,7 @@ descendant of `main` @ `94204ba`; **`main` is not itself the deployed image** �
 see "Branch discipline" below.)_
 
 **Running now:** commit `1f1e390`, deployed 2026-10-03. Container healthy,
-`/api/health` `{"status":"ok","version":"1f1e390"}`. **Schema v6.**
+`/api/health` `{"status":"ok","version":"1f1e390"}`. **Schema v7** (v6→v7 added the per-profile plan; `main.py:247`).
 
 **The login gate is ON.** #86 landed. Verified live against the running box
 during this deploy, not inferred from source — an anonymous caller with no
@@ -388,9 +388,11 @@ its own header, and choosing the home branch is an owner decision.
 **What was verified, and how.** Externally, from outside the box: `/api/health`
 returns `{"status":"ok","version":"1f1e390"}`; `/api/sessions`, `/api/export`,
 `/api/notes` and `/api/plan` all return `401` with no cookie (so the #86 gate is
-genuinely closed, not just present in source); and the served JS bundle contains
-`req('PUT', …)`, `aria-current`, five `aria-live` sites, and the `1f1e390`
-stamp agreeing with `/api/health`.
+genuinely closed, not just present in source); and the served JS bundle's verb table
+contains a `PUT` entry, plus `aria-current`, five `aria-live` sites, and the
+`1f1e390` stamp agreeing with `/api/health`. (The bundle is minified — the
+request helper is renamed — so the marker is the verb table, not a literal
+`req('PUT', …)`.)
 
 **What was NOT verified — do not assume these work.**
 - That a note actually survives a save-and-reload. The `PUT` code is deployed;
@@ -475,7 +477,11 @@ plan for a bug that does not exist reads as current work).
 
 ### What this deploy changed
 
-Five fixes, each with a regression test verified to fail without it:
+Five fixes. Test coverage is **not** uniform, so here is exactly which:
+`api.put` and the auth hygiene are covered by regression tests each confirmed
+to fail without their fix; the a11y change has unit tests but no screen-reader
+verification; the `deploy.sh` gate is covered only by manual scenario runs in a
+scratch repo, not by CI.
 
 - **`api.put` was missing from `frontend/src/api.js`.** `Workout.jsx` called it
   for every per-exercise note save, so notes threw a `TypeError` behind a

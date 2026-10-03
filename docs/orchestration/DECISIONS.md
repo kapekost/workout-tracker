@@ -489,3 +489,81 @@ Two design choices worth keeping:
 It has no host default. `AGENTS.local.md` is gitignored, so the script takes
 `DEPLOY_TARGET` from the environment and degrades to warnings when unset — it has
 to stay runnable from a plain clone with no local config.
+
+## 2026-10-03 — Why the classifier retry rule exists, and the real fix
+
+Recorded after the owner pointed out the retry rule had been narrowed for the
+wrong reason.
+
+The retry is not a workaround for the agent being unreliable. It exists because
+**the owner was being asked to approve trivial actions**: a `git commit` on the
+agent's own branch, a read-only `gh` call, refused with no category at all, so
+the agent escalated to a human for something with no risk in it. That is a real
+cost, it belongs to the harness rather than the agent, and re-issuing the
+byte-identical command is not a judgement call — nothing is decided, the same
+request is made again. For non-destructive actions the right response to a bare
+denial is retry.
+
+What was wrong was the *scope*, not the retry. It had generalised from "safe
+actions sometimes get a bare denial" to "any denial may be retried", which does
+two harmful things: it tells the agent a denial is never a stop condition, and
+the permission classifier is the one control in this system that is not the
+agent's to overrule. A broad retry rule is also exactly what an instruction
+planted in a hostile GitHub comment would want concluded (see "Untrusted
+content").
+
+So the narrowed rule in `GUARDRAILS.md` is scoped to non-destructive,
+non-merge, non-push, non-deploy, non-`approved`-label actions — which is what
+the original observation actually supported.
+
+**The real fix is upstream of the rule and has not been done:** widen the
+permission allowlists so ordinary actions do not reach the classifier at all.
+`.claude/settings.json` has been extended with the two read-only scripts the
+orchestrator genuinely needs (`preflight.sh`, `orchestrate_status.sh`) and a
+23-entry `deny` list covering the paths and commands that should never be
+reachable by an agent at all. That reduces how often a denial happens, rather
+than teaching the agent to push past one when it does.
+
+**`/orchestrate.md` remains the hole.** Its frontmatter is
+`allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, Skill` — tool
+*categories*, with no argument patterns. For the duration of any `/orchestrate`
+invocation that pre-approves unrestricted shell and arbitrary file write,
+superseding the narrow allowlist above for unattended scheduled ticks. Not fixed
+here: it is the orchestrator's own entry point and changing it is an owner
+decision about how much autonomy the unattended runner has.
+
+## 2026-10-03 — Branch alignment: the pattern is integration failure, not a forgotten merge
+
+The owner guessed this was "deploy from main, then forget to merge". Checked, it
+is the inverse, and worse — it fails in **both** directions at once.
+
+```
+2026-10-03  claude/import-auth-hardening        +157  -0
+2026-10-01  claude/workout-tracker-backlog-bu9qnw +140 -59   <- the home branch
+2026-10-01  main                                   +0  -0
+2026-09-27  worktree-agent-af9cbab9983a5e3c2       +4  -5
+2026-09-27  progress-pb-redesign-review-fix        +3  -5
+...         (10 more branches, all behind, several with unmerged commits)
+```
+
+- The home branch has **140 commits `main` does not have.** Work is landing there
+  and not reaching `main`.
+- `main` has **59 commits the home branch does not have.** It has not tracked
+  `main` since it diverged.
+
+So the orchestrator works on a long-lived integration branch, its output never
+gets merged to `main`, and the branch never absorbs `main`'s work either. `main`
+is therefore *not* the integration point despite being the default branch, and
+`main`'s own Status section asserting `main == the deployed image` was false for
+weeks because of it.
+
+`preflight.sh` now surfaces this mechanically: 13 local branches do not contain
+`main`, listed by name, because the trap for the next agent is usually a branch
+they have not stood on yet.
+
+**Proposed next tick, needs an owner decision on scope:** merge `main` into the
+home branch (or re-point the home-branch header at a branch that tracks `main`),
+then triage the 10 stale branches individually — two hold unmerged commits that
+`main` has since superseded by another route, so they are candidates for
+deletion, but deleting branches is destructive and belongs to the owner.
+
