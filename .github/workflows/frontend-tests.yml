@@ -31,6 +31,19 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
+      # The browser is ~500MB and was being downloaded on every single run.
+      # This suite is the largest block of CI wall-clock for the repo (53 of ~76
+      # non-review minutes over 14 days), and all of that saving is wall-clock
+      # rather than money — standard runner minutes are free on this public repo.
+      # Keyed on the lockfile hash, so the cache turns over exactly when
+      # Playwright is upgraded. Note GitHub expressions cannot run shell
+      # (`${{ node -e ... }}` does not work); hashFiles is the supported way.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+
       - run: npm ci
 
       # Fast unit suite first: fails in ~10s, before paying for a browser install.

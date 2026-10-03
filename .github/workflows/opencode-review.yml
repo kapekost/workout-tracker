@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   review:
-    # Three gates, all about not producing a false signal.
+    # Four gates, all about not producing a false signal.
     #
     # 1. Drafts are skipped to save tokens. `converted_to_draft` is listed because
     #    a PR flipped to draft while this job sits in the queue still fires, and
@@ -41,10 +41,22 @@ jobs:
     #    is public, so outside contributions are the normal path and the job would
     #    otherwise go red on exactly the untrusted-author PRs most worth reading.
     # 3. A push to the branch restarts nothing; `synchronize` covers it.
+    # 4. Dependabot is skipped because it is the one recurring case where a full
+    #    model review costs the most and is worth the least. Its branches are
+    #    same-repo (so gate 2 lets them through), they are the largest diffs
+    #    relative to review value — lockfile churn — and dependabot opens or
+    #    rebases PRs weekly across all four configured ecosystems, so each one is
+    #    a fresh `opened`/`synchronize` event and therefore a fresh model call.
+    #    On 2026-10-03 there were 7 open dependabot PRs, none excluded.
+    #
+    # This is a cost gate, not a quality judgement: dependabot PRs still get the
+    # full Backend tests / Frontend tests / Scaffold sanity suites, which are free
+    # on this public repo and are what actually protects them.
     if: >-
       github.event.pull_request.draft == false &&
       github.event.action != 'converted_to_draft' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # A ceiling, not a target. Run 3 sat 28 minutes before being cancelled by
     # hand; run 6 took 5m35s. 20 leaves generous headroom over a normal run while
