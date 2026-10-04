@@ -656,7 +656,7 @@ export default function Workout() {
                 {noteFailed[ex.id] && <span style={{ color: colors.muted, fontStyle: 'normal' }}> · not saved</span>}
               </p>
             ) : (
-              <button className="tap-target" onClick={() => setNoteEditing({ exId: ex.id, text: '' })} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><IconPlus size={icon.body} /> Add note</button>
+              <button className="tap-target" onClick={() => setNoteEditing({ exId: ex.id, text: '' })} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: type.size.sm, padding: 0, marginBottom: 10, cursor: 'pointer' }}>Add note</button>
             )}
 
             {/* Last workout + overload hint */}
