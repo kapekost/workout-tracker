@@ -223,7 +223,7 @@ is the only local gate before CI.
 `Dockerfile.sandbox` is the toolchain an `/orchestrate` tick runs on: git, bash, jq,
 node/npm, python3 with the backend's test deps installed system-wide, and `gh`. It exists
 because the bare sandbox ships with none of those, so every session otherwise rediscovers
-that and rebuilds it by hand. **It is not the app image** — that is `./Dockerfile`, built on
+that and rebuilds it by hand. **It is not the app image.** That is `./Dockerfile`, built on
 a capable machine and shipped to the deploy target as a tarball. This one has no app code
 and must never be substituted for it.
 
