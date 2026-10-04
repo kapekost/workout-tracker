@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh } from './index'
+import { readdirSync, readFileSync } from 'fs'
+import { resolve, join } from 'path'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh, IconBarbell, IconClipboardDocumentList, IconNavHome, IconNavProgress, IconNavHistory } from './index'
+import PngIcon from './PngIcon'
 
 describe('icon components', () => {
   it('renders an svg at the default 20px size, colored via currentColor', () => {
@@ -167,6 +170,73 @@ describe('icon components', () => {
       expect(evenoddPath.getAttribute('d')).toContain('M8 9h8v1.8H8')
       expect(evenoddPath.getAttribute('d')).toContain('M8 13h8v1.8H8')
       expect(evenoddPath.getAttribute('d')).toContain('M8 17h5.5v1.8H8')
+    })
+  })
+
+  // #229 Task 2: a shared PNG contract. Every PNG source is now cropped and
+  // padded onto a square canvas (content ~84% fill, centred) at export time,
+  // so `size` means the same size x size box for every icon, SVG or PNG. See
+  // docs/superpowers/specs/2026-09-28-icon-design-system-design.md section 2.
+  describe('PngIcon — #229 PNG contract', () => {
+    it('renders a size x size img with no transform', () => {
+      const img = render(<PngIcon src="data:image/png;base64," size={24} />).container.querySelector('img')
+      expect(img.getAttribute('width')).toBe('24')
+      expect(img.getAttribute('height')).toBe('24')
+      expect(img.style.transform).toBe('')
+    })
+
+    it('IconClock and IconClipboardDocumentList render through PngIcon', () => {
+      const clock = render(<IconClock size={24} />).container.querySelector('img')
+      expect(clock.getAttribute('width')).toBe('24')
+      expect(clock.getAttribute('height')).toBe('24')
+      expect(clock.style.transform).toBe('')
+      const clipboard = render(<IconClipboardDocumentList size={24} />).container.querySelector('img')
+      expect(clipboard.getAttribute('width')).toBe('24')
+      expect(clipboard.getAttribute('height')).toBe('24')
+      expect(clipboard.style.transform).toBe('')
+    })
+
+    it('IconBarbell renders height === size, width by aspect — the one non-square icon', () => {
+      const img = render(<IconBarbell size={28} />).container.querySelector('img')
+      expect(img.getAttribute('height')).toBe('28')
+      expect(img.hasAttribute('width')).toBe(false)
+      expect(img.style.transform).toBe('')
+    })
+
+    it('every PNG in assets/icons is square except appmark', () => {
+      const dir = resolve(process.cwd(), 'src/assets/icons')
+      // upperbody.png/lowerbody.png are still the old, un-normalized sources
+      // here — Task 4 of the #229 plan deletes them (DayIcon's SVG rewrite).
+      // Tighten this back to the whole directory once that lands.
+      const normalizedYet = (name) => name !== 'upperbody.png' && name !== 'lowerbody.png'
+      for (const name of readdirSync(dir).filter(normalizedYet)) {
+        if (!name.endsWith('.png')) continue
+        const buf = readFileSync(join(dir, name))
+        // PNG: 8-byte signature, then a 4-byte length + 4-byte "IHDR" chunk
+        // header, then width/height as big-endian uint32s at bytes 16/20.
+        const width = buf.readUInt32BE(16)
+        const height = buf.readUInt32BE(20)
+        if (name === 'appmark.png') {
+          expect(width, `${name} should be wider than tall (the wordmark exception)`).toBeGreaterThan(height)
+        } else {
+          expect(width, `${name} should be square`).toBe(height)
+        }
+      }
+    })
+  })
+
+  // #229 Task 3: two-tone nav icons (NavBar). Each renders its own svg, not
+  // through PngIcon.
+  describe('nav icons — #229 Task 3', () => {
+    it.each([
+      ['IconNavHome', IconNavHome],
+      ['IconNavProgress', IconNavProgress],
+      ['IconNavHistory', IconNavHistory],
+    ])('%s renders an aria-hidden svg at the requested size', (_, Icon) => {
+      const svg = render(<Icon size={26} active />).container.querySelector('svg')
+      expect(svg.getAttribute('width')).toBe('26')
+      expect(svg.getAttribute('height')).toBe('26')
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
     })
   })
 })

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { colors, type } from './theme'
+import { colors, type, icon, tint } from './theme'
 
 // 2026-09-06 UI review, item 16: the two literal font sizes duplicated
 // across 12 call sites (8 at 0.9rem, 4 at 1.1rem) — a deliberately narrow
@@ -98,6 +98,42 @@ function cssVar(name) {
   if (!m) throw new Error(`no ${name} in index.css`)
   return m[1]
 }
+
+// #229 icon design system, signed off 2026-09-30 (see
+// docs/superpowers/plans/2026-10-01-icon-design-system-229.md).
+describe('icon — #229 role-based scale, signed off 2026-09-30', () => {
+  it('has exactly the six roles with the signed-off px values', () => {
+    expect(icon).toEqual({
+      caption: 16,
+      body: 20,
+      control: 22,
+      heading: 24,
+      nav: 26,
+      header: 28,
+    })
+  })
+
+  it('accentDeep and muted3 are the signed-off hex', () => {
+    expect(colors.accentDeep).toBe('#8fae22')
+    expect(colors.muted3).toBe('#6b6b6b')
+  })
+
+  // Decorative use (an inactive nav icon's second tone, never text), so the
+  // floor is WCAG's 3:1 non-text threshold, not 4.5:1.
+  it('muted3 clears the 3:1 decorative floor against the card background', () => {
+    expect(contrastRatio(colors.muted3, colors.card)).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('tint — mixes a hex colour toward white', () => {
+  it('tint(hex, 0) returns the input unchanged', () => {
+    expect(tint('#8fae22', 0)).toBe('#8fae22')
+  })
+
+  it('tint(hex, 1) returns white', () => {
+    expect(tint('#8fae22', 1)).toBe('#ffffff')
+  })
+})
 
 describe('Wave 0 — the error surface is the one that must be readable', () => {
   it('error toast text meets WCAG AA against its fill', () => {

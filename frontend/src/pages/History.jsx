@@ -10,7 +10,7 @@ import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
 import { track } from '../lib/analytics'
-import { colors, type, space } from '../lib/theme'
+import { colors, type, space, icon } from '../lib/theme'
 import { IconTrophy, IconClock, IconCheck } from '../icons'
 
 function sessionDuration(s) {
@@ -57,7 +57,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                   color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
-                  {st.weight_kg === best && <IconTrophy size={12} />}
+                  {st.weight_kg === best && <IconTrophy size={icon.body} />}
                 </span>
               </div>
             ))}
@@ -172,8 +172,8 @@ export default function History() {
                     {plan && <DayIcon day={s.workout_day} />} {plan?.name ?? s.workout_day}
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
-                    {s.date} · {s.completed ? <><IconCheck size={12} /> completed</> : 'in progress'}
-                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={12} /> {sessionDuration(s)}</span></> : ''}
+                    {s.date} · {s.completed ? <><IconCheck size={icon.caption} /> completed</> : 'in progress'}
+                    {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={icon.caption} /> {sessionDuration(s)}</span></> : ''}
                   </p>
                 </div>
               </>

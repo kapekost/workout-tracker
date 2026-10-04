@@ -534,6 +534,22 @@ describe('per-exercise notes', () => {
     // whether the words survived — which, in the old flow, they had not.
     expect(await screen.findByText(/still here, tap to retry/i)).toBeInTheDocument()
   })
+
+  // #229 decision 8: a muted text action, not a button-styled glyph+label.
+  it('Add note is a muted text action with no icon and still opens the note editor', async () => {
+    api.get.mockReset()
+    mockSession()
+    renderWorkout()
+
+    const addNote = await screen.findByRole('button', { name: /add note/i })
+    expect(addNote.querySelector('svg')).toBeNull()
+    expect(addNote.style.color).toBe(hexToRgb(colors.muted))
+    expect(addNote.style.fontSize).toBe(type.size.sm)
+    expect(addNote.classList.contains('tap-target')).toBe(true)
+
+    await act(async () => { fireEvent.click(addNote) })
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+  })
 })
 
 // ── 2026-10-03 design review, item 1.5 ────────────────────────────────

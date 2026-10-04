@@ -3,7 +3,7 @@ import ExerciseDemo from './ExerciseDemo'
 import { track } from '../lib/analytics'
 import Eyebrow from './Eyebrow'
 import Chip from './Chip'
-import { colors, type, space } from '../lib/theme'
+import { colors, type, space, icon } from '../lib/theme'
 import { IconPlay } from '../icons'
 
 // Target / cues / demo body shared by the standalone Exercise page and the
@@ -71,7 +71,7 @@ export default function ExerciseDetails({ ex, color }) {
               borderRadius: 12, padding: '16px 20px', color,
               textDecoration: 'none', fontWeight: type.weight.bold, fontSize: type.size.body
             }}>
-            <IconPlay size={22} />
+            <IconPlay size={icon.body} />
             Watch form demo on YouTube
           </a>
           <p style={{ color: colors.muted, fontSize: type.size.sm, textAlign: 'center', marginTop: 10 }}>

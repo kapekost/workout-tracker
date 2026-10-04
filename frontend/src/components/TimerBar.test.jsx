@@ -50,3 +50,20 @@ describe('TimerBar rest states', () => {
     expect(screen.queryByText('LOG A SET')).not.toBeInTheDocument()
   })
 })
+
+// #229 Task 5: the session clock and wake chip move out to their own
+// SessionClock component (in the Workout header, decision 6) -- TimerBar
+// holds only the rest controls now.
+describe('TimerBar — #229 rest-controls-only relayout', () => {
+  it('renders no session clock and no wake chip', () => {
+    const { container } = render(<TimerBar {...baseProps} restStartMs={null} paused={false} pausedRem={null} />)
+    expect(container.querySelector('.session-clock')).toBeNull()
+    expect(container.querySelector('.wake-chip')).toBeNull()
+  })
+
+  it('the adjusters read -30s and +30s, aria-labels unchanged', () => {
+    render(<TimerBar {...baseProps} restStartMs={null} paused={false} pausedRem={null} />)
+    expect(screen.getByLabelText('subtract 30 seconds')).toHaveTextContent('-30s')
+    expect(screen.getByLabelText('add 30 seconds')).toHaveTextContent('+30s')
+  })
+})

@@ -226,24 +226,80 @@ test.describe('320x568 floor — DisclosureRow expanded', () => {
   })
 })
 
-test.describe('TimerBar breakpoint tiers', () => {
-  test('.timer-pill and .timer-bar .btn-icon narrow at <=440px and <=340px', async ({ page }) => {
-    await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
+// #229 Task 5: TimerBar relayout. The bar used to shrink .btn-icon to 38px
+// (<=440px) and 34px (<=340px) and .timer-pill the same way -- both below
+// the app's own 44px tap-target floor. Replaced with min-width/min-height
+// so the buttons can grow for their new text labels but never shrink.
+test.describe('TimerBar — #229 44px floor at every width', () => {
+  for (const width of [320, 360, 390, 440]) {
+    test(`every .timer-bar button is >=44x44 at ${width}px, no horizontal overflow`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
 
-    const pill = page.locator('.timer-pill').first()
-    const icon = page.locator('.timer-bar .btn-icon').first()
+      const buttons = page.locator('.timer-bar button')
+      const count = await buttons.count()
+      expect(count).toBeGreaterThan(0)
+      for (let i = 0; i < count; i++) {
+        const box = await buttons.nth(i).boundingBox()
+        expect(box.width).toBeGreaterThanOrEqual(44)
+        expect(box.height).toBeGreaterThanOrEqual(44)
+      }
 
-    await page.setViewportSize({ width: 500, height: 800 }) // above both tiers
-    await expect(pill).toHaveCSS('min-width', '44px')
-    await expect(icon).toHaveCSS('width', '44px')
+      const bar = page.locator('.timer-bar')
+      const { scrollWidth, clientWidth } = await bar.evaluate((el) => ({
+        scrollWidth: el.scrollWidth, clientWidth: el.clientWidth,
+      }))
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+    })
+  }
+})
 
-    await page.setViewportSize({ width: 430, height: 800 }) // <=440, >340
-    await expect(pill).toHaveCSS('min-width', '38px')
-    await expect(icon).toHaveCSS('width', '38px')
+// #229 Task 3: the nav icons grew, and TimerBar/toast sit on --navbar-height,
+// so the rendered bar must still match the token. Chromium has no safe-area
+// inset, which is the case the 77px token is measured for.
+test.describe('NavBar — #229 height matches --navbar-height', () => {
+  for (const width of [320, 390]) {
+    test(`rendered nav height equals the token at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await gotoReady(page, PAGES.find(p => p.name === 'Home'))
+      const { rendered, token } = await page.evaluate(() => ({
+        rendered: document.querySelector('nav').getBoundingClientRect().height,
+        token: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')),
+      }))
+      expect(Math.round(rendered)).toBe(token)
+    })
+  }
+})
 
-    await page.setViewportSize({ width: 320, height: 800 }) // <=340
-    await expect(pill).toHaveCSS('min-width', '34px')
-    await expect(icon).toHaveCSS('width', '34px')
+// #229 final-review finding: SessionClock's "ACTIVE SESSION · mm:ss ⚡ SCREEN
+// ON" eyebrow can wrap at the 320px floor (jsdom can't see this -- real
+// layout only). The plan's own fallback is to drop the marker, not shrink
+// the text, below 340px -- this is that fallback actually engaging.
+async function stubWakeLock(page) {
+  await page.addInitScript(() => {
+    class FakeLock extends EventTarget {
+      release() { return Promise.resolve() }
+    }
+    Object.defineProperty(navigator, 'wakeLock', {
+      value: { request: async () => new FakeLock() },
+      configurable: true,
+    })
+  })
+}
+
+test.describe('SessionClock — #229 screen-on marker drops at <=340px', () => {
+  test('marker is hidden at 320px, shown at 360px, held wake lock either way', async ({ page }) => {
+    await stubWakeLock(page)
+    await mockApi(page)
+    await page.setViewportSize({ width: 320, height: 800 })
+    await page.goto(`/workout/${ACTIVE_SESSION_ID}`)
+    await page.getByRole('button', { name: /Finish Workout/i }).waitFor()
+    const marker320 = page.locator('.screen-on-marker')
+    await expect(marker320).toHaveCount(1) // rendered (wake lock held)...
+    await expect(marker320).not.toBeVisible() // ...but hidden by the media query
+
+    await page.setViewportSize({ width: 360, height: 800 })
+    await expect(marker320).toBeVisible()
   })
 })
 
