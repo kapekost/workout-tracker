@@ -27,16 +27,18 @@ FENCE = "`" * 3
 
 
 def sanitize(text, repo, limit):
-    """Literal text only: URLs and HTML are removed, @mentions are broken, and every
-    markdown punctuation mark is escaped, so nothing renders as a link, image,
-    mention or cross-reference."""
+    """URLs and HTML are removed, @mentions are broken, and brackets, angle brackets,
+    ampersands, # and backslashes are escaped, so nothing renders as a link, image,
+    mention or cross-reference. Backtick runs of three or more are defused so a body
+    cannot open a code block."""
     text = str(text)[:limit * 4]
     text = re.sub(r"<[^>]{0,200}>", "", text)
     text = re.sub(r"[\u202a-\u202e\u2066-\u2069]", "", text)
     text = re.sub(r"\b\w+://\S+|\bwww\.\S+", "[link removed]", text, flags=re.I)
     text = " ".join(text.split())[:limit]
     text = re.sub(r"@(?=\w)", "@​", text)
-    return re.sub(r"([\\`*_\[\]()<>&#|~!:$])", r"\\\1", text)
+    text = re.sub(r"`{3,}", "'''", text)
+    return re.sub(r"([\\\[\]<>&#])", r"\\\1", text)
 
 
 def extract_json(text):

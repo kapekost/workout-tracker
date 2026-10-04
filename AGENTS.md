@@ -45,7 +45,7 @@ it cannot do damage:
 It posts **one review**: a verdict line, one inline comment per blocking finding that sits
 on a changed line, and a short body list for findings that do not (plus at most three optional
 nits). The model prints JSON; `post_review.py` parses it, caps it (20 findings, 400 chars each),
-removes URLs and HTML, escapes markdown punctuation so nothing renders as a link, image or
+removes URLs and HTML, escapes brackets, angle brackets and # so nothing renders as a link, image or
 mention, drops lines not in the diff, and withholds the whole output if it matches a secret
 pattern (checked before and after JSON decoding). Output that is not that JSON is posted
 truncated inside a code block. A skipped review is JSON with `"skipped": true`. It posts as a `COMMENT`, never

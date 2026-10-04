@@ -78,7 +78,7 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: prior-reviews
-          path: ${{ runner.temp }}
+          path: ${{ github.workspace }}/.review-input
 
       # opencode is run directly, not through anomalyco/opencode/github, which commits
       # and pushes whatever the agent leaves behind. The version is pinned: the
@@ -197,7 +197,7 @@ jobs:
             **You have no GitHub token, so you cannot run `gh`.** A separate step already
             fetched this PR's review history into:
 
-                $RUNNER_TEMP/prior-reviews.md
+                .review-input/prior-reviews.md
 
             Read it first. If it says the history could not be fetched, treat this as a
             first review. Otherwise it holds your own earlier reviews and the review

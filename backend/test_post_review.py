@@ -68,9 +68,9 @@ def test_mentions_html_images_and_links_are_neutralised():
     assert "github.com" not in text
 
 
-def test_markdown_punctuation_is_escaped_so_nothing_can_render_as_a_link_or_reference():
+def test_link_and_reference_punctuation_is_escaped():
     text = pr.sanitize("[x](//evil.com) ![a][r] [r]: //e.com h&#116;tps://e.com owner/repo#12", REPO, 400)
-    for ch in "[]()&#":
+    for ch in "[]&#":
         assert text.count(ch) == text.count("\\" + ch), (ch, text)
 
 
@@ -162,3 +162,12 @@ def test_a_model_cannot_hide_findings_behind_the_skipped_flag():
     _, body, comments = pr.build(payload, PATCHES, REPO)
     assert len(comments) == 1
     assert body.startswith("**BLOCKING**")
+
+
+def test_ordinary_code_prose_stays_readable():
+    text = pr.sanitize("`$schema` in f(x) uses *bold* and snake_case: ok", REPO, 100)
+    assert text == "`$schema` in f(x) uses *bold* and snake_case: ok"
+
+
+def test_a_body_cannot_open_a_code_block():
+    assert "```" not in pr.sanitize("```python\nboom", REPO, 100)
