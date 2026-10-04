@@ -254,6 +254,23 @@ test.describe('TimerBar — #229 44px floor at every width', () => {
   }
 })
 
+// #229 Task 3: the nav icons grew, and TimerBar/toast sit on --navbar-height,
+// so the rendered bar must still match the token. Chromium has no safe-area
+// inset, which is the case the 77px token is measured for.
+test.describe('NavBar — #229 height matches --navbar-height', () => {
+  for (const width of [320, 390]) {
+    test(`rendered nav height equals the token at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await gotoReady(page, PAGES.find(p => p.name === 'Home'))
+      const { rendered, token } = await page.evaluate(() => ({
+        rendered: document.querySelector('nav').getBoundingClientRect().height,
+        token: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')),
+      }))
+      expect(Math.round(rendered)).toBe(token)
+    })
+  }
+})
+
 // #229 final-review finding: SessionClock's "ACTIVE SESSION · mm:ss ⚡ SCREEN
 // ON" eyebrow can wrap at the 320px floor (jsdom can't see this -- real
 // layout only). The plan's own fallback is to drop the marker, not shrink

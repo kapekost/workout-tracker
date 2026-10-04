@@ -97,7 +97,6 @@ async function measure(page, label) {
       horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
       restLabel: one('.rest-label', ['fontSize', 'letterSpacing']),
       restClock: one('.rest-clock', ['fontSize']),
-      wakeChip: one('.wake-chip', ['fontSize']),
       btnIcon: one('.btn-icon', ['backgroundColor', 'fontSize']),
       btnIconDisabled: document.querySelector('.btn-icon')?.disabled
         ? one('.btn-icon', ['opacity', 'cursor'])

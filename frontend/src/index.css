@@ -235,12 +235,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   max-width: calc(100vw - 2 * var(--page-gutter)); text-align: center;
   animation: slideUp 0.3s ease;
 }
-/* The rest timer sits on top of the NavBar and is 70px of clearance
+/* The rest timer sits on top of the NavBar and is 69px of clearance
    (Workout.jsx's EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR, the measured value), so
-   the toast needs 16 + 70. :has() is Safari 15.4+ / Chrome 105+, well inside
+   the toast needs 16 + 69. :has() is Safari 15.4+ / Chrome 105+, well inside
    this app's floor, and it keeps the condition in CSS instead of a mount effect
    that sets a style property on <html>. */
-body:has(.timer-bar) .toast { --toast-lift: 86px; }
+body:has(.timer-bar) .toast { --toast-lift: 85px; }
 .toast.error { background: var(--danger); color: #0d0d0d; }
 @keyframes slideUp {
   from { opacity: 0; transform: translateX(-50%) translateY(16px); }
