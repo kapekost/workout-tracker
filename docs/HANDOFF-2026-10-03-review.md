@@ -45,9 +45,11 @@ can push, or keep `contents: read` and 403.
 
 ### The shipped design
 
-opencode is installed and run directly, so no commit/push code path exists. Two steps hold a
-GitHub token and the reviewer holds none: one fetches prior review history into
-`$RUNNER_TEMP/prior-reviews.md`, the other resolves the agent's threads and posts its verdict.
+opencode is installed and run directly, so no commit/push code path exists. The workflow is
+three jobs (see AGENTS.md, "The automated PR reviewer"): `history` fetches prior reviews with a
+read-only token, `review` runs the model with `permissions: {}` and reads the history from
+`.review-input/` in the workspace, and `post` holds the write token and runs only default-branch
+scripts to validate the model's JSON and post it.
 
 ## The review failure, and what it taught
 

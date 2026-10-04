@@ -171,3 +171,4 @@ def test_ordinary_code_prose_stays_readable():
 
 def test_a_body_cannot_open_a_code_block():
     assert "```" not in pr.sanitize("```python\nboom", REPO, 100)
+    assert "~~~" not in pr.sanitize("~~~\nboom", REPO, 100)
