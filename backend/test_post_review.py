@@ -141,6 +141,11 @@ def test_secret_in_output_is_withheld_whole():
         assert kind == "plain" and body == pr.WITHHELD and comments == []
 
 
+def test_a_verdict_word_already_in_the_summary_is_not_repeated():
+    _, body, _ = pr.build(review([], summary="CLEAN 3 files, no findings"), PATCHES, REPO)
+    assert body == "**CLEAN** 3 files, no findings"
+
+
 def test_clean_review():
     kind, body, comments = pr.build(review([], summary="3 files, no findings"), PATCHES, REPO)
     assert kind == "review" and comments == []
