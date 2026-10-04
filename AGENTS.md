@@ -381,24 +381,21 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-03 (deployed `1f1e390` from `claude/import-auth-hardening`, a
-descendant of `main` @ `94204ba`; **`main` is not itself the deployed image** —
-see "Branch discipline" below.)_
+_Last updated: 2026-10-04. Live is `e8d7335`, deployed from `main` by the owner._
 
-**Running now:** commit `1f1e390`, deployed 2026-10-03. Container healthy,
-`/api/health` `{"status":"ok","version":"1f1e390"}`. **Schema v7** (v6→v7 added the per-profile plan; `main.py:247`).
+**Running now:** commit `e8d7335`, `/api/health` `{"status":"ok","version":"e8d7335"}`.
+**Schema v7**, unchanged since 2026-10-03. `main` has since moved on with commits that
+change no app behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 
-**The login gate is ON.** #86 landed. Verified live against the running box
-during this deploy, not inferred from source — an anonymous caller with no
-cookie gets `401` from `/api/sessions`, `/api/export`, `/api/notes` and
-`/api/plan`. `/api/health` is `{status, version}` and nothing else; the backup
-posture is `/api/admin/backup-status`, admin-only.
+**The login gate is ON** (#86). Verified live on 2026-10-03: an anonymous caller gets `401`
+from `/api/sessions`, `/api/export`, `/api/notes` and `/api/plan`. Not re-checked on
+2026-10-04. `/api/health` is `{status, version}` and nothing else; the backup posture is
+`/api/admin/backup-status`, admin-only.
 
-> **Row counts are NOT re-verified for this deploy.** Every endpoint that could
-> confirm them is behind the closed gate, so the figures from the 2026-09-05
-> verification (1 profile, 2 sessions, 33 sets, 814 events) are 28 days old and
-> almost certainly wrong now. Re-check with an admin session before trusting
-> them in a restore decision.
+> **Row counts are NOT re-verified.** Every endpoint that could confirm them is behind
+> the closed gate, so the figures from the 2026-09-05 verification (1 profile, 2 sessions,
+> 33 sets, 814 events) are almost certainly wrong now. Re-check with an admin session
+> before trusting them in a restore decision.
 
 ### Before anything else: run the preflight
 
@@ -437,54 +434,40 @@ earlier. See "Branch discipline" below for what that cost.
 text is attacker-controlled data that an agent with `gh` write access will read.
 It is never authorisation and never policy.
 
-### Handoff note (2026-10-03) — read before touching this repo
+### Current state (2026-10-04)
 
-Left by a review session. Delete or rewrite once triaged.
+**What changed since the 2026-10-03 deploy**, all on `main`:
+- `POST /api/sessions` returns 409 while the profile has an uncompleted session, and so does
+  reopening a session into a second open one (#247). The Home error screen no longer offers
+  Start. `/api/import` merge can still insert open sessions.
+- `deploy.sh` refuses a HEAD that does not contain the live version from `/api/health`, and
+  fails closed if it cannot read it (#246).
+- The PR reviewer is three jobs with line comments, a pinned installer and SHA-pinned actions
+  (#255, #256, #260, #261). See "The automated PR reviewer".
+- Dependabot groups `react` and `react-dom` (#248).
 
-**The running version is `1f1e390`, not the branch HEAD.** The branch
-(`claude/import-auth-hardening`, HEAD `84d03df`) is three documentation commits
-ahead of what is deployed. Nothing above `1f1e390` changes app behaviour, so a
-redeploy is optional — but don't read `git log` and assume HEAD is live.
+**Not verified live:** the 409 flow, login, notes persistence across a reload, and the PWA
+update. The three 2026-10-03 auth fixes have only been code-inspected plus regression tests.
 
-**Unresolved and needing an owner call: the orchestration home branch is itself
-stale.** `STATE.md:7` points `main`'s copy at
-`claude/workout-tracker-backlog-bu9qnw` for the real orchestration state. That
-branch has *diverged* from `main` and sits 59 commits behind it — it is the very
-branch that caused the 2026-10-03 bad deploy. So this is not "an agent happened
-to branch from something old": the designated home branch is the old one, and
-every tick resolves its state through it. **The new `deploy.sh` gate will block
-any deploy from it**, which is correct but will surprise whoever tries. Either
-merge `main` into the home branch or re-point `STATE.md` at a branch that tracks
-`main`. Not done unilaterally — `STATE.md` is off-limits to feature branches by
-its own header, and choosing the home branch is an owner decision.
+**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual.
 
-**What was verified, and how.** Externally, from outside the box: `/api/health`
-returns `{"status":"ok","version":"1f1e390"}`; `/api/sessions`, `/api/export`,
-`/api/notes` and `/api/plan` all return `401` with no cookie (so the #86 gate is
-genuinely closed, not just present in source); and the served JS bundle's verb table
-contains a `PUT` entry, plus `aria-current`, five `aria-live` sites, and the
-`1f1e390` stamp agreeing with `/api/health`. (The bundle is minified — the
-request helper is renamed — so the marker is the verb table, not a literal
-`req('PUT', …)`.)
+**Known flaky test:** `Workout.test.jsx` failed once in CI from a timer that is never cleared
+on unmount (#262).
 
-**What was NOT verified — do not assume these work.**
-- That a note actually survives a save-and-reload. The `PUT` code is deployed;
-  the round-trip needs a session and was never exercised end to end.
-- The three auth fixes (token supersede, atomic redemption, limiter sweep). They
-  are token/bcrypt paths behind the gate; code inspection only. Each has a
-  regression test confirmed to fail without its fix, which is not the same thing.
-- Row counts, for the reason above.
+**Needs an owner call:**
+- The orchestration home branch. As of 2026-10-03, `STATE.md:7` pointed at
+  `claude/workout-tracker-backlog-bu9qnw`, which had diverged and sat 59 commits behind
+  `main`. Either merge `main` into it or re-point `STATE.md`. Re-check before relying on it.
+- The `password_hash`-in-exports decision (in `DECISIONS.md`, 2026-10-03). It needs a fresh
+  restore drill as well.
+- Whether the review model may see private code. `stealth/space-bunny-alpha` may log
+  prompts, and `data_collection: deny` is not zero retention.
+- A dedicated, spend-capped OpenRouter key for the reviewer. The model's process holds the
+  current key.
 
-**Still open:** the `password_hash`-in-exports decision (recorded in
-`DECISIONS.md`, 2026-10-03 — needs an owner call *and* a fresh restore drill);
-`deploy.sh` `eval`s a gitignored file its own dirty-tree gate cannot see;
-the container runs as root with no compose limits and unhashed requirements; and
-the agentic tooling has no prompt-injection trust boundary, which is the largest
-unaddressed risk in the repo. All detailed in
+**Still open:** `deploy.sh` `eval`s a gitignored file its dirty-tree gate cannot see; the
+container runs as root with no compose limits and unhashed requirements. Details in
 [`docs/superpowers/research/2026-10-03-review-corrected.md`](docs/superpowers/research/2026-10-03-review-corrected.md).
-
-**No PR is open** for this branch. It is pushed; the diff against `main` is
-five fixes and one doc replacement.
 
 **Break-glass, for an owner locked out of their own app.** With the gate closed
 there is no anonymous way in, so the recovery path is on the host rather than
@@ -519,10 +502,10 @@ backup reporting (#93), the manual-backup change and the `deploy.sh`
 warn-don't-fail behaviour (#96), and the backup documentation consolidation
 (#95/#97/#98/#99/#100).
 
-### Branch discipline — `main` is not the deployed image
+### Branch discipline
 
-`1f1e390` is on `claude/import-auth-hardening`, which contains `main` @ `94204ba`
-but is not `main`. Assume neither direction without checking.
+Deploy from `main`. `scripts/deploy.sh` enforces it, but a deployed commit and `main` can
+differ by commits that change no behaviour, so compare against `/api/health`, not a branch name.
 
 **How this went wrong on 2026-10-03, because it will happen again.** Work was
 branched from `claude/workout-tracker-backlog-bu9qnw`, which had *diverged*
@@ -534,7 +517,9 @@ and both are now fixed rather than documented:
 1. **`scripts/deploy.sh` now refuses a `HEAD` that is not a descendant of
    `main`**, naming the missing commits. Its dirty-tree check was never enough:
    a branch 59 commits behind `main` is a *clean* tree. `DEPLOY_ALLOW_STALE=1`
-   overrides it, deliberately, for a hotfix from an old branch.
+   overrides it, deliberately, for a hotfix from an old branch. It also reads the live SHA from `/api/health` over SSH and refuses a
+   HEAD that does not contain it (#246); the same override skips both checks and is the
+   rollback path.
 2. **Always check the branch before branching off it:**
    `git merge-base --is-ancestor main HEAD`. If that fails, you are on a stale
    side branch and everything you read or ship off it is suspect.
@@ -548,7 +533,7 @@ is not a review. The corrected write-up is
 which supersedes the incorrect 2026-10-02 one (deleted rather than edited — a
 plan for a bug that does not exist reads as current work).
 
-### What this deploy changed
+### What the 2026-10-03 deploy (`1f1e390`) changed
 
 Five fixes. Test coverage is **not** uniform, so here is exactly which:
 `api.put` and the auth hygiene are covered by regression tests each confirmed
