@@ -276,7 +276,7 @@ jobs:
           for model in stealth/space-bunny-alpha \
                        nvidia/nemotron-3-ultra-550b-a55b:free \
                        nvidia/nemotron-3-super-120b-a12b:free; do
-            timeout 480 opencode run --model "openrouter/$model" --format default \
+            timeout 420 opencode run --model "openrouter/$model" --format default \
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
             echo "review model $model exit: $rc" >> "$GITHUB_STEP_SUMMARY"
@@ -285,7 +285,7 @@ jobs:
               echo "::warning::$model failed: $why"
               [ "$rc" -eq 124 ] && why="timeout"
               case "$why" in
-                timeout) short="timed out after 8 minutes" ;;
+                timeout) short="timed out after 7 minutes" ;;
                 *"Rate limit"*) short="rate limited" ;;
                 *"data policy"*) short="no endpoint matches the no-training privacy policy" ;;
                 *) short="failed, see the Actions log" ;;
