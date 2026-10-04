@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
 import VersionBadge from './VersionBadge'
-import { colors, type } from '../lib/theme'
+import { colors, type, icon } from '../lib/theme'
 import { useSession } from '../lib/session'
 import { IconBarbell, IconUser } from '../icons'
 
@@ -61,7 +61,7 @@ export default function TopBar() {
             fontWeight: type.weight.bold, fontSize: type.size.body, color: colors.text,
             letterSpacing: type.labelTracking, whiteSpace: 'nowrap', flexShrink: 0
           }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconBarbell size={16} />Gym Tracker</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconBarbell size={icon.header} />Gym Tracker</span>
           </span>
           <VersionBadge />
         </div>
@@ -85,7 +85,7 @@ export default function TopBar() {
                   display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem',
                   color: colors.text, minWidth: 0, overflow: 'hidden'
                 }}>
-                  <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || <IconUser size={16} />}</span>
+                  <span aria-hidden="true" style={{ flexShrink: 0 }}>{profile.icon || <IconUser size={icon.caption} />}</span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {profile.username}
                   </span>

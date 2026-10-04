@@ -34,6 +34,35 @@ export const colors = {
   divider: '#2a2a2a',
   accentWash: 'rgba(212, 255, 63, 0.14)',
   dangerBg: '#2a1a1a',
+
+  // #229 icon design system, signed off 2026-09-30. accentDeep is the nav's
+  // active-tab second tone; muted3 is the inactive-tab second tone.
+  accentDeep: '#8fae22',
+  muted3: '#6b6b6b',
+}
+
+// Mixes a hex colour toward white by `amount` (0-1). Used for the day icons'
+// derived second tone (DAY_TONE2 in workoutPlan.js) — see decision 4 in
+// docs/superpowers/plans/2026-10-01-icon-design-system-229.md.
+export function tint(hex, amount) {
+  const n = parseInt(hex.slice(1), 16)
+  const channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) =>
+    Math.round(c + (255 - c) * amount)
+  )
+  return '#' + channels.map((c) => c.toString(16).padStart(2, '0')).join('')
+}
+
+// #229 icon design system, signed off 2026-09-30. Role-based scale: every
+// icon call site is sized to the paired text's line-height, not its
+// font-size — see docs/superpowers/specs/2026-09-28-icon-design-system-design.md
+// section 1.
+export const icon = {
+  caption: 16, // inline with Eyebrow/caption text (type.size.xs-sm)
+  body: 20, // inline with body copy (type.size.base-body)
+  control: 22, // glyph inside a 44px .btn-icon / .tap-target
+  heading: 24, // inline before a title/strong heading (DayIcon in <h1>)
+  nav: 26, // bottom-nav tabs, paired with their Eyebrow label
+  header: 28, // TopBar app mark (height; the mark is wide)
 }
 
 export const type = {

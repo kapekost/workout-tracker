@@ -7,7 +7,7 @@ import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
 import LoadError from '../components/LoadError'
 import StatPair from '../components/StatPair'
-import { colors, type, space } from '../lib/theme'
+import { colors, type, space, icon } from '../lib/theme'
 import { IconTrophy, IconArrowTrendingUp } from '../icons'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -89,7 +89,7 @@ export default function Progress() {
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.accent,
             fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap',
             display: 'flex', alignItems: 'center', gap: 4 }}>
-          <IconTrophy size={14} /> PBs
+          <IconTrophy size={icon.body} /> PBs
         </button>
       </div>
 
@@ -110,7 +110,7 @@ export default function Progress() {
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <StatPair label="Personal Record" value={<><IconTrophy size={14} /> {pr} kg</>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Personal Record" value={<><IconTrophy size={icon.body} /> {pr} kg</>} valueColor={colors.success} valueSize={type.size.display} />
                     <StatPair label="Sessions" value={data.length} align="right" />
                   </div>
                   {delta !== null && (
@@ -118,7 +118,7 @@ export default function Progress() {
                       display: 'flex', alignItems: 'center', gap: space.xs, marginTop: space.sm,
                       color: delta > 0 ? colors.success : colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold,
                     }}>
-                      <IconArrowTrendingUp size={14} color={delta > 0 ? colors.success : colors.muted} />
+                      <IconArrowTrendingUp size={icon.body} color={delta > 0 ? colors.success : colors.muted} />
                       {delta > 0 ? '+' : ''}{delta} kg since {data[0].date}
                     </p>
                   )}

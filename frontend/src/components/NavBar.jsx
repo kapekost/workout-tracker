@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
-import { colors, type } from '../lib/theme'
+import { colors, type, icon } from '../lib/theme'
 import { IconHome, IconArrowTrendingUp, IconClipboardList } from '../icons'
 
 const tabs = [
@@ -70,7 +70,7 @@ export default function NavBar() {
                   from PNG "sticker" icons 2026-09-27 -- see IconArrowTrendingUp
                   /IconClipboardList), so color alone drives the active/inactive
                   state via currentColor, same mechanism as Home always used. */}
-              <tab.Icon size={22} color={isActive ? colors.accent : colors.muted} />
+              <tab.Icon size={icon.nav} color={isActive ? colors.accent : colors.muted} />
               <Eyebrow color={isActive ? colors.accent : colors.muted} style={{ fontWeight: type.weight.semibold }}>
                 {tab.label}
               </Eyebrow>

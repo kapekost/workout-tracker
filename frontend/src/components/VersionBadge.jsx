@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
-import { colors, type } from '../lib/theme'
+import { colors, type, icon } from '../lib/theme'
 import { updateStore, shouldCheckForUpdate } from '../lib/swUpdate'
 import { networkStatusStore } from '../lib/networkStatus'
 import { IconExclamationTriangle, IconRefresh } from '../icons'
@@ -64,7 +64,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           position: 'relative', background: 'none', border: 'none', color: colors.muted2,
           cursor: 'pointer', fontSize: type.size.xs, padding: 0, lineHeight: 1,
         }}>
-        {checking ? 'Checking…' : <IconRefresh size={12} />}
+        {checking ? 'Checking…' : <IconRefresh size={icon.caption} />}
         <span aria-hidden="true" style={{
           position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
           width: 'max(100%, 44px)', height: 44,
@@ -102,7 +102,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
         style={{ display: 'flex', alignItems: 'center', gap: 4,
           color: colors.muted2, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1.2 }}>
         {stale ? <>
-          <IconExclamationTriangle size={12} />
+          <IconExclamationTriangle size={icon.caption} />
           Data may be old
           {/* The full sentence for anyone not reading the two words, which is
               not the same as the short form's meaning. Not a `title`: there is
