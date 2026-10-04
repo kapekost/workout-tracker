@@ -146,6 +146,31 @@ def test_a_verdict_word_already_in_the_summary_is_not_repeated():
     assert body == "**CLEAN** 3 files, no findings"
 
 
+def test_the_last_findings_object_wins_over_an_example_before_it():
+    real = {"summary": "s", "findings": [{"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]}
+    text = 'The shape is {"summary": "x", "findings": []}. My answer: ' + json.dumps(real)
+    kind, body, comments = pr.build(text, PATCHES, REPO)
+    assert len(comments) == 1 and body.startswith("**BLOCKING**")
+
+
+def test_findings_that_is_not_a_list_is_not_a_verdict():
+    kind, body, _ = pr.build('{"summary": "s", "findings": "none"}', PATCHES, REPO)
+    assert kind == "plain" and "CLEAN" not in body
+
+
+def test_an_echo_of_the_prompts_example_shape_is_not_a_verdict():
+    echo = '{"summary": "<one line, max 150 chars>", "findings": [], "notes": []}'
+    kind, body, _ = pr.build("The shape is " + echo, PATCHES, REPO)
+    assert kind == "plain" and "CLEAN" not in body
+
+
+def test_a_verdict_nested_in_another_object_is_found():
+    nested = json.dumps({"review": {"summary": "s", "findings": [
+        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]}})
+    _, _, comments = pr.build(nested, PATCHES, REPO)
+    assert len(comments) == 1
+
+
 def test_clean_review():
     kind, body, comments = pr.build(review([], summary="3 files, no findings"), PATCHES, REPO)
     assert kind == "review" and comments == []

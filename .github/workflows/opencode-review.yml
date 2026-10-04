@@ -66,7 +66,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions: {}
     steps:
       - name: Checkout PR Code
@@ -253,24 +253,48 @@ jobs:
           set +e
           set -uo pipefail
           : > "$RUNNER_TEMP/skip-reasons.txt"
+          # A usable verdict: a JSON object with a findings list and a real (non-placeholder) summary.
+          has_verdict() {
+            python3 - "$1" <<'PY'
+          import json, sys
+          text = open(sys.argv[1], errors="replace").read()[:50000]
+          dec = json.JSONDecoder()
+          i = text.find("{")
+          for _ in range(40):
+              if i == -1:
+                  break
+              try:
+                  obj, _end = dec.raw_decode(text, i)
+                  s = obj.get("summary") if isinstance(obj, dict) else None
+                  if (isinstance(obj, dict) and isinstance(obj.get("findings"), list)
+                          and isinstance(s, str) and s.strip() and not s.lstrip().startswith("<")):
+                      sys.exit(0)
+              except (ValueError, RecursionError):
+                  pass
+              i = text.find("{", i + 1)
+          sys.exit(1)
+          PY
+          }
           for model in stealth/space-bunny-alpha \
                        nvidia/nemotron-3-ultra-550b-a55b:free \
                        nvidia/nemotron-3-super-120b-a12b:free; do
-            opencode run --model "openrouter/$model" --format default \
+            timeout 420 opencode run --model "openrouter/$model" --format default \
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
             echo "review model $model exit: $rc" >> "$GITHUB_STEP_SUMMARY"
             if [ "$rc" -ne 0 ]; then
               why=$(tail -c 300 "$RUNNER_TEMP/review.err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')
               echo "::warning::$model failed: $why"
+              [ "$rc" -eq 124 ] && why="timeout"
               case "$why" in
+                timeout) short="timed out after 7 minutes" ;;
                 *"Rate limit"*) short="rate limited" ;;
                 *"data policy"*) short="no endpoint matches the no-training privacy policy" ;;
                 *) short="failed, see the Actions log" ;;
               esac
               echo "- \`$model\`: $short" >> "$RUNNER_TEMP/skip-reasons.txt"
             fi
-            if [ "$rc" -eq 0 ] && grep -q '"findings"' "$RUNNER_TEMP/review.txt"; then break; fi
+            if [ "$rc" -eq 0 ] && has_verdict "$RUNNER_TEMP/review.txt"; then break; fi
             if [ "$rc" -eq 0 ]; then
               echo "- \`$model\`: ended without a JSON verdict" >> "$RUNNER_TEMP/skip-reasons.txt"
             fi
@@ -282,17 +306,17 @@ jobs:
             : > "$RUNNER_TEMP/review.txt"
           fi
           if [ ! -s "$RUNNER_TEMP/review.txt" ]; then
-            echo "::notice::automated review skipped, no model available"
+            echo "::notice::automated review skipped, no model produced a usable verdict"
             # JSON, so post_review.py can tell this notice from model prose. Reasons are
             # fixed strings written above, never model output.
             python3 - "$RUNNER_TEMP/skip-reasons.txt" > "$RUNNER_TEMP/review.txt" <<'PY'
           import json, sys
           notes = [l.strip("- \n").replace("`", "") for l in open(sys.argv[1]) if l.strip()]
           print(json.dumps({"skipped": True, "findings": [], "notes": notes,
-                            "summary": "No model was available, so this PR has had no bot review. "
+                            "summary": "No model produced a usable review, so this PR has had no bot review. "
                                        "This is not an approval; review it independently."}))
           PY
-            echo "REVIEW SKIPPED: no model available" >> "$GITHUB_STEP_SUMMARY"
+            echo "REVIEW SKIPPED: no usable verdict" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

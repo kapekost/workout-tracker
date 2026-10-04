@@ -42,22 +42,34 @@ def sanitize(text, repo, limit):
 
 
 def extract_json(text):
-    """The first JSON object with a "findings" key, or None. Bounded work."""
+    """The last JSON object whose "findings" is a list, or None. Bounded work.
+
+    The last one, because a model may narrate an example of the shape before giving its
+    real answer, and the answer comes last."""
     text = text[:MAX_INPUT]
     decoder = json.JSONDecoder()
+    found = None
     pos = text.find("{")
-    for _ in range(20):
+    for _ in range(40):
         if pos == -1:
-            return None
+            break
         try:
             obj, _end = decoder.raw_decode(text, pos)
         except (ValueError, RecursionError):
-            pos = text.find("{", pos + 1)
-            continue
-        if isinstance(obj, dict) and "findings" in obj:
-            return obj
+            obj = None
+        if is_verdict(obj):
+            found = obj
         pos = text.find("{", pos + 1)
-    return None
+    return found
+
+
+def is_verdict(obj):
+    """A findings list plus a real summary. An echo of the prompt's example shape has a
+    placeholder summary such as "<one line, max 150 chars>" and is not a verdict."""
+    if not isinstance(obj, dict) or not isinstance(obj.get("findings"), list):
+        return False
+    summary = obj.get("summary")
+    return isinstance(summary, str) and summary.strip() != "" and not summary.lstrip().startswith("<")
 
 
 def plain_comment(text):
