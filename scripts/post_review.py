@@ -119,6 +119,7 @@ def build(text, patches, repo):
         (blocking_lines if blocking else optional_lines).append(f"- {where} {body}")
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
+    summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
     if data.get("skipped") is True and not findings:
         head = f"**Automated review skipped.** {summary}".strip()
     elif comments or blocking_lines:

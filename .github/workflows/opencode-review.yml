@@ -270,7 +270,10 @@ jobs:
               esac
               echo "- \`$model\`: $short" >> "$RUNNER_TEMP/skip-reasons.txt"
             fi
-            if [ "$rc" -eq 0 ] && [ -s "$RUNNER_TEMP/review.txt" ]; then break; fi
+            if [ "$rc" -eq 0 ] && grep -q '"findings"' "$RUNNER_TEMP/review.txt"; then break; fi
+            if [ "$rc" -eq 0 ]; then
+              echo "- \`$model\`: ended without a JSON verdict" >> "$RUNNER_TEMP/skip-reasons.txt"
+            fi
             : > "$RUNNER_TEMP/review.txt"
           done
           # The key is known here, so output containing it verbatim is dropped.
