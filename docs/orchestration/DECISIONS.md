@@ -5,6 +5,13 @@
 > entry had in fact been appended at the bottom for two months; a header that lies about where to
 > write is how an entry ends up in the wrong place, and this file is a log, not a set of slides.)
 > Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
+>
+> Reconciled 2026-10-04: this file had diverged from `main` in both directions and is now the union
+> of both. `main` carried 8 entries from 2026-10-03 that the home branch never received; the home
+> branch carried 14 from 2026-08-26..09-30 that `main` never received. One entry exists in both, in
+> two versions: the home branch's fuller text (which keeps the owner's verbatim "ok lets make sure
+> to consider something complet[e] that is alos [also] deployed") supersedes `main`'s condensed
+> paraphrase of the same decision — every fact in the shorter version is present in the longer one.
 
 > **Note:** this file is mirrored from the orchestration home branch
 > (`claude/workout-tracker-backlog-bu9qnw`), which is the source of truth and is not merged to
@@ -12,76 +19,186 @@
 > intermediate decisions recorded on the home branch. Read the home branch directly for the full,
 > current log.
 
-## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
 
-Owner, in response to the review bot objecting that `--approve` contradicted the "approval is
-human-only" guardrail. It did not: that rule is about the `approved` label and the `APPROVE`
-box — destructive-operation approval — and a bot approving a pull request is a different act
-by a different actor. The wording now says so in both places (`GUARDRAILS.md` "Approval is
-human-only" scope bullet and "Merge & branch rules"), so the next session does not have to
-re-derive it.
+## 2026-08-26 — MCP server setup is per-project, owner-decided
+Don't auto-create `.mcp.json` from `.mcp.json.example` or add MCP servers
+speculatively. The owner decides which MCP servers (if any) a given
+project actually needs, case by case. If a task seems to need one, ask
+rather than guessing.
 
-**The decision:** the owner is not a required reviewer per PR. This repo already merges on
-green CI with no live approval per PR; a bot that reviews is an *extra* opinion in that set,
-not a gate and not a substitute for the owner. GitHub agrees structurally — `GITHUB_TOKEN`
-approvals are excluded from branch protection, so the bot cannot be mistaken for a human
-approver by the platform either. The one thing that changes the picture is the bot saying
-**Blocking**: that is a concern, and it gets handled like red CI.
+## 2026-08-30 — #33 (Nutrition guidance) shaped: standalone, needs bodyweight + height
+Owner Q&A: collect both bodyweight and height (new fields) for scientifically-grounded guidance,
+not just bodyweight for ISSN protein ranges. Ships standalone, not folded into #32 — doesn't need
+#32's AI-export machinery. New fields need real profiles, so this sequences behind #66 too. Still
+`intake`, needs its own spec.
 
-**Also settled here:** a re-review should make the reader's life easier, not harder. The
-reviewer looks only at the diff since its own last review, closes its own resolved threads
-first (`scripts/resolve_review_threads.sh`, which can only ever resolve threads the bot itself
-started), and posts one short message with a fixed shape — verdict, counts, findings, details
-only where the judgement was hard. A review nobody reads to the end has not reviewed anything.
+## 2026-08-30 — #32 (Adaptive coaching) shaped: manual export v1, before/after only, confirmed profile updates
+Owner Q&A: v1 is manual export-a-prompt (option a), live API (b) stays future work. Cadence is
+before/after only, "during" scoped out. "Update" scope is a simple layer above existing
+per-session nudging, not a `workoutPlan.js` restructure — must be documented once specced. AI
+output can propose structured profile/plan updates, applied only after explicit user
+confirmation, never fabricated. Sequenced behind the user system (#66/#67). Still `intake`, needs
+a written spec before splitting into `ready` work; shares its "structured AI output → confirm →
+write" shape with #30, worth one spec pass considering both.
 
-**Corrected the same day, after the bot's own review of that change (PR #242).** The first
-implementation made the reviewer token-less *and* left it holding a config tier the PR could
-outrank, so the read-only guarantee was decorative; it also broke the re-review path, because
-`gh` needs a token the reviewer no longer had. The shipped shape: two steps hold a token (one
-fetches review history into a file, one resolves threads and posts) and the reviewer itself
-holds none; its project `opencode.json` is replaced with a trusted one before it runs; and it
-posts a **comment**, not a review state, because a review state needs a token it cannot have.
+## 2026-08-30 — #30 (Import) shaped: build it, per-profile, simple POC semantics
+Owner Q&A: build full-session import (working read of a slightly ambiguous answer — flagged on
+the issue for correction if wrong), scoped per-profile. Idempotency: no special handling for now,
+POC-simple. Overwrite: add-only by default, upsert-by-id when the imported record already has a
+known ID. A future "competition/comparison screens across users" idea came up in passing —
+captured separately as #70, not part of this issue. Still `intake`, sequenced behind #66; needs a
+spec pass, and shares an architectural shape with #32 (AI-authored structured data, reviewed
+before writing) worth considering together.
 
-## 2026-09-08 — "Complete" means merged and deployed, not just merged
+## 2026-08-30 — #27 direction: keep the Pi, Cloudflare Tunnel, Home Assistant safety is a hard requirement
+Owner decided against migrating off the Raspberry Pi — public exposure goes through something
+like Cloudflare Tunnel instead (SSL, no VPN). Explicit constraint: the Pi's home network also
+runs Home Assistant, so whatever ships must be scoped tightly to this app's own service/port, not
+the LAN, and needs a real home-network security review, not just an app-level one. Natural
+sequencing: the original ask was public access for "3-4 accounts," which wants real auth first —
+this follows #66–#69 (Profiles/auth), even if spec work can start in parallel. Given the stakes,
+this goes through a proper spec/brainstorm pass before `ready`, not a quick single-issue
+execution. #27 stays `intake` for now.
 
-Owner, right after a tick reported a UI wave as "shipped" while it was actually only merged to
-`main` and sitting undeployed: work isn't done until it's reached the actual running app, not just
-merged. Tick summaries must distinguish merged-not-deployed from actually-deployed, and default
-toward closing that gap when safe to (no pending schema/migration risk, no standing reason to hold
-back) — existing deploy discipline (check for schema changes, take a backup, independently
-re-verify rather than trusting the deploy script's own assertion) still applies in full; this
-changes the default toward proceeding to deploy, not the care taken once there. Same tick, trying
-to deploy responsibly surfaced a real bug (#154/#155): #126's `APP_COMMIT`-required change had only
-ever been patched into `scripts/deploy.sh`'s own invocation, silently breaking `scripts/backup.sh`
-on every deploy since. Only found by actually operating the deployed thing — the same principle
-this instruction is asking for at the reporting level. Full record on the home branch's
-`DECISIONS.md`, same date.
+## 2026-08-30 — Branch auto-delete-on-merge is silently broken, not just manual deletion
+`claude/23-node26-docker-build` (PR #65, squash-merged same day) is still present after merging
+with the standard `--delete-branch` flow — the same permission gap that 403s a manual `git push
+--delete` also swallows the automatic delete-on-merge, silently (the merge itself still
+succeeds). This affects every future PR merged by this orchestration, not just historical cruft.
+Real fix identified: GitHub's own repo setting, Settings → General → Pull Requests →
+"Automatically delete head branches" — a native GitHub feature that runs outside our App's
+permissions entirely, so it isn't blocked by the same gap. Recommended over granting the App
+broader (Administration-level) permissions, which would also work but is a bigger permission
+grant than necessary for this. Owner to verify/enable when next in the repo settings.
 
-## 2026-09-06 — Any UI change gets a UI/UX review, and gets looked at in a browser
+## 2026-08-30 — #68 password-reset email provider: Resend
+Same-session follow-up to the Profiles decision below. #68 (forgot-password via email) needed a
+provider choice before it could be sequenced toward `ready` — chose **Resend**, matching
+`kapekost-web`'s existing contact-form integration rather than introducing a second provider.
+Needs its own API key, stored in `workout-tracker`'s `AGENTS.local.md` (gitignored) per this
+repo's "deployment knowledge stays local" convention — never committed.
 
-Owner, after opening #105's login screen for the first time: "it's nothing to standards expected
-login, please review with ui ux expert any time we touch the UI, and also make sure the code is
-efficient and not overengineered."
+## 2026-08-30 — Profiles (#29) shaped: real accounts, prework for OAuth, split into 4 children
+Owner Q&A (live, in-session) resolved #29's triage questions. A profile is a real, isolated,
+data-owning account, not just a label — explicitly built as prework for adding Google/Apple
+sign-in later (not built now; the schema shouldn't preclude it, but nothing OAuth-specific gets
+built yet). Existing single-user data migrates to a seeded `kapekost` profile with `role: admin`
+(the role is just a column for now — no admin-only behavior specified or built). Profile
+selection is a real login gate before Home, not a device-remembered switcher. v1 auth is
+username + hashed password with email-based reset, not OAuth. Icons are emoji for now, no need
+for a fancier avatar system. Split into #66 (schema/migration, foundational), #67 (login, depends
+on #66), #68 (password reset via email — still has one open question, which email provider to
+use, since this repo has no existing email-sending capability), #69 (top-bar switcher + emoji
+picker, depends on #66). See `STATE.md`'s matching tick-log entry for the full breakdown.
 
-**Two standing requirements, both now in PLAYBOOK step 5:**
+## 2026-08-30 — Concurrent-tick collisions: real claim mechanism, not manual discipline
+A recurring routine's first scheduled firing independently picked the same Issue an attended
+session was already working live, in a separate session — checked out the same branch, was about
+to make redundant edits before being caught and interrupted (no git damage, real cost wasted).
+Owner explicitly chose a real fix over relying on remembering to disable the routine during live
+work: `PLAYBOOK.md` gained a "Claiming work" section — a tick pushes an In-flight claim to
+`claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue, before any execution; other
+ticks check that live branch first and back off on a fresh (<2h) claim; a stale claim is treated
+as an abandoned/crashed tick and cleared. Enforced by git's own non-fast-forward push rejection on
+that branch, not just cooperative reading. See `STATE.md`'s 2026-08-30 #34 tick log entry for the
+full incident.
 
-1. **A change that touches the UI is not done until a UI/UX review has seen it.** Not a code review
-   with a glance at the JSX — a review whose subject is the rendered screen: hierarchy, spacing,
-   affordance, copy, accessibility, and how it reads on a phone.
-2. **Render it and look at it.** Deploy or run it, open the page, screenshot it. This is not
-   ceremony: on 2026-09-06 three separate defects in freshly shipped, fully-tested, code-reviewed
-   screens were invisible in the source and obvious in one screenshot — the header printing "Log in"
-   twice, the app's bottom nav sitting on an auth screen, and (found by loading the URL at all)
-   every client-side route returning `{"detail":"Not Found"}`, which had made the invite email
-   unopenable since #85. 259 frontend tests were green throughout.
+## 2026-08-30 — Sequencing: ready work proceeds independently of intake triage
+`PLAYBOOK.md` step 3's literal old text ("any `intake` Issue preempts all `ready` work") is
+superseded: intake triage and `ready`-issue execution are separate, non-blocking tracks. An
+untriaged `intake` Issue does not gate an `/orchestrate` tick from picking the highest-ranked
+`ready` Issue instead — matches actual practice since 2026-08-26 (#24/#35/#38 shipped while
+#27/#29/#30/#32/#33 sat untriaged across several ticks). `PLAYBOOK.md` step 3 reworded to match.
+Owner call, prompted by the runner flagging the discrepancy in `STATE.md` rather than silently
+picking a reading on its own.
 
-**And keep the code lean.** The owner's second clause is a design constraint, not a platitude:
-reuse the existing tokens and CSS classes, do not add a component library, a CSS framework or a
-design-system layer to a small personal app. A UI/UX review that returns a rewrite is the wrong
-answer to this instruction.
+## 2026-08-30 — Merge policy: agent watches CI itself, then merges — no live per-PR ask
+Propagated from `agent-scaffold` via `copier update`. After opening a PR: watch CI to
+completion (`gh pr checks --watch --fail-fast`) and merge immediately if green — no live
+"can I merge this?" per PR. Explicitly not GitHub-native `gh pr merge --auto`: verified
+empirically that without branch protection defining required checks, `--auto` merges
+immediately regardless of CI state. See `docs/superpowers/specs/2026-08-26-human-agent-collaboration-design.md`
+in `agent-scaffold` for the full design.
+
+## 2026-09-04 — Backups go manual; no alerting; home branch stops merging
+Three owner calls in one conversation, all reversing or settling things decided earlier
+the same day.
+
+**Backups are manual.** The cron is removed from the Pi entirely, not just slowed down —
+run `scripts/backup.sh` when you want a copy. Local snapshots pruned to two. The
+consequence had to be fixed with it: `scripts/deploy.sh` treated a `stale`
+`last_backup_status` as a hard deploy failure, so with no schedule every deploy would
+have started failing eight days after the last manual backup. It warns now, and `stale`
+is reframed as "it has been over a week" rather than "the schedule is broken". #88's
+actual mechanism (status file, no unauthenticated write endpoint) is untouched and still
+unblocks #86.
+
+**No external alerting.** #89 closed as not planned. healthchecks.io alarms on a ping
+that missed its schedule; a manual backup has no schedule, so it would fire forever —
+the same "always red, so nobody reads it" failure #88 existed to remove, relocated to
+another service. The `HEARTBEAT_URL` hook stays in the script, unused, so reinstating a
+cron plus a check later is a two-line change.
+
+**The orchestration home branch never merges to the default branch.** Chosen over
+"merge and re-push every time" because one forgotten re-push silently disables collision
+protection and nothing reports it. Doc commits go straight to the home branch; when
+`main` should carry them, cherry-pick onto a short-lived branch and PR that. Fed back
+upstream as `agent-scaffold` PR #2, together with the state-label-on-split-children fix.
+
+## 2026-09-04 — #88 ships end to end: deploy the Pi, then flip the cron
+Asked at the deploy boundary, because #88's two halves only work together. The
+owner chose to take the tick all the way: merge, deploy, then change the Pi's
+crontab to weekly in the same window. Deploying carried the py3.11 to 3.14 base
+image bump and pydantic 2.13.5, which had been sitting on main hand-verified but
+undeployed since 2026-09-04; those were the only runtime changes in the backlog,
+everything else was docs.
+
+The ordering is the point. Flipping the cron before the 8-day threshold is
+running on the Pi would leave /api/health permanently stale, which is the exact
+failure the issue exists to prevent. Deploy first, cron second, always.
+
+## 2026-09-04 — Accounts: #67 and #68 are one workstream, not a sequence
+The 2026-09-02 decision that initial passwords are set through an emailed single-use link makes
+#67 and #68 mutually dependent — #67 cannot create a usable account without #68's Resend
+integration and token model. Both closed as superseded; execution split into #84-#87 in a hard
+dependency chain. Design: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`.
+
+Sub-decisions taken in the same conversation:
+
+- **No public self-signup.** Admin invites only.
+- **The owner's own account bootstraps through the normal invite path**, not a backdoor — schema
+  v6 adds `email`, a one-off script sets it on the seeded `kapekost` profile and mints a standard
+  invite. This proves Resend end-to-end on real infrastructure before anyone else is invited.
+- **Emailed links do not block on #27.** They point at the Tailscale URL now; `APP_BASE_URL` is
+  the single config seam the tunnel hostname replaces later. Accepted consequence: the invite flow
+  can't be tested with someone outside the tailnet until #27 lands.
+- **Export/import gets both behaviours** keyed off `role` — admin dumps/restores everything
+  (preserving the disaster-recovery path), members get only their own rows.
+- **bcrypt cost 12, not a memory-hard KDF.** Measured on the actual Pi. This is a hardware-driven
+  choice, not a security preference: OWASP's scrypt baseline needs 128 MiB against ~185 MiB free,
+  and every concurrent memory-hard hash reserves its full working set, so a few parallel logins to
+  an unauthenticated endpoint could OOM a container on a box that also runs Home Assistant. Do not
+  "upgrade" this to argon2 without re-measuring there.
+
+## 2026-09-04 — Backup heartbeat becomes a file; cron goes weekly
+`backup.sh` stops POSTing to `/api/events` and writes `data/backup-status.json` instead, which
+`/api/health` reads. Chosen over authenticating the endpoint with a shared secret: a token
+guarding a local process that already owns the database file buys nothing, and this deletes an
+unauthenticated write endpoint rather than fencing it — which matters once #27 makes the app
+public. It also moves backup status out of the database being backed up.
+
+Cron drops to weekly; the app isn't used enough to justify nightly. Revisit from `events` data if
+usage picks up.
+
+**`/api/health`'s 26h staleness threshold must move with the schedule.** A weekly cron would
+otherwise make it permanently `stale`, and a signal that is always red is one nobody reads — which
+is precisely how three consecutive nights of failed off-site backups went unnoticed in
+2026-09-01..03. Tracked as #88, and it blocks #86.
+
+Alerting (`HEARTBEAT_URL` → healthchecks.io) deferred to #89 rather than dropped. It is the only
+piece that would actively notify rather than wait to be looked at.
 
 ## 2026-09-05 — Secrets live in `.env` on the target; reuse services, not accounts
-
 **Mechanism.** Secrets go in a `.env` beside `docker-compose.yml` on the deploy target, gitignored
 and mode 600, loaded automatically by Compose. Not `env_file:` — that requires the file to exist, so
 a forgotten `.env` on a rebuilt host would fail the deploy; every value has a default instead, and a
@@ -104,7 +221,6 @@ contact form down with it. That is still reuse of the service, which is what the
 protecting.
 
 ## 2026-09-05 — Standing approval: the accounts workstream (#105, #86, #87)
-
 **This is the standing-approval record GUARDRAILS requires.**
 
 **Spec:** `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`, owner-approved in chat
@@ -130,7 +246,6 @@ No agent may add an `approved` label under this, or any other, arrangement. The 
 human-only; this record simply means those three Issues do not need one.
 
 ## 2026-09-05 — Tick summaries are written for the product owner
-
 Owner: "as product owner i need to know what to see and try out to give you feedback next time. not
 too brief but also not too verbose." PLAYBOOK step 9 now leads with what is live in product terms
 and what to try concretely, flags anything half-built so it is not mistaken for a bug, names the
@@ -138,7 +253,6 @@ specific judgement calls where owner feedback would change the next tick, and ke
 counts and CI to a closing line as evidence rather than content.
 
 ## 2026-09-05 — Prove the accounts UX before closing the gate; public access drops to P3
-
 Two owner calls after #84 deployed, both pointing the same way: exercise the accounts system as a
 human before anything is enforced or exposed.
 
@@ -167,7 +281,6 @@ and logout work for a human on a phone. Exposing an app nobody has logged into y
 `0` until something actually terminates TLS, since flipping it early breaks login silently.
 
 ## 2026-09-05 — Plan when it isn't decomposed, not when it's big; plans stop carrying code
-
 Owner review of how the runner decides when to implement. Four calls, shipped as PR #102.
 
 **The plan gate keys on decomposition, not effort size.** The old rule ("`effort:M` or larger and
@@ -202,202 +315,312 @@ large, but that is TDD granularity, not scope: five files touched (`backend/main
 split threshold. Splitting further would break the property that makes step 1 coherent — that it
 is safe to deploy while the app is still open.
 
-## 2026-09-04 — Backups go manual; no alerting; home branch stops merging
+## 2026-09-06 — #142 filed and worked ahead of #124, by direct owner call
+Right after the #87 tick closed, the owner reported their phone PWA "never updates the version and
+i can still access the data and i have never logged in from the phone pwa." Traced to
+`frontend/vite.config.js`'s `api-reads` cache: a fixed cache name across deploys means a device that
+cached real API responses before a security-relevant deploy (e.g. #86) and hasn't since had a
+successful network round-trip can keep serving that stale, pre-auth data indefinitely. Neither #124
+(wipes on logout only) nor #125 (deploy reach + visible version) currently commits to "a cache from
+before a security deploy must not survive it."
 
-Three owner calls in one conversation, all reversing or settling things decided earlier
-the same day.
+**Asked directly, live session, not guessed:** fold into #124, file separately, or let a tick decide.
+Owner chose **new issue** — filed as **#142** (`type:bug`, `priority:P0`, `effort:M`, `ready`).
 
-**Backups are manual.** The cron is removed from the Pi entirely, not just slowed down —
-run `scripts/backup.sh` when you want a copy. Local snapshots pruned to two. The
-consequence had to be fixed with it: `scripts/deploy.sh` treated a `stale`
-`last_backup_status` as a hard deploy failure, so with no schedule every deploy would
-have started failing eight days after the last manual backup. It warns now, and `stale`
-is reframed as "it has been over a week" rather than "the schedule is broken". #88's
-actual mechanism (status file, no unauthenticated write endpoint) is untouched and still
-unblocks #86.
+**Then asked separately whether to work it ahead of the standing queue order** (#124 is next per the
+2026-09-06 "the queue is now explicit" decision, and priority reshuffling is the owner's call, not a
+tick's own initiative). Owner chose **#142 first** — it's a live, real (if their own) data-exposure
+condition on an actual device right now, not a queued risk like the rest of the backlog. This does
+not reopen or relitigate the rest of the queue order; #124 remains next after #142.
 
-**No external alerting.** #89 closed as not planned. healthchecks.io alarms on a ping
-that missed its schedule; a manual backup has no schedule, so it would fire forever —
-the same "always red, so nobody reads it" failure #88 existed to remove, relocated to
-another service. The `HEARTBEAT_URL` hook stays in the script, unused, so reinstating a
-cron plus a check later is a two-line change.
+**Not yet done as of filing:** the owner has not cleared the affected phone's site storage, so the
+exposure is still live pending the fix (or a manual clear, which stays their call to do on-device).
 
-**The orchestration home branch never merges to the default branch.** Chosen over
-"merge and re-push every time" because one forgotten re-push silently disables collision
-protection and nothing reports it. Doc commits go straight to the home branch; when
-`main` should carry them, cherry-pick onto a short-lived branch and PR that. Fed back
-upstream as `agent-scaffold` PR #2, together with the state-label-on-split-children fix.
+Owner comments on both issues that morning (unanswered at tick start, per GUARDRAILS) had converged
+on the same shape without saying so: #32 wanted an AI export format personalised to recent workouts
+plus a custom off-plan/muscle-area checklist; #33 wanted daily trend-based nutrition suggestions,
+intake reminders, and folding the AI handoff prompts into the app so it queries AI directly. Both
+are now "the app talks to an AI, applies structured output, user confirms" — training adaptation and
+nutrition guidance under one mechanism rather than two.
 
-## 2026-09-04 — #88 ships end to end: deploy the Pi, then flip the cron
+**Asked directly rather than guessed** (this was a live session, not an unattended tick): merge vs.
+keep-separate-but-linked vs. split the in-app-AI-query idea into its own platform issue. Owner chose
+**merge**. #33 closed, pointing at #32; #32's shared spec
+(`docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`) now needs to grow to cover
+nutrition guidance and the in-app query surface before the owner's pending skim, which is why #32
+stays `intake` rather than becoming skimmable this tick.
 
-Asked at the deploy boundary, because #88's two halves only work together. The
-owner chose to take the tick all the way: merge, deploy, then change the Pi's
-crontab to weekly in the same window. Deploying carried the py3.11 to 3.14 base
-image bump and pydantic 2.13.5, which had been sitting on main hand-verified but
-undeployed since 2026-09-04; those were the only runtime changes in the backlog,
-everything else was docs.
+**Split out, not merged in:** the off-plan/ad-hoc "custom checklist by muscle area" idea became its
+own intake issue, **#139** — it's a data-logging gap, not an AI I/O one, and doesn't share #32's
+mechanism.
 
-The ordering is the point. Flipping the cron before the 8-day threshold is
-running on the Pi would leave /api/health permanently stale, which is the exact
-failure the issue exists to prevent. Deploy first, cron second, always.
+## 2026-09-06 — The orchestrator's dispatch default is pinned, not inherited
+**Owner's decision**, taken in the parallel session working the orchestration cleanup and relayed here. It answers the one question #137 deliberately left open rather than deciding for them.
 
-## 2026-09-04 — Accounts: #67 and #68 are one workstream, not a sequence
+**The decision:** `PLAYBOOK.md` names the model the orchestrator dispatches with explicitly. It does **not** inherit whatever the controller happens to be running.
 
-The 2026-09-02 decision that initial passwords are set through an emailed single-use link makes
-#67 and #68 mutually dependent — #67 cannot create a usable account without #68's Resend
-integration and token model. Both closed as superseded; execution split into #84-#87 in a hard
-dependency chain. Design: `docs/superpowers/specs/2026-09-04-accounts-auth-design.md`.
+**Why, in the owner's terms:** they had just switched their own interactive default to Sonnet 5, and did not want a personal editor preference to silently change what model runs unattended auth work on a schedule. Two dials, deliberately — one for the human's session, one for what executes without them watching.
 
-Sub-decisions taken in the same conversation:
+The precedent it follows is this repo's own scar tissue. Twice now an implicit default has quietly changed what runs: `docker compose up` with no `APP_COMMIT` resolved `:latest` to an 11-day-old pre-auth image and downgraded production (#126), and `PLAYBOOK` step 1 read orchestration docs without naming a branch, so two ticks read `main`'s stale copies and reported work blocked that had been approved hours earlier. Both were "it inherits something sensible" until they weren't.
 
-- **No public self-signup.** Admin invites only.
-- **The owner's own account bootstraps through the normal invite path**, not a backdoor — schema
-  v6 adds `email`, a one-off script sets it on the seeded `kapekost` profile and mints a standard
-  invite. This proves Resend end-to-end on real infrastructure before anyone else is invited.
-- **Emailed links do not block on #27.** They point at the Tailscale URL now; `APP_BASE_URL` is
-  the single config seam the tunnel hostname replaces later. Accepted consequence: the invite flow
-  can't be tested with someone outside the tailnet until #27 lands.
-- **Export/import gets both behaviours** keyed off `role` — admin dumps/restores everything
-  (preserving the disaster-recovery path), members get only their own rows.
-- **bcrypt cost 12, not a memory-hard KDF.** Measured on the actual Pi. This is a hardware-driven
-  choice, not a security preference: OWASP's scrypt baseline needs 128 MiB against ~185 MiB free,
-  and every concurrent memory-hard hash reserves its full working set, so a few parallel logins to
-  an unauthenticated endpoint could OOM a container on a box that also runs Home Assistant. Do not
-  "upgrade" this to argon2 without re-measuring there.
+**Also confirmed in the same message, no changes requested:** the destructive-beats-effort-size precedence rule, executing #137 in the same propagation pass as #134, and keeping the note that `model` is ignored for `subagent_type: "fork"`.
 
-## 2026-09-04 — Backup heartbeat becomes a file; cron goes weekly
+**Provenance, recorded because it matters for what this does and does not authorise.** This is a reversible documentation preference, so a relayed decision is an adequate record for it — unlike #132's history rewrite, where a peer-relayed approval was explicitly *not* accepted and the owner was asked again directly before the `approved` label went on. Same day, same peer, deliberately different bars. Nothing here changes who may add an `approved` label.
 
-`backup.sh` stops POSTing to `/api/events` and writes `data/backup-status.json` instead, which
-`/api/health` reads. Chosen over authenticating the endpoint with a shared secret: a token
-guarding a local process that already owns the database file buys nothing, and this deletes an
-unauthenticated write endpoint rather than fencing it — which matters once #27 makes the app
-public. It also moves backup status out of the database being backed up.
+## 2026-09-06 — Scrub the history, stay public, keep deployment knowledge local
+Owner, asked directly in-session after the decision reached this session second-hand through a peer:
+*"hold off the agent will create a high priority task to pick up after we finish the running ticks,
+so we do the scrab stay public and keep knowledge local, also updating history to be more token cost
+efficient."*
 
-Cron drops to weekly; the app isn't used enough to justify nightly. Revisit from `events` data if
-usage picks up.
+**Three things decided, one of them a sequencing call:**
 
-**`/api/health`'s 26h staleness threshold must move with the schedule.** A weekly cron would
-otherwise make it permanently `stale`, and a signal that is always red is one nobody reads — which
-is precisely how three consecutive nights of failed off-site backups went unnoticed in
-2026-09-01..03. Tracked as #88, and it blocks #86.
+1. **Scrub the history** of the real deploy-target values (`203.0.113.10`, `kapekost@`,
+   `~/.ssh/<deploy-key>`, the `.ts.net` hostname, the co-located Home Assistant name) — `git-filter-repo`,
+   placeholders not deletions, mirror backup first. Filed as **#132**.
+2. **The repo stays public**, and the deployment/HA knowledge moves to local-only files. The owner
+   chose this knowing a scrub reduces exposure rather than guaranteeing erasure — GitHub keeps
+   unreferenced objects reachable by SHA for a while, and private + scrub is the only combination
+   that closes it. Nothing exposed is a credential, and `203.0.113.10` is not routable from outside.
+3. **Trim the orchestration docs** ("token cost efficient") — filed as **#134**.
 
-Alerting (`HEARTBEAT_URL` → healthchecks.io) deferred to #89 rather than dropped. It is the only
-piece that would actively notify rather than wait to be looked at.
+**Sequencing, which is the operative part: not now.** Both are queued behind the accounts ticks
+(#86 → #87 → #124) rather than run this tick. The owner asked for the work to be *filed*, not
+started — the same correction they made on 2026-09-06 about the UI review, where approving a plan
+was mistaken for authorising its execution.
 
+**The approval does not travel.** A peer session relayed the owner's "let's scrub history" from its
+own conversation; that is a real approval in that session but not one this session may act on, since
+GUARDRAILS' "Approval is human-only" does not admit a peer as the channel. Re-asked here and granted
+directly. Even so, **#132 still needs the `approved` label typed by a human** before a tick executes
+it — history rewrite and force-push sit on GUARDRAILS' "always needs a fresh human approval" list,
+and a decision recorded in this file does not meet that bar. No agent adds that label, under this or
+any other arrangement.
 
-## 2026-08-30 — #33 (Nutrition guidance) shaped: standalone, needs bodyweight + height
+## 2026-09-06 — Finish login and users before any UI work; the queue is now explicit
+Owner: *"i was hoping you add things to the project and prioritise after we are done with the login
+and users setup."* Said after approving the UI review's plan — approval of the plan is **not**
+authorisation to start it.
 
-Owner Q&A: collect both bodyweight and height (new fields) for scientifically-grounded guidance,
-not just bodyweight for ISSN protein ranges. Ships standalone, not folded into #32 — doesn't need
-#32's AI-export machinery. New fields need real profiles, so this sequences behind #66 too. Still
-`intake`, needs its own spec.
+**The order, and it is not to be reshuffled by a tick:**
 
-## 2026-08-30 — #32 (Adaptive coaching) shaped: manual export v1, before/after only, confirmed profile updates
+1. **Accounts** — #86 (flip the gate) → #87 (export/import roles) → #124 (logout locks and wipes
+   the device). #86 is itself waiting on the owner completing one invite → set password → log in →
+   log out round trip by hand, which is the whole reason #105 was split out.
+2. **UI Wave 1** (#129) — the in-gym logging path. Six small changes, about half a day.
+3. **UI Wave 2** (#130) — the screens around the logger.
+4. **UI Wave 3** (#131) — consistency debt; the review itself says do these "when you're already in
+   the file".
 
-Owner Q&A: v1 is manual export-a-prompt (option a), live API (b) stays future work. Cadence is
-before/after only, "during" scoped out. "Update" scope is a simple layer above existing
-per-session nudging, not a `workoutPlan.js` restructure — must be documented once specced. AI
-output can propose structured profile/plan updates, applied only after explicit user
-confirmation, never fabricated. Sequenced behind the user system (#66/#67). Still `intake`, needs
-a written spec before splitting into `ready` work; shares its "structured AI output → confirm →
-write" shape with #30, worth one spec pass considering both.
+#129/#130/#131 carry the `blocked` label for a **priority** reason, not a technical one — nothing in
+them depends on auth code. Recorded here because the label alone doesn't say that, and a future tick
+finding three `blocked` UI issues with no code dependency would otherwise be right to unblock them.
 
-## 2026-08-30 — #30 (Import) shaped: build it, per-profile, simple POC semantics
+Unsequenced and pickable on their own merits, because they protect the work above rather than
+compete with it: **#126** (a bare `docker compose up` silently downgrades production to an 11-day-old
+image — P0), **#127** (`bootstrap_owner.py` isn't in the image, so the only documented way to create
+the first account fails), and **#125** (make a deploy actually reach every device, which is what
+made a shipped fix invisible on the owner's phone).
 
-Owner Q&A: build full-session import (working read of a slightly ambiguous answer — flagged on
-the issue for correction if wrong), scoped per-profile. Idempotency: no special handling for now,
-POC-simple. Overwrite: add-only by default, upsert-by-id when the imported record already has a
-known ID. A future "competition/comparison screens across users" idea came up in passing —
-captured separately as #70, not part of this issue. Still `intake`, sequenced behind #66; needs a
-spec pass, and shares an architectural shape with #32 (AI-authored structured data, reviewed
-before writing) worth considering together.
+## 2026-09-06 — Any UI change gets a UI/UX review, and gets looked at in a browser
+Owner, after opening #105's login screen for the first time: "it's nothing to standards expected
+login, please review with ui ux expert any time we touch the UI, and also make sure the code is
+efficient and not overengineered."
 
-## 2026-08-30 — #27 direction: keep the Pi, Cloudflare Tunnel, Home Assistant safety is a hard requirement
+**Two standing requirements, both now in PLAYBOOK step 5:**
 
-Owner decided against migrating off the Raspberry Pi — public exposure goes through something
-like Cloudflare Tunnel instead (SSL, no VPN). Explicit constraint: the Pi's home network also
-runs Home Assistant, so whatever ships must be scoped tightly to this app's own service/port, not
-the LAN, and needs a real home-network security review, not just an app-level one. Natural
-sequencing: the original ask was public access for "3-4 accounts," which wants real auth first —
-this follows #66–#69 (Profiles/auth), even if spec work can start in parallel. Given the stakes,
-this goes through a proper spec/brainstorm pass before `ready`, not a quick single-issue
-execution. #27 stays `intake` for now.
+1. **A change that touches the UI is not done until a UI/UX review has seen it.** Not a code review
+   with a glance at the JSX — a review whose subject is the rendered screen: hierarchy, spacing,
+   affordance, copy, accessibility, and how it reads on a phone.
+2. **Render it and look at it.** Deploy or run it, open the page, screenshot it. This is not
+   ceremony: on 2026-09-06 three separate defects in freshly shipped, fully-tested, code-reviewed
+   screens were invisible in the source and obvious in one screenshot — the header printing "Log in"
+   twice, the app's bottom nav sitting on an auth screen, and (found by loading the URL at all)
+   every client-side route returning `{"detail":"Not Found"}`, which had made the invite email
+   unopenable since #85. 259 frontend tests were green throughout.
 
-## 2026-08-30 — Branch auto-delete-on-merge is silently broken, not just manual deletion
+**And keep the code lean.** The owner's second clause is a design constraint, not a platitude:
+reuse the existing tokens and CSS classes, do not add a component library, a CSS framework or a
+design-system layer to a small personal app. A UI/UX review that returns a rewrite is the wrong
+answer to this instruction.
 
-`claude/23-node26-docker-build` (PR #65, squash-merged same day) is still present after merging
-with the standard `--delete-branch` flow — the same permission gap that 403s a manual `git push
---delete` also swallows the automatic delete-on-merge, silently (the merge itself still
-succeeds). This affects every future PR merged by this orchestration, not just historical cruft.
-Real fix identified: GitHub's own repo setting, Settings → General → Pull Requests →
-"Automatically delete head branches" — a native GitHub feature that runs outside our App's
-permissions entirely, so it isn't blocked by the same gap. Recommended over granting the App
-broader (Administration-level) permissions, which would also work but is a bigger permission
-grant than necessary for this. Owner to verify/enable when next in the repo settings.
+## 2026-09-07 — #124 approved individually via `/orchestrate approve 124`, not folded into a standing approval
+The owner typed `/orchestrate approve 124` directly, rather than expanding the 2026-09-05 standing
+approval (which names only #105/#86/#87 against the accounts-auth-design spec) to cover it. #124 was
+correctly held back from a live-session "go on" the day before, per GUARDRAILS "Approval is
+human-only" — this is the sanctioned channel that go-ahead was not. Establishes the pattern for any
+future destructive Issue outside an already-approved spec's scope: its own individual `approve`,
+not an assumed extension of a prior grant.
 
-## 2026-08-30 — #68 password-reset email provider: Resend
+## 2026-09-08 — "Complete" means merged and deployed, not just merged
+Owner, right after a tick reported #131 as "shipped" while it was actually only merged to `main`
+and sitting undeployed: "ok lets make sure to consider something complet[e] that is alos [also]
+deployed." A merged PR is real progress but not the bar for calling something done — the owner
+can't see or try anything that hasn't reached the actual running app.
 
-Same-session follow-up to the Profiles decision below. #68 (forgot-password via email) needed a
-provider choice before it could be sequenced toward `ready` — chose **Resend**, matching
-`kapekost-web`'s existing contact-form integration rather than introducing a second provider.
-Needs its own API key, stored in `workout-tracker`'s `AGENTS.local.md` (gitignored) per this
-repo's "deployment knowledge stays local" convention — never committed.
+**What this changes:** tick summaries (PLAYBOOK step 9's "what's live and what it does") must
+distinguish merged-not-deployed from actually-deployed, and default toward closing that gap —
+deploy after merging rather than leaving work in a merged-only state — when the change is safe to
+deploy (no pending schema/migration risk, no standing reason to hold back per an existing
+`DECISIONS.md` entry). This is not a license to auto-deploy destructive or risky changes; the
+existing deploy discipline (check for schema changes first, take a manual backup for anything
+non-trivial, independently re-verify `/api/health` and the running container's image tag rather
+than trusting the deploy script's own assertion) still applies in full — it's the *default to
+proceed to deploy* that's new, not a relaxation of care once there.
 
-## 2026-08-30 — Profiles (#29) shaped: real accounts, prework for OAuth, split into 4 children
+**What this caught, same tick, worth recording because it's exactly why this bar matters:** trying
+to deploy #131 responsibly (taking a manual backup first) surfaced a real bug — #126's
+`APP_COMMIT`-required change to `docker-compose.yml` had only ever been patched into
+`scripts/deploy.sh`'s own invocation, so `scripts/backup.sh` had been silently broken by every
+deploy since #126 landed, with no code change to `backup.sh` itself. Filed and fixed as #154/PR
+#155, verified live against the real target. This would not have been found by code review or CI —
+only by actually trying to operate the deployed thing, which is the same principle the owner's
+"also deployed" instruction is asking for at the reporting level.
 
-Owner Q&A (live, in-session) resolved #29's triage questions. A profile is a real, isolated,
-data-owning account, not just a label — explicitly built as prework for adding Google/Apple
-sign-in later (not built now; the schema shouldn't preclude it, but nothing OAuth-specific gets
-built yet). Existing single-user data migrates to a seeded `kapekost` profile with `role: admin`
-(the role is just a column for now — no admin-only behavior specified or built). Profile
-selection is a real login gate before Home, not a device-remembered switcher. v1 auth is
-username + hashed password with email-based reset, not OAuth. Icons are emoji for now, no need
-for a fancier avatar system. Split into #66 (schema/migration, foundational), #67 (login, depends
-on #66), #68 (password reset via email — still has one open question, which email provider to
-use, since this repo has no existing email-sending capability), #69 (top-bar switcher + emoji
-picker, depends on #66). See `STATE.md`'s matching tick-log entry for the full breakdown.
+## 2026-09-10 — Force-push is never agent-executed, approval or not
+`GUARDRAILS.md` contradicted itself: the destructive-ops section let an approved (or
+standing-approved) history-rewrite/force-push Issue proceed, while Hard stops separately listed
+force-push as unconditional, "no flag overrides these." Surfaced by a `/orchestrate` tick against
+#132 (the approved history-scrub Issue), which correctly refused to pick a reading and flagged it
+instead rather than guessing.
 
-## 2026-08-30 — Concurrent-tick collisions: real claim mechanism, not manual discipline
+Owner, asked directly: "i prefer never to force push as other agents could be working at the same
+thing by accident." Resolved in favor of the hard-stop, not the carve-out — both sections now say
+explicitly that an approved history-rewrite/force-push Issue means **a human runs it themselves at
+a keyboard**, never the agent, under any approval mechanism. This is a real risk, not a
+hypothetical: this repo has already had a genuine concurrent-tick collision (see "Claiming work"
+and the 2026-08-30 decision below), and a force-push from one tick can silently destroy another's
+in-flight work with no warning. `#132` itself is unaffected in substance — it still needs the
+history scrub done — but the doing is the owner's, not a tick's.
 
-A recurring routine's first scheduled firing independently picked the same Issue an attended
-session was already working live, in a separate session — checked out the same branch, was about
-to make redundant edits before being caught and interrupted (no git damage, real cost wasted).
-Owner explicitly chose a real fix over relying on remembering to disable the routine during live
-work: `PLAYBOOK.md` gained a "Claiming work" section — a tick pushes an In-flight claim to
-`claude/workout-tracker-backlog-bu9qnw` the instant it picks an Issue, before any execution; other
-ticks check that live branch first and back off on a fresh (<2h) claim; a stale claim is treated
-as an abandoned/crashed tick and cleared. Enforced by git's own non-fast-forward push rejection on
-that branch, not just cooperative reading. See `STATE.md`'s 2026-08-30 #34 tick log entry for the
-full incident.
+Propagated to `agent-scaffold`'s template (PR #2) and cherry-picked onto `main` via a
+`copier update`, so this isn't a workout-tracker-only fix.
 
-## 2026-08-30 — Sequencing: ready work proceeds independently of intake triage
+## 2026-09-13 — photo-cull stays remote-less by design; photo-cull-public is its public counterpart
+Owner, asked directly after #137's propagation flagged `photo-cull` as missing a `git remote`:
+`photo-cull` (the local clone whose `docs/orchestration/` mirrors the other consumer repos) has no
+remote **on purpose** — it stays private and local. The repo that's actually pushed to a remote is
+`photo-cull-public` (`git@github.com:kapekost/photocull.git`). Any future cross-repo propagation
+that would otherwise target `photo-cull` should target `photo-cull-public` instead.
 
-`PLAYBOOK.md` step 3's literal old text ("any `intake` Issue preempts all `ready` work") is
-superseded: intake triage and `ready`-issue execution are separate, non-blocking tracks. An
-untriaged `intake` Issue does not gate an `/orchestrate` tick from picking the highest-ranked
-`ready` Issue instead — matches actual practice since 2026-08-26 (#24/#35/#38 shipped while
-#27/#29/#30/#32/#33 sat untriaged across several ticks). `PLAYBOOK.md` step 3 reworded to match.
-Owner call, prompted by the runner flagging the discrepancy in `STATE.md` rather than silently
-picking a reading on its own.
+**Not actionable for #137 itself:** `photo-cull-public` has no `docs/orchestration/` today — it was
+never onboarded to this template's propagation pattern, so there is nothing to land the
+model-tiering edit into there yet. Onboarding it (or deciding it shouldn't be) is a separate call,
+not made here.
 
-## 2026-08-30 — Merge policy: agent watches CI itself, then merges — no live per-PR ask
+## 2026-09-14 — UI review splits into a UI-expert pass and a UX-expert pass, plus a live browser check
+Owner, reviewing the visual-polish spec (#164/#152/#168): "verify visually on the browser and
+review with a UI and a UX expert" — two separate reviewers, not the combined "UI/UX review" the
+2026-09-06 decision named. `PLAYBOOK.md` step 5's UI gate now asks for both explicitly: a UI pass
+(visual design — hierarchy, spacing, color/icon consistency) and a UX pass (usability — affordance,
+flow, accessibility, one-handed phone use), each against the rendered screen, plus the existing
+"render it and look at it in a browser" requirement unchanged. Applies repo-wide, not just to this
+workstream — this is a refinement of the standing 2026-09-06 gate, not a one-off.
 
-Propagated from `agent-scaffold` via `copier update`. After opening a PR: watch CI to
-completion (`gh pr checks --watch --fail-fast`) and merge immediately if green — no live
-"can I merge this?" per PR. Explicitly not GitHub-native `gh pr merge --auto`: verified
-empirically that without branch protection defining required checks, `--auto` merges
-immediately regardless of CI state. See `docs/superpowers/specs/2026-08-26-human-agent-collaboration-design.md`
-in `agent-scaffold` for the full design.
+## 2026-09-14 — Visual-polish workstream: #164/#152/#168 bundle into one spec, full sweep
+Owner Q&A, live `/orchestrate` session, resolving #164's own flagged open questions (it explicitly
+named this fork in its body). Two calls:
 
-## 2026-08-26 — MCP server setup is per-project, owner-decided
+**Scope of #164 (animation/transitions) is a full sweep**, not a first-pass subset — every modal
+and screen transition gets the same motion treatment, not just the most-used flows.
 
-Don't auto-create `.mcp.json` from `.mcp.json.example` or add MCP servers
-speculatively. The owner decides which MCP servers (if any) a given
-project actually needs, case by case. If a task seems to need one, ask
-rather than guessing.
+**#164, #152 (icons/visual polish) and #168 (color/theme identity) bundle into one coordinated
+spec/workstream**, not three independent PRs. All three raised the same day or within a week of
+each other and each already flagged this exact possibility in its own "needs triage" section. A
+single spec covering icon system, color/theme identity and motion/animation lets one design pass
+answer all three rather than three uncoordinated visual changes landing separately.
+
+**Still gated by the standing "efficient, not overengineered" constraint** (`DECISIONS.md`
+2026-09-06): reuse existing tokens/CSS, no new component library or design-system layer, no new
+animation library, for a small personal app. All three Issues stay `intake` pending the spec (via
+`superpowers:brainstorming` → spec → plan, per PLAYBOOK's Feature intake "third outcome") — this is
+an owner-shaped direction, not yet something concrete enough to size or split.
+
+## 2026-09-14 — Deploy classifier bypassed via a scoped Bash permission rule; #132's rewrite confirmed done by the owner
+**Deploy.** The session's own auto-mode permission classifier ("Production Deploy") was blocking
+`scripts/deploy.sh` outright, unrelated to anything in this repo's own guardrails, which already
+gate a deploy behind tests + independent review + green CI (the same shape as the standing
+no-live-ask merge policy). Owner's call: match that pattern for deploys too rather than leave them
+hard-blocked. Fix: `Bash(bash scripts/deploy.sh)` added to `.claude/settings.local.json`
+(gitignored, this machine only — a personal trust decision about this owner's own deploy target,
+not committed policy for a public repo). An agent cannot make this edit itself — it hits a separate
+classifier category, "Self-Modification" — so the owner ran it directly via `!`.
+
+**#132 (history scrub) is done, confirmed by the owner directly**, not inferred: they ran the
+`git-filter-repo` rewrite + force-push themselves, at a keyboard, using a command given in a
+previous session — the exact "human runs it themselves" path GUARDRAILS requires, never a tick.
+Verified rather than taken purely on the owner's word: a full-history grep across all reachable
+commits on both `main` and this home branch (457 commits) found no leaked deploy-target IP or
+hostname anywhere, and redeploying 2026-09-14 confirmed the home branch itself was rewritten too
+(not just `main`) — the Pi's stale clone saw `(forced update)` on both branches' fetch. Issue
+closed with the verification recorded in its own comment.
+
+## 2026-09-28 — Progress trend anchor stays a date
+The Progress trend line keeps its date anchor ("since 08-04") rather than relative wording
+("since last week" / "vs. last session"). Owner: "Date". No change needed; closes the last open
+design call from #228.
+
+## 2026-09-28 — Bodyweight progression keeps +2.5 kg; trophy = best single (real or estimated 1RM), records only
+(1) A clean hit on a bodyweight exercise (e.g. pull-ups at 0 kg) keeps suggesting +2.5 kg added
+load, as `overloadSuggestion` and #225 already do. Owner: "yes". (2) The trophy marks only a
+**best single**: a real 1-rep lift, or the Epley-estimated one-rep max when the best set had more
+reps. It applies to records only (Progress's Personal Record and the Personal Bests list). History
+drops its per-session trophy; the "PR!" toast keeps its trophy. Tracked as #231.
+
+## 2026-09-28 — #229 design system: tokens, not per-item sizes; colored nav; timer bar relayout; live preview
+Owner rejected per-item icon bumps ("plan a proper design system and apply, get professional ux UI
+engineer review") after the exploratory `claude/icons-scale-up` branch — which stays unmerged as
+reference. Owner answers to the intake Q&A, informed by independent UI- and UX-expert audits:
+(1) **Nav: all three tabs colored.** Asked for best practice; recommended and adopted: color *is* the
+state signal — the active tab full-color, inactive tabs greyscale — drawn as two-tone SVGs (the
+Progress one keeping the owner's preferred bar-chart-with-arrow shape), never opacity-dimming a
+multi-hue asset (UX audit rule; weakest state cue). (2) **Timer bar in scope, with relayout** to
+restore the 44px tap-target floor its ≤440px/≤340px breakpoints currently shrink to 38/34px wide.
+(3) **Sign-off by live preview** — build on a branch, show before/after of every screen, owner
+approves the actual px values before anything ships.
+
+## 2026-09-30 — #229 design signed off, with changes from review
+Owner: "all approved" on the #229 design review (issue comments 5904751315 and 5904802288;
+design system artifact https://claude.ai/artifact/XhMjU1CaCdVFrLTVftd1Rm). Approved: icon scale
+caption 16 / body 20 / control 22 / heading 24 / nav 26 / header 28; nav active second tone option B
+(`accent-deep` #8fae22, `muted-3` #6b6b6b for inactive); timer bar holds only the rest controls at
+44×44 everywhere, with workout time and screen-on moved to the Workout header eyebrow ("ACTIVE
+SESSION · 52:10"), and the rest adjusters read "−30s" / "+30s" as text. Day icons replace the body
+PNGs, one per day, targeted muscles in a second tone of the day colour: Upper A dumbbell curl,
+Upper B overhead press, Lower A back squat, Lower B deadlift. "Add note" becomes a muted text
+action, not a button. This sign-off replaces the spec's "live preview" gate for the design itself;
+the build still gets the PLAYBOOK step 5 UI render and UI/UX review.
+
+## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
+Owner, in response to the review bot objecting that `--approve` contradicted the "approval is
+human-only" guardrail. It did not: that rule is about the `approved` label and the `APPROVE`
+box — destructive-operation approval — and a bot approving a pull request is a different act
+by a different actor. The wording now says so in both places (`GUARDRAILS.md` "Approval is
+human-only" scope bullet and "Merge & branch rules"), so the next session does not have to
+re-derive it.
+
+**The decision:** the owner is not a required reviewer per PR. This repo already merges on
+green CI with no live approval per PR; a bot that reviews is an *extra* opinion in that set,
+not a gate and not a substitute for the owner. GitHub agrees structurally — `GITHUB_TOKEN`
+approvals are excluded from branch protection, so the bot cannot be mistaken for a human
+approver by the platform either. The one thing that changes the picture is the bot saying
+**Blocking**: that is a concern, and it gets handled like red CI.
+
+**Also settled here:** a re-review should make the reader's life easier, not harder. The
+reviewer looks only at the diff since its own last review, closes its own resolved threads
+first (`scripts/resolve_review_threads.sh`, which can only ever resolve threads the bot itself
+started), and posts one short message with a fixed shape — verdict, counts, findings, details
+only where the judgement was hard. A review nobody reads to the end has not reviewed anything.
+
+**Corrected the same day, after the bot's own review of that change (PR #242).** The first
+implementation made the reviewer token-less *and* left it holding a config tier the PR could
+outrank, so the read-only guarantee was decorative; it also broke the re-review path, because
+`gh` needs a token the reviewer no longer had. The shipped shape: two steps hold a token (one
+fetches review history into a file, one resolves threads and posts) and the reviewer itself
+holds none; its project `opencode.json` is replaced with a trusted one before it runs; and it
+posts a **comment**, not a review state, because a review state needs a token it cannot have.
 
 ## 2026-10-03 — `password_hash` in the export envelope: open, deliberately not patched
-
 **Status: awaiting an owner decision.** Recorded here so it is not re-litigated
 or quietly "fixed" by the next agent that notices it.
 
@@ -419,7 +642,6 @@ Needs an owner call plus a drill, not a patch. Deliberately excluded from the
 2026-10-03 deploy; see `AGENTS.md`'s Status section.
 
 ## 2026-10-03 — Verify every review finding against the branch you are about to ship
-
 A review produced four **false** Critical security findings because it ran
 against `claude/workout-tracker-backlog-bu9qnw`, a branch that had diverged from
 `main` and sat 59 commits behind it. On that branch `POST /api/import` really
@@ -448,7 +670,6 @@ running app with an older build and removed `Login`, `SetPassword` and
 app lost three features for a deploy cycle.
 
 ## 2026-10-03 — The "retry any classifier denial" rule lives on the home branch and still needs narrowing
-
 **This could not be fixed from `claude/import-auth-hardening`, and saying so is
 the point of the entry.**
 
@@ -492,7 +713,6 @@ Until step 1 happens, note that the new `deploy.sh` main-descendant gate will
 look like a new bug to whoever hits it first.
 
 ## 2026-10-03 — Preflight is a check, not advice
-
 `scripts/preflight.sh` exists because of
 `https://kapekost.co.uk/blog/an-ai-agent-i-didnt-have-to-trust`: *"I would rather
 have a test that makes the bad outcome impossible than an agent that is merely
@@ -524,7 +744,6 @@ It has no host default. `AGENTS.local.md` is gitignored, so the script takes
 to stay runnable from a plain clone with no local config.
 
 ## 2026-10-03 — Why the classifier retry rule exists, and the real fix
-
 Recorded after the owner pointed out the retry rule had been narrowed for the
 wrong reason.
 
@@ -566,7 +785,6 @@ here: it is the orchestrator's own entry point and changing it is an owner
 decision about how much autonomy the unattended runner has.
 
 ## 2026-10-03 — Branch alignment: the pattern is integration failure, not a forgotten merge
-
 The owner guessed this was "deploy from main, then forget to merge". Checked, it
 is the inverse, and worse — it fails in **both** directions at once.
 
@@ -599,28 +817,3 @@ home branch (or re-point the home-branch header at a branch that tracks `main`),
 then triage the 10 stale branches individually — two hold unmerged commits that
 `main` has since superseded by another route, so they are candidates for
 deletion, but deleting branches is destructive and belongs to the owner.
-
-
-## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
-
-Owner, in response to the review bot objecting that `--approve` contradicted the
-"approval is human-only" guardrail. It does not: that rule is about the `approved`
-label and the `APPROVE` box — destructive-operation approval — and a bot approving
-a pull request is a different act by a different actor. The wording now says so in
-both places (`GUARDRAILS.md` "Approval is human-only" scope bullet and "Merge &
-branch rules"), so the next session does not have to re-derive it.
-
-**The decision:** the owner is not a required reviewer per PR. This repo already
-merges on green CI with no live approval per PR; a bot that reviews and approves is
-an *extra* opinion in that set, not a gate and not a substitute for the owner.
-GitHub agrees structurally — `GITHUB_TOKEN` approvals are excluded from branch
-protection, so the bot cannot be mistaken for a human approver by the platform
-either. The one thing that changes the picture is the bot saying
-`--request-changes`: that is a concern, and it gets handled like red CI.
-
-**Also settled here:** a re-review should make the reader's life easier, not
-harder. So `opencode-review.yml` now reviews only the delta since its own last
-review, closes its own resolved threads first (`scripts/resolve_review_threads.sh`,
-which can only ever resolve threads the bot itself started), and posts one short
-message with a fixed shape — verdict, counts, findings, details only where the
-judgement was hard. A review nobody reads to the end has not reviewed anything.

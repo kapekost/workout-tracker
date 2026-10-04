@@ -344,6 +344,22 @@ only because the owner happened to ask about it, not by anything in this file. H
      - **UX (usability):** affordance, flow, copy clarity, accessibility, one-handed phone use —
        does it work, not just look right.
 
+   **A UI/UX reviewer's severity verdict is itself a claim to verify, not a finding to act on
+   directly** — the same "a claim of clean needs spot-checking" principle step 5 already applies to
+   a subagent's grep-search claim (the #168 precedent above) applies here too, since both reviews
+   work from screenshots, not source. Real case, #152 (2026-09-27): a UI-expert review's Critical
+   finding ("un-replaced emoji in the top bar") was actually a different, deliberately out-of-scope
+   feature (a user's own chosen avatar emoji); its "solid-fill day icons" claim was contradicted by
+   the actual SVG source (no fill override, genuinely stroke-only); a UX-expert review's Critical
+   finding ("dropped-`?` weakens a delete-confirm signal") rested on a "pixel-identical icon" premise
+   that was also false against source (the icon's whole shape changes, trash-can to checkmark) and,
+   for its highest-stakes example, was directly contradicted by an explicit confirm-state text label
+   the controller had watched render live in the browser minutes earlier. Both reviews were
+   thorough and well-reasoned from what they could see — screenshots alone just can't show source,
+   an armed/confirm state a screenshot didn't happen to capture, or which feature a glyph belongs to.
+   Adjudicate every UI/UX finding against the actual code (and a fresh screenshot of any state the
+   first pass didn't capture) before treating it as real; ledger the adjudication either way.
+
    Both gates carry the owner's second constraint with them: **efficient, not overengineered.**
    Reuse the existing tokens and CSS classes; a review that comes back recommending a component
    library or a design-system layer for this app has answered the wrong question.
@@ -369,6 +385,22 @@ only because the owner happened to ask about it, not by anything in this file. H
    If the base branch moved since the PR opened and it now conflicts, resolve by hand — read both
    sides' intent, never blindly take one side or force through — then re-run local verification before
    pushing the merge commit.
+
+   **CI green is not the same as reviewed.** This repo has a bot code reviewer (Codex) wired to
+   PRs; its comment can land minutes after CI goes green, or hours after if merge doesn't happen
+   right away. Checking `reviews` once, right after CI finishes, and then treating that as
+   permanent clearance is a real gap: PR #213 (2026-09-27) was checked (`reviews: []`, correctly,
+   at that moment) immediately after CI went green, but didn't actually merge until ~4.5 real-time
+   hours later — Codex's review had landed in that gap (with a genuine finding: a same-color
+   opacity accent invisible on a flat SVG, later confirmed and reflected in the fix) and nothing
+   re-checked before merging, so it went unread and unaddressed for a full tick. Right before
+   running `gh pr merge`, re-run `gh pr view <PR> --json reviews` regardless of how long ago CI was
+   confirmed green or how confident an earlier check felt — a stale "no reviews yet" from minutes
+   or hours ago is not evidence of "no reviews." If Codex has posted, read both the review body and
+   its inline comments (`gh api repos/<owner>/<repo>/pulls/<PR>/comments`) before merging — the
+   substantive finding is usually in the inline comment, not the review's own generic wrapper text.
+   Verify each finding against source the same way a UI/UX subagent's finding gets verified (step 5
+   above) before deciding whether it blocks the merge or can ship as a tracked follow-up.
 7. **Write state back:** comment progress on the Issue; update `STATE.md`'s cursor/next-action only
    when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
    decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of

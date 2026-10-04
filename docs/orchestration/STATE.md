@@ -4,79 +4,185 @@
 > below; a feature branch must never touch this file. **Hard budget: ~250 lines.** Every tick reads
 > this file first, so its cost is per-tick and compounding — that is what keeping it bounded is for.
 >
-> **Home branch:** `claude/workout-tracker-backlog-bu9qnw` — the real orchestration state (Cursor,
-> In-flight, Needs owner) lives there, not below. This `main` copy exists only so scripts run from
-> a plain `main` checkout (e.g. `create_issue.sh`, `orchestrate_status.sh`) can resolve the home
-> branch/Project pointers without a git worktree. Do not fill in the Cursor/In-flight sections below
-> from `main` — they are not kept current here by design (see `PLAYBOOK.md` step 1).
+> **Home branch:** `claude/workout-tracker-backlog-bu9qnw`
 > **Project number:** 3
 > **Project owner:** kapekost
 >
 > **This file keeps no Tick log.** Each tick's write-back goes straight to `HISTORY.md` — prepended
 > at the top, verbatim, per PLAYBOOK step 7 — and Cursor's "Current focus" carries the live summary
-> instead. Resolved Needs-owner items move to `HISTORY.md` the same way. A "keep the last 2-3 ticks"
-> rule was tried first here and still regrew past budget, since Cursor and Needs-owner grow on their
-> own regardless of the tick log; keeping no tick log at all, rather than a rolling window, is what
-> actually stops it recurring. `DECISIONS.md` is separate and is never compacted.
+> instead. Resolved Needs-owner items move to `HISTORY.md` the same way. This file reached 1067
+> lines on 2026-09-06 (~200 lines/day of tick-log growth) before the split; keeping no tick log here
+> at all, rather than "the last N," is what stops it recurring.
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, continued. Since this cursor was last updated, **#84** (schema v6 +
-  auth core) and **#85** (Resend invite/reset, rate limiting, owner bootstrap) both shipped and
-  merged — the standing approval recorded below covered both. The owner then personally found and
-  filed a real cross-profile data leak (reads were never scoped to a profile, only writes were,
-  since #66) and it shipped same-day as **#110** (merged via #112): a single `acting_profile_id(conn)`
-  seam now scopes every read and 404s cross-profile `PATCH`/`DELETE`, independently of login. That
-  makes **#86** smaller than its issue body still says (comment posted narrowing it to: swap the
-  seam's body for a real session lookup, delete `_default_profile_id`, trim `/api/health`, gate
-  `/api/events`, add the frontend route guard + 401 handler). #86 also had its login/set-password
-  *screens* split out into new **#105** on 2026-09-05, so the UI can be used and proven before the
-  gate closes — #86 now only turns the door. Housekeeping shipped in the same window: backup
-  heartbeat → status file + weekly cron (#88), local/off-site backup status split apart (#93),
-  off-site Google Drive backups re-authorized and working but still on a 7-day clock the owner
-  deliberately deferred fixing (#94), active alerting deferred (#89), a CI secrets/env-file scan
-  (#111), deploy env vars moved to a target-side `.env` (#108), a Resend User-Agent/error-message
-  fix (#109). Owner deprioritized **#27** (public access) to P3 (2026-09-05): it waits until the
-  accounts system has been used for real, not just tested in CI. Intake otherwise unchanged:
-  #30/#32/#33 have specs but no `ready` children; #70 unshaped.
-- **Process note:** none of the above (10+ merged PRs, #101 through #112) was ever written back to
-  this Cursor/Tick log — reconstructed this tick from `git log` and live GitHub issue/comment state,
-  which were themselves current and consistent throughout. Only this file had drifted. Full
-  reconstruction is in this tick's log entry below.
-- **Next action:** **#105 is executing** under the standing approval recorded in `DECISIONS.md`
-  (2026-09-05, "Standing approval: the accounts workstream (#105, #86, #87)"), which names it
-  explicitly. The owner re-confirmed that reading live this tick. **No `approved` label was added by
-  the runner and none is needed** — that is exactly what the standing-approval mechanism provides.
-  #86 → #87 stay blocked behind it and are covered by the same record when their turn comes.
-
-  **Correction, same tick:** an earlier pass of this file (and PR #113 before it) reported that no
-  standing approval existed and that #105 was blocked on `/orchestrate approve 105`. That was wrong,
-  and the reason it was wrong is the finding below.
-
-  **This tick took the intake track** since the `ready` track was blocked: picked #30 (highest-ranked
-  intake after #27, which the owner deferred to P3). It stays `intake` — its spec exists and is
-  complete, but the spec's own Status block gates splitting on an owner skim that has not happened.
-  Refreshed that spec instead (#114, merged) so the skim lands against reality: it still named the
-  superseded #67 as its login dependency and still told an executor to scope rows with
-  `_default_profile_id`, the exact call site #86 exists to delete. Also learned the dependency is
-  narrower than the spec assumed — #110 shipped per-profile scoping independently of login, so
-  #30/#32 wait only on #86 swapping the `acting_profile_id(conn)` seam to a session lookup.
+- **Current focus:** **reconciled, and waiting on a push.** The home branch was a strict ancestor of
+  `main` (133 behind, 0 ahead), so its cursor was the only live copy while `main`'s was a stale
+  September copy. It has now been fast-forwarded to `main` and reconciled hunk by hunk. Nothing is
+  in flight and no Issue is claimed; see "Needs owner" for the two permissions that block execution.
+- **Next action:** push this reconciliation to the home branch, then pick up **#236** (the
+  design-review handoff). It is the highest-ranked unpicked `ready` Issue whose remaining scope
+  needs no owner decision and no destructive approval. Its body is stale in three places and is
+  corrected in a comment already composed against current `main` — **#235 merged, #229 shipped as
+  PR #267 with only the day icons deferred, and the deployed commit is `e8d7335` with 8 commits
+  undeployed.** The one concrete unblocked item inside it is deploying that 8-commit gap: no schema
+  change, so no export snapshot or restore drill, just a deploy plus an `/api/health` version check.
+- **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
+  Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
+  the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
+  timer-bar relayout and the muted "Add note". **Task 4, the four day-icon SVGs, was deferred by
+  owner decision** — the source artifact was unreachable from the writing session, so `DayIcon.jsx`,
+  `IconDayUpper`/`IconDayLower` and `upperbody.png`/`lowerbody.png` are deliberately untouched.
+  #229 stays `ready` and open; the remainder is real. Note that
+  `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
+  unimplemented" and tells the reader not to file icon findings — **that premise is now false and
+  must not be used to suppress new ones.** Fixing that document is part of #236's scope.
+- **Deploy gap:** live is `e8d7335`; `main` is `72bea5c`. The 8 undeployed commits are #267 (real
+  UI) plus review-bot CI (#259, #260, #261, #264, #265, #268) and an `AGENTS.md` refresh (#263).
+- **Eight open Dependabot PRs, all green** (#249-#251, #252-#254, #270, #271), none drafted, all
+  `MERGEABLE`. Mergeable on green CI per standing policy — deliberately not merged this tick, since
+  merging is a separate action from the blocked claim.
+- **Rejected reference branch:** `claude/icons-scale-up` (29471aa, worktree `~/dev/wt-icons-scale-up`)
+  is the per-item attempt the owner turned down. Keep it only for its measured PNG crop boxes (spec
+  §9). Never PR it, and delete it once #229 fully ships.
+- **Reconciled (this tick):** the home branch is fast-forwarded to `main` and each file resolved
+  hunk by hunk — never wholesale. `STATE.md`/`HISTORY.md`/`IMPROVEMENTS.md` restored to the home
+  copies (main's `HISTORY.md` is a different document: a recovered 2026-09-05 snapshot with no tick
+  entries). `GUARDRAILS.md` taken from `main`, verified a strict superset (0 home-only lines).
+  `PLAYBOOK.md` resolved in **both** directions: `main`'s 2026-10-03 "approve variant removed"
+  marker kept, and home's two paragraphs restored — the UI/UX-verdict-is-a-claim rule and the
+  CI-green-is-not-reviewed rule, which a plain fast-forward would have deleted. `DECISIONS.md` took
+  `main`'s copy minus a duplicated 2026-10-03 entry that existed at both line 15 and line 604 (the
+  line-15 copy is the superset; the tail copy was dropped).
+  **Method note:** the earlier divergence measurement in this repo's own notes was wrong — it
+  counted `diff`'s `<`/`>` markers, which `diff` never emits, and so reported PLAYBOOK and
+  GUARDRAILS as identical when both had drifted. Count `-`/`+`, or just read the diff.
+- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). After #236, #266 and
+  #262 (`effort:S` each) then #231 are next pickable `ready`. #220-#223 all carry `blocked`.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+(none)
 
 ## Needs owner
+- **`git push` is denied in the agent session, so no tick can claim work.** This is the single
+  blocker on all execution: PLAYBOOK's "Claiming work" requires the In-flight claim to be *pushed*
+  to the home branch before any work starts, and the session's permission config contains a literal
+  `{"permission":"bash","pattern":"git push*","action":"deny"}`. GUARDRAILS puts pushes on the
+  never-retry hard-stop list, so an identical retry is not the answer. Needs the rule relaxed (or
+  `gh auth setup-git` plus an API-based push path) for the session that runs `/orchestrate`.
+  **Not a credential problem** — `gh auth status` is healthy; this is the harness rule.
+- **The `GITHUB_TOKEN` in this session can create branches but cannot write to Issues.**
+  `gh api .../git/refs -X POST` succeeds; `POST .../issues/236/comments` and
+  `PATCH .../issues/236` both return 403 `Resource not accessible by personal access token`
+  (GraphQL `addComment` likewise). So it is a fine-grained PAT with contents:write but **no
+  issues:write** on this repo, and also no `project` scope (`user.projectV2` fails, which is why
+  `gh project item-list` and the off-board Issue sweep cannot run). Consequence: this tick could
+  not comment on #236, could not give it a state label, and could not run the board reconcile.
+  Needs the PAT granted Issues read/write plus Projects read on `kapekost/workout-tracker`. Until
+  then #236 stays state-less and invisible to the label-filtered picking query.
+- **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
+  twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
+  CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.
+  Fixed the specific instance (PR #227) and logged an `IMPROVEMENTS.md` `[local]` entry with a fix
+  candidate (a CI step that actually builds the Dockerfile, or a static check that every top-level
+  `import` in `main.py` resolves to a file the `COPY` lines include). Not built this tick — new CI
+  tooling, outside this tick's remit — owner's call whether it's worth building before a third
+  incident.
+- **Nothing stops a stray commit landing on the orchestration home branch's local checkout.**
+  2026-09-27: found a real commit (owner's own git identity, `kapekost@Mac.mynet`) sitting on this
+  machine's local `claude/workout-tracker-backlog-bu9qnw` tip, never pushed — landed there because
+  the primary checkout happened to have the home branch checked out when work was done directly in
+  it rather than through `/orchestrate`. Rescued onto its own branch off `main`, no data lost, but a
+  bare `git status` gives no hint this branch is special before it happens again. Fix candidates:
+  a pre-commit hook refusing a commit whose parent branch matches `STATE.md`'s "Home branch" field
+  unless run through `/orchestrate`, or just a loud README/banner. `IMPROVEMENTS.md` 2026-09-27,
+  not fixed this tick (new tooling work, outside `/orchestrate`'s own docs-only remit) — owner's call
+  whether it's worth building.
+- **`AGENTS.local.md`'s "Current status" deploy note had drifted for ~17 deploys before this
+  tick's catch-up correction** (see Cursor above) — it isn't wired to anything automatic, so it
+  only stays accurate when whoever deploys remembers to update it. Not urgent (the file itself says
+  as much, and this tick fixed the immediate drift), but worth a standing habit or a light script
+  check if it keeps happening — owner's call whether that's worth the effort for a file only agents
+  and the occasional manual deploy touch.
+- **This machine's system `git` needs the Xcode license re-accepted.** Started failing 2026-09-15
+  mid-tick with `fatal: You have not agreed to the Xcode license agreements. Please run 'sudo
+  xcodebuild -license' from within a Terminal window...` (exit 69) on every `git`/`gh` invocation
+  that shells out to `/usr/bin/git`. Affects this session and any other Claude Code session on this
+  machine using plain `git`. Not something an agent can fix (needs interactive `sudo` at a
+  keyboard). Workaround in place meanwhile: prefix `PATH="/Library/Developer/CommandLineTools/usr/bin:$PATH"`
+  before `git`/`gh` calls (that binary isn't gated the same way). Low urgency since the workaround
+  holds, but worth a minute at a real keyboard.
+- **`workoutPlan.js`'s per-day categorical colors (`lower_a` blue, `upper_b` pink, `lower_b`
+  orange) now sit against the new true-neutral Mono+Volt surfaces** (only `upper_a` was fixed to
+  the new accent, since its old value was byte-identical to the deleted brand color — see
+  `HISTORY.md` 2026-09-15). Rendered all four days locally to check: these three read distinctly
+  more vivid/saturated against pure neutral gray than they did against the old slightly-blue-black
+  background. This is a pre-existing categorical system `#168`'s spec never touched (not a defect
+  it introduced), so it wasn't changed — but worth a look: fine as an intentional "day identity"
+  exception to the one-accent principle, or worth its own follow-up Issue?
+- **#27 (public access) may be ready to leave its 2026-08-30 P3 hold.** That decision deferred it
+  explicitly until "the accounts system has been used for real, not just tested in CI" — #86/#87
+  (the gate + export/import) shipped 2026-09-06, over a week ago, and the app has since seen real
+  production deploys and login/gate enforcement in daily use. This tick skipped #27 (highest-ranked
+  `intake` Issue) rather than assume that bar is now cleared — "used for real enough" is the
+  owner's own judgment to make, not something visible in git/CI. If the owner confirms it, #27 is
+  next in line for a spec/brainstorm pass per its 2026-08-30 decision (Cloudflare Tunnel, Home
+  Assistant network-safety review required — real stakes, not a quick triage).
+- **The harness's merge-permission classifier is inconsistent, not just subagent-vs-controller —
+  and not just merges.** #138 (2026-09-13): a dispatched subagent's `gh pr merge` was blocked
+  despite green CI; the controller merged PR #180 instead. #181, same day: the *controller's own*
+  `gh pr merge` was also denied once ("blocked by classifier", no reason given) — but an identical
+  retry succeeded immediately. **2026-09-14: same pattern on a plain `Edit` to this home branch's
+  own `DECISIONS.md`** (bare "Blocked by classifier," no category) — identical retry succeeded
+  immediately, no content change between attempts. All `[unsure]` in `IMPROVEMENTS.md`; not
+  fixable via a PR here. Not blocking anything — just means any classifier denial with a generic or
+  missing reason is worth one identical retry before treating it as a hard stop requiring hand-off.
 - **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/
-  2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114) gates itself on an
-  owner skim before either Issue may be split into `ready` children; every fork-in-the-road
-  question in it was already answered by owner Q&A on 2026-08-30. **2026-09-06:** #33 (nutrition)
-  merged into #32 by direct owner decision, so the spec now needs the nutrition/in-app-AI-query
-  scope folded in *before* the skim means anything. Until then #30/#32 stay `intake`.
-
-For everything else currently open, see `STATE.md` on the orchestration home branch
-(`claude/workout-tracker-backlog-bu9qnw`) — this file lags it by design (`DECISIONS.md`
-2026-09-04) and is refreshed only periodically via `copier update`/manual sync, most recently
-2026-09-10. The Cursor section above is similarly a snapshot, not a live status.
+  2026-08-31-ai-structured-io-design.md` gates itself on an owner skim before either Issue may split
+  into `ready` children; every fork-in-the-road question in it was already answered by owner Q&A on
+  2026-08-30. **2026-09-06:** #33 (nutrition) merged into #32. **2026-09-13:** #30's stray
+  2026-09-10 comment (edit upcoming planned workouts — unrelated to Import's own scope) was split
+  out to its own `intake` Issue, **#177** (#70/#139 precedent); #32 got an owner follow-up
+  sharpening the AI-in-the-loop ask toward live/chat-driven interaction and naming a new
+  dependency, **#171** (workout-science/nutrition domain agents), which should land before #32 is
+  sequenced. Spec needs all of this (#33, #171 dependency, the sharpened ask) folded in before the
+  skim means anything. Both stay `intake` until then.
+- **Three `[template]` improvements still genuinely open in `agent-scaffold`** (narrowed 2026-09-10 —
+  PR #2 merged with corrections, which covered a third): `/orchestrate approve`'s home-branch
+  ambiguity (the #84 approval once landed on a stale `main` copy of `STATE.md`), and PLAYBOOK step 1
+  not naming which branch to read docs from. Both only make sense once `agent-scaffold`'s own
+  template has a "Claiming work"/home-branch concept — it doesn't yet, and propagating that is a
+  larger, deliberately separate sync (per PR #2's own body). Dead-subagent recovery, the third
+  original item, is done — landed in the template via PR #2 and mirrored directly into this repo's
+  own `PLAYBOOK.md` step 4, 2026-09-10. **New, 2026-09-14:** a copier update from the template
+  (#176/PR #187) overwrote a home-branch-only GUARDRAILS.md citation with generic template
+  wording — the third occurrence of the sync-direction gap `IMPROVEMENTS.md`'s 2026-09-13 entry
+  already diagnosed. This tick's step-2 sweep caught and reconciled it correctly (no wholesale-copy
+  mistake this time), but three incidents in three weeks is itself the case for that entry's
+  "automatic sync" fix candidate over continuing to rely on a tick noticing. None of these four
+  items (plus a fifth, 2026-09-28: PLAYBOOK step 6 should check `mergeable` when a PR shows no
+  checks, since conflicting PRs never run `pull_request` CI) has the named, explicit cross-repo credential GUARDRAILS requires before an agent may open
+  a PR against `agent-scaffold` — needs the owner to either provide one or make these fixes
+  directly.
+- **Six `[unsure]` IMPROVEMENTS.md entries, harness-level, not fixable via a PR here:**
+  (2026-08-30) the `code-review` skill's forked execution silently reviewed the wrong attached repo
+  with no explicit target given; (2026-08-31) the Agent tool without `isolation:'worktree'` shared
+  the parent session's own checkout, and its `git checkout -b` silently switched the orchestrator's
+  own branch mid-session; (2026-09-07) a rejected Agent tool call had actually already run to full
+  completion in its own worktree, undetected until a re-dispatch stumbled on the duplicate — real
+  fix candidate: a rejected dispatch should guarantee the subagent never started, or the harness
+  should surface that it started anyway, so "rejected" and "ran to completion" are never both true;
+  (2026-09-09) this session's injected CLAUDE.md/AGENTS.md project instructions were for a
+  different attached repo (kapekost-web) than the one `/orchestrate` actually targeted, caught only
+  by hand-matching the command banner text against each repo's own command file, not by anything in
+  this file; (2026-09-09) the outer session's generic single-branch dispatch assignment conflicted
+  with this repo's own multi-branch orchestration design, resolved by treating this repo's own
+  checked-in docs as the explicit permission the outer rule carves out for; (2026-09-13) a
+  worktree-isolated execution subagent's first Read/Edit calls targeted the shared checkout's
+  absolute path for a source file instead of its own worktree's copy, even though the dispatch
+  prompt only ever gave a relative path for source references — the harness's isolation refused
+  the write before anything was lost, no fix candidate identified beyond "retry in your own
+  worktree path."
