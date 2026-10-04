@@ -37,7 +37,7 @@ def sanitize(text, repo, limit):
     text = re.sub(r"\b\w+://\S+|\bwww\.\S+", "[link removed]", text, flags=re.I)
     text = " ".join(text.split())[:limit]
     text = re.sub(r"@(?=\w)", "@​", text)
-    text = re.sub(r"[`~]{3,}", "'''", text)
+    text = re.sub(r"`{3,}|~{3,}", "'''", text)
     return re.sub(r"([\\\[\]<>&#])", r"\\\1", text)
 
 
