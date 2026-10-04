@@ -50,19 +50,26 @@ def extract_json(text):
     decoder = json.JSONDecoder()
     found = None
     pos = text.find("{")
-    for _ in range(20):
+    for _ in range(40):
         if pos == -1:
             break
         try:
-            obj, end = decoder.raw_decode(text, pos)
+            obj, _end = decoder.raw_decode(text, pos)
         except (ValueError, RecursionError):
-            pos = text.find("{", pos + 1)
-            continue
-        if isinstance(obj, dict) and isinstance(obj.get("findings"), list):
+            obj = None
+        if is_verdict(obj):
             found = obj
-        pos = max(end, pos + 1) if isinstance(obj, dict) else pos + 1
-        pos = text.find("{", pos)
+        pos = text.find("{", pos + 1)
     return found
+
+
+def is_verdict(obj):
+    """A findings list plus a real summary. An echo of the prompt's example shape has a
+    placeholder summary such as "<one line, max 150 chars>" and is not a verdict."""
+    if not isinstance(obj, dict) or not isinstance(obj.get("findings"), list):
+        return False
+    summary = obj.get("summary")
+    return isinstance(summary, str) and summary.strip() != "" and not summary.lstrip().startswith("<")
 
 
 def plain_comment(text):

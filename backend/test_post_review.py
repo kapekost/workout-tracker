@@ -158,6 +158,19 @@ def test_findings_that_is_not_a_list_is_not_a_verdict():
     assert kind == "plain" and "CLEAN" not in body
 
 
+def test_an_echo_of_the_prompts_example_shape_is_not_a_verdict():
+    echo = '{"summary": "<one line, max 150 chars>", "findings": [], "notes": []}'
+    kind, body, _ = pr.build("The shape is " + echo, PATCHES, REPO)
+    assert kind == "plain" and "CLEAN" not in body
+
+
+def test_a_verdict_nested_in_another_object_is_found():
+    nested = json.dumps({"review": {"summary": "s", "findings": [
+        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]}})
+    _, _, comments = pr.build(nested, PATCHES, REPO)
+    assert len(comments) == 1
+
+
 def test_clean_review():
     kind, body, comments = pr.build(review([], summary="3 files, no findings"), PATCHES, REPO)
     assert kind == "review" and comments == []

@@ -253,19 +253,21 @@ jobs:
           set +e
           set -uo pipefail
           : > "$RUNNER_TEMP/skip-reasons.txt"
-          # A usable verdict is a parsable JSON object with a findings list.
+          # A usable verdict: a JSON object with a findings list and a real (non-placeholder) summary.
           has_verdict() {
             python3 - "$1" <<'PY'
           import json, sys
           text = open(sys.argv[1], errors="replace").read()[:50000]
           dec = json.JSONDecoder()
           i = text.find("{")
-          for _ in range(20):
+          for _ in range(40):
               if i == -1:
                   break
               try:
                   obj, _end = dec.raw_decode(text, i)
-                  if isinstance(obj, dict) and isinstance(obj.get("findings"), list):
+                  s = obj.get("summary") if isinstance(obj, dict) else None
+                  if (isinstance(obj, dict) and isinstance(obj.get("findings"), list)
+                          and isinstance(s, str) and s.strip() and not s.lstrip().startswith("<")):
                       sys.exit(0)
               except (ValueError, RecursionError):
                   pass
