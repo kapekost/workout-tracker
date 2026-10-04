@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { PLAN, DAY_COLORS } from '../data/workoutPlan'
 import TimerBar from '../components/TimerBar'
+import SessionClock from '../components/SessionClock'
 import ExerciseCuesModal from '../components/ExerciseCuesModal'
 import Skeleton from '../components/Skeleton'
 import { formatClock, elapsedSeconds, remainingSeconds } from '../lib/timer'
@@ -75,11 +76,13 @@ const HOLD_REPEAT_MS = 90
 // already sized to clear NavBar (a measured, constant 77px across every
 // viewport width) plus a small margin - the same clearance every other
 // page gets. On top of that this page also needs TimerBar's own rendered
-// height so the last card never ends up hidden behind it: TimerBar measures
-// 65px tall up to its 440px breakpoint tier and ~69px above that (the tiers
-// only narrow widths, not heights - .rest-clock's own font-size step is
-// what changes the bar's height here). 70 covers both with a few px to
-// spare.
+// height so the last card never ends up hidden behind it.
+// #229 Task 5: TimerBar dropped the session-clock row (moved to
+// SessionClock, in the header above), so it no longer has the old two-tier
+// 65px/69px height split driven by .rest-clock's breakpoint font steps -- it
+// now measures a flat 65px at every width (re-verified in a real browser,
+// 320/360/390/440px, via a mocked-API Playwright script). 69 covers it with
+// a few px to spare, same margin the original 70 gave the old 69px tier.
 // Verified in a real browser (2026-08-25, Upgrade 5 Task 3/I14, back when
 // Finish Workout was this page's last element rather than in the header):
 // relying on .page-shell's 96px alone left it ~25px behind TimerBar's top
@@ -87,7 +90,7 @@ const HOLD_REPEAT_MS = 90
 // redundant. This replaces the old bare "96" (a second, coincidental copy
 // of .page-shell's own number) with the value actually required, leaving
 // ~20-30px of clearance instead of ~70-90px of dead space.
-const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 70
+const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 69
 
 function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', label = 'value' }) {
   const timers = useRef({ timeout: null, interval: null })
@@ -523,13 +526,11 @@ export default function Workout() {
     <div style={{ paddingTop: 16, paddingBottom: EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR }}>
       <Toast toast={toast} />
       <TimerBar
-        sessionStartMs={sessionStartMs}
         restStartMs={restStartMs}
         restTargetSec={restTargetSec}
         onAddRest={(d) => setRestTargetSec(t => Math.max(0, t + d))}
         onSkipRest={() => { setRestStartMs(null); setPausedRem(null) }}
         color={color}
-        wakeLockHeld={wakeLockHeld}
         paused={pausedRem != null}
         pausedRem={pausedRem}
         onTogglePause={togglePause}
@@ -544,9 +545,7 @@ export default function Workout() {
           app's existing convention for a compact header-slot action. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
-            Active session
-          </Eyebrow>
+          <SessionClock startMs={sessionStartMs} wakeLockHeld={wakeLockHeld} color={color} />
           <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight }}><DayIcon day={session.workout_day} size={icon.heading} /> {plan.name}</h1>
           {/* colors.muted2 / type.size.lg, matching Home/Progress/History/
               PersonalBests' page-subtitle convention -- this was the one

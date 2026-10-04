@@ -226,25 +226,32 @@ test.describe('320x568 floor — DisclosureRow expanded', () => {
   })
 })
 
-test.describe('TimerBar breakpoint tiers', () => {
-  test('.timer-pill and .timer-bar .btn-icon narrow at <=440px and <=340px', async ({ page }) => {
-    await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
+// #229 Task 5: TimerBar relayout. The bar used to shrink .btn-icon to 38px
+// (<=440px) and 34px (<=340px) and .timer-pill the same way -- both below
+// the app's own 44px tap-target floor. Replaced with min-width/min-height
+// so the buttons can grow for their new text labels but never shrink.
+test.describe('TimerBar — #229 44px floor at every width', () => {
+  for (const width of [320, 360, 390, 440]) {
+    test(`every .timer-bar button is >=44x44 at ${width}px, no horizontal overflow`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await gotoReady(page, PAGES.find(p => p.name === 'Workout'))
 
-    const pill = page.locator('.timer-pill').first()
-    const icon = page.locator('.timer-bar .btn-icon').first()
+      const buttons = page.locator('.timer-bar button')
+      const count = await buttons.count()
+      expect(count).toBeGreaterThan(0)
+      for (let i = 0; i < count; i++) {
+        const box = await buttons.nth(i).boundingBox()
+        expect(box.width).toBeGreaterThanOrEqual(44)
+        expect(box.height).toBeGreaterThanOrEqual(44)
+      }
 
-    await page.setViewportSize({ width: 500, height: 800 }) // above both tiers
-    await expect(pill).toHaveCSS('min-width', '44px')
-    await expect(icon).toHaveCSS('width', '44px')
-
-    await page.setViewportSize({ width: 430, height: 800 }) // <=440, >340
-    await expect(pill).toHaveCSS('min-width', '38px')
-    await expect(icon).toHaveCSS('width', '38px')
-
-    await page.setViewportSize({ width: 320, height: 800 }) // <=340
-    await expect(pill).toHaveCSS('min-width', '34px')
-    await expect(icon).toHaveCSS('width', '34px')
-  })
+      const bar = page.locator('.timer-bar')
+      const { scrollWidth, clientWidth } = await bar.evaluate((el) => ({
+        scrollWidth: el.scrollWidth, clientWidth: el.clientWidth,
+      }))
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------
