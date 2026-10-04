@@ -29,7 +29,7 @@ FENCE = "`" * 3
 def sanitize(text, repo, limit):
     """URLs and HTML are removed, @mentions are broken, and brackets, angle brackets,
     ampersands, # and backslashes are escaped, so nothing renders as a link, image,
-    mention or cross-reference. Backtick runs of three or more are defused so a body
+    mention or cross-reference. Runs of three or more backticks or tildes are defused so a body
     cannot open a code block."""
     text = str(text)[:limit * 4]
     text = re.sub(r"<[^>]{0,200}>", "", text)
@@ -37,7 +37,7 @@ def sanitize(text, repo, limit):
     text = re.sub(r"\b\w+://\S+|\bwww\.\S+", "[link removed]", text, flags=re.I)
     text = " ".join(text.split())[:limit]
     text = re.sub(r"@(?=\w)", "@​", text)
-    text = re.sub(r"`{3,}", "'''", text)
+    text = re.sub(r"`{3,}|~{3,}", "'''", text)
     return re.sub(r"([\\\[\]<>&#])", r"\\\1", text)
 
 
