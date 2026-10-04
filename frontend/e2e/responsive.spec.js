@@ -254,6 +254,38 @@ test.describe('TimerBar — #229 44px floor at every width', () => {
   }
 })
 
+// #229 final-review finding: SessionClock's "ACTIVE SESSION · mm:ss ⚡ SCREEN
+// ON" eyebrow can wrap at the 320px floor (jsdom can't see this -- real
+// layout only). The plan's own fallback is to drop the marker, not shrink
+// the text, below 340px -- this is that fallback actually engaging.
+async function stubWakeLock(page) {
+  await page.addInitScript(() => {
+    class FakeLock extends EventTarget {
+      release() { return Promise.resolve() }
+    }
+    Object.defineProperty(navigator, 'wakeLock', {
+      value: { request: async () => new FakeLock() },
+      configurable: true,
+    })
+  })
+}
+
+test.describe('SessionClock — #229 screen-on marker drops at <=340px', () => {
+  test('marker is hidden at 320px, shown at 360px, held wake lock either way', async ({ page }) => {
+    await stubWakeLock(page)
+    await mockApi(page)
+    await page.setViewportSize({ width: 320, height: 800 })
+    await page.goto(`/workout/${ACTIVE_SESSION_ID}`)
+    await page.getByRole('button', { name: /Finish Workout/i }).waitFor()
+    const marker320 = page.locator('.screen-on-marker')
+    await expect(marker320).toHaveCount(1) // rendered (wake lock held)...
+    await expect(marker320).not.toBeVisible() // ...but hidden by the media query
+
+    await page.setViewportSize({ width: 360, height: 800 })
+    await expect(marker320).toBeVisible()
+  })
+})
+
 // ---------------------------------------------------------------------------
 // 2026-09-06 UI review, item 7: Progress's exercise chips used to rely on
 // `.tap-target`'s invisible ::after overlay for their hit area — centred on

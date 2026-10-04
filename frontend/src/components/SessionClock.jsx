@@ -19,7 +19,7 @@ export default function SessionClock({ startMs, wakeLockHeld, color }) {
     <Eyebrow color={color} size={type.size.sm}>
       ACTIVE SESSION · {formatClock(elapsedSeconds(startMs, now))}
       {wakeLockHeld && (
-        <span style={{ color: colors.muted }}>
+        <span className="screen-on-marker" style={{ color: colors.muted }}>
           {' '}<IconBolt size={icon.caption} /> SCREEN ON
         </span>
       )}

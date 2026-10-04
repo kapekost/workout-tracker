@@ -290,6 +290,13 @@ body:has(.timer-bar) .toast { --toast-lift: 86px; }
   .rest-block { min-width: 52px; }
   .rest-clock { font-size: 1.35rem; }
   .timer-pill { padding: 4px 6px; }
+  /* #229 final-review finding: SessionClock's header eyebrow can wrap at
+     320px once the elapsed clock is appended. Dropping the marker (not the
+     clock, not the label -- the plan's own prescribed fallback) is a real
+     but partial mitigation: it shortens the line without touching font size
+     ("do not shrink the text"). The replacement for the .wake-chip/.wake-text
+     rules Task 5 deleted. */
+  .screen-on-marker { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .timer-bar.flash, .toast, .skeleton, .route-fade { animation: none; }
