@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { readdirSync, readFileSync } from 'fs'
 import { resolve, join } from 'path'
-import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh, IconBarbell, IconClipboardDocumentList } from './index'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh, IconBarbell, IconClipboardDocumentList, IconNavHome, IconNavProgress, IconNavHistory } from './index'
 import PngIcon from './PngIcon'
 
 describe('icon components', () => {
@@ -222,6 +222,21 @@ describe('icon components', () => {
           expect(width, `${name} should be square`).toBe(height)
         }
       }
+    })
+  })
+
+  // #229 Task 3: two-tone nav icons (NavBar). Each renders its own svg, not
+  // through PngIcon.
+  describe('nav icons — #229 Task 3', () => {
+    it.each([
+      ['IconNavHome', IconNavHome],
+      ['IconNavProgress', IconNavProgress],
+      ['IconNavHistory', IconNavHistory],
+    ])('%s renders an aria-hidden svg at the requested size', (_, Icon) => {
+      const svg = render(<Icon size={26} active />).container.querySelector('svg')
+      expect(svg.getAttribute('width')).toBe('26')
+      expect(svg.getAttribute('height')).toBe('26')
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
     })
   })
 })

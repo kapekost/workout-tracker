@@ -117,6 +117,12 @@ describe('icon — #229 role-based scale, signed off 2026-09-30', () => {
     expect(colors.accentDeep).toBe('#8fae22')
     expect(colors.muted3).toBe('#6b6b6b')
   })
+
+  // Decorative use (an inactive nav icon's second tone, never text), so the
+  // floor is WCAG's 3:1 non-text threshold, not 4.5:1.
+  it('muted3 clears the 3:1 decorative floor against the card background', () => {
+    expect(contrastRatio(colors.muted3, colors.card)).toBeGreaterThanOrEqual(3)
+  })
 })
 
 describe('tint — mixes a hex colour toward white', () => {
