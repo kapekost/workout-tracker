@@ -15,12 +15,13 @@ options: `.superpowers/brainstorm/review-2026-10-03/design-review-options.html` 
 
 ## Read this first — three constraints that shape everything below
 
-1. **#229 is unimplemented, not unimproved.** Spec
-   (`2026-09-28-icon-design-system-design.md`) and plan (`2026-10-01-icon-design-system-229.md`) are
-   merged but zero of it shipped: `theme.js` has no `icon` scale, no `colors.accentDeep`, no
-   `colors.muted3`, no `tint()`; `DayIcon.jsx:11-13` still renders the accent dot the plan removes.
-   **Any finding about icons, icon sizes or the timer-bar relayout is already-decided work, not a
-   defect.** Do not file it twice.
+1. **#229 shipped in #267 (merged and deployed 2026-10-04).** This plan was written while it was
+   unimplemented, and an earlier version of this paragraph told readers not to file icon findings
+   because the work was already decided. That is no longer true. `theme.js` now has the `icon`
+   scale, `colors.accentDeep`, `colors.muted3` and `tint()`, and the nav and timer bar use them.
+   Findings about icons, icon sizes or the timer-bar relayout are valid again, but check them
+   against the current code and `docs/design/229/` before filing, since the review that produced
+   this plan read the pre-#267 source.
 2. **Two findings from the 2026-10-02 review are false against current code.** "Zero
    `focus-visible` styling" is wrong (`index.css:103-105`, app-wide ring, 16.8:1 on bg). The
    nav/timer safe-area "double-count" is a 1px gap and correct. Recorded here so the next session
@@ -190,7 +191,7 @@ set-typing as overengineering; dark-only being undocumented (no `prefers-color-s
 zero `:hover` affordance while the app is also served as a plain web page; and the redundant
 double `v <sha>` stamp (the footer one is load-bearing for the runbook, so it needs a doc change).
 
-**Could not verify — needs a browser, a build or a device:** whether #229's icon sizes fit the
+**Could not verify — needs a browser, a build or a device:** whether #229's icon sizes (shipped in #267) fit the
 77px nav; perceived contrast under gym lighting (findings 0.1 and 2.3 both depend on it); optical
 weight across the icon set (three different techniques — flat fill, evenodd knockouts, and one
 stroke-based icon); whether the toast/header overlap reads as broken; screen-reader output for 3.1
