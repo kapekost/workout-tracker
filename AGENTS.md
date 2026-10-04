@@ -218,6 +218,45 @@ backend server is running (since `.venv` is gitignored and not shared). The same
 **No `lint` script exists.** The frontend has no eslint/linter integration. `npm test` (vitest)
 is the only local gate before CI.
 
+### Sandbox image
+
+`Dockerfile.sandbox` is the toolchain an `/orchestrate` tick runs on: git, bash, jq,
+node/npm, python3 with the backend's test deps installed system-wide, and `gh`. It exists
+because the bare sandbox ships with none of those, so every session otherwise rediscovers
+that and rebuilds it by hand. **It is not the app image.** That is `./Dockerfile`, built on
+a capable machine and shipped to the deploy target as a tarball. This one has no app code
+and must never be substituted for it.
+
+```bash
+docker build -f Dockerfile.sandbox -t workout-tracker-sandbox .
+docker run --rm -it -v "$PWD:/workspace" -w /workspace \
+  -e GH_TOKEN -e GITHUB_TOKEN workout-tracker-sandbox
+```
+
+Credentials are passed at run time and never baked into a tracked file. Pass
+`--build-arg BASE_IMAGE=<your image>` to build on a parent that already carries the
+toolchain: every layer is skipped when its tool is already present, so it collapses to the
+repo-specific parts. `WITH_CHROMIUM=0` skips the browser, which is the largest download.
+
+Two traps in any base image that carries its own `ENTRYPOINT`, which the opencode one does.
+Docker hands a child image's `CMD` to the parent's entrypoint as arguments instead of running
+it, so `CMD ["/bin/bash"]` arrives as `opencode /bin/bash`, the agent reads the path as a
+prompt and exits, and the container looks like it crashed. Hence the explicit
+`ENTRYPOINT []` at the end of the file. And an `entrypoint:` override on the consumer's side
+reaches only as far as its own `CMD`: set both, or the override silently inherits this
+image's command line instead of the one you meant.
+
+Chromium is there for PLAYBOOK step 5's render gate, which cannot otherwise be satisfied in
+a sandbox. `ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pwbin` plus a shim at
+`$PLAYWRIGHT_BROWSERS_PATH/chromium` is what `frontend/playwright.config.js` resolves, so
+`npx playwright test` finds the browser with no per-session setup. The shim points at the
+real ELF, not `/usr/bin/chromium`, which is only a shell launcher. Playwright's own bundled
+Chromium cannot be used at all: it is a glibc build on a musl host.
+
+The toolchain lives in `/usr`, `/usr/local` and `/opt` and nothing is pre-seeded under
+`/workspace`, which is a bind mount at run time and would shadow anything baked there.
+`npm ci` restores `node_modules` in about 12s, so it is not baked either.
+
 ## Runbook
 
 The deploy shape is: **build** the image on a capable machine → **transfer**

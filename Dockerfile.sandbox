@@ -1,0 +1,127 @@
+# Agent sandbox: the toolchain an `/orchestrate` tick runs on.
+#
+# NOT the app image. That is `./Dockerfile`, built on a capable machine and shipped to the
+# deploy target as a tarball. This one never goes to the Pi and must never be substituted
+# for it: it carries no app code, no static assets and no entrypoint.
+#
+# Why this exists: the bare sandbox ships with no git, no bash, no python, no node and no
+# gh, so every session otherwise spends its first minutes rediscovering that and rebuilding
+# the same toolchain by hand.
+#
+#   docker build -f Dockerfile.sandbox -t workout-tracker-sandbox .
+#   docker run --rm -it -v "$PWD:/workspace" -w /workspace \
+#     -e GH_TOKEN -e GITHUB_TOKEN workout-tracker-sandbox
+#
+# Or build on a parent image that already carries the toolchain, which is the cheaper path
+# once one exists. Every layer below is a no-op when its tool is already present, so the
+# build collapses to just the repo-specific bits:
+#
+#   docker build -f Dockerfile.sandbox --build-arg BASE_IMAGE=my-org/agent-base:2026-10 .
+#
+# Credentials are passed at run time and never baked here. A token in a tracked file is a
+# committed secret (GUARDRAILS.md, "Hard stops").
+#
+# Runs as root by default, deliberately: an agent session may need `apk add` mid-task, and
+# a non-root default also leaves files in the bind mount owned by a uid the host does not
+# recognise. Override with `--user` if the sandbox is ever anything but a throwaway.
+
+ARG BASE_IMAGE=alpine:3.24
+FROM ${BASE_IMAGE}
+
+ARG GH_VERSION=2.102.0
+# gh is not packaged for Alpine, so it is fetched from the release tarball. The checksum is
+# per-arch and the two are not interchangeable, so it is verified as a build step rather
+# than asserted in a comment; an unverified download would be worse than no gh at all. Bump
+# GH_VERSION and both sums together, from the release's gh_<version>_checksums.txt.
+ARG GH_SHA256_amd64=bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386
+ARG GH_SHA256_arm64=7862c86c72f43df3a2d93ddde6f473285b4e2af61b494849846827e513ef6484
+# Chromium for the mandatory render gate in PLAYBOOK step 5. Set to 0 to skip the download;
+# it is by far the largest thing here.
+ARG WITH_CHROMIUM=1
+# Stable shim location. frontend/playwright.config.js resolves
+# $PLAYWRIGHT_BROWSERS_PATH/chromium when that variable is set, so exporting it as ENV is
+# what makes `npx playwright test` find the system browser with no per-session setup.
+ARG PLAYWRIGHT_BROWSERS_PATH=/opt/pwbin
+ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
+
+# Distro packages go to /usr/bin and /usr/sbin, which is the only correct place for them:
+# `apk` owns those paths and nothing else should write there. Note `py3-pip` is a separate
+# package from `python3` on Alpine, and a sandbox without it cannot install the backend's
+# dependencies at all. openssh-client is here because this repo's deploy/backup scripts
+# shell out to ssh.
+RUN apk add --no-cache \
+      bash \
+      curl \
+      git \
+      jq \
+      nodejs \
+      npm \
+      openssh-client \
+      py3-pip \
+      python3 \
+ && rm -rf /var/cache/apk/*
+
+# /usr/local/bin, not /usr/bin: FHS reserves /usr/local for software installed by the local
+# admin, it precedes /usr/bin in PATH so this gh shadows any distro one without clobbering
+# it, and `apk upgrade` can never overwrite a file it does not own.
+RUN set -eux; \
+    if ! command -v gh >/dev/null 2>&1; then \
+      case "$(uname -m)" in \
+        x86_64)  arch=amd64; sum="${GH_SHA256_amd64}" ;; \
+        aarch64) arch=arm64; sum="${GH_SHA256_arm64}" ;; \
+        *) echo "no pinned gh checksum for $(uname -m): pass one via --build-arg" >&2; exit 1 ;; \
+      esac; \
+      tarball="gh_${GH_VERSION}_linux_${arch}.tar.gz"; \
+      curl -fsSL -o /tmp/gh.tgz \
+        "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${tarball}"; \
+      echo "${sum}  /tmp/gh.tgz" | sha256sum -c -; \
+      tar -xzf /tmp/gh.tgz -C /tmp; \
+      install -m0755 "/tmp/gh_${GH_VERSION}_linux_${arch}/bin/gh" /usr/local/bin/gh; \
+      rm -rf /tmp/gh.tgz "/tmp/gh_${GH_VERSION}_linux_${arch}"; \
+    fi; \
+    gh --version
+
+# The shim points at the real ELF (/usr/lib/chromium/chromium), not at /usr/bin/chromium,
+# which is only a shell launcher that sources /etc/chromium/*.conf. Playwright wants the
+# program it can spawn directly and supplies its own launch flags; going through the wrapper
+# would add a process layer and drag in distro default flags Playwright did not ask for.
+#
+# Playwright's own bundled Chromium is deliberately not used: it is a glibc build and this
+# is musl, so it cannot run here at all. That is the same family of problem as the arm64
+# Alpine optional-binary failures the repo already documents.
+RUN set -eux; \
+    if [ "${WITH_CHROMIUM}" = "1" ]; then \
+      apk add --no-cache chromium; \
+      mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}"; \
+      ln -sf /usr/lib/chromium/chromium "${PLAYWRIGHT_BROWSERS_PATH}/chromium"; \
+    fi; \
+    rm -rf /var/cache/apk/*
+
+# Backend test dependencies, installed system-wide so `python3 -m pytest` runs straight from
+# the repo with no venv. Both files are copied together because requirements-dev.txt pulls in
+# requirements.txt by relative name, so they have to land in the same directory.
+#
+# --break-system-packages is load-bearing: Alpine's system python carries a PEP 668
+# EXTERNALLY-MANAGED marker, so without the flag pip refuses outright rather than falling
+# back to a venv, and the sandbox ends up able to run nothing at all. Installing into the
+# image's own python is the whole point; this is not the host's.
+COPY backend/requirements.txt backend/requirements-dev.txt /tmp/reqs/
+RUN python3 -m pip install \
+      --no-cache-dir \
+      --disable-pip-version-check \
+      --break-system-packages \
+      -r /tmp/reqs/requirements-dev.txt \
+ && rm -rf /tmp/reqs
+
+# Nothing is pre-seeded under /workspace on purpose: that path is a bind mount at run time,
+# so anything written here at build time is shadowed by the host's copy. The toolchain lives
+# in /usr, /usr/local and /opt only. That is also why node_modules is not baked: `npm ci`
+# restores it in about 12s, which is not worth a persistent volume.
+WORKDIR /workspace
+
+# The base image starts the opencode agent via its ENTRYPOINT, and Docker hands a child
+# image's CMD to that entrypoint as arguments instead of running it, so a CMD here cannot
+# start a shell on its own. Resetting ENTRYPOINT to empty is what lets the `docker run` in
+# the header open a shell with no extra flag.
+ENTRYPOINT []
+CMD ["/bin/bash"]
