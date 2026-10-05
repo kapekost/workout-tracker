@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { SessionProvider, useSession } from './session'
 import { apiReadsCacheName } from '../../apiCacheName.js'
 
@@ -209,6 +210,18 @@ describe('cached API responses never cross accounts', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
+  // The cache is keyed by build commit and cannot tell accounts apart, so the
+  // responses in it are the previous user's. This is what the offline-read
+  // cache is *for* when it holds the account that is still signed in, which is
+  // why loading must not clear it.
+  it('keeps the cache on first load, so offline reads still work', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    expect(caches.delete).not.toHaveBeenCalled()
+  })
+
   it('purges the api-reads cache when a different account signs in', async () => {
     auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
     render(<SessionProvider><Probe /></SessionProvider>)
@@ -248,6 +261,25 @@ describe('cached API responses never cross accounts', () => {
 
     await waitFor(() => expect(caches.delete)
       .toHaveBeenCalledWith(apiReadsCacheName(__APP_COMMIT__)))
+  })
+
+  // The purge has to run from an effect, not from inside a setProfile updater:
+  // an updater must stay pure, and StrictMode (main.jsx) re-invokes it, which
+  // would issue the delete twice for one account change.
+  it('purges once per account change, even under StrictMode', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(
+      <StrictMode>
+        <SessionProvider><Probe /></SessionProvider>
+      </StrictMode>,
+    )
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+    caches.delete.mockClear()
+
+    fireEvent.click(screen.getByText('sign in'))
+
+    await waitFor(() => expect(caches.delete).toHaveBeenCalled())
+    expect(caches.delete).toHaveBeenCalledTimes(1)
   })
 })
 

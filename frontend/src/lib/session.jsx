@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { auth, onUnauthorized } from '../api'
 import { clearAllRestTimers } from './restTimerStorage'
 import { apiReadsCacheName } from '../../apiCacheName.js'
@@ -61,14 +61,26 @@ export function SessionProvider({ children }) {
     purgeApiReads()
   }), [purgeApiReads])
 
-  const signIn = useCallback((p) => {
-    // Signing in as the account already loaded is the Login screen's own path
-    // and must not throw away a cache this account is about to read from.
-    setProfile((current) => {
-      if (current && current.id !== p.id) purgeApiReads()
-      return p
-    })
-  }, [purgeApiReads])
+  // The same purge for an account *change* that was not a 401 and not an
+  // explicit sign out: signing in as someone else. Keyed on the id rather than
+  // done inside a setProfile updater, because an updater must stay pure and
+  // StrictMode re-runs it.
+  //
+  // Comparing against the last id that was actually in effect is what keeps the
+  // first load from clearing the cache: the responses already in it belong to
+  // the account /auth/me just answered for, and throwing them away would defeat
+  // the offline read they exist for. A ref, not a "first run" flag, because
+  // StrictMode mounts twice and a flag would be consumed by the first mount.
+  const lastProfileId = useRef(undefined)
+  useEffect(() => {
+    const current = profile?.id
+    if (lastProfileId.current !== undefined && lastProfileId.current !== current) {
+      purgeApiReads()
+    }
+    lastProfileId.current = current
+  }, [profile?.id, purgeApiReads])
+
+  const signIn = useCallback((p) => setProfile(p), [])
 
   const signOut = useCallback(async () => {
     // Never rejects, and the local state clears either way. If the request
