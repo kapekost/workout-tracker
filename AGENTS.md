@@ -490,9 +490,6 @@ update. The three 2026-10-03 auth fixes have only been code-inspected plus regre
 
 **Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual.
 
-**Known flaky test:** `Workout.test.jsx` failed once in CI from a timer that is never cleared
-on unmount (#262).
-
 **Needs an owner call:**
 - The orchestration home branch. As of 2026-10-03, `STATE.md:7` pointed at
   `claude/workout-tracker-backlog-bu9qnw`, which had diverged and sat 59 commits behind

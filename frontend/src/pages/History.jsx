@@ -9,6 +9,7 @@ import DayAccent from '../components/DayAccent'
 import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
+import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { track } from '../lib/analytics'
 import { colors, type, space, icon } from '../lib/theme'
 import { IconTrophy, IconClock, IconCheck } from '../icons'
@@ -83,7 +84,7 @@ export default function History() {
   // rendered "0 sessions logged" and "No sessions yet." — both statements
   // about the user's own training, neither of them checked.
   const [loadError, setLoadError] = useState(false)
-  const [confirmId, setConfirmId] = useState(null)
+  const { armedId: confirmId, confirm: confirmDeleteSession } = useConfirmWindow()
   const { toast, showToast } = useToast()
 
   const load = useCallback(async () => {
@@ -113,12 +114,7 @@ export default function History() {
   }
 
   async function deleteSession(id) {
-    if (confirmId !== id) {
-      setConfirmId(id)
-      setTimeout(() => setConfirmId(c => (c === id ? null : c)), 3000)
-      return
-    }
-    setConfirmId(null)
+    if (!confirmDeleteSession(id)) return
     try {
       await api.delete(`/sessions/${id}`)
       track('session_delete')
