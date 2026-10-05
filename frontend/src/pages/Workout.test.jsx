@@ -337,6 +337,30 @@ describe('Workout page', () => {
     vi.useRealTimers()
   })
 
+  // #262: arming a set started a 3s timer that was never cleared, so leaving
+  // the screen inside that window left a callback to run against a component
+  // that no longer existed. Vitest attributes that to whichever test is running
+  // when it fires, which is how a run that touched no frontend files at all
+  // went red.
+  it('leaves no timer running when the screen goes away mid-window', async () => {
+    mockSession([{ id: 42, exercise_id: ex1.id, exercise_name: ex1.name,
+                   set_number: 1, reps: 8, weight_kg: 60 }])
+    const { unmount } = renderWorkout()
+    await screen.findByText(ex1.name)
+    vi.useFakeTimers()
+    try {
+      fireEvent.click(screen.getByRole('button', { name: /delete set/i }))
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
+
+      unmount()
+      // Nothing may still be pending to fire into a torn-down tree.
+      expect(vi.getTimerCount()).toBe(0)
+      expect(() => vi.advanceTimersByTime(5000)).not.toThrow()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('promotes the overload suggestion above the last-workout history and gives it more visual weight', async () => {
     api.get.mockImplementation(async (path) => {
       if (path === '/sessions/1') {

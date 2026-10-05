@@ -9,6 +9,7 @@ import Skeleton from '../components/Skeleton'
 import { formatClock, elapsedSeconds, remainingSeconds } from '../lib/timer'
 import { useWakeLock } from '../lib/useWakeLock'
 import { useRestPreference } from '../lib/useRestPreference'
+import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { nextIncompleteExerciseId, prefillFor, nextSetNumber } from '../lib/workoutFlow'
 import { overloadSuggestion } from '../lib/overload'
 import { unlockAudio } from '../lib/sound'
@@ -238,7 +239,7 @@ export default function Workout() {
   // Same tap-again-to-confirm shape as History.jsx's confirmId and
   // PersonalBests.jsx's confirmId: only one set can be armed at a time, and
   // arming one disarms whatever was armed before it.
-  const [confirmSetId, setConfirmSetId] = useState(null)
+  const { armedId: confirmSetId, confirm: confirmDeleteSet } = useConfirmWindow()
 
   async function ensureLastPerf(ex) {
     if (ex.id in lastPerf) return lastPerf[ex.id]
@@ -447,18 +448,11 @@ export default function Workout() {
     } catch (e) { showToast('Failed to delete set', 'error') }
   }
 
-  // First tap on × arms it and starts a 3s window (same window and shape as
-  // History.jsx's deleteSession / PersonalBests.jsx's remove); a second tap
-  // inside that window is the confirm and actually deletes. Anything else —
-  // arming a different set, or the window elapsing — disarms it.
+  // First tap on × arms it and starts a 3s window; a second tap inside that
+  // window is the confirm and actually deletes. Anything else — arming a
+  // different set, or the window elapsing — disarms it.
   function requestDeleteSet(setId) {
-    if (confirmSetId !== setId) {
-      setConfirmSetId(setId)
-      setTimeout(() => setConfirmSetId(c => (c === setId ? null : c)), 3000)
-      return
-    }
-    setConfirmSetId(null)
-    deleteSet(setId)
+    if (confirmDeleteSet(setId)) deleteSet(setId)
   }
 
   async function saveNote(exId, text) {

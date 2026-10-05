@@ -9,6 +9,7 @@ import LoadError from '../components/LoadError'
 import DisclosureRow from '../components/DisclosureRow'
 import Eyebrow from '../components/Eyebrow'
 import { useToast } from '../lib/useToast'
+import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { colors, type, space, icon } from '../lib/theme'
 import { IconCheck, IconTrash, IconArrowLeft, IconPlus, IconTrophy } from '../icons'
 
@@ -51,7 +52,7 @@ export default function PersonalBests() {
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const { toast, showToast } = useToast()
-  const [confirmId, setConfirmId] = useState(null)
+  const { armedId: confirmId, confirm: confirmRemove } = useConfirmWindow()
   // Closed by default: this is a page you visit to read your PBs far more
   // often than to add one, so the 5-field form starts hidden behind a
   // disclosure instead of competing with the list for attention on load
@@ -94,12 +95,7 @@ export default function PersonalBests() {
   }
 
   async function remove(id) {
-    if (confirmId !== id) {
-      setConfirmId(id)
-      setTimeout(() => setConfirmId(c => (c === id ? null : c)), 3000)
-      return
-    }
-    setConfirmId(null)
+    if (!confirmRemove(id)) return
     try {
       await api.delete(`/personal-bests/${id}`)
       setEntries(prev => prev.filter(e => e.id !== id))
