@@ -94,7 +94,7 @@ def test_export_envelope_shape(client):
                 json={"exercise_id": "bench_press", "exercise_name": "Bench",
                       "set_number": 1, "reps": 8, "weight_kg": 80})
     exp = client.get("/api/export").json()
-    assert set(exp["tables"].keys()) == {"profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"}
+    assert set(exp["tables"].keys()) == {"profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests", "plan_days", "plan_exercises"}
     assert exp["schema_version"] == 7
     assert exp["exported_at"].endswith("Z")
     assert len(exp["tables"]["sessions"]) == 1 and len(exp["tables"]["sets"]) == 1

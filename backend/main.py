@@ -10,13 +10,15 @@ from datetime import datetime, timezone, date
 import plan_seed
 
 DB_PATH = os.environ.get("DATABASE_URL", "/app/data/workouts.db")
-TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests"]
+TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_bests",
+          "plan_days", "plan_exercises"]
 # schema_version at which each table was introduced (see _migrate). An
 # envelope only needs to contain the tables that existed at its own
 # schema_version — a table a later migration adds must not make older
 # backups un-importable.
 TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
-                        "personal_bests": 3, "profiles": 4}
+                        "personal_bests": 3, "profiles": 4,
+                        "plan_days": 7, "plan_exercises": 7}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # #141: a member's merge-mode import has no admin gate on size the way replace
 # always effectively did (only an admin could reach /api/import at all before
@@ -1454,6 +1456,13 @@ def export_data(response: Response, profile: dict = Depends(current_profile)):
                 "exercise_notes": ("SELECT * FROM exercise_notes WHERE profile_id = ?", (pid,)),
                 "events": ("SELECT * FROM events WHERE profile_id = ?", (pid,)),
                 "personal_bests": ("SELECT * FROM personal_bests WHERE profile_id = ?", (pid,)),
+                "plan_days": ("SELECT * FROM plan_days WHERE profile_id = ?", (pid,)),
+                # plan_exercises has no profile_id of its own — plan_days is the
+                # owning row and cascades from it, so the join reaches the same
+                # rows add_set/delete_set would for `sets`.
+                "plan_exercises": ("SELECT plan_exercises.* FROM plan_exercises JOIN plan_days "
+                                   "ON plan_exercises.plan_day_id = plan_days.id "
+                                   "WHERE plan_days.profile_id = ?", (pid,)),
             }
             tables = {t: [dict(r) for r in conn.execute(*scoped[t]).fetchall()] for t in TABLES}
     return {"exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -1522,6 +1531,19 @@ def _import_replace(conn, env, admin, cur_version, env_version) -> dict:
                 placeholders = ",".join("?" * len(cols))
                 conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
                              [row[c] for c in cols])
+        # A plan is not optional data: create_session validates workout_day
+        # against the acting profile's own plan_days, so a profile left with
+        # none cannot start any workout at all. An envelope predating v7 (or
+        # one whose plan rows were already missing when it was taken) leaves
+        # every restored profile in exactly that state, and user_version is
+        # pinned forward below so the v7 backfill can never fill the gap on a
+        # later restart. Re-seed those profiles the same way the v6->v7
+        # migration and create_profile do, rather than leaving the app
+        # unusable on the one path used when it is already broken.
+        for row in conn.execute(
+            "SELECT id FROM profiles WHERE id NOT IN (SELECT DISTINCT profile_id FROM plan_days)"
+        ).fetchall():
+            _seed_plan_for_profile(conn, row["id"])
         # The DB's physical schema is already at cur_version (migrations
         # ran at startup); restoring older data must not record a lower
         # version, or a later restart could re-run a non-idempotent
@@ -1583,7 +1605,13 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
         carried props, not just malformed ones.
     """
     tables = env["tables"]
-    merged = {t: 0 for t in TABLES if t != "profiles"}
+    # plan_days/plan_exercises are excluded here and never merged: a merge only
+    # ever adds rows to the caller's own account, and the caller already has a
+    # plan seeded by create_profile, so every incoming row would collide with
+    # UNIQUE(profile_id, day_key) anyway. Replacing or patching a plan is a
+    # deliberate edit (POST /api/plan/update), not a side effect of restoring
+    # workout history. `profiles` is excluded for the reason in the docstring.
+    merged = {t: 0 for t in TABLES if t not in ("profiles", "plan_days", "plan_exercises")}
 
     # Envelope/caller mismatch (#141 fix 3) — checked before anything else,
     # mirroring _import_replace's own early-reject admin-lockout guard. A

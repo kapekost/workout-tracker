@@ -69,13 +69,147 @@ def test_migration_is_a_noop_for_a_profile_with_existing_rows(mainmod):
         assert [dict(r) for r in after_exercises] == [dict(r) for r in before_exercises]
 
 
-def test_plan_tables_are_not_in_the_export_import_envelope(mainmod):
-    """spec §1.1: plan_days/plan_exercises deliberately do NOT join
-    TABLES/TABLE_INTRODUCED_AT this phase — deferred to Phase 4's own review."""
-    assert "plan_days" not in mainmod.TABLES
-    assert "plan_exercises" not in mainmod.TABLES
-    assert "plan_days" not in mainmod.TABLE_INTRODUCED_AT
-    assert "plan_exercises" not in mainmod.TABLE_INTRODUCED_AT
+def test_plan_tables_are_in_the_export_import_envelope(mainmod):
+    """A plan is user data: leaving these two tables out of the envelope makes a
+    whole-database restore delete every plan while user_version stays pinned
+    forward, so the v7 backfill can never re-seed it and the app can no longer
+    start a workout. v7 is the version that created them, which is what keeps a
+    pre-v7 envelope importable."""
+    assert "plan_days" in mainmod.TABLES
+    assert "plan_exercises" in mainmod.TABLES
+    assert mainmod.TABLE_INTRODUCED_AT["plan_days"] == 7
+    assert mainmod.TABLE_INTRODUCED_AT["plan_exercises"] == 7
+
+
+def _replace(client, envelope):
+    return client.post("/api/import", json={"envelope": envelope,
+                                            "mode": "replace", "confirm": True})
+
+
+def test_admin_export_carries_the_plan(client):
+    env = client.get("/api/export").json()
+    assert [d["day_key"] for d in env["tables"]["plan_days"]] == [
+        "upper_a", "lower_a", "upper_b", "lower_b"]
+    assert len(env["tables"]["plan_exercises"]) == 22
+
+
+def test_a_replace_import_restores_the_plan(client, mainmod, reauthenticate):
+    """The round trip that matters: export, wipe, restore, and the plan is
+    byte-identical — including an edit, which is the part a reseed would lose."""
+    with mainmod.db() as conn:
+        conn.execute("UPDATE plan_exercises SET sets = 9 WHERE exercise_id = 'bench_press'")
+        conn.commit()
+    before = client.get("/api/plan").json()
+
+    assert _replace(client, client.get("/api/export").json()).status_code == 200
+    reauthenticate(client)
+
+    assert client.get("/api/plan").json() == before
+    started = client.post("/api/sessions", json={"workout_day": "upper_a"})
+    assert started.status_code == 200
+
+
+def test_a_replace_import_reseeds_a_plan_an_older_envelope_never_had(client, mainmod,
+                                                                     reauthenticate):
+    """A pre-v7 envelope has no plan tables at all. Restoring one must still
+    leave every profile able to start a workout: the plan falls back to
+    DEFAULT_PLAN, the same thing the v6->v7 migration gave everyone, rather
+    than leaving POST /api/sessions 400ing on an unknown day_key."""
+    env = client.get("/api/export").json()
+    env["schema_version"] = 6
+    env["tables"].pop("plan_days")
+    env["tables"].pop("plan_exercises")
+
+    assert _replace(client, env).status_code == 200
+    reauthenticate(client)
+
+    assert client.get("/api/plan").json()["cycle"] == ["upper_a", "lower_a",
+                                                       "upper_b", "lower_b"]
+    assert client.post("/api/sessions", json={"workout_day": "upper_a"}).status_code == 200
+
+
+def test_a_member_export_carries_only_their_own_plan(client, mainmod, monkeypatch):
+    """plan_exercises has no profile_id of its own, so the member scope reaches
+    it through plan_days — the same join export already uses for `sets`. Two
+    accounts with deliberately different plans must not see each other's."""
+    monkeypatch.setattr(mainmod, "send_email", lambda to, subject, body: None)
+    r = client.post("/api/profiles", json={"username": "second",
+                                           "email": "second@example.com"})
+    assert r.status_code == 201
+    pid = r.json()["id"]
+    with mainmod.db() as conn:
+        conn.execute("UPDATE plan_exercises SET sets = 7 WHERE exercise_id = 'bench_press' "
+                     "AND plan_day_id IN (SELECT id FROM plan_days WHERE profile_id = ?)",
+                     (pid,))
+        conn.commit()
+
+    from fastapi.testclient import TestClient
+    member = TestClient(mainmod.app)
+    with mainmod.db() as conn:
+        member.cookies.set("wt_session", mainmod.issue_session(conn, pid))
+        conn.commit()
+
+    env = member.get("/api/export").json()
+    assert [p["id"] for p in env["tables"]["profiles"]] == [pid]
+    assert {d["profile_id"] for d in env["tables"]["plan_days"]} == {pid}
+    day_ids = {d["id"] for d in env["tables"]["plan_days"]}
+    assert {e["plan_day_id"] for e in env["tables"]["plan_exercises"]} <= day_ids
+    bench = [e for e in env["tables"]["plan_exercises"] if e["exercise_id"] == "bench_press"]
+    assert [e["sets"] for e in bench] == [7]
+    # The admin's own plan still carries the unedited value, so the two plans
+    # really are distinguishable rather than one having overwritten both.
+    admin_env = client.get("/api/export").json()["tables"]
+    admin_days = {d["id"] for d in admin_env["plan_days"]
+                  if d["profile_id"] != pid}
+    admin_bench = [e["sets"] for e in admin_env["plan_exercises"]
+                   if e["exercise_id"] == "bench_press" and e["plan_day_id"] in admin_days]
+    assert admin_bench == [plan_seed.DEFAULT_PLAN[0]["exercises"][0]["sets"]]
+
+
+def test_a_replace_import_reseeds_only_the_plan_the_envelope_lacks(mainmod):
+    """The reseed is per-profile and only fills a genuine gap: an account whose
+    plan rows are missing from the envelope gets DEFAULT_PLAN back, and one
+    whose plan survived the restore keeps it edit-for-edit."""
+    with mainmod.db() as conn:
+        admin_pid = conn.execute(
+            "SELECT id FROM profiles WHERE username = 'kapekost'").fetchone()[0]
+    from fastapi.testclient import TestClient
+    admin = TestClient(mainmod.app)
+    with mainmod.db() as conn:
+        admin.cookies.set("wt_session", mainmod.issue_session(conn, admin_pid))
+        conn.commit()
+        r = admin.post("/api/profiles", json={"username": "second", "email": "s2@example.com"})
+        assert r.status_code == 201
+        pid = r.json()["id"]
+        conn.execute("UPDATE plan_exercises SET sets = 6 WHERE exercise_id = 'bench_press' "
+                     "AND plan_day_id IN (SELECT id FROM plan_days WHERE profile_id = ?)",
+                     (pid,))
+        conn.commit()
+
+    env = admin.get("/api/export").json()
+    # Both profiles stay in the envelope, but the second one's plan does not —
+    # an envelope taken from a database whose plan had already been lost.
+    env["tables"]["plan_days"] = [d for d in env["tables"]["plan_days"]
+                                  if d["profile_id"] == admin_pid]
+    keep = {d["id"] for d in env["tables"]["plan_days"]}
+    env["tables"]["plan_exercises"] = [e for e in env["tables"]["plan_exercises"]
+                                       if e["plan_day_id"] in keep]
+    assert _replace(admin, env).status_code == 200
+
+    with mainmod.db() as conn:
+        # The account that had a plan keeps it, edit intact...
+        bench = conn.execute(
+            "SELECT sets FROM plan_exercises WHERE exercise_id = 'bench_press' "
+            "AND plan_day_id IN (SELECT id FROM plan_days WHERE profile_id = ?)",
+            (admin_pid,)).fetchone()
+        assert bench["sets"] == plan_seed.DEFAULT_PLAN[0]["exercises"][0]["sets"]
+        # ...and the account that had none gets DEFAULT_PLAN rather than an
+        # app that 400s on every workout day.
+        assert conn.execute("SELECT COUNT(*) FROM plan_days WHERE profile_id = ?",
+                            (pid,)).fetchone()[0] == 4
+        assert conn.execute("SELECT COUNT(*) FROM plan_exercises WHERE plan_day_id IN "
+                            "(SELECT id FROM plan_days WHERE profile_id = ?)",
+                            (pid,)).fetchone()[0] == 22
 
 
 # --- create_profile seeds a starter plan ---
