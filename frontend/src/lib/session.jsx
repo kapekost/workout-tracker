@@ -37,13 +37,38 @@ export function SessionProvider({ children }) {
     return () => clearTimeout(t)
   }, [])
 
+  // The service worker caches real API response bodies under a name derived
+  // only from the build commit (see apiCacheName.js), so it cannot tell one
+  // account's cached data from another's. Whoever signs in after the previous
+  // user would be served their sets, notes and progress off the network fallback
+  // -- on exactly the slow gym wifi that fallback exists for, and with no logout
+  // in between. So every path that ends one account and starts another clears
+  // it: signing in as someone else, a 401, and sign out below.
+  const purgeApiReads = useCallback(async () => {
+    // `caches` doesn't exist outside a browser (and not in jsdom), same guard
+    // the rest of the storage helpers use.
+    if (typeof caches === 'undefined') return
+    try { await caches.delete(apiReadsCacheName(__APP_COMMIT__)) } catch { /* best effort */ }
+  }, [])
+
   // api.js has no router, so a 401 from a data endpoint -- a session that
   // expired between page loads -- arrives here instead. Dropping the profile
   // is the whole response: App's guard reads it and renders the login screen,
-  // which keeps the redirect in exactly one place.
-  useEffect(() => onUnauthorized(() => setProfile(null)), [])
+  // which keeps the redirect in exactly one place. The purge runs too, because
+  // whoever signs in next must not inherit the responses this account cached.
+  useEffect(() => onUnauthorized(() => {
+    setProfile(null)
+    purgeApiReads()
+  }), [purgeApiReads])
 
-  const signIn = useCallback((p) => setProfile(p), [])
+  const signIn = useCallback((p) => {
+    // Signing in as the account already loaded is the Login screen's own path
+    // and must not throw away a cache this account is about to read from.
+    setProfile((current) => {
+      if (current && current.id !== p.id) purgeApiReads()
+      return p
+    })
+  }, [purgeApiReads])
 
   const signOut = useCallback(async () => {
     // Never rejects, and the local state clears either way. If the request
@@ -77,12 +102,8 @@ export function SessionProvider({ children }) {
     // commit, so only that one name needs deleting; api-cache-cleanup.js
     // (#142) separately sweeps every *other*-commit api-reads-* cache at
     // service-worker activate time, which is a different lifecycle event.
-    // Guarded the same way the storage helpers guard `localStorage`: `caches`
-    // doesn't exist in the vitest/jsdom test environment.
-    if (typeof caches !== 'undefined') {
-      try { await caches.delete(apiReadsCacheName(__APP_COMMIT__)) } catch { /* best effort */ }
-    }
-  }, [])
+    await purgeApiReads()
+  }, [purgeApiReads])
 
   return (
     <SessionContext.Provider value={{ profile, ready, signIn, signOut }}>
