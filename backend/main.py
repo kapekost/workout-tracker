@@ -18,8 +18,16 @@ TABLES = ["profiles", "sessions", "sets", "exercise_notes", "events", "personal_
 # backups un-importable.
 TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 2,
                         "personal_bests": 3, "profiles": 4,
-                        "plan_days": 7, "plan_exercises": 7}
+                        # v8, not the v7 that created them: this table says which
+                        # version an *envelope* must already carry to be complete,
+                        # and every backup written before plan_days joined the
+                        # export is stamped 7 without plan rows. Claiming v7 here
+                        # would reject exactly those files.
+                        "plan_days": 8, "plan_exercises": 8}
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
+# The head of the migration chain, named so the tests that assert "migrated all
+# the way" have one thing to track. _migrate's last block is what sets it.
+SCHEMA_VERSION = 8
 # #141: a member's merge-mode import has no admin gate on size the way replace
 # always effectively did (only an admin could reach /api/import at all before
 # #87). Deliberately not matched to /api/events's 100-per-batch cap: that cap
@@ -247,10 +255,6 @@ def _migrate(conn):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile ON auth_sessions(profile_id)")
         conn.execute("PRAGMA user_version = 6")
     # --- v6 -> v7: per-profile plan (AI plan updates Phase 1) ---
-    # plan_days/plan_exercises deliberately do NOT join TABLES/TABLE_INTRODUCED_AT
-    # this phase — see spec §1.1: a plan is now real user data worth backing up,
-    # a real gap, but deliberately deferred to Phase 4's own review, the same way
-    # auth_tokens/auth_sessions opted out at v6 for their own stated reason.
     if v < 7:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS plan_days (
@@ -297,6 +301,14 @@ def _migrate(conn):
         for row in unseeded:
             _seed_plan_for_profile(conn, row["id"])
         conn.execute("PRAGMA user_version = 7")
+    # --- v7 -> v8: the plan joins the backup envelope ---
+    # No schema change. TABLE_INTRODUCED_AT stamps plan_days/plan_exercises as v8
+    # because that column is read as "the version an envelope must already carry",
+    # and the backups that exist today were all written at v7 without plan rows.
+    # Bumping the version is what makes those envelopes still restorable; the
+    # reseed in _import_replace is what gives their profiles a plan back.
+    if v < 8:
+        conn.execute("PRAGMA user_version = 8")
 
 def init():
     with db() as conn:

@@ -42,10 +42,9 @@ def _as_session(client, session_id):
 
 def test_migration_v6_adds_email_column_and_auth_tables(mainmod):
     with mainmod.db() as conn:
-        # A fresh init() migrates all the way to the current terminal version
-        # (v7, AI plan updates Phase 1) — the v6 shape asserted below is
-        # unaffected by that later migration.
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+        # A fresh init() migrates all the way to SCHEMA_VERSION — the v6 shape
+        # asserted below is unaffected by whatever came after it.
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
         assert cols == {"id", "username", "password_hash", "role", "created_at", "icon", "email"}
         tok = {r[1] for r in conn.execute("PRAGMA table_info(auth_tokens)").fetchall()}
@@ -92,7 +91,7 @@ def test_migration_v5_to_v6_preserves_a_populated_database(mainmod):
     mainmod.init()
     with mainmod.db() as conn:
         # Migrates all the way to the current terminal version (v7).
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
         assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM sets").fetchone()[0] == 1
         row = conn.execute("SELECT username, role, email FROM profiles WHERE id = ?", (pid,)).fetchone()
@@ -102,7 +101,7 @@ def test_migration_v5_to_v6_preserves_a_populated_database(mainmod):
 def test_migration_v6_is_idempotent(mainmod):
     mainmod.init(); mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
         assert conn.execute("SELECT COUNT(*) FROM profiles").fetchone()[0] == 1
 
 
@@ -112,7 +111,7 @@ def test_auth_tables_stay_out_of_the_export_envelope(mainmod, client):
     assert "auth_tokens" not in mainmod.TABLE_INTRODUCED_AT
     assert "auth_sessions" not in mainmod.TABLE_INTRODUCED_AT
     env = client.get("/api/export").json()
-    assert env["schema_version"] == 7
+    assert env["schema_version"] == mainmod.SCHEMA_VERSION
     assert set(env["tables"]) == set(mainmod.TABLES)
 
 

@@ -3,6 +3,36 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## Unreleased — A restore no longer deletes every profile's plan (`#275`)
+
+Not yet deployed. **Schema moves v7 → v8** (no DDL change; the bump exists so
+backups already on disk stay restorable — see below), so this deploy needs a
+pre-deploy export snapshot and a restore drill.
+
+`POST /api/import` (`mode=replace`) wiped `plan_days` and `plan_exercises` and
+returned `200`, leaving the app unable to log a workout: `GET /api/plan` served
+`{"plan":{},"cycle":[]}` and `POST /api/sessions` answered `400 unknown workout
+day 'upper_a'`. `TABLES` never listed the two plan tables, so the export carried
+no plan and the replace's `DELETE FROM profiles` cascaded the live one away
+(`plan_days.profile_id` is `ON DELETE CASCADE`). No migration could repair it
+afterwards, because a restore pins `user_version` to
+`max(env_version, cur_version)`. A plan is not optional data — `create_session`
+validates `workout_day` against the caller's own `plan_days` — so this was a
+liveness bug on the path used when the app is already broken.
+`backend/test_plan.py` asserted it.
+
+Both tables join `TABLES`, stamped **v8 rather than the v7 that created them**:
+`TABLE_INTRODUCED_AT` is compared against an envelope's *own* version, and every
+backup already written is stamped 7 without plan rows, so claiming v7 would have
+made the gate reject exactly those files and taken the recovery path offline for
+data already on the Pi and in the off-site copy. Any profile left without a plan
+after a restore is re-seeded from `DEFAULT_PLAN`, so a pre-v8 envelope degrades
+to the default plan rather than an unusable app. `_import_merge` excludes both:
+merge only adds rows to the caller's own account, which already has a plan, so
+every incoming row would collide with `UNIQUE(profile_id, day_key)`.
+
+318 backend tests.
+
 ## 2026-10-03 — Gate confirmed live, and the fix for notes that never saved (`1f1e390`)
 
 Deployed `1f1e390` from `claude/import-auth-hardening`, a descendant of `main`

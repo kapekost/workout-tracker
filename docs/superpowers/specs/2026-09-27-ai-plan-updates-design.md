@@ -85,10 +85,12 @@ CREATE TABLE plan_exercises (
 CREATE INDEX idx_plan_exercises_day ON plan_exercises(plan_day_id);
 ```
 
-Neither table joins `TABLES`/`TABLE_INTRODUCED_AT` (the `/api/export`/`/api/import` disaster-recovery
-envelope) in this phase — deliberately deferred to Phase 4's own review, the same way `auth_tokens`/
-`auth_sessions` opted out at v6 for their own stated reason. A plan is now real user data worth
-backing up, so this is a real gap, not a permanent one — flagged in §8 rather than silently decided.
+Both tables join `TABLES`/`TABLE_INTRODUCED_AT` (the `/api/export`/`/api/import` disaster-recovery
+envelope). Leaving them out made a whole-database restore delete every profile's plan while
+`user_version` stayed pinned forward, which no later migration could repair — `create_session`
+validates `workout_day` against the caller's own `plan_days`, so a profile without one cannot start
+any workout. They are stamped **v8**, not the v7 that created them: that column says which version an
+envelope must already carry, and every backup written before this was stamped 7 without plan rows.
 
 ### 1.2 Why JSON text columns for `muscles`/`cues`, not child tables
 
@@ -567,8 +569,6 @@ card/button styles) — no new design system, matching the standing efficiency b
 
 ## 8. Deferred, not designed here
 
-- `plan_days`/`plan_exercises` joining the `/api/export`/`/api/import` disaster-recovery envelope —
-  a real gap once a plan is real per-profile data worth backing up, flagged, not fixed this session.
 - Whole-day add/remove via the AI ingestion path (§5.2) — schema/endpoint shape allows it later.
 - Blending a live agent-direct connection's auth/credential model into `/api/plan/update` — the
   owner named this as the future direction; §5.1 designs the endpoint so that connecting it later is

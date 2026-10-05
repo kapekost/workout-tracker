@@ -69,16 +69,43 @@ def test_migration_is_a_noop_for_a_profile_with_existing_rows(mainmod):
         assert [dict(r) for r in after_exercises] == [dict(r) for r in before_exercises]
 
 
+def test_a_backup_taken_before_the_plan_was_backed_up_still_restores(client, reauthenticate):
+    """Every envelope already on disk reports the schema_version current when it
+    was written, so any backup taken before plan_days joined the export is a v7
+    envelope with no plan tables. The envelope gate requires the tables a given
+    version introduced, so declaring them at v7 would reject exactly those files
+    -- taking the disaster-recovery path offline for data that is already on the
+    Pi and in the off-site copy. Declared at v8 instead: such an envelope is
+    accepted, and the reseed above gives the restored profiles their default
+    plan."""
+    env = client.get("/api/export").json()
+    assert env["schema_version"] == 8
+    legacy = {"exported_at": env["exported_at"], "schema_version": 7,
+              "tables": {k: v for k, v in env["tables"].items()
+                         if not k.startswith("plan_")}}
+
+    assert _replace(client, legacy).status_code == 200
+    reauthenticate(client)
+
+    assert client.get("/api/plan").json()["cycle"] == ["upper_a", "lower_a",
+                                                       "upper_b", "lower_b"]
+    assert client.post("/api/sessions", json={"workout_day": "upper_a"}).status_code == 200
+
+
 def test_plan_tables_are_in_the_export_import_envelope(mainmod):
     """A plan is user data: leaving these two tables out of the envelope makes a
     whole-database restore delete every plan while user_version stays pinned
-    forward, so the v7 backfill can never re-seed it and the app can no longer
-    start a workout. v7 is the version that created them, which is what keeps a
-    pre-v7 envelope importable."""
+    forward, so the backfill can never re-seed it and the app can no longer
+    start a workout.
+
+    v8, not the v7 that created them: TABLE_INTRODUCED_AT is compared against
+    an envelope's own version, and every backup written before this change is
+    stamped 7 without carrying plan rows, so claiming v7 would make the gate
+    reject all of them."""
     assert "plan_days" in mainmod.TABLES
     assert "plan_exercises" in mainmod.TABLES
-    assert mainmod.TABLE_INTRODUCED_AT["plan_days"] == 7
-    assert mainmod.TABLE_INTRODUCED_AT["plan_exercises"] == 7
+    assert mainmod.TABLE_INTRODUCED_AT["plan_days"] == 8
+    assert mainmod.TABLE_INTRODUCED_AT["plan_exercises"] == 8
 
 
 def _replace(client, envelope):
