@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { SessionProvider, useSession } from './session'
 import { apiReadsCacheName } from '../../apiCacheName.js'
 
-// onUnauthorized is the real seam api.js hands out, not a spy: these tests
-// care that the provider survives registering, not what it registered.
+// onUnauthorized is the real seam api.js hands out, not a spy, except where a
+// test needs to fire it -- that is the 401 path, which no caller ever invokes
+// directly, so it has to be captured here to be triggered.
+const onUnauthorizedSpy = vi.fn(() => () => {})
 vi.mock('../api', () => ({
   auth: { me: vi.fn(), logout: vi.fn(), login: vi.fn() },
-  onUnauthorized: () => () => {},
+  onUnauthorized: (...args) => onUnauthorizedSpy(...args),
 }))
 import { auth } from '../api'
 
@@ -27,10 +30,12 @@ function Probe() {
       <span data-testid="who">{profile ? profile.username : 'none'}</span>
       <span data-testid="ready">{String(ready)}</span>
       <button onClick={() => signIn({ id: 5, username: 'invited' })}>sign in</button>
+      <button onClick={() => signIn({ id: 1, username: 'kapekost' })}>sign in again</button>
       <button onClick={() => signOut()}>sign out</button>
     </div>
   )
 }
+
 
 beforeEach(() => { vi.clearAllMocks() })
 
@@ -188,6 +193,93 @@ describe('when /auth/me never answers at all', () => {
 
     await act(async () => { answer({ id: 1, username: 'kapekost' }) })
     expect(screen.getByTestId('who')).toHaveTextContent('kapekost')
+  })
+})
+
+// The cache that holds cached API response bodies is scoped to the build
+// commit, so it cannot tell two accounts apart. On a phone that is handed
+// around -- the family-shared case #124 exists for -- the previous account's
+// real sets, notes and progress would be served to whoever signs in next.
+describe('cached API responses never cross accounts', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.stubGlobal('caches', {
+      delete: vi.fn().mockResolvedValue(true),
+      keys: vi.fn().mockResolvedValue([]),
+    })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  // The cache is keyed by build commit and cannot tell accounts apart, so the
+  // responses in it are the previous user's. This is what the offline-read
+  // cache is *for* when it holds the account that is still signed in, which is
+  // why loading must not clear it.
+  it('keeps the cache on first load, so offline reads still work', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    expect(caches.delete).not.toHaveBeenCalled()
+  })
+
+  it('purges the api-reads cache when a different account signs in', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+    expect(caches.delete).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('sign in'))
+
+    await waitFor(() => expect(caches.delete)
+      .toHaveBeenCalledWith(apiReadsCacheName(__APP_COMMIT__)))
+  })
+
+  it('does not purge when the same account signs in again', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+
+    // The Login screen's own path: /auth/me already answered with this
+    // account and the user just typed the password again.
+    fireEvent.click(screen.getByText('sign in again'))
+
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+    expect(caches.delete).not.toHaveBeenCalled()
+  })
+
+  it('purges on the 401 path too, not only on an explicit sign out', async () => {
+    const handlers = []
+    onUnauthorizedSpy.mockImplementation((fn) => { handlers.push(fn) })
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+    expect(caches.delete).not.toHaveBeenCalled()
+
+    // A data endpoint answers 401 mid-use: the session ended without anybody
+    // touching sign out.
+    await act(async () => { handlers.forEach((fn) => fn()) })
+
+    await waitFor(() => expect(caches.delete)
+      .toHaveBeenCalledWith(apiReadsCacheName(__APP_COMMIT__)))
+  })
+
+  // The purge has to run from an effect, not from inside a setProfile updater:
+  // an updater must stay pure, and StrictMode (main.jsx) re-invokes it, which
+  // would issue the delete twice for one account change.
+  it('purges once per account change, even under StrictMode', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(
+      <StrictMode>
+        <SessionProvider><Probe /></SessionProvider>
+      </StrictMode>,
+    )
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+    caches.delete.mockClear()
+
+    fireEvent.click(screen.getByText('sign in'))
+
+    await waitFor(() => expect(caches.delete).toHaveBeenCalled())
+    expect(caches.delete).toHaveBeenCalledTimes(1)
   })
 })
 

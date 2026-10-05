@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { auth, onUnauthorized } from '../api'
 import { clearAllRestTimers } from './restTimerStorage'
 import { apiReadsCacheName } from '../../apiCacheName.js'
@@ -37,11 +37,48 @@ export function SessionProvider({ children }) {
     return () => clearTimeout(t)
   }, [])
 
+  // The service worker caches real API response bodies under a name derived
+  // only from the build commit (see apiCacheName.js), so it cannot tell one
+  // account's cached data from another's. Whoever signs in after the previous
+  // user would be served their sets, notes and progress off the network fallback
+  // -- on exactly the slow gym wifi that fallback exists for, and with no logout
+  // in between. So every path that ends one account and starts another clears
+  // it: signing in as someone else, a 401, and sign out below.
+  const purgeApiReads = useCallback(async () => {
+    // `caches` doesn't exist outside a browser (and not in jsdom), same guard
+    // the rest of the storage helpers use.
+    if (typeof caches === 'undefined') return
+    try { await caches.delete(apiReadsCacheName(__APP_COMMIT__)) } catch { /* best effort */ }
+  }, [])
+
   // api.js has no router, so a 401 from a data endpoint -- a session that
   // expired between page loads -- arrives here instead. Dropping the profile
   // is the whole response: App's guard reads it and renders the login screen,
-  // which keeps the redirect in exactly one place.
-  useEffect(() => onUnauthorized(() => setProfile(null)), [])
+  // which keeps the redirect in exactly one place. The purge runs too, because
+  // whoever signs in next must not inherit the responses this account cached.
+  useEffect(() => onUnauthorized(() => {
+    setProfile(null)
+    purgeApiReads()
+  }), [purgeApiReads])
+
+  // The same purge for an account *change* that was not a 401 and not an
+  // explicit sign out: signing in as someone else. Keyed on the id rather than
+  // done inside a setProfile updater, because an updater must stay pure and
+  // StrictMode re-runs it.
+  //
+  // Comparing against the last id that was actually in effect is what keeps the
+  // first load from clearing the cache: the responses already in it belong to
+  // the account /auth/me just answered for, and throwing them away would defeat
+  // the offline read they exist for. A ref, not a "first run" flag, because
+  // StrictMode mounts twice and a flag would be consumed by the first mount.
+  const lastProfileId = useRef(undefined)
+  useEffect(() => {
+    const current = profile?.id
+    if (lastProfileId.current !== undefined && lastProfileId.current !== current) {
+      purgeApiReads()
+    }
+    lastProfileId.current = current
+  }, [profile?.id, purgeApiReads])
 
   const signIn = useCallback((p) => setProfile(p), [])
 
@@ -77,12 +114,8 @@ export function SessionProvider({ children }) {
     // commit, so only that one name needs deleting; api-cache-cleanup.js
     // (#142) separately sweeps every *other*-commit api-reads-* cache at
     // service-worker activate time, which is a different lifecycle event.
-    // Guarded the same way the storage helpers guard `localStorage`: `caches`
-    // doesn't exist in the vitest/jsdom test environment.
-    if (typeof caches !== 'undefined') {
-      try { await caches.delete(apiReadsCacheName(__APP_COMMIT__)) } catch { /* best effort */ }
-    }
-  }, [])
+    await purgeApiReads()
+  }, [purgeApiReads])
 
   return (
     <SessionContext.Provider value={{ profile, ready, signIn, signOut }}>

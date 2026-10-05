@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { execSync } from 'node:child_process'
 import { configDefaults } from 'vitest/config'
 import { apiReadsCacheName } from './apiCacheName.js'
+import { isApiReadCacheable } from './apiCachePatterns.js'
 
 // Docker builds have no .git (see .dockerignore) — the commit comes in as the
 // APP_COMMIT build arg there; local dev/test falls back to git, then "dev".
@@ -89,12 +90,9 @@ export default defineConfig({
           {
             // Offline-read: last-seen history/progress still render without a connection.
             // Only GETs are cached; writes (POST/PATCH/DELETE) always need the Pi reachable.
-            // /api/export is excluded: it's a data-safety/export endpoint that must never
-            // be served stale from the service-worker cache.
-            urlPattern: ({ url, request }) =>
-              url.pathname.startsWith('/api/') &&
-              !url.pathname.startsWith('/api/export') &&
-              request.method === 'GET',
+            // Identity, /api/admin/* and /api/export are excluded -- see apiCachePatterns.js,
+            // which owns the exclusions and is unit-tested on its own.
+            urlPattern: isApiReadCacheable,
             handler: 'NetworkFirst',
             options: {
               // Commit-scoped so a new deploy can never serve a response an
