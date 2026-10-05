@@ -50,7 +50,7 @@ mention, drops lines not in the diff, and withholds the whole output if it match
 pattern (checked before and after JSON decoding). Output that is not that JSON is posted
 truncated inside a code block. A skipped review is JSON with `"skipped": true`. It posts as a `COMMENT`, never
 `--approve` or `--request-changes`. On a re-review it reads the history file and looks at the
-diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead.
+diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead. If the review job fails or times out, the post job still runs and writes a different fixed notice, so a missing review is visible on the PR.
 
 So when you see it:
 

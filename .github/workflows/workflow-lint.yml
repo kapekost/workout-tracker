@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Pinned to an exact release rather than "latest": an unpinned download
       # would mean CI runs whatever a third party published most recently. The
