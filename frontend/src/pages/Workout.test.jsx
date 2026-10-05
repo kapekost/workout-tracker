@@ -337,25 +337,35 @@ describe('Workout page', () => {
     vi.useRealTimers()
   })
 
-  // #262: arming a set started a 3s timer that was never cleared, so leaving
-  // the screen inside that window left a callback to run against a component
-  // that no longer existed. Vitest attributes that to whichever test is running
-  // when it fires, which is how a run that touched no frontend files at all
-  // went red.
-  it('leaves no timer running when the screen goes away mid-window', async () => {
+  // Arming a set starts a 3s timer. Leaving the screen inside that window must
+  // not leave a callback pending against a component that no longer exists.
+  it('leaves no confirm timer running when the screen goes away mid-window', async () => {
     mockSession([{ id: 42, exercise_id: ex1.id, exercise_name: ex1.name,
                    set_number: 1, reps: 8, weight_kg: 60 }])
-    const { unmount } = renderWorkout()
-    await screen.findByText(ex1.name)
+    // Fake timers go on before render, not after: this screen also runs
+    // SessionClock's and TimerBar's 1s intervals, and an effect cleanup that
+    // runs after the switch resolves clearInterval to the *fake*, which cannot
+    // clear a real interval. Installing them first makes every interval in the
+    // tree a fake one, so the count means what it says.
     vi.useFakeTimers()
     try {
+      const { unmount } = renderWorkout()
+      // getBy rather than findBy: findBy polls with setTimeout, which is the
+      // fake here, so it would wait on a clock only this test controls.
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(screen.getByText(ex1.name)).toBeInTheDocument()
+      const before = vi.getTimerCount()
+
       fireEvent.click(screen.getByRole('button', { name: /delete set/i }))
-      expect(vi.getTimerCount()).toBeGreaterThan(0)
+      expect(vi.getTimerCount()).toBe(before + 1)
 
       unmount()
-      // Nothing may still be pending to fire into a torn-down tree.
+
+      // Counting rather than advancing: advancing past the window does not throw
+      // even with the timer still pending, because React 19 no longer warns
+      // about a setState on an unmounted component. The count is what actually
+      // separates "cleared on unmount" from "leaked".
       expect(vi.getTimerCount()).toBe(0)
-      expect(() => vi.advanceTimersByTime(5000)).not.toThrow()
     } finally {
       vi.useRealTimers()
     }

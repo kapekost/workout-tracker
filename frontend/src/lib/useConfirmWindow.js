@@ -4,12 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // session, Personal Bests' on a PB) share one shape: a first tap arms, a
 // second inside a 3s window confirms, and the window expiring disarms.
 //
-// One timer, cleared on unmount. Unmounted is the case that matters: a
-// setTimeout that outlives its component calls a state setter on a dead
-// component, which React reports as an error against whatever is running next
-// rather than against the code that caused it. In CI that surfaces as an
-// unrelated test failing (#262), and in the app it is a state update nobody is
-// left to render.
+// One timer, cleared on unmount: a setTimeout that outlives its component calls
+// a state setter on a dead component, which React reports as an error against
+// whatever is running next rather than against the code that caused it.
 export function useConfirmWindow(windowMs = 3000) {
   const [armedId, setArmedId] = useState(null)
   const timer = useRef(null)
@@ -27,7 +24,10 @@ export function useConfirmWindow(windowMs = 3000) {
   // on it without re-reading armedId -- which may already have changed by the
   // time it looks.
   const confirm = useCallback((id) => {
-    if (armedId === id) {
+    // Nothing can be armed before a first tap, so a nullish id must arm rather
+    // than confirm -- otherwise a caller passing a row with no id deletes it on
+    // the first tap.
+    if (id != null && armedId === id) {
       clear()
       setArmedId(null)
       return true
@@ -41,12 +41,5 @@ export function useConfirmWindow(windowMs = 3000) {
     return false
   }, [armedId, clear, windowMs])
 
-  // Disarms whatever is armed. Used when a page's data changes underneath the
-  // guard, so a deleted row cannot leave the row after it armed.
-  const disarm = useCallback(() => {
-    clear()
-    setArmedId(null)
-  }, [clear])
-
-  return { armedId, confirm, disarm }
+  return { armedId, confirm }
 }

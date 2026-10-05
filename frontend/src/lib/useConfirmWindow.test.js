@@ -47,9 +47,9 @@ describe('useConfirmWindow', () => {
     expect(result.current.armedId).toBe(8)
   })
 
-  // The actual bug (#262): the callback outlived the component, so it called a
-  // state setter after unmount. Vitest reports that against whichever test is
-  // running at the time, which is how an unrelated file went red.
+  // A timer that outlives its component calls a state setter on a dead
+  // component, which React reports against whatever is running next rather than
+  // against the code that caused it.
   it('clears the pending timer on unmount instead of updating a dead component', () => {
     const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
     const { result, unmount } = renderHook(() => useConfirmWindow())
@@ -73,13 +73,13 @@ describe('useConfirmWindow', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('disarms on demand', () => {
+  it('arms rather than confirms for a row with no id', () => {
     const { result } = renderHook(() => useConfirmWindow())
 
-    act(() => { result.current.confirm(7) })
-    act(() => { result.current.disarm() })
-
+    // armedId starts null, so without the guard a nullish id would match it and
+    // the caller would delete on the first tap.
+    act(() => { expect(result.current.confirm(null)).toBe(false) })
     expect(result.current.armedId).toBe(null)
-    expect(vi.getTimerCount()).toBe(0)
+    act(() => { expect(result.current.confirm(undefined)).toBe(false) })
   })
 })
