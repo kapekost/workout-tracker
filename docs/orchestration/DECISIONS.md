@@ -817,3 +817,16 @@ home branch (or re-point the home-branch header at a branch that tracks `main`),
 then triage the 10 stale branches individually — two hold unmerged commits that
 `main` has since superseded by another route, so they are candidates for
 deletion, but deleting branches is destructive and belongs to the owner.
+
+## 2026-10-05 — No branch protection on `main`, by choice
+
+The repo is public, so GitHub would allow branch protection on `main` for free, and a
+review of the CI setup recommended it (required checks plus code-owner review). The owner
+chose to leave it off. Agents keep merging their own PRs once `gh pr checks --watch
+--fail-fast` passes, as "Merge & branch rules" in `GUARDRAILS.md` describes.
+
+What that leaves open, stated so nobody assumes otherwise: `.github/CODEOWNERS` has no effect
+without protection, so an agent PR can change `.github/`, `.claude/` or `GUARDRAILS.md` and
+merge on green CI with no human approval. The controls are the agent's own guardrails, the
+review bot (a comment, not a gate) and the owner reading merged PRs. Revisit if an agent
+ever merges a change to those paths that the owner did not expect.
