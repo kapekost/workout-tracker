@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -64,11 +66,14 @@ jobs:
       # committed .env — and "keys never go in tracked files" is only a rule if
       # something enforces it.
       #
+      # sk- must start a word (so "task-..." prose does not match) and allows - and _ so
+      # OpenRouter (sk-or-v1-...) and Anthropic (sk-ant-...) keys match.
+      #
       # *.example files are excluded (they hold deliberate placeholders), and so
       # is this workflow, which necessarily contains the patterns themselves.
       - name: Check for committed secrets
         run: |
-          patterns='re_[A-Za-z0-9]{24,}|sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}'
+          patterns='re_[A-Za-z0-9]{24,}|(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}'
           patterns="$patterns|AKIA[0-9A-Z]{16}|GOCSPX-[A-Za-z0-9_-]{10,}|ya29\.[A-Za-z0-9_-]{20,}"
           patterns="$patterns|tskey-[A-Za-z0-9-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}"
           patterns="$patterns|BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY"

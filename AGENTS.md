@@ -50,7 +50,7 @@ mention, drops lines not in the diff, and withholds the whole output if it match
 pattern (checked before and after JSON decoding). Output that is not that JSON is posted
 truncated inside a code block. A skipped review is JSON with `"skipped": true`. It posts as a `COMMENT`, never
 `--approve` or `--request-changes`. On a re-review it reads the history file and looks at the
-diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead.
+diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead. If the review job fails or times out, the post job still runs and writes a different fixed notice, so a missing review is visible on the PR.
 
 So when you see it:
 
@@ -58,8 +58,9 @@ So when you see it:
   thread. Never wave it through because the diff looked fine to you. It will not stop a merge
   — nothing about it is a required check in the merge sense; it is a person-shaped opinion
   from a bot.
-- **Silence means nothing.** If the job is skipped (draft, fork) or the provider failed, there
-  is no comment and no verdict. Absence is not approval.
+- **Silence means nothing.** Drafts, forks and Dependabot PRs get no comment at all. A provider
+  failure posts a "skipped" review and a failed job posts a fixed notice; neither is a verdict.
+  Absence is not approval.
 - **It can be wrong.** A review of this repo on 2026-10-03 produced four false Criticals true
   only on a stale base branch, and its first successful run found four real defects in the
   workflow that had just been written to prevent exactly what it then did. Re-verify any claim
