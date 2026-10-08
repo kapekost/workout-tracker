@@ -65,7 +65,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: merged @ 2026-10-08T20:14:27Z (PR #285, sha a6f999b0b58f799f1a810aac91141b14dd483ff8).
+- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: done @ 2026-10-08T20:15:02Z (PR #285 merged a6f999b, deploy awaiting owner).
 
 ## Needs owner
 - **`[unsure]` Chrome extension browser choice** needs `AskUserQuestion`, which subagents lack.
