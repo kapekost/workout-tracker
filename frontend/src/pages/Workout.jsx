@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { PLAN, DAY_COLORS } from '../data/workoutPlan'
+import { DAY_COLORS } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
 import TimerBar from '../components/TimerBar'
 import SessionClock from '../components/SessionClock'
 import ExerciseCuesModal from '../components/ExerciseCuesModal'
@@ -204,6 +205,7 @@ export default function Workout() {
   const { sessionId } = useParams()
   const nav = useNavigate()
   const { refresh } = useActiveSession()
+  const { plan: PLAN } = usePlan()
   const [session, setSession] = useState(null)
   const [loadError, setLoadError] = useState(false)
   const [sets, setSets] = useState([])

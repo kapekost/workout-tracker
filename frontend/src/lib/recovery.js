@@ -8,7 +8,7 @@
 // Nothing here is fitted and there are no per-user parameters, because there
 // is no ground truth to fit against. A fitted model would be more confident,
 // not more correct.
-import { MUSCLE_GROUPS, EXERCISE_BY_ID, groupWeightsFor, tauFor } from './muscles'
+import { MUSCLE_GROUPS, groupWeightsFor, tauFor } from './muscles'
 
 export const REF_SETS = 6        // fractional sets that make one full stimulus unit
 export const NOVELTY_FACTOR = 1.5 // repeated-bout effect
@@ -81,14 +81,14 @@ export function bandFor(freshness) {
 // so a session is not one term), and only each exercise's most recent bout is
 // summed (a bout two sessions back contributes <=1.8% at tau <= 24h — below
 // the resolution of three bands).
-export function groupRecovery(recency, nowMs = Date.now()) {
+export function groupRecovery(recency, nowMs = Date.now(), exercisesById = {}) {
   const todayIso = localToday(new Date(nowMs))
   const acc = {}
   MUSCLE_GROUPS.forEach(g => {
     acc[g.id] = { load: 0, lastAt: null, lastDate: null, sets: 0 }
   })
 
-  const rows = (recency || []).filter(r => EXERCISE_BY_ID[r.exercise_id])
+  const rows = (recency || []).filter(r => exercisesById[r.exercise_id])
 
   // Pass 1 — accumulate decayed load, and find each group's most recent bout.
   rows.forEach(r => {
@@ -96,7 +96,7 @@ export function groupRecovery(recency, nowMs = Date.now()) {
     const hours = hoursSince(r.last_at, nowMs)
     const novelty = noveltyFor(r)
     const decay = Math.exp(-hours / tau)
-    Object.entries(groupWeightsFor(EXERCISE_BY_ID[r.exercise_id])).forEach(([groupId, w]) => {
+    Object.entries(groupWeightsFor(exercisesById[r.exercise_id])).forEach(([groupId, w]) => {
       const g = acc[groupId]
       if (!g) return
       g.load += Math.min(1, (r.sets * w) / REF_SETS) * novelty * decay
@@ -110,7 +110,7 @@ export function groupRecovery(recency, nowMs = Date.now()) {
   // Pass 2 — fractional sets on that most recent date. Separate pass because
   // it needs each group's winning date, which pass 1 is still discovering.
   rows.forEach(r => {
-    Object.entries(groupWeightsFor(EXERCISE_BY_ID[r.exercise_id])).forEach(([groupId, w]) => {
+    Object.entries(groupWeightsFor(exercisesById[r.exercise_id])).forEach(([groupId, w]) => {
       const g = acc[groupId]
       if (g && r.last_date === g.lastDate) g.sets += r.sets * w
     })

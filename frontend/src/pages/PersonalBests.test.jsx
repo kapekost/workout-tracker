@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import PersonalBests from './PersonalBests'
-import { ALL_EXERCISES } from '../data/workoutPlan'
+import { ALL_EXERCISES, PLAN, CYCLE } from '../data/workoutPlan'
+
+const planState = vi.hoisted(() => ({ empty: false }))
+vi.mock('../lib/planContext', () => ({
+  usePlan: () => (planState.empty
+    ? { plan: {}, cycle: [], ready: true }
+    : { plan: PLAN, cycle: CYCLE, ready: true }),
+}))
 
 vi.mock('../api', () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
@@ -13,7 +20,32 @@ function renderPage() {
   return render(<MemoryRouter><PersonalBests /></MemoryRouter>)
 }
 
-beforeEach(() => { vi.clearAllMocks() })
+beforeEach(() => { vi.clearAllMocks(); planState.empty = false })
+
+describe('PersonalBests exercise picker', () => {
+  async function openForm() {
+    api.get.mockResolvedValue([])
+    const view = renderPage()
+    await screen.findByText('No historical PBs logged yet.')
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    return view
+  }
+
+  it('lists the exercises by name, as the static list did', async () => {
+    await openForm()
+    const options = screen.getAllByRole('option').map(o => o.textContent)
+    expect(options).toEqual(ALL_EXERCISES.map(e => e.name))
+  })
+
+  it('picks the default exercise once a plan that arrived late is available', async () => {
+    planState.empty = true
+    const { rerender } = await openForm()
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    planState.empty = false
+    rerender(<MemoryRouter><PersonalBests /></MemoryRouter>)
+    expect(screen.getByRole('combobox')).toHaveValue(ALL_EXERCISES[0].id)
+  })
+})
 
 describe('PersonalBests page', () => {
   it('lists existing entries grouped by exercise', async () => {

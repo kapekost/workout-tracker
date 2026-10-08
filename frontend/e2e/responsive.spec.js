@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { PLAN, CYCLE } from '../src/data/workoutPlan.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures.
@@ -45,6 +46,8 @@ async function mockApi(page) {
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, '')
     if (path === '/auth/me') return route.fulfill({ json: profile })
+    // The app renders no page until the plan request settles (PlanProvider).
+    if (path === '/plan') return route.fulfill({ json: { plan: PLAN, cycle: CYCLE } })
     if (path === '/sessions') return route.fulfill({ json: sessions })
     if (path === `/sessions/${ACTIVE_SESSION_ID}`) return route.fulfill({ json: sessionDetail })
     if (path === `/sessions/${ACTIVE_SESSION_ID}/prs`) return route.fulfill({ json: [] })

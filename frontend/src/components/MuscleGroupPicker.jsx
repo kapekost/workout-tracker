@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
 import { bestDayForMuscle } from '../lib/muscles'
 import { colors, type, space, icon } from '../lib/theme'
 import Eyebrow from './Eyebrow'
@@ -106,6 +107,7 @@ export default function MuscleGroupPicker({
   groups, lastTrainedByDay = {}, activeSession = null, starting = false, onStart,
 }) {
   const [expandedId, setExpandedId] = useState(null)
+  const { plan: PLAN, cycle: CYCLE } = usePlan()
   // A first-run install has groups.length > 0 (MUSCLE_GROUPS is fixed) but
   // every group's freshness is null — groupRecovery's own "not trained yet"
   // signal (see lib/recovery.js's bandFor/dayLabel, which already branch on
@@ -114,7 +116,7 @@ export default function MuscleGroupPicker({
   if (!groups?.length || groups.every(g => g.freshness === null)) return null
 
   const expanded = groups.find(g => g.id === expandedId) || null
-  const bestDayId = expanded ? bestDayForMuscle(expanded.id, lastTrainedByDay) : null
+  const bestDayId = expanded ? bestDayForMuscle(expanded.id, lastTrainedByDay, PLAN, CYCLE) : null
   const bestDay = bestDayId ? PLAN[bestDayId] : null
 
   return (
