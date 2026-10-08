@@ -405,16 +405,27 @@ describe('the per-profile plan', () => {
     expect(screen.getByRole('button', { name: 'Start Upper A' })).toBeInTheDocument()
   })
 
-  it('still renders the app, with an empty plan, when the request fails', async () => {
+  it('offers a retry, not pages built on an empty plan, when the request fails', async () => {
     authenticated()
+    let fail = true
     api.get.mockImplementation(async (path) => {
-      if (path === '/plan') throw new Error('API GET /plan → 500')
+      if (path === '/plan') {
+        if (fail) throw new Error('API GET /plan → 500')
+        return { plan: PLAN, cycle: CYCLE }
+      }
       if (path === '/sessions') return []
       if (path === '/exercises/recency') return []
       throw new Error(`unmocked GET ${path}`)
     })
     render(<App />)
+    expect(await screen.findByText(/couldn't load your workout plan/i)).toBeInTheDocument()
+    expect(screen.queryByText('Next up')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start Workout' })).not.toBeInTheDocument()
+
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Next up')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start Workout' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start Upper A' })).toBeInTheDocument()
+    expect(api.get.mock.calls.filter(([p]) => p === '/plan')).toHaveLength(2)
   })
 })

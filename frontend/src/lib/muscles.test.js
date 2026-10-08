@@ -173,3 +173,14 @@ describe('bestDayForMuscle', () => {
     expect(bestDayForMuscle('not_a_group', {}, PLAN, CYCLE)).toBeNull()
   })
 })
+
+describe('allExercises', () => {
+  it('lists an exercise that sits on two days once', () => {
+    const squat = { id: 'squat', name: 'Squat' }
+    const plan = {
+      a: { exercises: [squat, { id: 'row', name: 'Row' }] },
+      b: { exercises: [squat] },
+    }
+    expect(allExercises(plan).map(e => e.id)).toEqual(['squat', 'row'])
+  })
+})

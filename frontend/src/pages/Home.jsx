@@ -77,8 +77,8 @@ export default function Home() {
   // Wave 1.1 (2026-10-03 design review): a rejected read is not an empty
   // account. Before this, `.catch(() => setLoading(false))` left `sessions` at
   // [] and the page rendered four simultaneous falsehoods: "No sessions logged
-  // yet", the wrong next workout day (getNextWorkoutId([]) always returns
-  // upper_a), an exercise preview for a day that may not be next, and Start
+  // yet", the wrong next workout day (nextWorkoutId([], cycle) always returns
+  // the cycle's first day), an exercise preview for a day that may not be next, and Start
   // replacing Resume over a live workout. `loadError` is what separates "no
   // sessions" from "could not ask".
   const [loadError, setLoadError] = useState(false)
@@ -156,8 +156,8 @@ export default function Home() {
 
   // A rejected read renders none of the page's own claims. There is no honest
   // version of "here is the next workout, here are its exercises, press Start"
-  // when we do not know what is in progress — getNextWorkoutId([]) answers
-  // `upper_a` by default, so the wrong day is not an unlikely edge case, it is
+  // when we do not know what is in progress — nextWorkoutId([], cycle) answers
+  // the cycle's first day by default, so the wrong day is not an unlikely edge case, it is
   // what an empty list always produces. Try again is the only action offered:
   // both Start and Resume are guesses right now.
   //

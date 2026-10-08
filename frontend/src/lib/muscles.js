@@ -24,7 +24,10 @@ const TAG_TO_GROUP = Object.fromEntries(
   MUSCLE_GROUPS.flatMap(g => g.tags.map(t => [t, g.id]))
 )
 
-export const allExercises = (plan) => Object.values(plan).flatMap(d => d.exercises)
+// An exercise on two days appears once: its id keys the PB picker's options.
+export const allExercises = (plan) => Object.values(plan)
+  .flatMap(d => d.exercises)
+  .filter((ex, i, arr) => arr.findIndex(e => e.id === ex.id) === i)
 export const exerciseById = (plan) => Object.fromEntries(allExercises(plan).map(e => [e.id, e]))
 
 // All 22 exercises already list their primary muscle first, so direct/indirect

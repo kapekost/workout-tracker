@@ -15,6 +15,7 @@ import ScreenTracker from './components/ScreenTracker'
 import { ActiveSessionProvider } from './lib/activeSession'
 import { SessionProvider, useSession } from './lib/session'
 import { PlanProvider, usePlan } from './lib/planContext'
+import LoadError, { LoadErrorHeading } from './components/LoadError'
 import { colors } from './lib/theme'
 
 // Sends you to the door and remembers which one you knocked on, so logging in
@@ -63,6 +64,20 @@ function AppRoutes() {
   )
 }
 
+// Every signed-in page reads the plan, and an empty one would let them state
+// things that are not true (a "Next up: Workout" whose Start can never work, a
+// real session reported as not found). The plan request is the only thing that
+// can fix this, so the retry lives here rather than on each page.
+function PlanLoadError() {
+  const { retry } = usePlan()
+  return (
+    <div style={{ paddingTop: 24 }}>
+      <LoadErrorHeading>Check your connection</LoadErrorHeading>
+      <LoadError what="your workout plan" onRetry={retry} />
+    </div>
+  )
+}
+
 function Shell() {
   // One decision point for the whole app: `profile` picks the route table, so
   // an app page is never even mounted without a session and never fires the
@@ -70,7 +85,7 @@ function Shell() {
   // when api.js reports a session that ended mid-use -- swaps the tables and
   // lands on the login screen without anyone calling navigate().
   const { ready, profile } = useSession()
-  const { ready: planReady } = usePlan()
+  const { ready: planReady, failed: planFailed } = usePlan()
   const location = useLocation()
   const headerRef = useRef(null)
   const [headerHeight, setHeaderHeight] = useState(0)
@@ -105,7 +120,7 @@ function Shell() {
             {/* A workout in progress is a statement about your session. Left
                 mounted, it would sit above the login screen after a logout
                 offering to resume something you can no longer reach. */}
-            {profile && planReady && <ResumeBanner />}
+            {profile && planReady && !planFailed && <ResumeBanner />}
           </div>
           {/* --header-height lets a page size itself against the space the
               fixed header actually leaves it (index.css's .auth-shell). */}
@@ -115,8 +130,12 @@ function Shell() {
                   seeds its picker from it, Workout resolves the day's
                   exercises in its mount effect), so none of them mounts until
                   the plan request has settled. The same short wait as
-                  /auth/me above, for the same reason. */}
-              {profile ? (planReady && <AppRoutes />) : <PublicRoutes />}
+                  /auth/me above, for the same reason. A failed request shows
+                  a retry instead, so no page mounts on an empty plan and a
+                  late answer mounts them fresh. */}
+              {profile
+                ? (planReady && (planFailed ? <PlanLoadError /> : <AppRoutes />))
+                : <PublicRoutes />}
             </div>
           </div>
           <NavBar />

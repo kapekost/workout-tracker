@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act, waitFor } from '@testing-library/react'
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { PlanProvider, usePlan } from './planContext'
 
@@ -16,12 +16,14 @@ const PLAN_B = {
 }
 
 function Probe() {
-  const { plan, cycle, ready } = usePlan()
+  const { plan, cycle, ready, failed, retry } = usePlan()
   return (
     <div>
       <span data-testid="days">{Object.keys(plan).join(',')}</span>
       <span data-testid="cycle">{cycle.join(',')}</span>
       <span data-testid="ready">{String(ready)}</span>
+      <span data-testid="failed">{String(failed)}</span>
+      <button onClick={retry}>retry</button>
     </div>
   )
 }
@@ -40,6 +42,7 @@ describe('usePlan outside a provider', () => {
     expect(screen.getByTestId('days')).toHaveTextContent('')
     expect(screen.getByTestId('cycle')).toHaveTextContent('')
     expect(screen.getByTestId('ready')).toHaveTextContent('true')
+    expect(screen.getByTestId('failed')).toHaveTextContent('false')
   })
 })
 
@@ -69,6 +72,19 @@ describe('PlanProvider', () => {
     await waitFor(() => expect(screen.getByTestId('ready')).toHaveTextContent('true'))
     expect(screen.getByTestId('days')).toHaveTextContent('')
     expect(screen.getByTestId('cycle')).toHaveTextContent('')
+    expect(screen.getByTestId('failed')).toHaveTextContent('true')
+  })
+
+  it('refetches on retry and clears the failure when the answer comes', async () => {
+    session.profile = { id: 1 }
+    api.get.mockRejectedValueOnce(new Error('API GET /plan → 500'))
+    mount()
+    await waitFor(() => expect(screen.getByTestId('failed')).toHaveTextContent('true'))
+    api.get.mockResolvedValueOnce({ plan: PLAN_A, cycle: ['upper_a'] })
+    fireEvent.click(screen.getByText('retry'))
+    await waitFor(() => expect(screen.getByTestId('days')).toHaveTextContent('upper_a'))
+    expect(screen.getByTestId('failed')).toHaveTextContent('false')
+    expect(api.get).toHaveBeenCalledTimes(2)
   })
 
   it('gives up waiting after 5s but still swaps a late answer in', async () => {
@@ -81,8 +97,10 @@ describe('PlanProvider', () => {
     await act(async () => { vi.advanceTimersByTime(5000) })
     expect(screen.getByTestId('ready')).toHaveTextContent('true')
     expect(screen.getByTestId('days')).toHaveTextContent('')
+    expect(screen.getByTestId('failed')).toHaveTextContent('true')
     await act(async () => { resolve({ plan: PLAN_A, cycle: ['upper_a'] }) })
     expect(screen.getByTestId('days')).toHaveTextContent('upper_a')
+    expect(screen.getByTestId('failed')).toHaveTextContent('false')
   })
 
   it('never shows one account the previous account\'s plan', async () => {
