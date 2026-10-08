@@ -71,6 +71,7 @@
 (none)
 
 ## Needs owner
+- **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
 - **Approve the deploy of `a6f999b` (#231), promised for 2026-10-09.** Live is `4523cb6`. No schema change.
   The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
   in `IMPROVEMENTS.md` 2026-10-08. Four `[local]` friction entries from that tick are logged, not yet PRs.
