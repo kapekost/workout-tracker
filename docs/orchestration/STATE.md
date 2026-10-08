@@ -65,7 +65,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-08T20:16:00Z, live session.
+- **#266** — claimed 2026-10-08T20:16:00Z, live session. Checkpoint: claimed @ 2026-10-08T20:21:45Z (live session).
 
 ## Needs owner
 - **Approve the deploy of `a6f999b` (#231), promised for 2026-10-09.** Live is `4523cb6`. No schema change.
