@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import DayIcon from './DayIcon'
-import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { PLAN, CYCLE, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16)

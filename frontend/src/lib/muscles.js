@@ -8,8 +8,6 @@
 //
 // Pure data + pure functions. No time, no network, no React — recovery.js owns
 // all the time arithmetic.
-import { PLAN, CYCLE } from '../data/workoutPlan'
-
 // Legs split three ways because the plan's own `tag` strings already draw
 // those lines ("Quad · Hamstring · Calves").
 export const MUSCLE_GROUPS = [
@@ -26,8 +24,8 @@ const TAG_TO_GROUP = Object.fromEntries(
   MUSCLE_GROUPS.flatMap(g => g.tags.map(t => [t, g.id]))
 )
 
-export const ALL_EXERCISES = Object.values(PLAN).flatMap(d => d.exercises)
-export const EXERCISE_BY_ID = Object.fromEntries(ALL_EXERCISES.map(e => [e.id, e]))
+export const allExercises = (plan) => Object.values(plan).flatMap(d => d.exercises)
+export const exerciseById = (plan) => Object.fromEntries(allExercises(plan).map(e => [e.id, e]))
 
 // All 22 exercises already list their primary muscle first, so direct/indirect
 // is positional. This map exists so a future plan edit that breaks that
@@ -87,8 +85,8 @@ export function groupWeightsFor(exercise) {
 }
 
 // Fractional sets each plan day gives each muscle group.
-export function groupSetsForDay(dayId) {
-  const day = PLAN[dayId]
+export function groupSetsForDay(dayId, plan) {
+  const day = plan[dayId]
   const out = {}
   if (!day) return out
   day.exercises.forEach(ex => {
@@ -111,10 +109,10 @@ function isMoreRested(candidate, incumbent) {
 
 // Which of the 4 plan days trains this group most? Ties break toward the more
 // rested day, which is what couples the picker to the recovery estimate.
-export function bestDayForMuscle(groupId, lastTrainedByDay = {}) {
+export function bestDayForMuscle(groupId, lastTrainedByDay = {}, plan = {}, cycle = []) {
   let best = null
-  for (const dayId of CYCLE) {
-    const score = groupSetsForDay(dayId)[groupId] ?? 0
+  for (const dayId of cycle) {
+    const score = groupSetsForDay(dayId, plan)[groupId] ?? 0
     const last = lastTrainedByDay[dayId] ?? null
     if (best === null || score > best.score) {
       best = { dayId, score, last }
@@ -124,5 +122,3 @@ export function bestDayForMuscle(groupId, lastTrainedByDay = {}) {
   }
   return best && best.score > 0 ? best.dayId : null
 }
-
-export { CYCLE }

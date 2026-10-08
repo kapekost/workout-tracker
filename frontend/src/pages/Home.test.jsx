@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { StartOrResumeButton, planForDay, VersionStamp, lastTrainedByDay } from './Home'
-import { PLAN } from '../data/workoutPlan'
+import { StartOrResumeButton, planForDay, VersionStamp, lastTrainedByDay, nextWorkoutId } from './Home'
+import { PLAN, CYCLE, getNextWorkoutId } from '../data/workoutPlan'
+
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 
 // Full-page render coverage (item 10 + item 12 of the 2026-09-06 UI review).
 // Home.jsx's useActiveSession() needs `ready: true` to get past its own
@@ -110,11 +112,11 @@ describe('Home (full page)', () => {
 
 describe('planForDay', () => {
   it('returns the real PLAN entry for a known day', () => {
-    expect(planForDay('upper_a')).toBe(PLAN.upper_a)
+    expect(planForDay('upper_a', PLAN)).toBe(PLAN.upper_a)
   })
 
   it('returns a fallback with name Workout and empty exercises for an unknown day', () => {
-    const result = planForDay('bogus_day')
+    const result = planForDay('bogus_day', PLAN)
     expect(result.name).toBe('Workout')
     expect(result.exercises).toEqual([])
   })
@@ -160,7 +162,7 @@ describe('lastTrainedByDay', () => {
       { workout_day: 'lower_a', date: '2026-08-10', completed: 1 },
       { workout_day: 'upper_a', date: '2026-08-05', completed: 1 },
     ]
-    expect(lastTrainedByDay(sessions)).toEqual({
+    expect(lastTrainedByDay(sessions, CYCLE)).toEqual({
       upper_a: '2026-08-12', lower_a: '2026-08-10',
     })
   })
@@ -170,17 +172,46 @@ describe('lastTrainedByDay', () => {
       { workout_day: 'upper_a', date: '2026-08-12', completed: 0 },
       { workout_day: 'upper_a', date: '2026-08-05', completed: 1 },
     ]
-    expect(lastTrainedByDay(sessions)).toEqual({ upper_a: '2026-08-05' })
+    expect(lastTrainedByDay(sessions, CYCLE)).toEqual({ upper_a: '2026-08-05' })
   })
 
   it('handles no sessions', () => {
-    expect(lastTrainedByDay([])).toEqual({})
-    expect(lastTrainedByDay(null)).toEqual({})
+    expect(lastTrainedByDay([], CYCLE)).toEqual({})
+    expect(lastTrainedByDay(null, CYCLE)).toEqual({})
   })
 
   it('ignores sessions whose workout_day is not a plan day', () => {
-    expect(lastTrainedByDay([{ workout_day: 'bogus', date: '2026-08-12', completed: 1 }]))
+    expect(lastTrainedByDay([{ workout_day: 'bogus', date: '2026-08-12', completed: 1 }], CYCLE))
       .toEqual({})
+  })
+})
+
+describe('nextWorkoutId', () => {
+  // The cycle now arrives as an argument instead of a module constant, so this
+  // pins it to the static helper it replaced across every shape of input that
+  // helper distinguishes.
+  const s = (workout_day, over = {}) => ({ workout_day, completed: 1, ...over })
+  const cases = {
+    'no sessions': [],
+    'null sessions': null,
+    'undefined sessions': undefined,
+    'a day outside the cycle': [s('imported')],
+    'an unfinished latest session': [s('lower_a', { completed: 0 })],
+    'only the latest session counts': [s('upper_a'), s('lower_a')],
+    ...Object.fromEntries(CYCLE.map(d => [`latest is ${d}`, [s(d)]])),
+  }
+  Object.entries(cases).forEach(([name, sessions]) => {
+    it(`matches getNextWorkoutId for ${name}`, () => {
+      expect(nextWorkoutId(sessions, CYCLE)).toBe(getNextWorkoutId(sessions))
+    })
+  })
+
+  it('wraps from the last day to the first of whatever cycle it is given', () => {
+    expect(nextWorkoutId([s('c')], ['a', 'b', 'c'])).toBe('a')
+  })
+
+  it('has no next day for an empty cycle', () => {
+    expect(nextWorkoutId([s('a')], [])).toBeUndefined()
   })
 })
 

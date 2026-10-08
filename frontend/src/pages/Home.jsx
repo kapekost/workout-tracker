@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { PLAN, getNextWorkoutId, DAY_COLORS, DAY_COLOR_FALLBACK, CYCLE } from '../data/workoutPlan'
+import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
+import { exerciseById } from '../lib/muscles'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
@@ -15,22 +17,30 @@ import { useToast } from '../lib/useToast'
 import { colors, type, space } from '../lib/theme'
 import DayIcon from '../components/DayIcon'
 
-export function planForDay(workoutDay) {
-  return PLAN[workoutDay] || { icon: 'upper', name: 'Workout', tag: '', exercises: [] }
+export function planForDay(workoutDay, plan) {
+  return plan[workoutDay] || { icon: 'upper', name: 'Workout', tag: '', exercises: [] }
 }
 
 // Most recent COMPLETED session date per plan day. Feeds bestDayForMuscle's
 // tie-break; derived from the /sessions response Home already fetches, so the
 // picker costs exactly one extra request (/exercises/recency), not two.
-export function lastTrainedByDay(sessions) {
+export function lastTrainedByDay(sessions, cycle) {
   const out = {}
   ;(sessions || []).forEach(s => {
-    if (!s.completed || !CYCLE.includes(s.workout_day)) return
+    if (!s.completed || !cycle.includes(s.workout_day)) return
     if (!out[s.workout_day] || s.date > out[s.workout_day]) {
       out[s.workout_day] = s.date
     }
   })
   return out
+}
+
+// The day after the most recent session in the cycle. Only the latest session
+// counts, completed or not, and a latest day outside the cycle (or no sessions
+// at all) restarts at the first day.
+export function nextWorkoutId(sessions, cycle) {
+  const i = cycle.indexOf(sessions?.[0]?.workout_day)
+  return i === -1 ? cycle[0] : cycle[(i + 1) % cycle.length]
 }
 
 // Build commit injected by Vite at build time — answers "which version is the
@@ -78,6 +88,7 @@ export default function Home() {
   const [recencyError, setRecencyError] = useState(false)
   const nav = useNavigate()
   const { active, refresh, ready, failed: activeFailed } = useActiveSession()
+  const { plan: PLAN, cycle: CYCLE } = usePlan()
 
   const load = useCallback(async () => {
     try {
@@ -108,16 +119,16 @@ export default function Home() {
     loadRecency()
   }, [load, loadRecency])
 
-  const nextId = getNextWorkoutId(sessions)
+  const nextId = nextWorkoutId(sessions, CYCLE)
   const displayId = active ? active.workout_day : nextId
-  const next = planForDay(displayId)
+  const next = planForDay(displayId, PLAN)
   const color = DAY_COLORS[displayId] || DAY_COLOR_FALLBACK
 
   const lastSession = sessions[0]
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null
 
-  const groups = groupRecovery(recency)
-  const trainedByDay = lastTrainedByDay(sessions)
+  const groups = groupRecovery(recency, Date.now(), exerciseById(PLAN))
+  const trainedByDay = lastTrainedByDay(sessions, CYCLE)
 
   async function startDay(dayId) {
     setStarting(true)

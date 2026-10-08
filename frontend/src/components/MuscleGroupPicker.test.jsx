@@ -2,6 +2,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import MuscleGroupPicker, { RecoveryRing, ringColor, DISCLOSURE } from './MuscleGroupPicker'
 import { colors } from '../lib/theme'
+import { PLAN, CYCLE } from '../data/workoutPlan'
+
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 
 // jsdom's CSSOM serializes an inline hex color back out as rgb(...) — see
 // Workout.test.jsx's identical helper.
