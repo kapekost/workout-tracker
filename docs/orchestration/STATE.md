@@ -16,17 +16,19 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **reconciled, and waiting on a push.** The home branch was a strict ancestor of
-  `main` (133 behind, 0 ahead), so its cursor was the only live copy while `main`'s was a stale
-  September copy. It has now been fast-forwarded to `main` and reconciled hunk by hunk. Nothing is
-  in flight and no Issue is claimed; see "Needs owner" for the two permissions that block execution.
-- **Next action:** push this reconciliation to the home branch, then pick up **#236** (the
-  design-review handoff). It is the highest-ranked unpicked `ready` Issue whose remaining scope
-  needs no owner decision and no destructive approval. Its body is stale in three places and is
-  corrected in a comment already composed against current `main` — **#235 merged, #229 shipped as
-  PR #267 with only the day icons deferred, and the deployed commit is `e8d7335` with 8 commits
-  undeployed.** The one concrete unblocked item inside it is deploying that 8-commit gap: no schema
-  change, so no export snapshot or restore drill, just a deploy plus an `/api/health` version check.
+- **Current focus:** **nothing in flight; no Issue claimed.** 2026-10-08 step-2 sweep done: #236
+  was state-less and is now `intake` (its PR #235 and deploy items are done; what remains is splitting
+  the design-review tracker into per-wave Issues, plus the Wave 1 owner decision and the parked bad-
+  network item 1.1). #236, #266, #269 and #272 were off the board and are now on it as Todo. The home
+  branch holds `a3aab97` plus `c84b2c2`; it does not contain `main` past `72bea5c`, which is expected
+  because the home branch never merges to `main`. `PLAYBOOK.md` and `GUARDRAILS.md` are supersets of
+  `main`'s copies (0 main-only lines), so no policy reconcile was needed.
+- **Next action:** execute **#219** (AI plan updates 1b, frontend cutover to `usePlan()`). It is the
+  highest-ranked `ready`, unblocked, non-destructive Issue: #157 is auth timing handling with no
+  `approved` label, #201 is owner-confirmed lowest, #220-#223 carry `blocked`. Premise holds on `main`
+  (`GET /api/plan` is live, no `usePlan` exists, 16 files still import the static plan). Plan:
+  `docs/superpowers/plans/2026-09-27-plan-data-model.md` Task 1b. Then #229's deferred day icons
+  (blocked on the owner's source artifact), #231, #266.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
@@ -37,11 +39,14 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** live is `e8d7335`; `main` is `72bea5c`. The 8 undeployed commits are #267 (real
-  UI) plus review-bot CI (#259, #260, #261, #264, #265, #268) and an `AGENTS.md` refresh (#263).
-- **Eight open Dependabot PRs, all green** (#249-#251, #252-#254, #270, #271), none drafted, all
-  `MERGEABLE`. Mergeable on green CI per standing policy — deliberately not merged this tick, since
-  merging is a separate action from the blocked claim.
+- **Deploy gap:** live was `72bea5c` after the 2026-10-04 deploy (not re-read this tick); `main` is
+  `f92115a`. The undeployed commits include real app fixes: #276 (cached API responses crossing
+  accounts), #277 (tap-again confirm window), #275 (restore no longer deletes every profile's plan,
+  read it before deploying) plus CI and docs. No schema change among them.
+- **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
+  #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
+  so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
+  list. #279 (`ci/working-review-models`) belongs to another session.
 - **Rejected reference branch:** `claude/icons-scale-up` (29471aa, worktree `~/dev/wt-icons-scale-up`)
   is the per-item attempt the owner turned down. Keep it only for its measured PNG crop boxes (spec
   §9). Never PR it, and delete it once #229 fully ships.
@@ -57,8 +62,8 @@
   **Method note:** the earlier divergence measurement in this repo's own notes was wrong — it
   counted `diff`'s `<`/`>` markers, which `diff` never emits, and so reported PLAYBOOK and
   GUARDRAILS as identical when both had drifted. Count `-`/`+`, or just read the diff.
-- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). After #236, #266 and
-  #262 (`effort:S` each) then #231 are next pickable `ready`. #220-#223 all carry `blocked`.
+- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). After #219, then #229's
+  deferred remainder, #231 and #266 are next pickable `ready`. #220-#223 all carry `blocked`.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -67,22 +72,6 @@
 (none)
 
 ## Needs owner
-- **`git push` is denied in the agent session, so no tick can claim work.** This is the single
-  blocker on all execution: PLAYBOOK's "Claiming work" requires the In-flight claim to be *pushed*
-  to the home branch before any work starts, and the session's permission config contains a literal
-  `{"permission":"bash","pattern":"git push*","action":"deny"}`. GUARDRAILS puts pushes on the
-  never-retry hard-stop list, so an identical retry is not the answer. Needs the rule relaxed (or
-  `gh auth setup-git` plus an API-based push path) for the session that runs `/orchestrate`.
-  **Not a credential problem** — `gh auth status` is healthy; this is the harness rule.
-- **The `GITHUB_TOKEN` in this session can create branches but cannot write to Issues.**
-  `gh api .../git/refs -X POST` succeeds; `POST .../issues/236/comments` and
-  `PATCH .../issues/236` both return 403 `Resource not accessible by personal access token`
-  (GraphQL `addComment` likewise). So it is a fine-grained PAT with contents:write but **no
-  issues:write** on this repo, and also no `project` scope (`user.projectV2` fails, which is why
-  `gh project item-list` and the off-board Issue sweep cannot run). Consequence: this tick could
-  not comment on #236, could not give it a state label, and could not run the board reconcile.
-  Needs the PAT granted Issues read/write plus Projects read on `kapekost/workout-tracker`. Until
-  then #236 stays state-less and invisible to the label-filtered picking query.
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
   CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.
