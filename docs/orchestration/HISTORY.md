@@ -9,6 +9,26 @@
 
 ---
 
+## 2026-10-08 - Tick: #266 review-bot severity tiers planned (plan PR #286 merged)
+
+**Pick.** #266 was the top pickable `ready` Issue. #229 is blocked on the owner's source artifact, #201 is
+owner-lowest, #157 touches auth handling with no `approved` label. The Issue is labelled effort:S but the
+real scope is M, so the plan gate failed and the action was plan.
+
+**Execute.** Plan written at `docs/superpowers/plans/2026-10-08-review-severity-266.md` (229 lines), merged
+as PR #286 (`088922f`) on green CI. Three PRs, ordered so a changed prompt never meets the old poster: A fixes
+the poster's verdict scan and adds `--check-verdict`; B changes the workflow prompt and replaces the inline
+`has_verdict`; C adds severity tiers, REQUEST_CHANGES/APPROVE/COMMENT events, dismissal of the bot's own
+sticky REQUEST_CHANGES, a two-round cap, and the AGENTS/GUARDRAILS/DECISIONS updates. Closes item 6 of #269.
+APPROVE falls back to COMMENT while the repo setting that lets Actions approve PRs stays off (owner call).
+
+**Review and ship.** Bot review of #286 skipped (no model returned a verdict, #269); the plan text was read
+by the orchestrator. No code changed. Nothing deployed; #231 (`a6f999b`) still awaits the owner's deploy approval.
+
+**Cost (output tokens per stage).** reconcile 8686, pick 10362, claim 4079, execute 22741, tail 0.
+
+---
+
 ## 2026-10-08 - Tick: #231 trophy marks best single merged, deploy awaiting owner
 
 **Pick.** #231 (P3, effort:S, touches UI) was the top pickable `ready` Issue. #229 only has its

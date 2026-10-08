@@ -74,3 +74,9 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-08: Playwright in the lockfile wants chromium-1234 but the Mac cache holds 1223 and 1228; the macOS Chromium is not symlink-safe, so PLAYWRIGHT_BROWSERS_PATH/chromium must be an exec wrapper script. Only the sandbox shim is documented in AGENTS.md.
 - [local] 2026-10-08: Stock macOS has no timeout command, so bounded gh pr checks --watch guards fail with command not found; the 2 minute per command guidance conflicts with long watches.
 - [unsure] 2026-10-08: The UI/UX expert review gate has no reviewer agent in a subagent environment, so it was a self-review of screenshots; the opencode reviewer also skipped on the ready PR and Codex hit its limit, leaving no independent review on the final head.
+- [template] 2026-10-08: orch-stop-check.sh printed 'go' when gh was not on PATH (could not read labels). It should fail closed or set its own PATH.
+- [local] 2026-10-08: The review bot skipped merge of plan PR #286 because no model returned a verdict (#269 dead fallback models), so the merge-time review check had nothing to read.
+- [local] 2026-10-08: GUARDRAILS.md and DECISIONS.md exist on both main and the home branch and have diverged; a plan must say which copy to edit (for #266 the home-branch copies).
+- [local] 2026-10-08: #266 is labelled effort:S but needs a plan and three PRs; relabel to effort:M.
+- [template] 2026-10-08: The scratchpad is shared across sessions and holds unrelated files (e.g. body266.md); use unique filenames per tick.
+- [template] 2026-10-08: The documented watch-with-timeout pattern fails on macOS because timeout is not installed; use gtimeout or a shell loop.

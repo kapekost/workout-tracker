@@ -16,7 +16,10 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **nothing in flight; no Issue claimed.** 2026-10-08 second tick: **#231 (trophy marks the
+- **Current focus:** **nothing in flight; no Issue claimed.** 2026-10-08 third tick: **#266 planned, not built.**
+  Plan PR #286 merged (`088922f`): `docs/superpowers/plans/2026-10-08-review-severity-266.md`, three PRs
+  (A poster verdict scan plus `--check-verdict`, B workflow prompt, C severity tiers and events). #266 is
+  relabelled effort:M. Second tick earlier the same day: **#231 (trophy marks the
   best single, real or Epley-estimated, records only) is merged** as PR #285 (`a6f999b` on `main`). Progress
   and Personal Bests show the estimated single with "est." and "from W kg x R"; History drops its per-session
   trophy. **NOT deployed.** Live is still `4523cb6`; the owner said they will approve the deploy of
@@ -24,7 +27,7 @@
   orchestrator's own reviews covered the final head. The home branch never merges to `main`, so it lags
   `main` by design.
 - **Next action:** owner approves the deploy of `a6f999b` (frontend plus backend read query, no schema
-  change; run `scripts/deploy.sh` in the live session). Then #266; #229's deferred day icons stay blocked on
+  change; run `scripts/deploy.sh` in the live session). Then build #266 PR A (read the plan first; #279 edits the same workflow, rebase on it); #229's deferred day icons stay blocked on
   the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
   #220-#223 `blocked`. Eleven `[local]`/`[unsure]` friction entries from this tick are logged in
   `IMPROVEMENTS.md`; the `[local]` ones are not yet turned into PRs.
@@ -65,7 +68,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-08T20:16:00Z, live session. Checkpoint: done @ 2026-10-08T20:28:27Z (plan PR #286 merged 088922f).
+(none)
 
 ## Needs owner
 - **Approve the deploy of `a6f999b` (#231), promised for 2026-10-09.** Live is `4523cb6`. No schema change.
