@@ -65,7 +65,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: claimed @ 2026-10-08T19:49:23Z (live session).
+- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: claimed @ 2026-10-08T19:49:59Z (live session).
 
 ## Needs owner
 - **`[unsure]` Chrome extension browser choice** needs `AskUserQuestion`, which subagents lack.
