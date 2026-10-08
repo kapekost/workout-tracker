@@ -69,7 +69,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#219** — claimed 2026-10-08T18:48:00Z, live session. Checkpoint: merged @ 2026-10-08T19:35:56Z (PR #284, sha 4523cb6e6514692528b3bf569590e3464bda3ab6).
+- **#219** — claimed 2026-10-08T18:48:00Z, live session. Checkpoint: done @ 2026-10-08T19:38:03Z (merged 4523cb6, not deployed).
 
 ## Needs owner
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
