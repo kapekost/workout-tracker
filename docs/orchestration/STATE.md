@@ -65,7 +65,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: pr-open @ 2026-10-08T19:58:16Z (PR #285, branch feat/231-trophy-best-single).
+- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: reviewed @ 2026-10-08T20:11:54Z (PR #285, branch feat/231-trophy-best-single).
 
 ## Needs owner
 - **`[unsure]` Chrome extension browser choice** needs `AskUserQuestion`, which subagents lack.
