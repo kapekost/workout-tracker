@@ -119,21 +119,19 @@ describe('Progress page', () => {
     it('shows the estimated single, "est." and the source set when the best set had reps > 1', async () => {
       const value = await load([estimatedSession])
       expect(value.textContent).toContain('25.5 kg')
-      expect(value.textContent).toContain('est.')
-      expect(screen.getByText('from 20 kg × 8')).toBeInTheDocument()
+      expect(screen.getByText('est. from 20 kg × 8')).toBeInTheDocument()
     })
 
     it('shows the plain weight with no "est." for a real single', async () => {
       const value = await load([realSession])
       expect(value.textContent).toContain('60 kg')
-      expect(value.textContent).not.toContain('est.')
-      expect(screen.queryByText(/^from /)).not.toBeInTheDocument()
+      expect(screen.queryByText(/est\./)).not.toBeInTheDocument()
     })
 
     it('picks the best single across sessions, not the heaviest weight', async () => {
       const value = await load([realSession, { ...estimatedSession, best_single: 70, max_weight: 65, best_weight: 60, best_reps: 3 }])
       expect(value.textContent).toContain('70 kg')
-      expect(screen.getByText('from 60 kg × 3')).toBeInTheDocument()
+      expect(screen.getByText('est. from 60 kg × 3')).toBeInTheDocument()
     })
 
     it('keeps the trophy and uses the body icon size', async () => {
@@ -146,7 +144,15 @@ describe('Progress page', () => {
     it('falls back to the heaviest weight when the response has no single fields', async () => {
       const value = await load([{ date: '2026-07-01', max_weight: 60 }])
       expect(value.textContent).toContain('60 kg')
-      expect(value.textContent).not.toContain('est.')
+      expect(screen.queryByText(/est\./)).not.toBeInTheDocument()
+    })
+
+    it('breaks a tie on the single by the heavier source set', async () => {
+      await load([
+        { date: '2026-07-01', max_weight: 100, best_weight: 60, best_reps: 3, best_single: 66, best_estimated: true },
+        { date: '2026-07-08', max_weight: 70, best_weight: 66, best_reps: 1, best_single: 66, best_estimated: false },
+      ])
+      expect(screen.queryByText(/est\./)).not.toBeInTheDocument()
     })
   })
 

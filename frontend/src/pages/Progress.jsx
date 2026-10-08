@@ -77,9 +77,10 @@ export default function Progress() {
 
   const selectedName = exercises.find(e => e.exercise_id === selected)?.exercise_name
   // The record is the best single: a real one-rep lift, or the Epley estimate
-  // when the best set had more reps. A tie goes to the heavier set.
+  // when the best set had more reps. A tie goes to the heavier source set.
+  const sourceWeight = d => d.fromWeight ?? d.weight
   const prRow = data.length
-    ? data.reduce((a, b) => (b.single > a.single || (b.single === a.single && b.weight > a.weight) ? b : a))
+    ? data.reduce((a, b) => (b.single > a.single || (b.single === a.single && sourceWeight(b) > sourceWeight(a)) ? b : a))
     : null
   const pr = prRow?.single ?? null
   // Derived straight from `data` (already state) rather than its own
@@ -120,12 +121,12 @@ export default function Progress() {
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <StatPair label="Personal Record" value={<span style={{ whiteSpace: 'nowrap' }}><IconTrophy size={icon.body} /> {pr}<span style={{ fontSize: type.size.lg }}> kg</span>{prRow.estimated && <span style={{ color: colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold }}> est.</span>}</span>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Personal Record" value={<><IconTrophy size={icon.body} /> {pr}<span style={{ fontSize: type.size.lg }}> kg</span></>} valueColor={colors.success} valueSize={type.size.display} />
                     <StatPair label="Sessions" value={data.length} align="right" />
                   </div>
                   {prRow.estimated && (
                     <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: space.xs }}>
-                      from {prRow.fromWeight} kg × {prRow.fromReps}
+                      est. from {prRow.fromWeight} kg × {prRow.fromReps}
                     </p>
                   )}
                   {delta !== null && (
