@@ -1121,6 +1121,11 @@ def delete_set(sid: int, set_id: int, profile_id: int = Depends(acting_profile_i
         conn.commit()
         return {"deleted": True}
 
+def _pb_with_single(row):
+    pb = dict(row)
+    pb["single_kg"], pb["single_estimated"] = best_single(pb["weight_kg"], pb["reps"])
+    return pb
+
 @app.post("/api/personal-bests")
 def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
@@ -1133,7 +1138,7 @@ def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_pr
             raise HTTPException(409, "a personal best with this exercise, weight, reps and year already exists")
         conn.commit()
         row = conn.execute("SELECT * FROM personal_bests WHERE id = ?", (cur.lastrowid,)).fetchone()
-        return dict(row)
+        return _pb_with_single(row)
 
 @app.get("/api/personal-bests")
 def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
@@ -1141,12 +1146,7 @@ def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
         rows = conn.execute(
             "SELECT * FROM personal_bests WHERE profile_id = ? "
             "ORDER BY exercise_name, weight_kg DESC", (profile_id,)).fetchall()
-        out = []
-        for r in rows:
-            row = dict(r)
-            row["single_kg"], row["single_estimated"] = best_single(row["weight_kg"], row["reps"])
-            out.append(row)
-        return out
+        return [_pb_with_single(r) for r in rows]
 
 @app.delete("/api/personal-bests/{pb_id}")
 def delete_personal_best(pb_id: int, profile_id: int = Depends(acting_profile_id)):

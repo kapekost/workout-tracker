@@ -130,3 +130,8 @@ def test_personal_bests_carry_single_for_real_and_estimated(client, mainmod):
     rows = {r["reps"]: r for r in client.get("/api/personal-bests").json()}
     assert rows[1]["single_kg"] == 100.0 and rows[1]["single_estimated"] is False
     assert rows[5]["single_kg"] == mainmod.epley(80.0, 5) and rows[5]["single_estimated"] is True
+
+
+def test_created_personal_best_carries_its_single(client, mainmod):
+    r = client.post("/api/personal-bests", json=_pb(weight_kg=80.0, reps=5)).json()
+    assert r["single_kg"] == mainmod.epley(80.0, 5) and r["single_estimated"] is True

@@ -54,7 +54,12 @@ export default function Progress() {
     setLoading(true)
     try {
       const d = await api.get(`/progress/${id}`)
-      setData(d.map(r => ({ date: r.date.slice(5), weight: r.max_weight })))
+      setData(d.map(r => ({
+        date: r.date.slice(5), weight: r.max_weight,
+        // Older responses carry only max_weight: treat it as a real single.
+        single: r.best_single ?? r.max_weight, estimated: r.best_estimated ?? false,
+        fromWeight: r.best_weight, fromReps: r.best_reps,
+      })))
       setDataError(false)
     } catch {
       setDataError(true)
@@ -71,7 +76,12 @@ export default function Progress() {
   }, [selected, loadSeries])
 
   const selectedName = exercises.find(e => e.exercise_id === selected)?.exercise_name
-  const pr = data.length ? Math.max(...data.map(d => d.weight)) : null
+  // The record is the best single: a real one-rep lift, or the Epley estimate
+  // when the best set had more reps. A tie goes to the heavier set.
+  const prRow = data.length
+    ? data.reduce((a, b) => (b.single > a.single || (b.single === a.single && b.weight > a.weight) ? b : a))
+    : null
+  const pr = prRow?.single ?? null
   // Derived straight from `data` (already state) rather than its own
   // effect/state -- data.length < 2 is the page's existing empty/sparse-data
   // branch (also gates the chart itself further down), so this stays null
@@ -110,9 +120,14 @@ export default function Progress() {
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <StatPair label="Personal Record" value={<><IconTrophy size={icon.body} /> {pr} kg</>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Personal Record" value={<><IconTrophy size={icon.body} /> {pr} kg{prRow.estimated && <span style={{ color: colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold }}> est.</span>}</>} valueColor={colors.success} valueSize={type.size.display} />
                     <StatPair label="Sessions" value={data.length} align="right" />
                   </div>
+                  {prRow.estimated && (
+                    <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: space.xs }}>
+                      from {prRow.fromWeight} kg × {prRow.fromReps}
+                    </p>
+                  )}
                   {delta !== null && (
                     <p style={{
                       display: 'flex', alignItems: 'center', gap: space.xs, marginTop: space.sm,

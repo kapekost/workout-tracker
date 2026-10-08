@@ -146,7 +146,19 @@ export default function PersonalBests() {
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: space.xs }}>
                   <IconTrophy size={icon.body} color={colors.success} />
-                  <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg}kg × {r.reps}</span>
+                  {r.single_kg == null ? (
+                    <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg} kg × {r.reps}</span>
+                  ) : (
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>
+                        {r.single_kg} kg
+                        {r.single_estimated && <span style={{ color: colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold }}> est.</span>}
+                      </span>
+                      {r.single_estimated && (
+                        <span style={{ color: colors.muted, fontSize: type.size.base }}>from {r.weight_kg} kg × {r.reps}</span>
+                      )}
+                    </span>
+                  )}
                 </span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}

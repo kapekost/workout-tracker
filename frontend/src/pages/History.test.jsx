@@ -33,6 +33,18 @@ describe('SessionDetail delete button', () => {
   })
 })
 
+describe('SessionDetail set rows', () => {
+  it('renders no trophy: a session\'s heaviest set is not a record', () => {
+    const detail = { sets: [
+      { id: 1, exercise_name: 'Bench Press', set_number: 1, weight_kg: 80, reps: 8 },
+      { id: 2, exercise_name: 'Bench Press', set_number: 2, weight_kg: 90, reps: 3 },
+    ] }
+    const { container } = render(<SessionDetail detail={detail} confirmId={null} sessionId={9} onDelete={vi.fn()} />)
+    expect(screen.getByText('90kg × 3')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeNull()
+  })
+})
+
 // ── Wave 1.1, 2026-10-03 design review ──
 describe('History when the read fails', () => {
   beforeEach(() => { vi.clearAllMocks() })

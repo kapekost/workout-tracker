@@ -1,7 +1,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Progress from './Progress'
-import { type, colors } from '../lib/theme'
+import { type, colors, icon } from '../lib/theme'
 
 vi.mock('../api', () => ({
   api: { get: vi.fn() },
@@ -96,6 +96,58 @@ describe('Progress page', () => {
     const sessionsValue = screen.getByText('Sessions').nextElementSibling
     expect(prValue.style.fontSize).toBe(type.size.display)
     expect(sessionsValue.style.fontSize).toBe('1.5rem')
+  })
+
+  describe('Personal Record shows the best single (#231)', () => {
+    const estimatedSession = {
+      date: '2026-07-08', max_weight: 22.5, reps: 1,
+      best_weight: 20, best_reps: 8, best_single: 25.5, best_estimated: true,
+    }
+    const realSession = {
+      date: '2026-07-01', max_weight: 60, reps: 1,
+      best_weight: 60, best_reps: 1, best_single: 60, best_estimated: false,
+    }
+
+    async function load(progressData) {
+      mockExercises(exercises, progressData)
+      renderProgress()
+      await screen.findByRole('button', { name: 'Bench Press' })
+      await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
+      return (await screen.findByText('Personal Record')).nextElementSibling
+    }
+
+    it('shows the estimated single, "est." and the source set when the best set had reps > 1', async () => {
+      const value = await load([estimatedSession])
+      expect(value.textContent).toContain('25.5 kg')
+      expect(value.textContent).toContain('est.')
+      expect(screen.getByText('from 20 kg × 8')).toBeInTheDocument()
+    })
+
+    it('shows the plain weight with no "est." for a real single', async () => {
+      const value = await load([realSession])
+      expect(value.textContent).toContain('60 kg')
+      expect(value.textContent).not.toContain('est.')
+      expect(screen.queryByText(/^from /)).not.toBeInTheDocument()
+    })
+
+    it('picks the best single across sessions, not the heaviest weight', async () => {
+      const value = await load([realSession, { ...estimatedSession, best_single: 70, max_weight: 65, best_weight: 60, best_reps: 3 }])
+      expect(value.textContent).toContain('70 kg')
+      expect(screen.getByText('from 60 kg × 3')).toBeInTheDocument()
+    })
+
+    it('keeps the trophy and uses the body icon size', async () => {
+      const value = await load([realSession])
+      const svg = value.querySelector('svg')
+      expect(svg).not.toBeNull()
+      expect(svg.getAttribute('width')).toBe(String(icon.body))
+    })
+
+    it('falls back to the heaviest weight when the response has no single fields', async () => {
+      const value = await load([{ date: '2026-07-01', max_weight: 60 }])
+      expect(value.textContent).toContain('60 kg')
+      expect(value.textContent).not.toContain('est.')
+    })
   })
 
   it('renders a trend delta once 2+ sessions are loaded', async () => {
