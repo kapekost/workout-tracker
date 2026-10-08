@@ -119,3 +119,14 @@ def test_personal_bests_round_trips_through_export_import(client, reauthenticate
     assert r.status_code == 200
     again = reauthenticate(client).get("/api/export").json()
     assert again["tables"]["personal_bests"] == envelope["tables"]["personal_bests"]
+
+
+# --- #231: each entry carries its single, real or Epley-estimated ---
+
+def test_personal_bests_carry_single_for_real_and_estimated(client, mainmod):
+    base = {"exercise_id": "bench_press", "exercise_name": "Bench Press", "achieved_year": 2023}
+    client.post("/api/personal-bests", json={**base, "weight_kg": 100.0, "reps": 1})
+    client.post("/api/personal-bests", json={**base, "weight_kg": 80.0, "reps": 5})
+    rows = {r["reps"]: r for r in client.get("/api/personal-bests").json()}
+    assert rows[1]["single_kg"] == 100.0 and rows[1]["single_estimated"] is False
+    assert rows[5]["single_kg"] == mainmod.epley(80.0, 5) and rows[5]["single_estimated"] is True
