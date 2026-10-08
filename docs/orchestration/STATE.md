@@ -69,7 +69,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#219** — claimed 2026-10-08T18:48:00Z, live session. Checkpoint: reviewed @ 2026-10-08T19:32:40Z (PR #284, branch feat/219-plan-context).
+- **#219** — claimed 2026-10-08T18:48:00Z, live session. Checkpoint: merged @ 2026-10-08T19:35:56Z (PR #284, sha 4523cb6e6514692528b3bf569590e3464bda3ab6).
 
 ## Needs owner
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
