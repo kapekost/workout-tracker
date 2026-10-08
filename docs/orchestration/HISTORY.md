@@ -9,6 +9,36 @@
 
 ---
 
+## 2026-10-08 - Tick: #219 plan context cutover merged, deploy stopped
+
+**Pick.** #219 (P2, effort:M, touches UI) was the top pickable `ready` Issue. Skipped #157 (auth
+handling, no approved label), #201 (owner-lowest), #220-#223 (blocked). Housekeeping: #236 gained the
+`intake` label; #236, #266, #269, #272 were added to the board.
+
+**Execute and review.** PR #284: new `PlanProvider`/`usePlan()`, eight consumers swapped, `muscles.js`
+and `recovery.js` take the plan as an argument, `workoutPlan.js` unmodified, no test assertion changed.
+Full vitest, build, backend pytest and Playwright passed; a 19-screen headless smoke render matched
+`main`. Review found one blocker: a failed or hung `GET /api/plan` rendered an empty plan with false
+state and no retry. Fixed in `5491035` and answered. Bot review was skipped and Codex hit its limit, so
+the diff was read by hand before merging.
+
+**Ship.** Squash-merged as `4523cb6`, branch deleted, #219 closed.
+
+**Deploy.** Stopped. Live read `f92115a` over SSH; the diff is frontend only, 24 files, no schema
+change. The harness classifier denied `scripts/deploy.sh` with no reason. Nothing was built,
+transferred or restarted. Owner action recorded in STATE.
+
+**Friction logged (11, in IMPROVEMENTS.md, cursor advanced to 61).** `frontend/src/data/` caught by a
+`Read(./data/**)` deny rule; plan file list incomplete; broken main-checkout venv and node_modules;
+missing Playwright browser revision; browser-extension choice for subagents; secret-guard false
+positive; stop-check cannot find gh; no `timeout` on macOS; deploy classifier denial; worktree-removal
+wording; draft PRs get no bot review.
+
+**Cost.** Output tokens per stage: reconcile 7174, pick 18603, claim 3831, execute 70530, review 89473,
+ship 4531, deploy 4531, tail 0.
+
+---
+
 ## 2026-10-01 - Tick: #229 icon design system, delta plan merged
 
 **Pick.** #229 (P2, effort:M, touches UI) was the top pickable `ready` Issue. Skipped #157 (auth/token

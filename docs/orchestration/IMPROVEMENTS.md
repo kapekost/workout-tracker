@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 50 -->
+<!-- last-reviewed-count: 61 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -58,3 +58,14 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-01: The design-system artifact lists muted-3 as #5c5c5c while DECISIONS.md 2026-09-30 records #6b6b6b (#229 plan uses #6b6b6b). Reconcile the artifact and the decision log so the build has one source of truth. **Resolved 2026-10-01, no action:** checked the live artifact (tokens.json, version 1790808682): muted-3 is already #6b6b6b, matching DECISIONS. The tick read a stale copy.
 - [local] 2026-10-01: gh pr checks --watch dies on a transient GraphQL connection reset and must be re-run by hand (2026-10-01 PR #234). Fix candidate: a small retry wrapper used by PLAYBOOK step 6.
 - [local] 2026-10-01: The bash tool's 120s timeout backgrounded a chained gh edit, comment, worktree remove and checkpoint command (2026-10-01). Fix candidate: PLAYBOOK note to split such chains into separate short calls.
+- [local] 2026-10-08: frontend/src/data/ is matched by the repo's Read(./data/**) deny rule, so an agent could not read workoutPlan.js, which a plan names as read-only input (2026-10-08 #219). Fix candidate: scope the rule to Read(/data/**) or add an allow for frontend/src/data/**.
+- [local] 2026-10-08: Plan Task 1b's file list omitted recovery.js and its test, History.test.jsx and e2e/responsive.spec.js (needs a /plan fixture), and did not say getNextWorkoutId cannot take CYCLE without editing workoutPlan.js, nor that static ALL_EXERCISES is name-sorted while allExercises(plan) is plan-ordered (2026-10-08 #219). Fix candidate: correct the plan doc and add a grep-all-importers step to the plan template.
+- [local] 2026-10-08: The main checkout's backend/.venv points python3 at the macOS stub and its frontend/node_modules lacks the Rolldown binding, so neither runs (2026-10-08). Fix candidate: rebuild both, and have AGENTS.local.md say agents must use a fresh worktree venv and npm ci.
+- [local] 2026-10-08: Playwright wants chromium_headless_shell-1234 but only 1223 and 1228 are cached, so npx playwright test cannot launch without an undocumented exec shim (2026-10-08). Fix candidate: a short AGENTS.md note, or run the suite in the sandbox image.
+- [unsure] 2026-10-08: Two Chrome extension browsers are connected and the browser tool needs AskUserQuestion to pick one, which subagents lack, so dispatched agents cannot drive the owner's browser (2026-10-08). Headless Playwright was used instead.
+- [local] 2026-10-08: A PreToolUse secret-guard hook blocks any Bash command containing the string process.env.HOME, and the rm -rf deny rule blocks plain cleanup, costing retries when scripting Playwright (2026-10-08). Fix candidate: narrow the hook pattern.
+- [local] 2026-10-08: orch-stop-check.sh cannot find gh (PATH lacks /opt/homebrew/bin) so it prints go and the tick:stop label check is silently skipped (2026-10-08). Fix candidate: set PATH at the top of the script.
+- [local] 2026-10-08: gh pr checks --watch under the macOS shell: timeout is not installed, so 'timeout 110 gh pr checks --watch' fails (2026-10-08). Fix candidate: PLAYBOOK step 6 says use --interval 10 directly.
+- [unsure] 2026-10-08: The auto mode classifier denied scripts/deploy.sh with no reason in the deploy stage, though the task asked for it and it is the repo's own process (2026-10-08 #219). Backgrounded with redirected output may have tripped it. Needs a pre-approved permission rule for unattended deploys.
+- [local] 2026-10-08: Tick write-back instructions say to remove the issue worktree, but it can already be gone; the instruction should say if it still exists (2026-10-08 #219).
+- [local] 2026-10-08: The bot reviewer skips draft PRs, so a draft never gets a bot verdict, and the code reviewer flagged the Step 6 smoke render as unevidenced when nothing in the PR recorded it (2026-10-08 #219). Fix candidate: PLAYBOOK says mark ready before the final review round and paste smoke-render evidence in the PR body.
