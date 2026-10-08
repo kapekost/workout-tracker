@@ -12,7 +12,7 @@ import { useToast } from '../lib/useToast'
 import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { track } from '../lib/analytics'
 import { colors, type, space, icon } from '../lib/theme'
-import { IconTrophy, IconClock, IconCheck } from '../icons'
+import { IconClock, IconCheck } from '../icons'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -58,7 +58,6 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                   color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
-                  {st.weight_kg === best && <IconTrophy size={icon.body} />}
                 </span>
               </div>
             ))}
