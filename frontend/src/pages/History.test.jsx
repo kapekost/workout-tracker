@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import History, { SessionDetail } from './History'
+import { PLAN, CYCLE } from '../data/workoutPlan'
+
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 
 vi.mock('../api', () => ({ api: { get: vi.fn(), delete: vi.fn() } }))
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }))

@@ -14,6 +14,7 @@ import ResumeBanner from './components/ResumeBanner'
 import ScreenTracker from './components/ScreenTracker'
 import { ActiveSessionProvider } from './lib/activeSession'
 import { SessionProvider, useSession } from './lib/session'
+import { PlanProvider, usePlan } from './lib/planContext'
 import { colors } from './lib/theme'
 
 // Sends you to the door and remembers which one you knocked on, so logging in
@@ -69,6 +70,7 @@ function Shell() {
   // when api.js reports a session that ended mid-use -- swaps the tables and
   // lands on the login screen without anyone calling navigate().
   const { ready, profile } = useSession()
+  const { ready: planReady } = usePlan()
   const location = useLocation()
   const headerRef = useRef(null)
   const [headerHeight, setHeaderHeight] = useState(0)
@@ -103,13 +105,18 @@ function Shell() {
             {/* A workout in progress is a statement about your session. Left
                 mounted, it would sit above the login screen after a logout
                 offering to resume something you can no longer reach. */}
-            {profile && <ResumeBanner />}
+            {profile && planReady && <ResumeBanner />}
           </div>
           {/* --header-height lets a page size itself against the space the
               fixed header actually leaves it (index.css's .auth-shell). */}
           <div className="page-shell" style={{ paddingTop: headerHeight, '--header-height': `${headerHeight}px` }}>
             <div key={location.pathname} className="route-fade">
-              {profile ? <AppRoutes /> : <PublicRoutes />}
+              {/* The pages read the plan on their first render (PersonalBests
+                  seeds its picker from it, Workout resolves the day's
+                  exercises in its mount effect), so none of them mounts until
+                  the plan request has settled. The same short wait as
+                  /auth/me above, for the same reason. */}
+              {profile ? (planReady && <AppRoutes />) : <PublicRoutes />}
             </div>
           </div>
           <NavBar />
@@ -123,10 +130,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
-        <ActiveSessionProvider>
-          <ScreenTracker />
-          <Shell />
-        </ActiveSessionProvider>
+        <PlanProvider>
+          <ActiveSessionProvider>
+            <ScreenTracker />
+            <Shell />
+          </ActiveSessionProvider>
+        </PlanProvider>
       </SessionProvider>
     </BrowserRouter>
   )

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { ALL_EXERCISES } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
+import { allExercises } from '../lib/muscles'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
@@ -36,7 +37,14 @@ export default function PersonalBests() {
   // "No historical PBs logged yet.", which is a claim about the user's
   // history, not about this device's connectivity.
   const [loadError, setLoadError] = useState(false)
-  const [exerciseId, setExerciseId] = useState(ALL_EXERCISES[0]?.id ?? '')
+  const { plan } = usePlan()
+  // The picker lists exercises by name, not in plan order.
+  const exercises = useMemo(
+    () => [...allExercises(plan)].sort((a, b) => a.name.localeCompare(b.name)), [plan])
+  // Empty until the user picks, so a plan that arrives after mount still gets
+  // a default instead of leaving the select on a value with no option.
+  const [pickedId, setExerciseId] = useState('')
+  const exerciseId = pickedId || exercises[0]?.id || ''
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(1)
   const [year, setYear] = useState(new Date().getFullYear())
@@ -78,7 +86,7 @@ export default function PersonalBests() {
     e.preventDefault()
     if (saving) return
     setSaving(true)
-    const exercise = ALL_EXERCISES.find(ex => ex.id === exerciseId)
+    const exercise = exercises.find(ex => ex.id === exerciseId)
     try {
       const created = await api.post('/personal-bests', {
         exercise_id: exerciseId, exercise_name: exercise.name,
@@ -162,7 +170,7 @@ export default function PersonalBests() {
           <label style={labelStyle}>Exercise</label>
           <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
             style={{ ...fieldStyle, marginBottom: 14 }}>
-            {ALL_EXERCISES.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+            {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
           </select>
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>

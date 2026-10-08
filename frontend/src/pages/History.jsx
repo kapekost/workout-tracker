@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { api } from '../api'
-import { PLAN } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
@@ -76,6 +76,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
 }
 
 export default function History() {
+  const { plan: PLAN } = usePlan()
   const [sessions, setSessions] = useState([])
   const [details, setDetails] = useState({})
   const [expanded, setExpanded] = useState(null)

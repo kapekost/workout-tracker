@@ -24,7 +24,7 @@ describe('DayIcon', () => {
   })
   // #209: the two prior tests only ever asserted the accent-dot color, never
   // the body shape itself -- a future refactor could break upper/lower
-  // selection (DayIcon.jsx's `PLAN[day]?.icon === 'lower' ? IconDayLower :
+  // selection (DayIcon.jsx's `plan[day]?.icon === 'lower' ? IconDayLower :
   // IconDayUpper`) while both stayed green. Assert the actual rendered
   // asset differs between an upper and a lower day.
   it('renders a different body shape for an upper day than a lower day', () => {
