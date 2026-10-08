@@ -16,16 +16,16 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **nothing in flight; no Issue claimed.** 2026-10-08 tick: **#219 (AI plan updates 1b,
-  frontend cutover to `usePlan()`) is merged** as PR #284 (`4523cb6` on `main`) and the Issue is closed.
-  The frontend now reads the per-profile plan through `PlanProvider`/`usePlan()`; `workoutPlan.js` is
-  untouched and no test assertion changed. A review-found blocker (a failed or hung plan read showed
-  false state) was fixed before merge. **Deployed 2026-10-08:** `/api/health` reads `4523cb6`,
-  verified by `scripts/deploy.sh`. The tick's deploy stage had been denied by the classifier; a plain
-  foreground `bash scripts/deploy.sh` from the live session was allowed.
-  The home branch never merges to `main`, so it lags `main` by design.
-- **Next action:** #229's deferred day icons (blocked on the owner's source
-  artifact), then #231 and #266. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
+- **Current focus:** **nothing in flight; no Issue claimed.** 2026-10-08 second tick: **#231 (trophy marks the
+  best single, real or Epley-estimated, records only) is merged** as PR #285 (`a6f999b` on `main`). Progress
+  and Personal Bests show the estimated single with "est." and "from W kg x R"; History drops its per-session
+  trophy. **NOT deployed.** Live is still `4523cb6`; the owner said they will approve the deploy of
+  `a6f999b` tomorrow (2026-10-09). The bot review was skipped and Codex hit its limit, so only the
+  orchestrator's own reviews covered the final head. The home branch never merges to `main`, so it lags
+  `main` by design.
+- **Next action:** owner approves the deploy of `a6f999b` (frontend plus backend read query, no schema
+  change; run `scripts/deploy.sh` in the live session). Then #266; #229's deferred day icons stay blocked on
+  the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
   #220-#223 `blocked`. Eleven `[local]`/`[unsure]` friction entries from this tick are logged in
   `IMPROVEMENTS.md`; the `[local]` ones are not yet turned into PRs.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
@@ -38,7 +38,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** none. Live is `4523cb6` (`main`), deployed 2026-10-08. No schema change.
+- **Deploy gap:** `main` is `a6f999b`, live is `4523cb6`. Awaiting owner approval (see Next action). No schema change.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -58,16 +58,19 @@
   **Method note:** the earlier divergence measurement in this repo's own notes was wrong — it
   counted `diff`'s `<`/`>` markers, which `diff` never emits, and so reported PLAYBOOK and
   GUARDRAILS as identical when both had drifted. Count `-`/`+`, or just read the diff.
-- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). After #219, then #229's
-  deferred remainder, #231 and #266 are next pickable `ready`. #220-#223 all carry `blocked`.
+- **`#157`/`#201` still skipped** (destructive and unapproved / owner-lowest). After #231, #266 and then #229's
+  deferred remainder are next pickable `ready`. #220-#223 all carry `blocked`.
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-- **#231** — claimed 2026-10-08T19:45:00Z, live session. Checkpoint: done @ 2026-10-08T20:15:02Z (PR #285 merged a6f999b, deploy awaiting owner).
+(none)
 
 ## Needs owner
+- **Approve the deploy of `a6f999b` (#231), promised for 2026-10-09.** Live is `4523cb6`. No schema change.
+  The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
+  in `IMPROVEMENTS.md` 2026-10-08. Four `[local]` friction entries from that tick are logged, not yet PRs.
 - **`[unsure]` Chrome extension browser choice** needs `AskUserQuestion`, which subagents lack.
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero

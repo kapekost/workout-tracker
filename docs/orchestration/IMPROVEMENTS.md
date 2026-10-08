@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 61 -->
+<!-- last-reviewed-count: 66 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -69,3 +69,8 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [unsure] 2026-10-08: The auto mode classifier denied scripts/deploy.sh with no reason in the deploy stage, though the task asked for it and it is the repo's own process (2026-10-08 #219). Backgrounded with redirected output may have tripped it. Needs a pre-approved permission rule for unattended deploys.
 - [local] 2026-10-08: Tick write-back instructions say to remove the issue worktree, but it can already be gone; the instruction should say if it still exists (2026-10-08 #219).
 - [local] 2026-10-08: The bot reviewer skips draft PRs, so a draft never gets a bot verdict, and the code reviewer flagged the Step 6 smoke render as unevidenced when nothing in the PR recorded it (2026-10-08 #219). Fix candidate: PLAYBOOK says mark ready before the final review round and paste smoke-render evidence in the PR body.
+- [local] 2026-10-08: orch-stop-check.sh found no gh on the Bash tool PATH and printed 'go (could not read labels: gh: command not found)', a fail-open owner stop check. The script should set PATH itself or fail closed.
+- [local] 2026-10-08: The main checkout's backend/.venv python3 symlinks to the /usr/bin/python3 Xcode stub, so AGENTS.md's advice to pass the main checkout's interpreter fails; a worktree needs its own venv from /opt/homebrew/bin/python3.14.
+- [local] 2026-10-08: Playwright in the lockfile wants chromium-1234 but the Mac cache holds 1223 and 1228; the macOS Chromium is not symlink-safe, so PLAYWRIGHT_BROWSERS_PATH/chromium must be an exec wrapper script. Only the sandbox shim is documented in AGENTS.md.
+- [local] 2026-10-08: Stock macOS has no timeout command, so bounded gh pr checks --watch guards fail with command not found; the 2 minute per command guidance conflicts with long watches.
+- [unsure] 2026-10-08: The UI/UX expert review gate has no reviewer agent in a subagent environment, so it was a self-review of screenshots; the opencode reviewer also skipped on the ready PR and Codex hit its limit, leaving no independent review on the final head.

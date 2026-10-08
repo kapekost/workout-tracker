@@ -9,6 +9,29 @@
 
 ---
 
+## 2026-10-08 - Tick: #231 trophy marks best single merged, deploy awaiting owner
+
+**Pick.** #231 (P3, effort:S, touches UI) was the top pickable `ready` Issue. #229 only has its
+deferred day icons left, #157 and #201 skipped, #220-#223 blocked.
+
+**Execute and review.** PR #285: `best_single()` on top of `epley()`, the best set per session chosen by
+estimated single, `/api/progress/{id}` and the Personal Bests rows carry the single and an estimated flag.
+Progress and Personal Bests show "est." and "from W kg x R" when reps > 1; History drops the trophy; the
+Workout "PR!" toast and the Progress "PBs" button keep theirs. Review found one blocker, a three-digit
+estimate pushing the Sessions stat off the Personal Record card at 320px, fixed in `03569b4` along with
+the Personal Bests year column. Left as follow-ups: the "+N kg since" line and chart still use max weight,
+Personal Bests ordering is still by raw weight, History still colours the heaviest set green, and a stray
+"0" renders for bodyweight exercises (older than the PR).
+
+**Ship.** Squash-merged as `a6f999b`. Bot review skipped, Codex at its usage limit.
+
+**Deploy.** Not run. Owner will approve the deploy tomorrow (2026-10-09).
+
+**Cost (output tokens per stage).** reconcile 7245, pick 6910, claim 2957, execute 31489, review 65897,
+ship 3613, tail 0.
+
+---
+
 ## 2026-10-08 - Tick: #219 plan context cutover merged, deploy stopped
 
 **Pick.** #219 (P2, effort:M, touches UI) was the top pickable `ready` Issue. Skipped #157 (auth
