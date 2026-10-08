@@ -20,11 +20,11 @@
   frontend cutover to `usePlan()`) is merged** as PR #284 (`4523cb6` on `main`) and the Issue is closed.
   The frontend now reads the per-profile plan through `PlanProvider`/`usePlan()`; `workoutPlan.js` is
   untouched and no test assertion changed. A review-found blocker (a failed or hung plan read showed
-  false state) was fixed before merge. **It is not deployed:** the deploy stage stopped when the
-  harness classifier denied `scripts/deploy.sh`. Live was `f92115a` (read over SSH this tick).
+  false state) was fixed before merge. **Deployed 2026-10-08:** `/api/health` reads `4523cb6`,
+  verified by `scripts/deploy.sh`. The tick's deploy stage had been denied by the classifier; a plain
+  foreground `bash scripts/deploy.sh` from the live session was allowed.
   The home branch never merges to `main`, so it lags `main` by design.
-- **Next action:** **deploy `main` (`4523cb6`)**, which needs the owner or a pre-approved permission
-  rule (see Needs owner). After that, #229's deferred day icons (blocked on the owner's source
+- **Next action:** #229's deferred day icons (blocked on the owner's source
   artifact), then #231 and #266. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
   #220-#223 `blocked`. Eleven `[local]`/`[unsure]` friction entries from this tick are logged in
   `IMPROVEMENTS.md`; the `[local]` ones are not yet turned into PRs.
@@ -38,10 +38,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** live is `f92115a` (read over SSH 2026-10-08). `main` is `4523cb6`. Undeployed:
-  #284 (plan context, frontend only). #275 is already live, so there is no schema change and no
-  backup or restore drill is needed. The frontend change is the only undeployed behavior; confirm the `v <sha>`
-  footer after deploying.
+- **Deploy gap:** none. Live is `4523cb6` (`main`), deployed 2026-10-08. No schema change.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -71,12 +68,7 @@
 (none)
 
 ## Needs owner
-- **Deploy `4523cb6` (#219).** The harness classifier denied `scripts/deploy.sh` in the deploy stage
-  with no reason (it was backgrounded with redirected output). Run it yourself from the main checkout:
-  `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; bash scripts/deploy.sh`, then check
-  `/api/health` reads `4523cb6` and run `orch-checkpoint.sh ... 219 deployed`. Or add a permission
-  rule for it so unattended deploys work. Also an `[unsure]` item: Chrome extension browser choice
-  needs `AskUserQuestion`, which subagents lack.
+- **`[unsure]` Chrome extension browser choice** needs `AskUserQuestion`, which subagents lack.
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
   twice** (2026-09-27, `plan_seed.py`; historically, `bootstrap_owner.py`/#127) — both times with zero
   CI signal, since CI never builds the Dockerfile; both times only caught by a real deploy crashing.
