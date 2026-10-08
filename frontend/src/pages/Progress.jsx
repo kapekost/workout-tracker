@@ -120,7 +120,7 @@ export default function Progress() {
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <StatPair label="Personal Record" value={<><IconTrophy size={icon.body} /> {pr} kg{prRow.estimated && <span style={{ color: colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold }}> est.</span>}</>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Personal Record" value={<span style={{ whiteSpace: 'nowrap' }}><IconTrophy size={icon.body} /> {pr}<span style={{ fontSize: type.size.lg }}> kg</span>{prRow.estimated && <span style={{ color: colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold }}> est.</span>}</span>} valueColor={colors.success} valueSize={type.size.display} />
                     <StatPair label="Sessions" value={data.length} align="right" />
                   </div>
                   {prRow.estimated && (
