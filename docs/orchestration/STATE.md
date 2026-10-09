@@ -16,20 +16,18 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#266 is claimed (see In-flight), planned, not built; the claim is stale (over 2h) and ours, so the next tick resumes it.** 2026-10-08 third tick: **#266 planned, not built.**
-  Plan PR #286 merged (`088922f`): `docs/superpowers/plans/2026-10-08-review-severity-266.md`, three PRs
-  (A poster verdict scan plus `--check-verdict`, B workflow prompt, C severity tiers and events). #266 is
-  relabelled effort:M. Second tick earlier the same day: **#231 (trophy marks the
-  best single, real or Epley-estimated, records only) is merged** as PR #285 (`a6f999b` on `main`). Progress
-  and Personal Bests show the estimated single with "est." and "from W kg x R"; History drops its per-session
-  trophy. **Deployed 2026-10-09:** live is `088922f` (`main`, includes #231 and the #266 plan),
-  verified by `scripts/deploy.sh`. The bot review was skipped and Codex hit its limit, so only the
-  orchestrator's own reviews covered the final head. The home branch never merges to `main`, so it lags
-  `main` by design.
-- **Next action:** resume the #266 claim and build PR A (read the plan first; #279 edits the same workflow, rebase on it); #229's deferred day icons stay blocked on
+- **Current focus:** **#266 PR A is merged and deployed; Tasks B and C remain.** 2026-10-09 tick: PR #287
+  (`c59d7d7` on `main`) fixed the poster's verdict scan (forward walk, 200 failed-decode budget, nested
+  verdict search to depth 8, placeholder summaries rejected) and added `post_review.py --check-verdict`.
+  Live is `c59d7d7` (a CI-helper-only change, so no app behaviour moved). #266 stays open and `ready`.
+  Earlier: **#231 (trophy marks the best single) is live** from PR #285. The home branch never merges to
+  `main`, so it lags `main` by design.
+- **Next action:** build #266 Task B (read `docs/superpowers/plans/2026-10-08-review-severity-266.md`).
+  B owns `.github/workflows/opencode-review.yml`: delete the inline `has_verdict`, call `--check-verdict`
+  from the default branch, and decide on purpose that a verdict `build` withholds for a secret exits 0.
+  Rebase on #279 (another session's) first. Then Task C. #229's deferred day icons stay blocked on
   the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
-  #220-#223 `blocked`. Eleven `[local]`/`[unsure]` friction entries from this tick are logged in
-  `IMPROVEMENTS.md`; the `[local]` ones are not yet turned into PRs.
+  #220-#223 `blocked`. Seven new `[local]` friction entries are logged and reviewed; none is a PR yet.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
@@ -40,7 +38,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** none. Live is `088922f` (`main`), deployed 2026-10-09.
+- **Deploy gap:** none. Live is `c59d7d7` (`main`), deployed 2026-10-09.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -67,7 +65,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-09T19:18:58Z, live session. Checkpoint: done @ 2026-10-09T19:33:25Z (PR A merged and deployed (live c59d7d7)).
+(none)
 
 ## Needs owner
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.

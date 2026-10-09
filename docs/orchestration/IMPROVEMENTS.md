@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 72 -->
+<!-- last-reviewed-count: 79 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -80,3 +80,10 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-08: #266 is labelled effort:S but needs a plan and three PRs; relabel to effort:M.
 - [template] 2026-10-08: The scratchpad is shared across sessions and holds unrelated files (e.g. body266.md); use unique filenames per tick.
 - [template] 2026-10-08: The documented watch-with-timeout pattern fails on macOS because timeout is not installed; use gtimeout or a shell loop.
+- [local] 2026-10-09: AGENTS.local.md is denied to both Bash grep and Read, yet AGENTS.md says read it before deploying, so the deploy stage had to infer the health port from scripts/deploy.sh (2026-10-09 #266). Fix candidate: a non-secret DEPLOY_HEALTH_URL in a readable file.
+- [local] 2026-10-09: After a PR merges, the shared checkout's local main is behind origin/main and deploy.sh builds from HEAD; the deploy stage needs a documented git merge --ff-only origin/main step since checkout/switch is forbidden (2026-10-09 #266).
+- [local] 2026-10-09: The security-ai-reviewer pass required for .github or review-pipeline changes cannot be dispatched from a subagent session (no Agent tool), so the checklist was run inline (2026-10-09 #266). Fix candidate: word the rule as run the checklist, or give step 6 a dispatch path.
+- [local] 2026-10-09: The tick's own code review posts under the owner's gh login, so gh pr view --json reviews cannot tell it from an owner comment; only the orchestrate-tick prefix marks it (2026-10-09 #266).
+- [local] 2026-10-09: A plan's pin test can be vacuous: test_check_verdict_agrees_with_extract_json_on_a_corpus calls the same extractor on both sides, so it cannot fail under an extractor mutation (2026-10-09 #266 plan). Plans should name what the pin can actually catch.
+- [local] 2026-10-09: A worktree branch created off origin/main inherits it as upstream, so git push needs -u to retarget; a bare push is ambiguous (2026-10-09 #266). Fix candidate: worktree-add step uses git worktree add -b <branch> <path> origin/main then git push -u origin HEAD.
+- [local] 2026-10-09: Foreground sleep N followed by gh pr checks --watch is blocked by the harness; run gh pr checks --watch --interval 10 directly (2026-10-09 #266).

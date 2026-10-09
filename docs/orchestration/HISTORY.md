@@ -9,6 +9,30 @@
 
 ---
 
+## 2026-10-09 - Tick: #266 PR A merged and deployed (review bot verdict scan, PR #287)
+
+**Pick.** Resumed #266 (our own stale claim from the 2026-10-08 tick; nothing past claim existed). Plan was
+already merged, so only Task A was executed. #157, #201, #229 remainder and #220-#223 skipped as before.
+
+**Execute.** `scripts/post_review.py`: `extract_json` is a forward walk that spends a 200 budget only on failed
+decodes and searches each decoded object iteratively (depth 8) for the last verdict. `is_verdict` rejects a
+summary with no word character. New `--check-verdict <file>` reads at most MAX_INPUT, exits 0 or 1, no network.
+Six new tests written first and failing on main; mutation check restored the old loop and four failed.
+The workflow file is untouched.
+
+**Review and ship.** The tick's own review found no blocking issue and one follow-up: the corpus test cannot
+catch drift until Task B deletes the workflow's inline `has_verdict`. Bot review skipped, Codex at its limit.
+No Agent tool, so the security-ai-reviewer checklist was run inline on the diff (no workflow, token, mount,
+allowlist, network or subprocess change). CI green, merged as `c59d7d7`. Deployed by `scripts/deploy.sh`,
+`/api/health` reports `c59d7d7`. No schema or app change, so no pre-deploy backup.
+
+**Friction.** Seven `[local]` entries logged and the cursor advanced to 79; none is a PR yet.
+
+**Cost (output tokens per stage).** reconcile 11275, pick 11916, claim 5609, execute 11325, review 22331,
+ship 5189, deploy 6813, tail 0.
+
+---
+
 ## 2026-10-08 - Tick: #266 review-bot severity tiers planned (plan PR #286 merged)
 
 **Pick.** #266 was the top pickable `ready` Issue. #229 is blocked on the owner's source artifact, #201 is
