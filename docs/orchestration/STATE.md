@@ -16,7 +16,7 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **nothing in flight; no Issue claimed.** 2026-10-08 third tick: **#266 planned, not built.**
+- **Current focus:** **#266 is claimed (see In-flight), planned, not built; the claim is stale (over 2h) and ours, so the next tick resumes it.** 2026-10-08 third tick: **#266 planned, not built.**
   Plan PR #286 merged (`088922f`): `docs/superpowers/plans/2026-10-08-review-severity-266.md`, three PRs
   (A poster verdict scan plus `--check-verdict`, B workflow prompt, C severity tiers and events). #266 is
   relabelled effort:M. Second tick earlier the same day: **#231 (trophy marks the
