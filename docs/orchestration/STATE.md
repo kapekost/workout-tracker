@@ -22,12 +22,11 @@
   relabelled effort:M. Second tick earlier the same day: **#231 (trophy marks the
   best single, real or Epley-estimated, records only) is merged** as PR #285 (`a6f999b` on `main`). Progress
   and Personal Bests show the estimated single with "est." and "from W kg x R"; History drops its per-session
-  trophy. **NOT deployed.** Live is still `4523cb6`; the owner said they will approve the deploy of
-  `a6f999b` tomorrow (2026-10-09). The bot review was skipped and Codex hit its limit, so only the
+  trophy. **Deployed 2026-10-09:** live is `088922f` (`main`, includes #231 and the #266 plan),
+  verified by `scripts/deploy.sh`. The bot review was skipped and Codex hit its limit, so only the
   orchestrator's own reviews covered the final head. The home branch never merges to `main`, so it lags
   `main` by design.
-- **Next action:** owner approves the deploy of `a6f999b` (frontend plus backend read query, no schema
-  change; run `scripts/deploy.sh` in the live session). Then build #266 PR A (read the plan first; #279 edits the same workflow, rebase on it); #229's deferred day icons stay blocked on
+- **Next action:** resume the #266 claim and build PR A (read the plan first; #279 edits the same workflow, rebase on it); #229's deferred day icons stay blocked on
   the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
   #220-#223 `blocked`. Eleven `[local]`/`[unsure]` friction entries from this tick are logged in
   `IMPROVEMENTS.md`; the `[local]` ones are not yet turned into PRs.
@@ -41,7 +40,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** `main` is `a6f999b`, live is `4523cb6`. Awaiting owner approval (see Next action). No schema change.
+- **Deploy gap:** none. Live is `088922f` (`main`), deployed 2026-10-09.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -72,8 +71,7 @@
 
 ## Needs owner
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
-- **Approve the deploy of `a6f999b` (#231), promised for 2026-10-09.** Live is `4523cb6`. No schema change.
-  The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
+- **#231 is live (`088922f`).** The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
   in `IMPROVEMENTS.md` 2026-10-08. Four `[local]` friction entries from that tick are logged, not yet PRs.
 - **`[unsure]` Chrome extension browser choice** needs `AskUserQuestion`, which subagents lack.
 - **Dockerfile's explicit backend `COPY` list has now silently drifted from a new module import
