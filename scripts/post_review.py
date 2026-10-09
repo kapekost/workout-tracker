@@ -6,6 +6,10 @@ text, so this script treats it as untrusted: it parses, validates, caps and esca
 it before anything is posted. It runs from the default branch, never from the PR.
 
     python3 post_review.py <pr> <owner/repo> <head-sha> <review-file>
+    python3 post_review.py --check-verdict <review-file>
+
+The second form only reports, through its exit status, whether the file holds a verdict
+(0) or not (1). It makes no network call and runs no process.
 
 Output that is not the expected JSON is posted inside a code block, truncated.
 """
@@ -41,35 +45,67 @@ def sanitize(text, repo, limit):
     return re.sub(r"([\\\[\]<>&#])", r"\\\1", text)
 
 
+MAX_DECODE_FAILURES = 200
+MAX_SEARCH_DEPTH = 8
+
+
+def last_verdict(obj):
+    """The last verdict in document order inside a decoded object, or None. Iterative and
+    depth-capped, so a deeply nested input cannot exhaust the stack."""
+    found = None
+    stack = [(obj, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if is_verdict(node):
+            found = node
+        if depth >= MAX_SEARCH_DEPTH:
+            continue
+        if isinstance(node, dict):
+            children = list(node.values())
+        elif isinstance(node, list):
+            children = node
+        else:
+            continue
+        stack.extend((child, depth + 1) for child in reversed(children)
+                     if isinstance(child, (dict, list)))
+    return found
+
+
 def extract_json(text):
     """The last JSON object whose "findings" is a list, or None. Bounded work.
 
     The last one, because a model may narrate an example of the shape before giving its
-    real answer, and the answer comes last."""
+    real answer, and the answer comes last. The scan moves forward and skips past each
+    object it decodes, so only a failed decode spends from the budget: a reply that
+    restates many small objects before its answer cannot push the answer out of reach."""
     text = text[:MAX_INPUT]
     decoder = json.JSONDecoder()
     found = None
+    failures = 0
     pos = text.find("{")
-    for _ in range(40):
-        if pos == -1:
-            break
+    while pos != -1 and failures < MAX_DECODE_FAILURES:
         try:
-            obj, _end = decoder.raw_decode(text, pos)
+            obj, end = decoder.raw_decode(text, pos)
         except (ValueError, RecursionError):
-            obj = None
-        if is_verdict(obj):
-            found = obj
-        pos = text.find("{", pos + 1)
+            failures += 1
+            pos = text.find("{", pos + 1)
+            continue
+        verdict = last_verdict(obj)
+        if verdict is not None:
+            found = verdict
+        pos = text.find("{", end)
     return found
 
 
 def is_verdict(obj):
     """A findings list plus a real summary. An echo of the prompt's example shape has a
-    placeholder summary such as "<one line, max 150 chars>" and is not a verdict."""
+    placeholder summary such as "<one line, max 150 chars>", "..." or "-", and is not a
+    verdict. A real summary has at least one word character."""
     if not isinstance(obj, dict) or not isinstance(obj.get("findings"), list):
         return False
     summary = obj.get("summary")
-    return isinstance(summary, str) and summary.strip() != "" and not summary.lstrip().startswith("<")
+    return (isinstance(summary, str) and re.search(r"\w", summary) is not None
+            and not summary.lstrip().startswith("<"))
 
 
 def plain_comment(text):
@@ -175,7 +211,19 @@ def pr_patches(repo, pr):
     return patches
 
 
+def check_verdict(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read(MAX_INPUT)
+    except OSError as exc:
+        print(f"cannot read {path}: {exc}", file=sys.stderr)
+        return 1
+    return 0 if extract_json(text) is not None else 1
+
+
 def main(argv):
+    if len(argv) == 3 and argv[1] == "--check-verdict":
+        return check_verdict(argv[2])
     if len(argv) != 5:
         print(__doc__, file=sys.stderr)
         return 2
