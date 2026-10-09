@@ -203,3 +203,92 @@ def test_a_body_cannot_open_a_code_block():
     assert "```" not in pr.sanitize("```python\nboom", REPO, 100)
     assert "~~~" not in pr.sanitize("~~~\nboom", REPO, 100)
     assert pr.sanitize("`~` and ~~x~~", REPO, 100) == "`~` and ~~x~~"
+
+
+def real_verdict(summary="real answer"):
+    return json.dumps({"summary": summary, "findings": [
+        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]})
+
+
+def test_a_verdict_after_many_braces_is_still_found():
+    text = "{}" * 60 + " my answer: " + real_verdict()
+    kind, body, comments = pr.build(text, PATCHES, REPO)
+    assert kind == "review" and len(comments) == 1
+    assert body.startswith("**BLOCKING**")
+
+
+def test_an_example_shaped_verdict_before_many_braces_does_not_win():
+    example = json.dumps({"summary": "example only", "findings": []})
+    text = example + " " + "{}" * 45 + " my answer: " + real_verdict("the real one")
+    data = pr.extract_json(text)
+    assert data["summary"] == "the real one"
+    _, body, comments = pr.build(text, PATCHES, REPO)
+    assert len(comments) == 1 and "the real one" in body
+
+
+def test_a_placeholder_summary_of_dots_is_not_a_verdict():
+    for placeholder in ("...", "…", "-", " . . . "):
+        echo = json.dumps({"summary": placeholder, "findings": []})
+        assert pr.extract_json("The shape is " + echo) is None, placeholder
+        kind, body, _ = pr.build("The shape is " + echo, PATCHES, REPO)
+        assert kind == "plain" and "CLEAN" not in body
+
+
+def test_a_real_summary_with_punctuation_is_still_a_verdict():
+    for summary in ("No issues.", "3 files -- all fine!", "…and nothing else", "(none)"):
+        assert pr.extract_json(json.dumps({"summary": summary, "findings": []})) is not None, summary
+
+
+def run_check(tmp_path, text):
+    path = tmp_path / "review.txt"
+    path.write_text(text, encoding="utf-8")
+    return pr.main(["post_review.py", "--check-verdict", str(path)])
+
+
+def test_check_verdict_exits_0_for_a_verdict_and_1_for_anything_else(tmp_path, monkeypatch):
+    def no_subprocess(*args, **kwargs):
+        raise AssertionError("--check-verdict must not run gh or any other process")
+    monkeypatch.setattr(pr.subprocess, "run", no_subprocess)
+    assert run_check(tmp_path, real_verdict()) == 0
+    assert run_check(tmp_path, "Looks fine to me, no JSON here.") == 1
+    assert run_check(tmp_path, "") == 1
+    assert run_check(tmp_path, '{"summary": "<one line, max 150 chars>", "findings": []}') == 1
+    assert run_check(tmp_path, '{"summary": "...", "findings": []}') == 1
+    assert pr.main(["post_review.py", "--check-verdict", str(tmp_path / "missing.txt")]) == 1
+
+
+def test_check_verdict_reads_at_most_max_input(tmp_path):
+    late = " " * pr.MAX_INPUT + real_verdict()
+    assert run_check(tmp_path, late) == 1
+
+
+def test_other_argument_counts_still_print_usage_and_return_2(tmp_path):
+    assert pr.main(["post_review.py"]) == 2
+    assert pr.main(["post_review.py", "--check-verdict"]) == 2
+    assert pr.main(["post_review.py", "--other", "file"]) == 2
+    assert pr.main(["post_review.py", "--check-verdict", "a", "b"]) == 2
+
+
+def test_check_verdict_agrees_with_extract_json_on_a_corpus(tmp_path):
+    corpus = [
+        review([]),
+        review([{"file": "a.py", "line": 10, "blocking": True, "body": "b"}]),
+        f"Here you go:\n```json\n{review([])}\n```\nthanks",
+        f"prefix {review([])} suffix",
+        "**Automated review skipped.** nothing ran. " + "x" * 9000,
+        "text ```\n@someone [x](https://evil.example)",
+        '{"summary": "s", "findings": "none"}',
+        '{"summary": "<one line, max 150 chars>", "findings": [], "notes": []}',
+        '{"summary": "...", "findings": []}',
+        'The shape is {"summary": "x", "findings": []}. My answer: ' + real_verdict(),
+        json.dumps({"review": {"summary": "s", "findings": []}}),
+        json.dumps({"skipped": True, "summary": "No model.", "findings": [], "notes": ["n"]}),
+        "{" * 200_000, '{"findings":' * 60_000, "{" * 5000 + "}" * 5000,
+        '{"a":' * 20_000 + "1" + "}" * 20_000,
+        "{}" * 60 + real_verdict(),
+        "",
+    ]
+    for text in corpus:
+        verdict = pr.extract_json(text) is not None
+        assert (run_check(tmp_path, text) == 0) == verdict, text[:60]
+        assert (pr.build(text, PATCHES, REPO)[0] == "review") == verdict, text[:60]
