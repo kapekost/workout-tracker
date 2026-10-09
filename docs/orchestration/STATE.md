@@ -67,7 +67,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-09T19:18:58Z, live session. Checkpoint: reviewed @ 2026-10-09T19:26:52Z (PR #287, branch feat/266-verdict-scan).
+- **#266** — claimed 2026-10-09T19:18:58Z, live session. Checkpoint: merged @ 2026-10-09T19:28:50Z (PR #287, sha c59d7d7a9ad998b137e2f45a9a8b4f38c94b44de).
 
 ## Needs owner
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
