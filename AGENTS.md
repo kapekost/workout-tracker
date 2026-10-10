@@ -48,11 +48,12 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
 - Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each changed line
   and a short body list for the rest. `APPROVE` needs a strictly clean review: no finding of any
   severity and no notes. A skipped notice, plain output, a withheld secret, a malformed finding,
-  a finding set aside by the round cap or a minor finding posts `COMMENT`.
+  or a minor finding posts `COMMENT`.
 - Minor findings are never inline. They sit in one `Deferred` list of at most three lines plus a
   count of the rest.
-- After two reviews on one PR, only critical findings still block; majors move to `Deferred`. The
-  poster counts rounds from a hidden marker in its own earlier reviews.
+- Majors block in every round. After the bot has posted two `REQUEST_CHANGES` reviews on one PR
+  (dismissed ones count; criticals are capped too), later blocking reviews post as `COMMENT` with the findings intact. The poster
+  counts from a hidden marker in its own earlier reviews.
 - A clean re-review dismisses the bot's own `REQUEST_CHANGES` on earlier commits, never one on the
   current head. Any other review leaves it standing.
 - GitHub may refuse a state (HTTP 422): `APPROVE` while the repo setting "Allow GitHub Actions to

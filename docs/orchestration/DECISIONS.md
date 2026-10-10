@@ -630,7 +630,8 @@ judgement was hard. A review nobody reads to the end has not reviewed anything.
 
 Critical and major findings post `REQUEST_CHANGES`, a review with only minor findings posts
 `APPROVE`, and anything unread, skipped or set aside posts `COMMENT`. Minor findings go in a short
-Deferred list and are never inline. After two reviews on one PR only critical findings block.
+Deferred list and are never inline. Majors block in every round; the bot posts at most two
+`REQUEST_CHANGES` reviews on one PR (owner, 2026-10-10, #299), later ones post as `COMMENT`.
 `post_review.py` picks the state, not the model, and falls back to `COMMENT` when GitHub refuses
 one, so `APPROVE` stays optional: the repo setting that allows it is an owner decision and is off.
 This supersedes the 2026-10-03 line that the bot "posts a comment, not a review state": the model

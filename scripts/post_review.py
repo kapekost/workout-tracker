@@ -31,7 +31,7 @@ MAX_SUMMARY = 200
 MAX_PLAIN = 3000
 MAX_INPUT = 50_000
 MAX_DEFERRED = 3
-ROUND_CAP = 2
+BLOCK_CAP = 2
 BOT_LOGIN = "github-actions[bot]"
 SEVERITIES = ("critical", "major", "minor")
 ROUND_MARKER = re.compile(r"<!-- review-round:\d+ -->\s*$")
@@ -119,7 +119,6 @@ class Built(NamedTuple):
     comments: list
     event: str         # REQUEST_CHANGES, APPROVE or COMMENT
     counts: dict       # critical, major (still counted), minor, dropped (malformed)
-    demoted: int       # majors set aside by the round cap
     skipped: bool
 
 
@@ -132,28 +131,27 @@ def severity_of(finding):
     return "major" if finding.get("blocking") is True else "minor"
 
 
-def decide_event(counts, kind, demoted, has_notes):
+def decide_event(counts, kind, has_notes):
     """The review state. kind is "review" only for a structured, non-skipped review; a skipped
     notice, plain output and a withheld secret never approve. Approval needs a strictly clean
-    review: no finding of any severity, none dropped or set aside by the round cap, and no
+    review: no finding of any severity, none dropped, and no
     note about something the reviewer could not verify."""
     if kind != "review":
         return "COMMENT"
     if counts["critical"] or counts["major"]:
         return "REQUEST_CHANGES"
-    if counts["minor"] or counts["dropped"] or demoted or has_notes:
+    if counts["minor"] or counts["dropped"] or has_notes:
         return "COMMENT"
     return "APPROVE"
 
 
 def plain_result(body):
     return Built("plain", body, [], "COMMENT",
-                 {"critical": 0, "major": 0, "minor": 0, "dropped": 0}, 0, False)
+                 {"critical": 0, "major": 0, "minor": 0, "dropped": 0}, False)
 
 
-def build(text, patches, repo, round_n=1):
-    """Turns the reviewer's output into a Built. round_n is this review's round on the PR;
-    past ROUND_CAP only critical findings still request changes."""
+def build(text, patches, repo):
+    """Turns the reviewer's output into a Built."""
     if SECRET.search(text):
         return plain_result(WITHHELD)
     data = extract_json(text)
@@ -180,22 +178,15 @@ def build(text, patches, repo, round_n=1):
     # Sorted before the cap, so a pile of minor findings cannot push a critical one out.
     valid.sort(key=lambda row: row[0])
 
-    capped = round_n > ROUND_CAP
     counts = {"critical": 0, "major": 0, "minor": 0, "dropped": dropped}
-    demoted = 0
     for rank, *_ in valid:
-        if SEVERITIES[rank] == "major" and capped:
-            demoted += 1
-        else:
-            counts[SEVERITIES[rank]] += 1
-    blocking_lines, demoted_lines, minor_lines, comments = [], [], [], []
+        counts[SEVERITIES[rank]] += 1
+    blocking_lines, minor_lines, comments = [], [], []
     for rank, path, line, body in valid[:MAX_FINDINGS]:
         sev = SEVERITIES[rank]
         shown = sanitize(path, repo, 120)
         where = f"{shown}:{line}" if is_line(line) else shown
-        if sev == "major" and capped:
-            demoted_lines.append(f"- {where} {body} (past the round cap)")
-        elif sev == "minor":
+        if sev == "minor":
             minor_lines.append(f"- {where} {body}")
         elif is_line(line) and path in patches and line in commentable_lines(patches[path]):
             comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
@@ -207,7 +198,7 @@ def build(text, patches, repo, round_n=1):
     notes = data.get("notes")
     clean_notes = ([sanitize(n, repo, MAX_BODY) for n in notes[:5] if isinstance(n, str)]
                    if isinstance(notes, list) else [])
-    event = decide_event(counts, kind, demoted, bool(notes))
+    event = decide_event(counts, kind, bool(notes))
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
     summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
@@ -220,16 +211,14 @@ def build(text, patches, repo, round_n=1):
     parts = [head]
     if blocking_lines:
         parts += ["", "**Blocking (not on a changed line)**"] + blocking_lines
-    deferred_lines = demoted_lines + minor_lines
-    deferred_total = counts["minor"] + demoted
-    if deferred_lines:
-        shown_lines = deferred_lines[:MAX_DEFERRED]
+    if minor_lines:
+        shown_lines = minor_lines[:MAX_DEFERRED]
         parts += ["", "**Deferred**"] + shown_lines
-        if deferred_total > len(shown_lines):
-            parts.append(f"- and {deferred_total - len(shown_lines)} more not shown")
+        if counts["minor"] > len(shown_lines):
+            parts.append(f"- and {counts['minor'] - len(shown_lines)} more not shown")
     if clean_notes:
         parts += ["", "**Notes**"] + [f"- {n}" for n in clean_notes]
-    return Built("review", "\n".join(parts), comments, event, counts, demoted, skipped)
+    return Built("review", "\n".join(parts), comments, event, counts, skipped)
 
 
 def gh(args, payload=None):
@@ -297,6 +286,15 @@ def review_round(reviews):
     prior = [r for r in reviews or []
              if r.get("login") == BOT_LOGIN and ROUND_MARKER.search(str(r.get("body") or ""))]
     return len(prior) + 1
+
+
+def blocks_posted(reviews):
+    """How many REQUEST_CHANGES reviews the bot has posted on this PR. A dismissed one still
+    counts, so a push-and-dismiss cycle cannot reset it. A dismissed approval would count too;
+    approvals are off, so that cannot happen yet."""
+    return len([r for r in reviews or []
+                if r.get("login") == BOT_LOGIN and r.get("state") in ("CHANGES_REQUESTED", "DISMISSED")
+                and ROUND_MARKER.search(str(r.get("body") or ""))])
 
 
 def refused(r):
@@ -380,17 +378,22 @@ def main(argv):
     patches = pr_patches(repo, pr) if structured else {}
     reviews = pr_reviews(repo, pr) if structured else None
     round_n = review_round(reviews)
-    built = build(text, patches, repo, round_n)
+    built = build(text, patches, repo)
     body = built.body
+    event = built.event
     if built.kind == "plain":
         r = gh([f"repos/{repo}/issues/{pr}/comments", "-X", "POST"], {"body": body})
         print("posted plain comment" if r.returncode == 0 else r.stderr, file=sys.stderr)
         return r.returncode
 
     body = signed(body, os.environ.get("REVIEW_MODEL", ""), repo)
+    if event == "REQUEST_CHANGES" and blocks_posted(reviews) >= BLOCK_CAP:
+        event = "COMMENT"
+        body = with_note(body, f"_Posted as COMMENT: the bot has already requested changes {BLOCK_CAP} times "
+                               "on this PR. The findings are unresolved; no further changes-requested review is posted._")
     if not built.skipped:
         body += f"\n\n<!-- review-round:{round_n} -->"
-    r, event = post_review(repo, pr, head_sha, body, built.comments, built.event)
+    r, event = post_review(repo, pr, head_sha, body, built.comments, event)
     print(f"posted review as {event} (round {round_n})" if r.returncode == 0 else r.stderr,
           file=sys.stderr)
     if r.returncode == 0 and built.event == "APPROVE":
