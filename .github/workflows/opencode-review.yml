@@ -188,8 +188,11 @@ jobs:
           git show "origin/$DEFAULT_BRANCH:AGENTS.md" > .review-input/base-AGENTS.md 2>/dev/null || true
           git show "origin/$DEFAULT_BRANCH:docs/orchestration/GUARDRAILS.md" > .review-input/base-GUARDRAILS.md 2>/dev/null || true
           # The verdict check runs this copy, never the checkout's: the step that runs the model
-          # holds OPENROUTER_API_KEY, and the checkout's script is editable by the PR author.
-          git show "origin/$DEFAULT_BRANCH:scripts/post_review.py" > .review-input/post_review.py 2>/dev/null || true
+          # holds OPENROUTER_API_KEY, and the checkout is editable by the PR author. It lives
+          # outside the checkout because a committed directory at the same path would be run
+          # as a package by python.
+          git show "origin/$DEFAULT_BRANCH:scripts/post_review.py" > "$RUNNER_TEMP/post_review.py" 2>/dev/null \
+            || rm -f "$RUNNER_TEMP/post_review.py"
           chmod -R a-w . 2>/dev/null || true
 
       - name: Run the review
@@ -322,11 +325,11 @@ jobs:
           # One definition of a usable verdict: the default branch's post_review.py decides, so the
           # check and the poster cannot drift. A missing copy, or exit 2 from a poster that predates
           # --check-verdict, accepts any non-empty output and leaves the rendering to the post job.
-          CHECKER="$GITHUB_WORKSPACE/.review-input/post_review.py"
+          CHECKER="$RUNNER_TEMP/post_review.py"
           has_verdict() {
             local rc
             [ -s "$1" ] || return 1
-            [ -s "$CHECKER" ] || return 0
+            [ -f "$CHECKER" ] || return 0
             python3 -I "$CHECKER" --check-verdict "$1"
             rc=$?
             if [ "$rc" -eq 2 ]; then return 0; fi
