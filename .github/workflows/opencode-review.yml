@@ -368,12 +368,13 @@ jobs:
             fi
             : > "$RUNNER_TEMP/review.txt"
           done
-          echo "model=$used" >> "$GITHUB_OUTPUT"
           # The key is known here, so output containing it verbatim is dropped.
           if [ -n "$OPENROUTER_API_KEY" ] && [ -s "$RUNNER_TEMP/review.txt" ] && grep -qF -- "$OPENROUTER_API_KEY" "$RUNNER_TEMP/review.txt"; then
             echo "::error::review output contained the API key; discarded"
             : > "$RUNNER_TEMP/review.txt"
+            used=""
           fi
+          echo "model=$used" >> "$GITHUB_OUTPUT"
           if [ ! -s "$RUNNER_TEMP/review.txt" ]; then
             echo "::notice::automated review skipped, no model produced a usable verdict"
             # JSON, so post_review.py can tell this notice from model prose. Reasons are

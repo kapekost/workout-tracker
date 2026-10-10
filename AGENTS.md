@@ -130,6 +130,13 @@ services that must not be disrupted, hardware RAM limits) belongs in
 `AGENTS.local.md`, not here — see that file for what actually applies to
 the current deployment.
 
+## Keep it simple
+
+Pick the simplest change that solves the problem; readability and maintainability are goals. Do not
+add a mechanism (a second list, a per-case switch, a new script or layer) when a plain edit or an
+existing platform feature does the job. If a change needs a test only to keep two copies of the same
+list in step, keep one copy instead.
+
 ## Code comments
 
 Write a comment only when the code cannot say it: a non-obvious constraint, a trap, or why
