@@ -24,6 +24,12 @@ def test_generated_config_denies_data_collection_for_every_listed_model(tmp_path
     assert all(m["options"]["provider"]["data_collection"] == "deny" for m in models.values())
 
 
+def test_the_free_router_is_listed_first_and_never_twice():
+    block = TEXT[TEXT.index("# The one model list"):TEXT.index("} > \"$RUNNER_TEMP/models.txt\"")]
+    assert block.index("echo openrouter/free") < block.index("curl")
+    assert block.count("openrouter/free") == 1
+
+
 def test_the_loop_runs_the_generated_list_and_reports_the_winner():
     assert 'mapfile -t models < "$RUNNER_TEMP/models.txt"' in TEXT
     assert 'used="$model"; break' in TEXT

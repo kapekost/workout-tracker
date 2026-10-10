@@ -176,12 +176,14 @@ jobs:
             }
           }
           JSON
-          # The one model list: live stealth previews first when OpenRouter lists any, then the
-          # fixed free fallbacks. Every model is configured with data_collection deny.
+          # The one model list: the auto-routed free router first, then live stealth previews when
+          # OpenRouter lists any, then the fixed free fallbacks. Every model is configured with
+          # data_collection deny.
           {
+            echo openrouter/free
             curl -fsS --retry 2 --max-time 20 https://openrouter.ai/api/v1/models \
               | jq -r '.data[].id | select(test("^stealth/[A-Za-z0-9._-]+$"))' | head -n 2 || true
-            printf '%s\n' cohere/north-mini-code:free apodex/apodex-1.1-mini:free openrouter/free
+            printf '%s\n' cohere/north-mini-code:free apodex/apodex-1.1-mini:free
           } > "$RUNNER_TEMP/models.txt"
           jq --rawfile m "$RUNNER_TEMP/models.txt" \
             '.provider.openrouter.models = ([$m | split("\n")[] | select(length > 0)
