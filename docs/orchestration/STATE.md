@@ -58,7 +58,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#293** — claimed 2026-10-10T09:30:01Z, live session. Checkpoint: pr-open @ 2026-10-10T09:39:43Z (PR #302, branch implement/task-cleanup).
+- **#293** — claimed 2026-10-10T09:30:01Z, live session. Checkpoint: done @ 2026-10-10T09:59:33Z (PR #302 open, draft, head 9c4eff3, not merged).
 
 ## Needs owner
 - **Review bot: credits are in (owner, 2026-10-10).** A full-prompt run returned a valid verdict from cohere, so reviews should stop skipping. #296 tracks the live check of the signature line, stealth discovery and openrouter/free; read the first real review of the next PR and record it there.
