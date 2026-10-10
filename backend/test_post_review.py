@@ -87,11 +87,13 @@ def test_malformed_findings_are_skipped_not_fatal():
     assert kind == "review" and comments == []
 
 
-def test_json_inside_prose_and_fences_is_found():
+def test_one_object_is_found_bare_or_in_one_fence_but_not_inside_prose():
     payload = review([{"file": "a.py", "line": 10, "blocking": True, "body": "b"}])
-    for text in (f"Here you go:\n```json\n{payload}\n```\nthanks", f"prefix {payload} suffix"):
+    for text in (payload, f"```json\n{payload}\n```", f"```\n{payload}\n```\n"):
         _, _, comments, *_ = pr.build(text, PATCHES, REPO)
-        assert len(comments) == 1
+        assert len(comments) == 1, text[:20]
+    for text in (f"Here you go:\n```json\n{payload}\n```\nthanks", f"prefix {payload} suffix"):
+        assert pr.build(text, PATCHES, REPO)[0] == "plain", text[:20]
 
 
 def test_non_json_output_is_posted_as_truncated_plain_text():
@@ -146,11 +148,11 @@ def test_a_verdict_word_already_in_the_summary_is_not_repeated():
     assert body == "**CLEAN** 3 files, no findings"
 
 
-def test_the_last_findings_object_wins_over_an_example_before_it():
-    real = {"summary": "s", "findings": [{"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]}
-    text = 'The shape is {"summary": "x", "findings": []}. My answer: ' + json.dumps(real)
-    kind, body, comments, *_ = pr.build(text, PATCHES, REPO)
-    assert len(comments) == 1 and body.startswith("**BLOCKING**")
+def test_two_verdicts_are_unstructured_whichever_comes_last():
+    example = '{"summary": "x", "findings": []}'
+    for text in (example + " " + real_verdict(), real_verdict() + " " + example):
+        assert pr.extract_json(text) is None
+        assert pr.build(text, PATCHES, REPO)[0] == "plain"
 
 
 def test_findings_that_is_not_a_list_is_not_a_verdict():
@@ -164,11 +166,11 @@ def test_an_echo_of_the_prompts_example_shape_is_not_a_verdict():
     assert kind == "plain" and "CLEAN" not in body
 
 
-def test_a_verdict_nested_in_another_object_is_found():
-    nested = json.dumps({"review": {"summary": "s", "findings": [
-        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]}})
-    _, _, comments, *_ = pr.build(nested, PATCHES, REPO)
-    assert len(comments) == 1
+def test_a_verdict_quoted_inside_a_longer_object_does_not_win():
+    quoted = json.dumps({"summary": "real", "findings": [], "notes": [json.loads(real_verdict("quoted"))]})
+    assert pr.extract_json(quoted)["summary"] == "real"
+    wrapped = json.dumps({"review": json.loads(real_verdict())})
+    assert pr.extract_json(wrapped) is None
 
 
 def test_clean_review():
@@ -210,20 +212,9 @@ def real_verdict(summary="real answer"):
         {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]})
 
 
-def test_a_verdict_after_many_braces_is_still_found():
-    text = "{}" * 60 + " my answer: " + real_verdict()
-    kind, body, comments, *_ = pr.build(text, PATCHES, REPO)
-    assert kind == "review" and len(comments) == 1
-    assert body.startswith("**BLOCKING**")
-
-
-def test_an_example_shaped_verdict_before_many_braces_does_not_win():
-    example = json.dumps({"summary": "example only", "findings": []})
-    text = example + " " + "{}" * 45 + " my answer: " + real_verdict("the real one")
-    data = pr.extract_json(text)
-    assert data["summary"] == "the real one"
-    _, body, comments, *_ = pr.build(text, PATCHES, REPO)
-    assert len(comments) == 1 and "the real one" in body
+def test_braces_around_a_verdict_make_it_unstructured():
+    for text in ("{}" * 60 + " my answer: " + real_verdict(), real_verdict() + "{}" * 60):
+        assert pr.extract_json(text) is None
 
 
 def test_a_placeholder_summary_of_dots_is_not_a_verdict():
@@ -281,6 +272,8 @@ def test_check_verdict_agrees_with_extract_json_on_a_corpus(tmp_path):
         '{"summary": "<one line, max 150 chars>", "findings": [], "notes": []}',
         '{"summary": "...", "findings": []}',
         'The shape is {"summary": "x", "findings": []}. My answer: ' + real_verdict(),
+        real_verdict() + real_verdict("second"),
+        f"```json\n{real_verdict()}\n```",
         json.dumps({"review": {"summary": "s", "findings": []}}),
         json.dumps({"skipped": True, "summary": "No model.", "findings": [], "notes": ["n"]}),
         "{" * 200_000, '{"findings":' * 60_000, "{" * 5000 + "}" * 5000,

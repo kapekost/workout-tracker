@@ -63,7 +63,7 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
 `post_review.py` also caps findings (20, 400 chars each), removes URLs and HTML, escapes brackets,
 angle brackets and # so nothing renders as a link, image or mention, drops lines not in the diff,
 and withholds the whole output if it matches a secret pattern (checked before and after JSON
-decoding). Output that is not that JSON is posted truncated inside a code block. A skipped review
+decoding). Output that is not exactly one JSON object (optionally in one code fence) is posted truncated inside a code block, so a verdict quoted in prose or a second object never wins. A skipped review
 is JSON with `"skipped": true`. On a re-review it reads the history file and looks at the diff
 since its own last review. If the default branch has no `post_review.py`, the post job writes a
 fixed notice instead. If the review job fails or times out, the post job still runs and writes a
