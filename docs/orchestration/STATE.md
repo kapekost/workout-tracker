@@ -61,7 +61,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#291** — claimed 2026-10-10T09:02:58Z, live session. Checkpoint: pr-open @ 2026-10-10T09:12:42Z (PR #300, branch feat/review-bot-daily-limit).
+- **#291** — claimed 2026-10-10T09:02:58Z, live session. Checkpoint: reviewed @ 2026-10-10T09:19:00Z (PR #300, branch feat/review-bot-daily-limit).
 
 ## Needs owner
 - **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. After #279 and #290 the bot still skipped with free-model rate limits; #291 makes that legible. Decide on a model or key.
