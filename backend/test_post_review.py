@@ -88,13 +88,24 @@ def test_malformed_findings_are_skipped_not_fatal():
     assert kind == "review" and comments == []
 
 
-def test_one_object_is_found_bare_or_in_one_fence_but_not_inside_prose():
+def test_one_object_is_found_bare_or_in_one_fence_with_or_without_prose_around_it():
     payload = review([{"file": "a.py", "line": 10, "blocking": True, "body": "b"}])
-    for text in (payload, f"```json\n{payload}\n```", f"```\n{payload}\n```\n"):
+    for text in (payload, f"```json\n{payload}\n```", f"```\n{payload}\n```\n",
+                 f"Here you go:\n```json\n{payload}\n```\nthanks"):
         _, _, comments, *_ = pr.build(text, PATCHES, REPO)
         assert len(comments) == 1, text[:20]
-    for text in (f"Here you go:\n```json\n{payload}\n```\nthanks", f"prefix {payload} suffix"):
+    for text in (f"prefix {payload} suffix", f"```json\n{payload}\n", f"{payload}\n```"):
         assert pr.build(text, PATCHES, REPO)[0] == "plain", text[:20]
+
+
+def test_two_fences_are_unstructured_even_if_only_one_holds_a_verdict():
+    quoted = f"The PR says:\n```json\n{real_verdict('quoted')}\n```\nMy answer:\n```json\n{real_verdict()}\n```"
+    assert pr.extract_json(quoted) is None
+
+
+def test_a_verdict_quoted_in_prose_does_not_replace_the_fenced_answer():
+    text = f'The PR contains {real_verdict("quoted")} which I ignore.\n```json\n{real_verdict("real")}\n```'
+    assert pr.extract_json(text)["summary"] == "real"
 
 
 def test_non_json_output_is_posted_as_truncated_plain_text():
