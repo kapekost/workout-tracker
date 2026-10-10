@@ -28,3 +28,8 @@ def test_the_loop_runs_the_generated_list_and_reports_the_winner():
     assert 'mapfile -t models < "$RUNNER_TEMP/models.txt"' in TEXT
     assert 'used="$model"; break' in TEXT
     assert "REVIEW_MODEL: ${{ needs.review.outputs.model }}" in TEXT
+
+
+def test_a_discarded_review_is_never_signed():
+    leak = TEXT.index("review output contained the API key; discarded")
+    assert TEXT.index('used=""', leak) < TEXT.index('echo "model=$used"', leak)
