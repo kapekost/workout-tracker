@@ -322,18 +322,10 @@ jobs:
           PY
           }
           MODEL_TIMEOUT_SECS=900
-          # Models that over-explain or fence their JSON get a stricter length reminder; the rest
-          # run the plain prompt. Space-separated, each entry must also be in the loop below.
-          TERSE_MODELS="apodex/apodex-1.1-mini:free"
-          TERSE_SUFFIX='Be terse. Print the JSON object only: no code fence, no text before or after it. Every "body" is one sentence, at most 200 characters, naming the failing input and the result. Do not restate the diff or the prompt.'
           for model in cohere/north-mini-code:free \
                        apodex/apodex-1.1-mini:free; do
-            prompt="$REVIEW_PROMPT"
-            case " $TERSE_MODELS " in
-              *" $model "*) prompt="$REVIEW_PROMPT"$'\n\n'"$TERSE_SUFFIX" ;;
-            esac
             timeout -k 30 "$MODEL_TIMEOUT_SECS" opencode run --model "openrouter/$model" --format default \
-              "$prompt" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
+              "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
             echo "review model $model exit: $rc" >> "$GITHUB_STEP_SUMMARY"
             if [ "$rc" -ne 0 ]; then
