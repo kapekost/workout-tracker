@@ -15,7 +15,11 @@ set -euo pipefail
 #
 # Exits 0 when nothing is left to do. Exits 1, before deleting anything, when the
 # worktree has uncommitted changes or is not a registered worktree, the branch is not
-# shown to be merged, or the script runs from inside the worktree it would remove.
+# shown to be merged, the branch is main, master, HEAD, claude/* or checked out in
+# another worktree, or the script runs from inside the worktree it would remove.
+#
+# Without gh or a squash-merge record, a branch counts as merged only when its tip is
+# an ancestor of main or every file it changed already matches origin/main.
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
   echo "Usage: task_cleanup.sh <issue-number> [branch]" >&2
@@ -97,6 +101,20 @@ else
 fi
 
 if [ -n "$branch_name" ] && git rev-parse --verify --quiet "$branch_name" > /dev/null; then
+  case "$branch_name" in
+    main | master | HEAD | claude/*)
+      echo "Cannot clean: refusing to delete protected branch $branch_name" >&2
+      exit 1
+      ;;
+  esac
+  # The task's own worktree holds its branch; any other worktree holding it is in use.
+  if git worktree list --porcelain | awk -v b="branch refs/heads/$branch_name" -v own="$worktree_path" '
+      /^worktree / { wt = substr($0, 10) }
+      $0 == b && wt != own { found = 1 }
+      END { exit !found }'; then
+    echo "Cannot clean: branch $branch_name is checked out in another worktree" >&2
+    exit 1
+  fi
   if ! branch_merged "$branch_name"; then
     echo "Cannot clean: branch $branch_name is not shown to be merged into main" >&2
     exit 1

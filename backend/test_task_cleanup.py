@@ -314,3 +314,29 @@ def test_worktree_gone_does_not_unregister_other_worktrees():
         listing = run_git("worktree", "list", "--porcelain", cwd=repo)
         assert "issue-3" in listing
         assert "issue-9" not in listing
+
+
+def test_protected_branch_argument_is_refused():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        # Git itself would refuse to delete main while it is checked out here.
+        run_git("checkout", "-b", "other", cwd=repo)
+
+        output, returncode = run_cleanup(repo, 11, "main")
+
+        assert returncode != 0, output
+        assert "protected branch main" in output
+        assert "main" in run_git("branch", cwd=repo)
+
+
+def test_branch_checked_out_in_another_worktree_is_refused():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        elsewhere = Path(tmp_dir) / "elsewhere"
+        run_git("worktree", "add", str(elsewhere), "-b", "feature/x", cwd=repo)
+
+        output, returncode = run_cleanup(repo, 12, "feature/x")
+
+        assert returncode != 0, output
+        assert "checked out in another worktree" in output
+        assert "feature/x" in run_git("branch", cwd=repo)
