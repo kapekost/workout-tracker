@@ -175,3 +175,51 @@ def test_last_endpoint_returns_null_unchanged_with_no_history(client):
     resp = client.get("/api/exercises/bench_press/last",
                        params={"reps_low": 6, "reps_high": 8})
     assert resp.json() is None
+
+
+# --- #231: the trophy marks the best single, picked by estimated 1RM ---
+
+def _session_with_sets(client, exercise, sets):
+    sid = client.post("/api/sessions", json={"workout_day": "upper_a"}).json()["id"]
+    for n, (weight, reps) in enumerate(sets, start=1):
+        client.post(f"/api/sessions/{sid}/sets", json={
+            "exercise_id": exercise, "exercise_name": exercise.title(),
+            "set_number": n, "reps": reps, "weight_kg": weight})
+    client.patch(f"/api/sessions/{sid}", json={"completed": True})
+    return sid
+
+
+def test_progress_best_set_is_chosen_by_e1rm_not_weight(client, mainmod):
+    # 20 x 8 estimates 25.5; 22.5 x 1 is heavier but its single is only 22.5.
+    _session_with_sets(client, "curl", [(22.5, 1), (20, 8)])
+    row = client.get("/api/progress/curl").json()[0]
+    assert row["max_weight"] == 22.5
+    assert row["best_weight"] == 20 and row["best_reps"] == 8
+    assert row["best_single"] == mainmod.epley(20, 8) == 25.5
+    assert row["best_estimated"] is True
+
+
+def test_progress_real_single_is_not_estimated(client):
+    _session_with_sets(client, "bench", [(100, 1), (80, 3)])
+    row = client.get("/api/progress/bench").json()[0]
+    assert row["best_weight"] == 100 and row["best_reps"] == 1
+    assert row["best_single"] == 100
+    assert row["best_estimated"] is False
+
+
+def test_progress_estimate_beats_a_lighter_real_single(client):
+    # 97 x 2 estimates 103.5, which is higher than the real 100 x 1.
+    _session_with_sets(client, "squat", [(100, 1), (97, 2)])
+    row = client.get("/api/progress/squat").json()[0]
+    assert row["best_single"] == 103.5 and row["best_estimated"] is True
+
+
+def test_progress_max_weight_still_the_heaviest_set(client):
+    _session_with_sets(client, "row", [(50, 12), (60, 5)])
+    row = client.get("/api/progress/row").json()[0]
+    assert row["max_weight"] == 60
+
+
+def test_best_single_helper_uses_epley(mainmod):
+    assert mainmod.best_single(100, 1) == (100, False)
+    assert mainmod.best_single(20, 8) == (mainmod.epley(20, 8), True)

@@ -1,7 +1,7 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import Workout from './Workout'
-import { PLAN } from '../data/workoutPlan'
+import { PLAN, CYCLE } from '../data/workoutPlan'
 import { colors, type } from '../lib/theme'
 
 // `put` is here because the note editor calls it. It was absent from this mock
@@ -11,6 +11,7 @@ vi.mock('../api', () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }))
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 import { api } from '../api'
 
 const ex1 = PLAN.upper_a.exercises[0]

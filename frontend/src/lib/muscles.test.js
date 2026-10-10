@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { PLAN } from '../data/workoutPlan'
+import { PLAN, CYCLE } from '../data/workoutPlan'
 import {
-  MUSCLE_GROUPS, ALL_EXERCISES, EXERCISE_BY_ID,
+  MUSCLE_GROUPS, allExercises, exerciseById,
   groupWeightsFor, tauFor, EXERCISE_PATTERN, PATTERN_TAU,
   groupSetsForDay, bestDayForMuscle,
 } from './muscles'
+
+const ALL_EXERCISES = allExercises(PLAN)
+const EXERCISE_BY_ID = exerciseById(PLAN)
 
 const allTagsInPlan = [...new Set(ALL_EXERCISES.flatMap(e => e.muscles))]
 
@@ -118,55 +121,66 @@ describe('groupSetsForDay', () => {
   it('counts quads in Lower A as 6 fractional sets', () => {
     // back_squat 3 direct + leg_press 3 direct = 6 — this is the number the
     // recovery model's ref=6 is calibrated against.
-    expect(groupSetsForDay('lower_a').quads).toBe(6)
+    expect(groupSetsForDay('lower_a', PLAN).quads).toBe(6)
   })
 
   it('counts chest as 3 in both upper days — the tie bestDayForMuscle must break', () => {
-    expect(groupSetsForDay('upper_a').chest).toBe(3)
-    expect(groupSetsForDay('upper_b').chest).toBe(3)
+    expect(groupSetsForDay('upper_a', PLAN).chest).toBe(3)
+    expect(groupSetsForDay('upper_b', PLAN).chest).toBe(3)
   })
 
   it('accumulates indirect contributions across exercises', () => {
     // Upper A arms: bench .5x3 + bent_row .5x3 + ohp .5x3 + lat_pulldown .5x3
     //             + tricep_pushdown 1x2 + db_curl 1x2 = 10
-    expect(groupSetsForDay('upper_a').arms).toBe(10)
+    expect(groupSetsForDay('upper_a', PLAN).arms).toBe(10)
   })
 
   it('returns an empty object for an unknown day', () => {
-    expect(groupSetsForDay('bogus_day')).toEqual({})
+    expect(groupSetsForDay('bogus_day', PLAN)).toEqual({})
   })
 })
 
 describe('bestDayForMuscle', () => {
   it('picks the day with the most fractional sets', () => {
-    expect(bestDayForMuscle('calves')).toBe('lower_a')
+    expect(bestDayForMuscle('calves', {}, PLAN, CYCLE)).toBe('lower_a')
   })
 
   it('breaks the chest tie toward the more rested day', () => {
-    expect(bestDayForMuscle('chest', { upper_a: '2026-08-14', upper_b: '2026-08-01' }))
+    expect(bestDayForMuscle('chest', { upper_a: '2026-08-14', upper_b: '2026-08-01' }, PLAN, CYCLE))
       .toBe('upper_b')
-    expect(bestDayForMuscle('chest', { upper_a: '2026-08-01', upper_b: '2026-08-14' }))
+    expect(bestDayForMuscle('chest', { upper_a: '2026-08-01', upper_b: '2026-08-14' }, PLAN, CYCLE))
       .toBe('upper_a')
   })
 
   it('treats a never-trained day as infinitely rested', () => {
-    expect(bestDayForMuscle('chest', { upper_a: '2026-08-14', upper_b: null }))
+    expect(bestDayForMuscle('chest', { upper_a: '2026-08-14', upper_b: null }, PLAN, CYCLE))
       .toBe('upper_b')
   })
 
   it('falls back to CYCLE order when nothing distinguishes the days', () => {
-    expect(bestDayForMuscle('chest', {})).toBe('upper_a')
-    expect(bestDayForMuscle('chest', { upper_a: '2026-08-10', upper_b: '2026-08-10' }))
+    expect(bestDayForMuscle('chest', {}, PLAN, CYCLE)).toBe('upper_a')
+    expect(bestDayForMuscle('chest', { upper_a: '2026-08-10', upper_b: '2026-08-10' }, PLAN, CYCLE))
       .toBe('upper_a')
   })
 
   it('returns a day for every display group', () => {
     MUSCLE_GROUPS.forEach(g => {
-      expect(bestDayForMuscle(g.id)).not.toBeNull()
+      expect(bestDayForMuscle(g.id, {}, PLAN, CYCLE)).not.toBeNull()
     })
   })
 
   it('returns null for a group no day trains', () => {
-    expect(bestDayForMuscle('not_a_group')).toBeNull()
+    expect(bestDayForMuscle('not_a_group', {}, PLAN, CYCLE)).toBeNull()
+  })
+})
+
+describe('allExercises', () => {
+  it('lists an exercise that sits on two days once', () => {
+    const squat = { id: 'squat', name: 'Squat' }
+    const plan = {
+      a: { exercises: [squat, { id: 'row', name: 'Row' }] },
+      b: { exercises: [squat] },
+    }
+    expect(allExercises(plan).map(e => e.id)).toEqual(['squat', 'row'])
   })
 })

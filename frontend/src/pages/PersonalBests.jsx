@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { ALL_EXERCISES } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
+import { allExercises } from '../lib/muscles'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
@@ -36,7 +37,14 @@ export default function PersonalBests() {
   // "No historical PBs logged yet.", which is a claim about the user's
   // history, not about this device's connectivity.
   const [loadError, setLoadError] = useState(false)
-  const [exerciseId, setExerciseId] = useState(ALL_EXERCISES[0]?.id ?? '')
+  const { plan } = usePlan()
+  // The picker lists exercises by name, not in plan order.
+  const exercises = useMemo(
+    () => [...allExercises(plan)].sort((a, b) => a.name.localeCompare(b.name)), [plan])
+  // Empty until the user picks, so a plan that arrives after mount still gets
+  // a default instead of leaving the select on a value with no option.
+  const [pickedId, setExerciseId] = useState('')
+  const exerciseId = pickedId || exercises[0]?.id || ''
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(1)
   const [year, setYear] = useState(new Date().getFullYear())
@@ -78,7 +86,7 @@ export default function PersonalBests() {
     e.preventDefault()
     if (saving) return
     setSaving(true)
-    const exercise = ALL_EXERCISES.find(ex => ex.id === exerciseId)
+    const exercise = exercises.find(ex => ex.id === exerciseId)
     try {
       const created = await api.post('/personal-bests', {
         exercise_id: exerciseId, exercise_name: exercise.name,
@@ -135,10 +143,22 @@ export default function PersonalBests() {
           {rows.map(r => {
             const armed = confirmId === r.id
             return (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: space.xs }}>
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: space.sm, padding: '10px 0', borderBottom: `1px solid ${colors.border}` }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: space.xs, flexShrink: 0 }}>
                   <IconTrophy size={icon.body} color={colors.success} />
-                  <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg}kg × {r.reps}</span>
+                  {r.single_kg == null ? (
+                    <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>{r.weight_kg} kg × {r.reps}</span>
+                  ) : (
+                    <span style={{ display: 'flex', flexDirection: 'column', whiteSpace: 'nowrap' }}>
+                      <span className="font-mono" style={{ fontSize: type.size.body, fontWeight: type.weight.bold, color: colors.success }}>
+                        {r.single_kg} kg
+                        {r.single_estimated && <span style={{ color: colors.muted, fontSize: type.size.base, fontWeight: type.weight.semibold }}> est.</span>}
+                      </span>
+                      {r.single_estimated && (
+                        <span style={{ color: colors.muted, fontSize: type.size.base }}>from {r.weight_kg} kg × {r.reps}</span>
+                      )}
+                    </span>
+                  )}
                 </span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}
@@ -162,7 +182,7 @@ export default function PersonalBests() {
           <label style={labelStyle}>Exercise</label>
           <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
             style={{ ...fieldStyle, marginBottom: 14 }}>
-            {ALL_EXERCISES.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+            {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
           </select>
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>

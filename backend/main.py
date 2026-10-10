@@ -1121,6 +1121,11 @@ def delete_set(sid: int, set_id: int, profile_id: int = Depends(acting_profile_i
         conn.commit()
         return {"deleted": True}
 
+def _pb_with_single(row):
+    pb = dict(row)
+    pb["single_kg"], pb["single_estimated"] = best_single(pb["weight_kg"], pb["reps"])
+    return pb
+
 @app.post("/api/personal-bests")
 def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
@@ -1133,7 +1138,7 @@ def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_pr
             raise HTTPException(409, "a personal best with this exercise, weight, reps and year already exists")
         conn.commit()
         row = conn.execute("SELECT * FROM personal_bests WHERE id = ?", (cur.lastrowid,)).fetchone()
-        return dict(row)
+        return _pb_with_single(row)
 
 @app.get("/api/personal-bests")
 def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
@@ -1141,7 +1146,7 @@ def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
         rows = conn.execute(
             "SELECT * FROM personal_bests WHERE profile_id = ? "
             "ORDER BY exercise_name, weight_kg DESC", (profile_id,)).fetchall()
-        return [dict(r) for r in rows]
+        return [_pb_with_single(r) for r in rows]
 
 @app.delete("/api/personal-bests/{pb_id}")
 def delete_personal_best(pb_id: int, profile_id: int = Depends(acting_profile_id)):
@@ -1158,18 +1163,32 @@ def delete_personal_best(pb_id: int, profile_id: int = Depends(acting_profile_id
 def get_progress(exercise_id: str, profile_id: int = Depends(acting_profile_id)):
     # Completed sessions only (in-progress/abandoned sets would skew the chart
     # and the PR baseline), keeping the most recent 60, re-sorted for the chart.
+    # max_weight/reps describe the heaviest set; best_* describe the set with
+    # the highest single (a lighter high-rep set can beat a heavier low-rep one).
     with db() as conn:
         rows = conn.execute("""
-            SELECT date, max_weight, reps FROM (
-                SELECT s.date as date, MAX(st.weight_kg) as max_weight,
-                       st.reps as reps, s.id as sid
-                FROM sets st JOIN sessions s ON st.session_id = s.id
-                WHERE st.exercise_id = ? AND s.completed = 1 AND s.profile_id = ?
-                GROUP BY s.id, s.date
-                ORDER BY s.date DESC, s.id DESC LIMIT 60
-            ) ORDER BY date ASC, sid ASC
-        """, (exercise_id, profile_id)).fetchall()
-        return [dict(r) for r in rows]
+            SELECT s.id AS sid, s.date AS date, st.weight_kg AS weight_kg, st.reps AS reps
+            FROM sets st JOIN sessions s ON st.session_id = s.id
+            WHERE st.exercise_id = ? AND s.completed = 1 AND s.profile_id = ?
+              AND s.id IN (
+                SELECT s2.id FROM sessions s2 JOIN sets st2 ON st2.session_id = s2.id
+                WHERE st2.exercise_id = ? AND s2.completed = 1 AND s2.profile_id = ?
+                GROUP BY s2.id ORDER BY s2.date DESC, s2.id DESC LIMIT 60)
+        """, (exercise_id, profile_id, exercise_id, profile_id)).fetchall()
+    sessions = {}
+    for r in rows:
+        sessions.setdefault((r["date"], r["sid"]), []).append(r)
+    out = []
+    for (day, _sid), sets in sorted(sessions.items()):
+        heaviest = max(sets, key=lambda r: (r["weight_kg"], r["reps"]))
+        best = max(sets, key=lambda r: (best_single(r["weight_kg"], r["reps"])[0], r["weight_kg"]))
+        single, estimated = best_single(best["weight_kg"], best["reps"])
+        out.append({
+            "date": day, "max_weight": heaviest["weight_kg"], "reps": heaviest["reps"],
+            "best_weight": best["weight_kg"], "best_reps": best["reps"],
+            "best_single": single, "best_estimated": estimated,
+        })
+    return out
 
 @app.get("/api/progress")
 def all_progress(profile_id: int = Depends(acting_profile_id)):
@@ -1210,6 +1229,13 @@ def put_note(exercise_id: str, n: NoteIn, profile_id: int = Depends(acting_profi
 
 def epley(weight, reps):
     return round(weight * (1 + reps / 30) * 2) / 2
+
+def best_single(weight, reps):
+    # (kg, estimated). A one-rep set is its own single; anything heavier in
+    # reps is Epley-estimated, the same formula session PR detection uses.
+    if reps <= 1:
+        return weight, False
+    return epley(weight, reps), True
 
 def round_to_step(x, step=2.5):
     # Round-half-up to the nearest step (not Python's banker's rounding), so

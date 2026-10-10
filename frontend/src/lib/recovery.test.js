@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { PLAN } from '../data/workoutPlan'
+import { exerciseById } from './muscles'
 import {
   groupRecovery, bandFor, dayLabel, localToday, hoursSince,
   daysBetweenDates, noveltyFor, lastWorkoutLabel, REF_SETS,
 } from './recovery'
+
+const BY_ID = exerciseById(PLAN)
 
 // A UTC instant we can do exact arithmetic against.
 const AT = '2026-08-12 18:00:00'
@@ -19,7 +23,7 @@ const lowerADay = [
   row({ exercise_id: 'back_squat' }),
   row({ exercise_id: 'leg_press' }),
 ]
-const quads = (rows, nowMs) => groupRecovery(rows, nowMs).find(g => g.id === 'quads')
+const quads = (rows, nowMs) => groupRecovery(rows, nowMs, BY_ID).find(g => g.id === 'quads')
 
 describe('groupRecovery — the quads-after-Lower-A sanity table', () => {
   it('reads Recently trained at 0h', () => {
@@ -101,7 +105,7 @@ describe('bandFor boundaries', () => {
 
 describe('never-trained groups', () => {
   it('reads Not trained yet, not Fresh', () => {
-    const g = groupRecovery([], AT_MS).find(x => x.id === 'chest')
+    const g = groupRecovery([], AT_MS, BY_ID).find(x => x.id === 'chest')
     expect(g.band).toBe('Not trained yet')
     expect(g.daysSince).toBeNull()
     expect(g.hoursSince).toBeNull()
@@ -109,13 +113,13 @@ describe('never-trained groups', () => {
   })
 
   it('returns one entry per group even with no data', () => {
-    expect(groupRecovery([], AT_MS)).toHaveLength(7)
+    expect(groupRecovery([], AT_MS, BY_ID)).toHaveLength(7)
   })
 })
 
 describe('indirect contributions count as training', () => {
   it('bench press counts as having trained arms', () => {
-    const g = groupRecovery([row({ exercise_id: 'bench_press' })], AT_MS)
+    const g = groupRecovery([row({ exercise_id: 'bench_press' })], AT_MS, BY_ID)
       .find(x => x.id === 'arms')
     expect(g.band).not.toBe('Not trained yet')
     expect(g.fractionalSets).toBe(1.5)  // 3 sets x 0.5 indirect

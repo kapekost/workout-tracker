@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { PLAN, CYCLE } from '../src/data/workoutPlan.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures.
@@ -45,6 +46,8 @@ async function mockApi(page) {
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, '')
     if (path === '/auth/me') return route.fulfill({ json: profile })
+    // The app renders no page until the plan request settles (PlanProvider).
+    if (path === '/plan') return route.fulfill({ json: { plan: PLAN, cycle: CYCLE } })
     if (path === '/sessions') return route.fulfill({ json: sessions })
     if (path === `/sessions/${ACTIVE_SESSION_ID}`) return route.fulfill({ json: sessionDetail })
     if (path === `/sessions/${ACTIVE_SESSION_ID}/prs`) return route.fulfill({ json: [] })
@@ -332,6 +335,34 @@ function effectiveHitRect(box, isTapTarget) {
 function rectsOverlap(a, b) {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 }
+
+test.describe('Progress record card with a three-digit estimate (#231)', () => {
+  for (const width of [320, 340, 360]) {
+    test(`${width}px: the Sessions stat stays inside the card`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await mockApi(page)
+      await page.route('**/api/progress/bench_press', (route) => route.fulfill({
+        json: [
+          { date: '2026-08-01', max_weight: 95, reps: 1, best_weight: 80, best_reps: 8, best_single: 101.5, best_estimated: true },
+          { date: '2026-08-08', max_weight: 100, reps: 1, best_weight: 100, best_reps: 1, best_single: 100, best_estimated: false },
+        ],
+      }))
+      await page.goto('/progress')
+      await page.getByRole('button', { name: 'Bench Press' }).click()
+      const label = page.getByText('Sessions', { exact: true })
+      await label.waitFor()
+      const card = page.locator('.card').filter({ has: label })
+      const cardBox = await card.boundingBox()
+      const labelBox = await label.boundingBox()
+      expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width)
+      const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }))
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+    })
+  }
+})
 
 test.describe('Progress chips — real 44px boxes, no overlap (item 7)', () => {
   test.use({ viewport: { width: 320, height: 568 } })

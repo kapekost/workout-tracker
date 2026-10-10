@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import App from './App'
+import { PLAN, CYCLE } from './data/workoutPlan'
 
 // api.js announces an expired session through a callback it hands out --
 // api.test.js owns which 401s do and do not announce. The mock captures that
@@ -45,6 +46,7 @@ beforeEach(() => {
   bridge.sessionExpired = null
   window.history.pushState({}, '', '/')
   api.get.mockImplementation(async (path) => {
+    if (path === '/plan') return { plan: PLAN, cycle: CYCLE }
     if (path === '/sessions') return []
     if (path === '/exercises/recency') return []
     if (path === '/profile/me') return { id: 1, username: 'kapekost', role: 'admin', icon: '💪' }
@@ -251,6 +253,7 @@ describe('logging in', () => {
         err.status = 401
         throw err
       }
+      if (path === '/plan') return { plan: PLAN, cycle: CYCLE }
       if (path === '/sessions') return [{ id: 12, workout_day: 'upper_a', completed: 0 }]
       if (path === '/exercises/recency') return []
       throw new Error(`unmocked GET ${path}`)
@@ -373,5 +376,56 @@ describe('auth screens are chrome-free', () => {
     await screen.findByText(/Next up/i)
     expect(screen.getByRole('button', { name: /History/i })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/')
+  })
+})
+
+describe('the per-profile plan', () => {
+  it('is not requested while nobody is signed in', async () => {
+    unauthenticated()
+    render(<App />)
+    await screen.findByLabelText('Username')
+    expect(api.get).not.toHaveBeenCalledWith('/plan')
+  })
+
+  it('holds the app routes until the plan request has answered', async () => {
+    authenticated()
+    let answer
+    api.get.mockImplementation(async (path) => {
+      if (path === '/plan') return new Promise(r => { answer = r })
+      if (path === '/sessions') return []
+      if (path === '/exercises/recency') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    render(<App />)
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/plan'))
+    expect(screen.queryByText('Next up')).not.toBeInTheDocument()
+
+    await act(async () => { answer({ plan: PLAN, cycle: CYCLE }) })
+    expect(await screen.findByText('Next up')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start Upper A' })).toBeInTheDocument()
+  })
+
+  it('offers a retry, not pages built on an empty plan, when the request fails', async () => {
+    authenticated()
+    let fail = true
+    api.get.mockImplementation(async (path) => {
+      if (path === '/plan') {
+        if (fail) throw new Error('API GET /plan → 500')
+        return { plan: PLAN, cycle: CYCLE }
+      }
+      if (path === '/sessions') return []
+      if (path === '/exercises/recency') return []
+      throw new Error(`unmocked GET ${path}`)
+    })
+    render(<App />)
+    expect(await screen.findByText(/couldn't load your workout plan/i)).toBeInTheDocument()
+    expect(screen.queryByText('Next up')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start Workout' })).not.toBeInTheDocument()
+
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Next up')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start Upper A' })).toBeInTheDocument()
+    expect(api.get.mock.calls.filter(([p]) => p === '/plan')).toHaveLength(2)
   })
 })

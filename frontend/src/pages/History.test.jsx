@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import History, { SessionDetail } from './History'
+import { PLAN, CYCLE } from '../data/workoutPlan'
+
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 
 vi.mock('../api', () => ({ api: { get: vi.fn(), delete: vi.fn() } }))
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }))
@@ -27,6 +30,18 @@ describe('SessionDetail delete button', () => {
   it('shows the confirm label when confirmId matches', () => {
     render(<SessionDetail detail={{ sets: [] }} confirmId={15} sessionId={15} onDelete={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'Tap again to confirm' })).toBeInTheDocument()
+  })
+})
+
+describe('SessionDetail set rows', () => {
+  it('renders no trophy: a session\'s heaviest set is not a record', () => {
+    const detail = { sets: [
+      { id: 1, exercise_name: 'Bench Press', set_number: 1, weight_kg: 80, reps: 8 },
+      { id: 2, exercise_name: 'Bench Press', set_number: 2, weight_kg: 90, reps: 3 },
+    ] }
+    const { container } = render(<SessionDetail detail={detail} confirmId={null} sessionId={9} onDelete={vi.fn()} />)
+    expect(screen.getByText('90kg × 3')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeNull()
   })
 })
 

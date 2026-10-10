@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { api } from '../api'
-import { PLAN } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
 import Skeleton from '../components/Skeleton'
 import Toast from '../components/Toast'
 import EmptyState from '../components/EmptyState'
@@ -12,7 +12,7 @@ import { useToast } from '../lib/useToast'
 import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { track } from '../lib/analytics'
 import { colors, type, space, icon } from '../lib/theme'
-import { IconTrophy, IconClock, IconCheck } from '../icons'
+import { IconClock, IconCheck } from '../icons'
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -58,7 +58,6 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                   color: st.weight_kg === best ? colors.success : colors.textSecondary
                 }}>
                   {st.weight_kg}kg × {st.reps}
-                  {st.weight_kg === best && <IconTrophy size={icon.body} />}
                 </span>
               </div>
             ))}
@@ -76,6 +75,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
 }
 
 export default function History() {
+  const { plan: PLAN } = usePlan()
   const [sessions, setSessions] = useState([])
   const [details, setDetails] = useState({})
   const [expanded, setExpanded] = useState(null)

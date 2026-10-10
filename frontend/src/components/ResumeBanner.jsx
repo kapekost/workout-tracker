@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useActiveSession } from '../lib/activeSession'
-import { PLAN, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { usePlan } from '../lib/planContext'
 import DayAccent from './DayAccent'
 import DayIcon from './DayIcon'
 import { colors, type, icon } from '../lib/theme'
@@ -9,6 +10,7 @@ import { IconCheck, IconXMark, IconTrash } from '../icons'
 
 export default function ResumeBanner() {
   const { active, discard } = useActiveSession()
+  const { plan: PLAN } = usePlan()
   const { pathname } = useLocation()
   const nav = useNavigate()
   const [confirming, setConfirming] = useState(false)

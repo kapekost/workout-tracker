@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import PersonalBests from './PersonalBests'
-import { ALL_EXERCISES } from '../data/workoutPlan'
+import { ALL_EXERCISES, PLAN, CYCLE } from '../data/workoutPlan'
+
+const planState = vi.hoisted(() => ({ empty: false }))
+vi.mock('../lib/planContext', () => ({
+  usePlan: () => (planState.empty
+    ? { plan: {}, cycle: [], ready: true }
+    : { plan: PLAN, cycle: CYCLE, ready: true }),
+}))
 
 vi.mock('../api', () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
@@ -13,17 +20,42 @@ function renderPage() {
   return render(<MemoryRouter><PersonalBests /></MemoryRouter>)
 }
 
-beforeEach(() => { vi.clearAllMocks() })
+beforeEach(() => { vi.clearAllMocks(); planState.empty = false })
+
+describe('PersonalBests exercise picker', () => {
+  async function openForm() {
+    api.get.mockResolvedValue([])
+    const view = renderPage()
+    await screen.findByText('No historical PBs logged yet.')
+    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    return view
+  }
+
+  it('lists the exercises by name, as the static list did', async () => {
+    await openForm()
+    const options = screen.getAllByRole('option').map(o => o.textContent)
+    expect(options).toEqual(ALL_EXERCISES.map(e => e.name))
+  })
+
+  it('picks the default exercise once a plan that arrived late is available', async () => {
+    planState.empty = true
+    const { rerender } = await openForm()
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    planState.empty = false
+    rerender(<MemoryRouter><PersonalBests /></MemoryRouter>)
+    expect(screen.getByRole('combobox')).toHaveValue(ALL_EXERCISES[0].id)
+  })
+})
 
 describe('PersonalBests page', () => {
   it('lists existing entries grouped by exercise', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
     ])
     renderPage()
     await screen.findByText('Bench Press')
-    expect(screen.getByText('100kg × 3')).toBeInTheDocument()
+    expect(screen.getByText('from 100 kg × 3')).toBeInTheDocument()
   })
 
   it('shows an empty state with no entries', async () => {
@@ -36,7 +68,7 @@ describe('PersonalBests page', () => {
     api.get.mockResolvedValue([])
     api.post.mockResolvedValue({
       id: 2, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-      weight_kg: 120, reps: 1, achieved_year: 2021, achieved_note: null,
+      weight_kg: 120, reps: 1, single_kg: 120, single_estimated: false, achieved_year: 2021, achieved_note: null,
     })
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
@@ -55,50 +87,71 @@ describe('PersonalBests page', () => {
       achieved_year: new Date().getFullYear(),
       achieved_note: null,
     }))
-    await screen.findByText('120kg × 1')
+    await screen.findByText('120 kg')
   })
 
   it('trophy-marks each record row (2026-09-27 records redesign)', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
     ])
     renderPage()
-    const value = await screen.findByText('100kg × 3')
-    // Scoped to a sibling immediately preceding the value text specifically
-    // (not just "any svg in the row"), since the row's own delete button
-    // also renders an svg (IconTrash/IconCheck) elsewhere in the same row.
-    const trophy = value.previousElementSibling
+    const value = await screen.findByText('110 kg', { exact: false, selector: '.font-mono' })
+    // The trophy is the first child of the row's left group, ahead of the value
+    // block; the row's own delete button also renders an svg elsewhere.
+    const trophy = value.parentElement.previousElementSibling
     expect(trophy?.tagName).toBe('svg')
     expect(trophy).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('shows an estimated single with "est." and the set it came from', async () => {
+    api.get.mockResolvedValue([
+      { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
+    ])
+    renderPage()
+    const value = await screen.findByText('110 kg', { exact: false, selector: '.font-mono' })
+    expect(value.textContent).toBe('110 kg est.')
+    expect(screen.getByText('from 100 kg × 3')).toBeInTheDocument()
+  })
+
+  it('shows a real single as the plain weight, with no "est." and no source line', async () => {
+    api.get.mockResolvedValue([
+      { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
+        weight_kg: 120, reps: 1, single_kg: 120, single_estimated: false, achieved_year: 2021, achieved_note: null },
+    ])
+    renderPage()
+    const value = await screen.findByText('120 kg', { selector: '.font-mono' })
+    expect(value.textContent).not.toContain('est.')
+    expect(screen.queryByText(/^from /)).not.toBeInTheDocument()
   })
 
   it('a single tap arms the confirm state but does not delete', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
     ])
     api.delete.mockResolvedValue({ deleted: true })
     renderPage()
-    await screen.findByText('100kg × 3')
+    await screen.findByText('from 100 kg × 3')
     fireEvent.click(screen.getByRole('button', { name: 'delete personal best 1' }))
     expect(api.delete).not.toHaveBeenCalled()
-    expect(screen.getByText('100kg × 3')).toBeInTheDocument()
+    expect(screen.getByText('from 100 kg × 3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'confirm delete personal best 1' })).toBeInTheDocument()
   })
 
   it('a second tap on the armed button deletes the entry', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
     ])
     api.delete.mockResolvedValue({ deleted: true })
     renderPage()
-    await screen.findByText('100kg × 3')
+    await screen.findByText('from 100 kg × 3')
     fireEvent.click(screen.getByRole('button', { name: 'delete personal best 1' }))
     fireEvent.click(screen.getByRole('button', { name: 'confirm delete personal best 1' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/personal-bests/1'))
-    await waitFor(() => expect(screen.queryByText('100kg × 3')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('from 100 kg × 3')).not.toBeInTheDocument())
   })
 
   it('shows a specific message for a duplicate (409) submission', async () => {
@@ -130,7 +183,7 @@ describe('PersonalBests add-form disclosure — item 19', () => {
   it('starts closed, with the list visible and the form hidden', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
     ])
     renderPage()
     await screen.findByText('Bench Press')
@@ -143,7 +196,7 @@ describe('PersonalBests add-form disclosure — item 19', () => {
   it('opening the disclosure reveals the form, keeping the list in place', async () => {
     api.get.mockResolvedValue([
       { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
-        weight_kg: 100, reps: 3, achieved_year: 2023, achieved_note: null },
+        weight_kg: 100, reps: 3, single_kg: 110, single_estimated: true, achieved_year: 2023, achieved_note: null },
     ])
     renderPage()
     await screen.findByText('Bench Press')

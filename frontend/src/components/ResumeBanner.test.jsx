@@ -3,6 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ResumeBanner from './ResumeBanner'
 import { ActiveSessionContext } from '../lib/activeSession'
+import { PLAN, CYCLE } from '../data/workoutPlan'
+
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 
 function renderBanner(value, path = '/progress') {
   return render(
