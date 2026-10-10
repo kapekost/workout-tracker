@@ -32,3 +32,9 @@ def test_every_loop_model_is_configured_with_data_collection_deny():
 
 def test_no_configured_model_is_missing_from_the_loop():
     assert set(configured_models()) == set(loop_models())
+
+
+def test_terse_models_are_models_the_loop_runs():
+    m = re.search(r'TERSE_MODELS="([^"]*)"', TEXT)
+    assert m, "TERSE_MODELS not found"
+    assert set(m.group(1).split()) <= set(loop_models())
