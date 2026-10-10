@@ -20,7 +20,7 @@
   now stops at the daily free-model limit and the skip notice says so, instead of repeating "rate limited" per model. Workflow
   and tests only, so no deploy; live stays `c59d7d7`. Still open from #266: the live throwaway-PR check, which needs a working
   review model. The home branch never merges to `main`.
-- **Next action:** pick the next `ready` item by rank. #293, #295, #298 (P1), #299 and #301 are `ready`; #298 and #299 both edit `post_review.py`, so run them one after the other. #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
+- **Next action:** resume #293: PR #302 (branch `implement/task-cleanup`, draft) has CI green at head `9c4eff3`, which fixes the round-3 blocking finding (global `git worktree prune`) but has no bot review of that head. Read the diff `fca0c8c..9c4eff3` yourself, mark ready, `gh pr checks 302 --watch --fail-fast`, merge, then push the PLAYBOOK step-6 edit to this home branch. Then pick by rank: #295, #298 (P1), #299 and #301 are `ready`; #298 and #299 both edit `post_review.py`, so run them one after the other. #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
@@ -58,7 +58,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#293** — claimed 2026-10-10T09:30:01Z, live session. Checkpoint: done @ 2026-10-10T09:59:33Z (PR #302 open, draft, head 9c4eff3, not merged).
+(none)
 
 ## Needs owner
 - **Review bot: credits are in (owner, 2026-10-10).** A full-prompt run returned a valid verdict from cohere, so reviews should stop skipping. #296 tracks the live check of the signature line, stealth discovery and openrouter/free; read the first real review of the next PR and record it there.

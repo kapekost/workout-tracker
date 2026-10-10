@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 95 -->
+<!-- last-reviewed-count: 97 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -103,3 +103,5 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-10: #291: macOS bash 3.2 has no mapfile, so loop-running workflow tests need a shim locally; CI bash 5 is unaffected.
 - [unsure] 2026-10-10: #291: the PR reviewer bot could not run tests and reasoned from the workflow text, posting a false Blocking verdict that contradicted green CI.
 - [local] 2026-10-10: #291: timeout is not available in the zsh tool shell, so bounding gh pr checks --watch needed polling with sleep.
+- [local] 2026-10-10: #293: git checkout <file> in a task worktree to drop a sed backup reverted uncommitted test edits; edit a copy or use python instead.
+- [local] 2026-10-10: #293: a new linked worktree has no backend/.venv or node_modules, so tests need the main checkout's interpreter or a fresh install.

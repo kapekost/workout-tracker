@@ -9,6 +9,27 @@
 
 ---
 
+## 2026-10-10 - Tick: #293 PR #302 open, not merged (task_cleanup.sh)
+
+**Pick.** Top pickable ready Issue; shell script, tests and a PLAYBOOK line, haiku tier, no UI.
+
+**Execute.** `scripts/task_cleanup.sh` removes a task's worktree, branch, venv and node_modules, idempotently, deriving
+paths from git. `backend/test_task_cleanup.py` (10 tests at the end) and PLAYBOOK step 6 name it.
+
+**Review.** Three bot rounds, each with real blocking findings, all fixed: CI-red branch name in the test, a `.git` file
+check that never ran, a merge check that refused every squash merge, a guessed branch name, and a global
+`git worktree prune` that would unregister other worktrees. Head `9c4eff3` fixes the last one; CI is green but the bot
+skipped that head, so it has no review. The round cap ended the loop.
+
+**Ship.** Not merged. PR #302 stays a draft; STATE next action says to read `fca0c8c..9c4eff3`, then merge. The home copy of
+PLAYBOOK needs the same edit afterwards.
+
+**Friction.** `git checkout <file>` in a worktree reverted uncommitted edits; new worktrees have no venv. Two entries logged.
+
+**Cost (output tokens per stage).** reconcile 7219, pick 15901, claim 2388, execute 18670, failed-stage 70718.
+
+---
+
 ## 2026-10-10 - Housekeeping: owner comments on #296 and #294 answered, STATE corrected
 
 Resolved Needs-owner items, moved verbatim: "Review bot has no working model. `stealth/space-bunny-alpha` fails and both
