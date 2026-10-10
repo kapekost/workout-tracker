@@ -33,3 +33,37 @@ def test_the_loop_runs_the_generated_list_and_reports_the_winner():
 def test_a_discarded_review_is_never_signed():
     leak = TEXT.index("review output contained the API key; discarded")
     assert TEXT.index('used=""', leak) < TEXT.index('echo "model=$used"', leak)
+
+
+def _run_model_loop(tmp_path, err, out="partial output\n"):
+    """Run the workflow's real model loop with a stub opencode that fails with `err`."""
+    start = TEXT.index("set +e\n")
+    end = TEXT.index("# The key is known here", start)
+    body = "\n".join(line.removeprefix("          ") for line in TEXT[start:end].splitlines())
+    # macOS ships bash 3.2 without mapfile; the shim is equivalent for the one call the loop makes.
+    body = 'mapfile() { models=(); while IFS= read -r l; do models+=("$l"); done; }\n' + body
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "timeout").write_text('#!/bin/bash\nwhile [[ "$1" == -* || "$1" =~ ^[0-9]+$ ]]; do\n  if [ "$1" = -k ]; then shift; fi\n  shift\ndone\nexec "$@"\n')
+    (bindir / "opencode").write_text(f'#!/bin/bash\necho "$3" >> "$RUNNER_TEMP/tried.txt"\nprintf %s {out!r}\necho {err!r} >&2\nexit 1\n')
+    for f in bindir.iterdir():
+        f.chmod(0o755)
+    (tmp_path / "models.txt").write_text("a/one\nb/two\n")
+    env = {"PATH": f"{bindir}:/usr/bin:/bin", "RUNNER_TEMP": str(tmp_path), "GITHUB_STEP_SUMMARY": str(tmp_path / "sum"),
+           "GITHUB_OUTPUT": str(tmp_path / "gho"), "REVIEW_PROMPT": "x"}
+    subprocess.run(["bash", "-c", body], env=env, check=True, capture_output=True)
+    return (tmp_path / "tried.txt").read_text().split(), (tmp_path / "skip-reasons.txt").read_text(), (tmp_path / "review.txt").read_text()
+
+
+def test_the_daily_free_model_limit_stops_the_loop_and_is_named(tmp_path):
+    tried, reasons, review = _run_model_loop(tmp_path, "Rate limit exceeded: free-models-per-day")
+    assert tried == ["openrouter/a/one"]
+    assert reasons.strip() == "- `a/one`: daily free-model limit reached"
+    assert review == ""
+
+
+def test_an_ordinary_rate_limit_still_tries_the_next_model(tmp_path):
+    tried, reasons, review = _run_model_loop(tmp_path, "Rate limit exceeded: try later")
+    assert tried == ["openrouter/a/one", "openrouter/b/two"]
+    assert reasons.count("rate limited") == 2
+    assert review == ""
