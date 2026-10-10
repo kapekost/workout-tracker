@@ -43,15 +43,16 @@ the `approved` label itself. See "Approval is human-only" below.
   needs no branch-protection setup, on any repo.
 - **A red CI is still a hard stop.** If `gh pr checks --watch --fail-fast` exits non-zero, do not
   merge — fix it and push again, do not force through.
-- **The opencode review bot is an extra reviewer, not a required one.** It posts one comment
-  per run and cannot submit a GitHub review state at all: `pull-request-review` and
-  inline comments would need a token inside the agent, and it is given none. The bot's login
-  posting a comment is **never** the owner's approval, never the `approved` label, and never
-  a substitute for a human approver — GitHub also excludes `GITHUB_TOKEN` approvals from
-  branch protection. The owner is **not** in the loop per PR; no verdict at all is not a
-  concern. When it does post **Blocking**, that *is* a concern: treat it exactly like red CI
-  — fix it or answer it in the thread, never wave it through on the grounds that the PR
-  looked fine to you.
+- **The opencode review bot is an extra reviewer, not a required one.** The **model** holds no
+  token; the `post` job submits the review state, and `scripts/post_review.py` alone chooses it:
+  `REQUEST_CHANGES` for a critical or major finding, `APPROVE` when only minor findings remain
+  (when the repo setting allows it), otherwise `COMMENT`. No review state blocks a merge here,
+  because no branch protection counts one. The bot's login posting any state is **never** the
+  owner's approval, never the `approved` label, and never a substitute for a human approver
+  (GitHub also excludes `GITHUB_TOKEN` approvals from branch protection). The owner is **not** in
+  the loop per PR; no verdict at all is not a concern. A `REQUEST_CHANGES` (headline
+  **BLOCKING**) *is* a concern: treat it exactly like red CI, fix it or answer it in the thread,
+  never wave it through on the grounds that the PR looked fine to you.
 - **Never force-push.** Never push directly to `main`.
 - Feature branch → PR. No direct commits to `main`.
 

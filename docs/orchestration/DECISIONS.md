@@ -624,3 +624,15 @@ review, closes its own resolved threads first (`scripts/resolve_review_threads.s
 which can only ever resolve threads the bot itself started), and posts one short
 message with a fixed shape — verdict, counts, findings, details only where the
 judgement was hard. A review nobody reads to the end has not reviewed anything.
+
+
+## 2026-10-10 — The review bot posts severity-tiered review states (#266)
+
+Critical and major findings post `REQUEST_CHANGES`, a review with only minor findings posts
+`APPROVE`, and anything unread, skipped or set aside posts `COMMENT`. Minor findings go in a short
+Deferred list and are never inline. After two reviews on one PR only critical findings block.
+`post_review.py` picks the state, not the model, and falls back to `COMMENT` when GitHub refuses
+one, so `APPROVE` stays optional: the repo setting that allows it is an owner decision and is off.
+This supersedes the 2026-10-03 line that the bot "posts a comment, not a review state": the model
+still holds no token, but the `post` job does. No review state gates a merge (2026-10-05), and a
+`REQUEST_CHANGES` is handled like red CI.
