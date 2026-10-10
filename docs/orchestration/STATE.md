@@ -63,7 +63,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-10T08:28:10Z, live session. Checkpoint: claimed @ 2026-10-10T08:32:46Z (live session).
+- **#266** — claimed 2026-10-10T08:28:10Z, live session. Checkpoint: pr-open @ 2026-10-10T08:37:24Z (PR #297, branch feat/266-review-severity-c).
 
 ## Needs owner
 - **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. After #279 and #290 the bot still skipped with free-model rate limits; #291 makes that legible. Decide on a model or key.
