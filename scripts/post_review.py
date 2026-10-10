@@ -14,6 +14,7 @@ The second form only reports, through its exit status, whether the file holds a 
 Output that is not the expected JSON is posted inside a code block, truncated.
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -221,6 +222,11 @@ def check_verdict(path):
     return 0 if extract_json(text) is not None else 1
 
 
+def signed(body, model, repo):
+    """Names the model that produced the review; a skipped run has none."""
+    return f"{body}\n\n_Reviewed by `{sanitize(model, repo, 80)}`_" if model else body
+
+
 def main(argv):
     if len(argv) == 3 and argv[1] == "--check-verdict":
         return check_verdict(argv[2])
@@ -233,6 +239,8 @@ def main(argv):
 
     patches = pr_patches(repo, pr) if extract_json(text) else {}
     kind, body, comments = build(text, patches, repo)
+    if kind == "review":
+        body = signed(body, os.environ.get("REVIEW_MODEL", ""), repo)
     if kind == "plain":
         r = gh([f"repos/{repo}/issues/{pr}/comments", "-X", "POST"], {"body": body})
         print("posted plain comment" if r.returncode == 0 else r.stderr, file=sys.stderr)

@@ -79,6 +79,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions: {}
+    outputs:
+      model: ${{ steps.review.outputs.model }}
     steps:
       - name: Checkout PR Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -131,15 +133,7 @@ jobs:
               "requireTests": true,
               "denyOnTypescriptErrors": true
             },
-            "provider": {
-              "openrouter": {
-                "models": {
-                  "stealth/space-bunny-alpha": { "options": { "provider": { "data_collection": "deny" } } },
-                  "nvidia/nemotron-3-ultra-550b-a55b:free": { "options": { "provider": { "data_collection": "deny" } } },
-                  "nvidia/nemotron-3-super-120b-a12b:free": { "options": { "provider": { "data_collection": "deny" } } }
-                }
-              }
-            },
+            "provider": { "openrouter": { "models": {} } },
             "permission": {
               "edit": "deny",
               "write": "deny",
@@ -182,6 +176,18 @@ jobs:
             }
           }
           JSON
+          # The one model list: live stealth previews first when OpenRouter lists any, then the
+          # fixed free fallbacks. Every model is configured with data_collection deny.
+          {
+            curl -fsS --retry 2 --max-time 20 https://openrouter.ai/api/v1/models \
+              | jq -r '.data[].id | select(test("^stealth/[A-Za-z0-9._-]+$"))' | head -n 2 || true
+            printf '%s\n' cohere/north-mini-code:free apodex/apodex-1.1-mini:free openrouter/free
+          } > "$RUNNER_TEMP/models.txt"
+          jq --rawfile m "$RUNNER_TEMP/models.txt" \
+            '.provider.openrouter.models = ([$m | split("\n")[] | select(length > 0)
+              | {(.): {options: {provider: {data_collection: "deny"}}}}] | add)' \
+            opencode.json > "$RUNNER_TEMP/opencode.json"
+          mv "$RUNNER_TEMP/opencode.json" opencode.json
           # The model's bash denies any command with a / in it, so it cannot `git show` these
           # itself. Copies from the default branch, not the PR's (renamed so opencode does not
           # load AGENTS.md as instructions). Missing files just leave the copy empty.
@@ -336,9 +342,9 @@ jobs:
             return "$rc"
           }
           MODEL_TIMEOUT_SECS=900
-          for model in stealth/space-bunny-alpha \
-                       nvidia/nemotron-3-ultra-550b-a55b:free \
-                       nvidia/nemotron-3-super-120b-a12b:free; do
+          used=""
+          mapfile -t models < "$RUNNER_TEMP/models.txt"
+          for model in "${models[@]}"; do
             timeout -k 30 "$MODEL_TIMEOUT_SECS" opencode run --model "openrouter/$model" --format default \
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
@@ -356,12 +362,13 @@ jobs:
               esac
               echo "- \`$model\`: $short" >> "$RUNNER_TEMP/skip-reasons.txt"
             fi
-            if [ "$rc" -eq 0 ] && has_verdict "$RUNNER_TEMP/review.txt"; then break; fi
+            if [ "$rc" -eq 0 ] && has_verdict "$RUNNER_TEMP/review.txt"; then used="$model"; break; fi
             if [ "$rc" -eq 0 ]; then
               echo "- \`$model\`: ended without a JSON verdict" >> "$RUNNER_TEMP/skip-reasons.txt"
             fi
             : > "$RUNNER_TEMP/review.txt"
           done
+          echo "model=$used" >> "$GITHUB_OUTPUT"
           # The key is known here, so output containing it verbatim is dropped.
           if [ -n "$OPENROUTER_API_KEY" ] && [ -s "$RUNNER_TEMP/review.txt" ] && grep -qF -- "$OPENROUTER_API_KEY" "$RUNNER_TEMP/review.txt"; then
             echo "::error::review output contained the API key; discarded"
@@ -426,6 +433,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_RESULT: ${{ needs.review.result }}
+          REVIEW_MODEL: ${{ needs.review.outputs.model }}
         run: |
           set -uo pipefail
           REVIEW="$RUNNER_TEMP/review-out/review.txt"

@@ -292,3 +292,12 @@ def test_check_verdict_agrees_with_extract_json_on_a_corpus(tmp_path):
         verdict = pr.extract_json(text) is not None
         assert (run_check(tmp_path, text) == 0) == verdict, text[:60]
         assert (pr.build(text, PATCHES, REPO)[0] == "review") == verdict, text[:60]
+
+
+def test_a_review_is_signed_with_the_model_that_ran():
+    assert pr.signed("body", "cohere/north-mini-code:free", REPO).endswith("_Reviewed by `cohere/north-mini-code:free`_")
+
+
+def test_a_skipped_run_has_no_signature_and_the_model_name_is_sanitized():
+    assert pr.signed("body", "", REPO) == "body"
+    assert "<b>" not in pr.signed("body", "x<b>y [z](http://evil.example)", REPO)

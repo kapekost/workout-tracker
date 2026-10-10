@@ -497,8 +497,8 @@ update. The three 2026-10-03 auth fixes have only been code-inspected plus regre
   `main`. Either merge `main` into it or re-point `STATE.md`. Re-check before relying on it.
 - The `password_hash`-in-exports decision (in `DECISIONS.md`, 2026-10-03). It needs a fresh
   restore drill as well.
-- Whether the review model may see private code. `stealth/space-bunny-alpha` may log
-  prompts, and `data_collection: deny` is not zero retention.
+- Whether the review models may see private code. They are free OpenRouter models that
+  may log prompts, and `data_collection: deny` is not zero retention.
 - A dedicated, spend-capped OpenRouter key for the reviewer. The model's process holds the
   current key.
 
