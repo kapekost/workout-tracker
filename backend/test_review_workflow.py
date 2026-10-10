@@ -73,3 +73,12 @@ def test_an_ordinary_rate_limit_still_tries_the_next_model(tmp_path):
     assert tried == ["openrouter/a/one", "openrouter/b/two"]
     assert reasons.count("rate limited") == 2
     assert review == ""
+
+
+def test_only_owner_prs_run_in_every_job():
+    assert TEXT.count("github.event.pull_request.user.login == github.repository_owner") == TEXT.count("github.actor != 'dependabot[bot]'") == 3
+
+
+def test_the_pr_diff_is_captured_before_the_checkout_is_stripped():
+    assert TEXT.index('> .review-input/pr.diff') < TEXT.index("-o -name AGENTS.md")
+    assert "read `.review-input/pr.diff` in full" in TEXT
