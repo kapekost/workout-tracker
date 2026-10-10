@@ -135,7 +135,8 @@ jobs:
               "openrouter": {
                 "models": {
                   "cohere/north-mini-code:free": { "options": { "provider": { "data_collection": "deny" } } },
-                  "apodex/apodex-1.1-mini:free": { "options": { "provider": { "data_collection": "deny" } } }
+                  "apodex/apodex-1.1-mini:free": { "options": { "provider": { "data_collection": "deny" } } },
+                  "openrouter/free": { "options": { "provider": { "data_collection": "deny" } } }
                 }
               }
             },
@@ -336,7 +337,8 @@ jobs:
           }
           MODEL_TIMEOUT_SECS=900
           for model in cohere/north-mini-code:free \
-                       apodex/apodex-1.1-mini:free; do
+                       apodex/apodex-1.1-mini:free \
+                       openrouter/free; do
             timeout -k 30 "$MODEL_TIMEOUT_SECS" opencode run --model "openrouter/$model" --format default \
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
