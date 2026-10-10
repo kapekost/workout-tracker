@@ -82,3 +82,7 @@ def test_only_owner_prs_run_in_every_job():
 def test_the_pr_diff_is_captured_before_the_checkout_is_stripped():
     assert TEXT.index('> .review-input/pr.diff') < TEXT.index("-o -name AGENTS.md")
     assert "read `.review-input/pr.diff` in full" in TEXT
+
+
+def test_the_prompt_tells_the_reviewer_it_cannot_run_tests_or_claim_their_result():
+    assert "never claim that a test fails or passes" in TEXT
