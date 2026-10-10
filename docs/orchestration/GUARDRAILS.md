@@ -45,7 +45,7 @@ the `approved` label itself. See "Approval is human-only" below.
   merge — fix it and push again, do not force through.
 - **The opencode review bot is an extra reviewer, not a required one.** The **model** holds no
   token; the `post` job submits the review state, and `scripts/post_review.py` alone chooses it:
-  `REQUEST_CHANGES` for a critical or major finding, `APPROVE` when only minor findings remain
+  `REQUEST_CHANGES` for a critical or major finding, `APPROVE` only for a review with no findings and no notes
   (when the repo setting allows it), otherwise `COMMENT`. No review state blocks a merge here,
   because no branch protection counts one. The bot's login posting any state is **never** the
   owner's approval, never the `approved` label, and never a substitute for a human approver

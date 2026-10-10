@@ -340,9 +340,15 @@ def test_critical_or_major_requests_changes():
     assert built([finding("minor"), finding("major", line=99)]).event == "REQUEST_CHANGES"
 
 
-def test_only_minor_findings_approve():
+def test_minor_findings_comment_instead_of_approving():
     r = built([finding("minor"), finding("minor", body="other")])
-    assert r.event == "APPROVE" and r.body.startswith("**CLEAN**")
+    assert r.event == "COMMENT" and r.body.startswith("**CLEAN**")
+
+
+def test_notes_prevent_approval_even_with_no_findings():
+    r = built([], notes=["could not run the tests"])
+    assert r.event == "COMMENT" and "could not run the tests" in r.body
+    assert built([], notes=[]).event == "APPROVE"
 
 
 def test_clean_review_approves():
@@ -477,11 +483,20 @@ def test_past_the_round_cap_with_a_demoted_major_comments_instead_of_approving()
 REFUSED = Proc(1, stderr="gh: Unprocessable Entity (HTTP 422)")
 
 
-def test_approve_refused_with_422_is_reposted_as_comment(tmp_path, monkeypatch):
-    posted = run_main(tmp_path, monkeypatch, review([finding("minor")]), responses=[REFUSED, Proc()])
+def test_approve_refused_with_422_is_reposted_as_comment_that_says_so(tmp_path, monkeypatch, capsys):
+    posted = run_main(tmp_path, monkeypatch, review([]), responses=[REFUSED, Proc()])
     assert [p["event"] for p in posted] == ["APPROVE", "COMMENT"]
-    assert posted[0]["body"] == posted[1]["body"] and posted[1]["body"].startswith("**CLEAN**")
+    assert posted[1]["body"].startswith("**CLEAN**")
+    assert "Posted as COMMENT because GitHub refused APPROVE" in posted[1]["body"]
+    assert posted[1]["body"].endswith("<!-- review-round:1 -->")
+    assert "::warning::" in capsys.readouterr().out
     assert run_main.rc == 0
+
+
+def test_only_an_http_422_counts_as_a_refusal(tmp_path, monkeypatch):
+    posted = run_main(tmp_path, monkeypatch, review([]),
+                      responses=[Proc(1, stderr="HTTP 500: upstream said 422 times")])
+    assert len(posted) == 1 and run_main.rc == 1
 
 
 def test_request_changes_refused_with_422_is_reposted_as_comment_keeping_the_inline_lines(tmp_path, monkeypatch):
@@ -489,6 +504,7 @@ def test_request_changes_refused_with_422_is_reposted_as_comment_keeping_the_inl
                       responses=[REFUSED, REFUSED, Proc()])
     assert [p["event"] for p in posted] == ["REQUEST_CHANGES", "REQUEST_CHANGES", "COMMENT"]
     assert posted[2]["body"].startswith("**BLOCKING**") and len(posted[2]["comments"]) == 1
+    assert "Posted as COMMENT because GitHub refused REQUEST_CHANGES" in posted[2]["body"]
 
 
 def test_a_refused_line_is_folded_into_the_body_and_keeps_the_state(tmp_path, monkeypatch):
@@ -528,16 +544,25 @@ def dismissals(calls):
 def test_a_clean_run_dismisses_earlier_changes_requested_by_the_bot_only(tmp_path, monkeypatch):
     reviews = [bot_review(10, "CHANGES_REQUESTED"), bot_review(11, "COMMENTED"),
                bot_review(12, "CHANGES_REQUESTED", login="someone"), bot_review(13, "DISMISSED")]
-    run_main(tmp_path, monkeypatch, review([finding("minor")]), reviews=reviews)
+    run_main(tmp_path, monkeypatch, review([]), reviews=reviews)
     sent = dismissals(run_main.calls)
     assert [path for path, _ in sent] == [f"repos/{REPO}/pulls/7/reviews/10/dismissals"]
     assert sent[0][1] == {"message": "Superseded by a clean re-review of abcdef1.", "event": "DISMISS"}
 
 
-def test_past_the_round_cap_a_demoted_major_no_longer_holds_a_sticky_request_changes(tmp_path, monkeypatch):
-    run_main(tmp_path, monkeypatch, review([finding("major")]),
-             reviews=[bot_review(1), bot_review(2), bot_review(10, "CHANGES_REQUESTED")])
-    assert len(dismissals(run_main.calls)) == 1
+def test_a_review_with_findings_or_set_aside_items_dismisses_nothing(tmp_path, monkeypatch):
+    stale = [bot_review(1), bot_review(2), bot_review(10, "CHANGES_REQUESTED")]
+    for text in (review([finding("major")]), review([finding("minor")]), review(["str"]),
+                 review([], notes=["unverified"])):
+        run_main(tmp_path, monkeypatch, text, reviews=stale)
+        assert dismissals(run_main.calls) == [], text
+
+
+def test_a_review_of_the_current_head_is_never_dismissed(tmp_path, monkeypatch):
+    head = dict(bot_review(10, "CHANGES_REQUESTED"), commit_id="abcdef1234567")
+    older = dict(bot_review(11, "CHANGES_REQUESTED"), commit_id="1111111")
+    run_main(tmp_path, monkeypatch, review([]), reviews=[head, older])
+    assert [p for p, _ in dismissals(run_main.calls)] == [f"repos/{REPO}/pulls/7/reviews/11/dismissals"]
 
 
 def test_dismissal_also_runs_when_the_state_fell_back_to_comment(tmp_path, monkeypatch):
@@ -570,7 +595,7 @@ def test_no_dismissal_when_the_review_failed_to_post(tmp_path, monkeypatch):
     assert dismissals(run_main.calls) == []
 
 
-def test_dismissal_failure_does_not_fail_the_job(tmp_path, monkeypatch):
+def test_dismissal_failure_does_not_fail_the_job(tmp_path, monkeypatch, capsys):
     path = tmp_path / "review.txt"
     path.write_text(review([]), encoding="utf-8")
     monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 403")
@@ -578,6 +603,7 @@ def test_dismissal_failure_does_not_fail_the_job(tmp_path, monkeypatch):
     monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
     monkeypatch.setattr(pr, "pr_reviews", lambda repo, n: [bot_review(10, "CHANGES_REQUESTED")])
     assert pr.main(["post_review.py", "7", REPO, "abcdef1234567", str(path)]) == 0
+    assert "::warning::could not dismiss review 10" in capsys.readouterr().out
 
 
 def test_an_unreadable_review_list_means_round_one_and_no_dismissal(tmp_path, monkeypatch):
