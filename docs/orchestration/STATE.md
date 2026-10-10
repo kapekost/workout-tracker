@@ -23,7 +23,7 @@
   scripts, tests and docs only, so live stays `c59d7d7` with nothing missing from the app. Still open: the live throwaway-PR
   check (deliberate bug, then fix push, then a third-round major under Deferred), which needs a working review model.
   The home branch never merges to `main`.
-- **Next action:** pick the next `ready` item by rank. #291, #293 and #295 are `ready` (#291 left `post_review.py` to #266 C, which has now landed, so re-read it first). #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
+- **Next action:** pick the next `ready` item by rank. #291, #293, #295, #298 (P1) and #299 are `ready`, board order #291 first (#291 is workflow-only; #298 and #299 both edit `post_review.py`, so run them one after the other). #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
