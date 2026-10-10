@@ -487,7 +487,7 @@ def test_approve_refused_with_422_is_reposted_as_comment_that_says_so(tmp_path, 
     posted = run_main(tmp_path, monkeypatch, review([]), responses=[REFUSED, Proc()])
     assert [p["event"] for p in posted] == ["APPROVE", "COMMENT"]
     assert posted[1]["body"].startswith("**CLEAN**")
-    assert "Posted as COMMENT because GitHub refused APPROVE" in posted[1]["body"]
+    assert "Posted as COMMENT because GitHub rejected APPROVE" in posted[1]["body"]
     assert posted[1]["body"].endswith("<!-- review-round:1 -->")
     assert "::warning::" in capsys.readouterr().out
     assert run_main.rc == 0
@@ -504,7 +504,7 @@ def test_request_changes_refused_with_422_is_reposted_as_comment_keeping_the_inl
                       responses=[REFUSED, REFUSED, Proc()])
     assert [p["event"] for p in posted] == ["REQUEST_CHANGES", "REQUEST_CHANGES", "COMMENT"]
     assert posted[2]["body"].startswith("**BLOCKING**") and len(posted[2]["comments"]) == 1
-    assert "Posted as COMMENT because GitHub refused REQUEST_CHANGES" in posted[2]["body"]
+    assert "Posted as COMMENT because GitHub rejected REQUEST_CHANGES" in posted[2]["body"]
 
 
 def test_a_refused_line_is_folded_into_the_body_and_keeps_the_state(tmp_path, monkeypatch):
@@ -595,15 +595,20 @@ def test_no_dismissal_when_the_review_failed_to_post(tmp_path, monkeypatch):
     assert dismissals(run_main.calls) == []
 
 
+def test_gh_error_text_cannot_start_a_workflow_command():
+    assert pr.one_line("boom\n::add-mask::x\n  more") == "boom ::add-mask::x more"
+    assert len(pr.one_line("x" * 1000)) == 300
+
+
 def test_dismissal_failure_does_not_fail_the_job(tmp_path, monkeypatch, capsys):
     path = tmp_path / "review.txt"
     path.write_text(review([]), encoding="utf-8")
-    monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 403")
+    monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 403\n::stop-commands::x")
                         if args[0].endswith("/dismissals") else Proc())
     monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
     monkeypatch.setattr(pr, "pr_reviews", lambda repo, n: [bot_review(10, "CHANGES_REQUESTED")])
     assert pr.main(["post_review.py", "7", REPO, "abcdef1234567", str(path)]) == 0
-    assert "::warning::could not dismiss review 10" in capsys.readouterr().out
+    assert "::warning::could not dismiss review 10: HTTP 403 ::stop-commands::x" in capsys.readouterr().out
 
 
 def test_an_unreadable_review_list_means_round_one_and_no_dismissal(tmp_path, monkeypatch):

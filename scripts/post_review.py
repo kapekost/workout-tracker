@@ -337,6 +337,11 @@ def refused(r):
     return r.returncode != 0 and "HTTP 422" in (r.stderr + r.stdout)
 
 
+def one_line(text, limit=300):
+    """Gh error text on one line, so a line of it cannot start a workflow command."""
+    return " ".join(str(text).split())[:limit]
+
+
 def with_note(body, note):
     """Adds a paragraph before the round marker, which must stay the last line or the round
     is not counted."""
@@ -363,7 +368,7 @@ def post_review(repo, pr, head_sha, body, comments, event):
     if comments:
         folded = [f"- {sanitize(c['path'], repo, 120)}:{c['line']} {c['body']}" for c in comments]
         folded_body = with_note(body, "**Blocking**\n" + "\n".join(folded))
-    refusal = f"_Posted as COMMENT because GitHub refused {event}._"
+    refusal = f"_Posted as COMMENT because GitHub rejected {event} (HTTP 422)._"
     tries = [(event, comments, body)]
     if comments:
         tries.append((event, [], folded_body))
@@ -375,7 +380,7 @@ def post_review(repo, pr, head_sha, body, comments, event):
         r = attempt(ev, cs, text)
         if not refused(r) or i == len(tries) - 1:
             if r.returncode == 0 and ev != event:
-                print(f"::warning::GitHub refused {event}, the review was posted as {ev}")
+                print(f"::warning::GitHub rejected {event} (HTTP 422), the review was posted as {ev}")
             return r, ev
         print(f"GitHub refused {ev} ({len(cs)} inline), trying a lesser form: "
               f"{(r.stderr + r.stdout).strip()}", file=sys.stderr)
@@ -392,7 +397,7 @@ def dismiss_stale(repo, pr, head_sha, reviews):
         r = gh([f"repos/{repo}/pulls/{pr}/reviews/{rev.get('id')}/dismissals", "-X", "PUT"],
                {"message": f"Superseded by a clean re-review of {short}.", "event": "DISMISS"})
         if r.returncode != 0:
-            print(f"::warning::could not dismiss review {rev.get('id')}: {r.stderr.strip()}")
+            print(f"::warning::could not dismiss review {rev.get('id')}: {one_line(r.stderr)}")
 
 
 def main(argv):
