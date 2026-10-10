@@ -9,6 +9,28 @@
 
 ---
 
+## 2026-10-10 - Tick: #266 Task B merged (review bot severity prompt and verdict gate, PR #288)
+
+**Pick.** #266 had been closed by PR #287's "Closes #266" with only Task A shipped; reopened it and set the
+board back to Todo. Sonnet tier, since the change touches the job that holds OPENROUTER_API_KEY. #157, #201,
+#229 remainder and #220-#223 skipped as before.
+
+**Execute.** `.github/workflows/opencode-review.yml` only: severity tiers in the prompt, and the inline
+`has_verdict` replaced by the default-branch `post_review.py --check-verdict`, with a bootstrap rule that a
+missing or exit-2 poster accepts any non-empty output. `scripts/post_review.py` untouched. actionlint clean,
+66 backend tests pass, dry run over four fixtures matched.
+
+**Review and ship.** One follow-up, not blocking: a committed directory named `.review-input/post_review.py/`
+passes the `-s` test and would run PR code; write the copy to `$RUNNER_TEMP` and test with `-f` (carried into
+Task C). CI green, merged as `e2c37a8`. The bot skipped (no model returned a verdict), so the severity prompt
+is unexercised live. No deploy: workflow-only, not in the app image.
+
+**Friction.** Eight new entries counted, cursor advanced to 87; none is a PR yet.
+
+**Cost** (output tokens by stage): reconcile 7243, pick 15067, claim 2741, execute 10327, review 15035, ship 6969, deploy 1781.
+
+---
+
 ## 2026-10-09 - Tick: #266 PR A merged and deployed (review bot verdict scan, PR #287)
 
 **Pick.** Resumed #266 (our own stale claim from the 2026-10-08 tick; nothing past claim existed). Plan was

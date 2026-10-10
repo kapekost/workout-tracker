@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 79 -->
+<!-- last-reviewed-count: 87 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -88,3 +88,10 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-09: A worktree branch created off origin/main inherits it as upstream, so git push needs -u to retarget; a bare push is ambiguous (2026-10-09 #266). Fix candidate: worktree-add step uses git worktree add -b <branch> <path> origin/main then git push -u origin HEAD.
 - [local] 2026-10-09: Foreground sleep N followed by gh pr checks --watch is blocked by the harness; run gh pr checks --watch --interval 10 directly (2026-10-09 #266).
 - [local] 2026-10-10: 2026-10-09: The PR review bot's repeated 'models failed' skips were probably the OpenRouter account's free-model daily quota, not dead models. A real-prompt run in the local sandbox failed with 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day'. A review makes many tool-call requests, and the account appears to sit on the low free tier, so a few PRs or re-pushes use the day's allowance. PR #279 swapped model ids on the assumption the models were dead; one (ling-3.0-flash-sante) really was, the others answered a one-line prompt fine. The skip notice says 'rate limited' or 'ended without a JSON verdict' without naming the quota. Owner call: buy the 10 credits. Fix candidates: post_review notes should name free-models-per-day when stderr contains it; test models with the real prompt, not a one-word reply.
+- [local] 2026-10-10: Main checkout backend/.venv/bin/python symlinks to the macOS /usr/bin/python3 stub, so AGENTS.md's interpreter path fails; a tick builds a fresh python3.14 venv in its worktree.
+- [local] 2026-10-10: A plan's live bot check needs a non-draft PR but the task opens drafts, so the check stays open until the owner marks the PR ready (#266 B).
+- [local] 2026-10-10: Review bot posted 'skipped' on #288: stealth/space-bunny-alpha failed and both free nemotron models lack a no-training endpoint, so the new severity prompt is unexercised live.
+- [template] 2026-10-10: The tool shell has no 'timeout' command, so 'timeout N gh pr checks --watch' exits 127; use the Bash tool's timeout parameter.
+- [template] 2026-10-10: orch-checkpoint.sh has no 'skipped' deploy stage, so a no-deploy outcome is recorded as 'deployed' with the reason in the note.
+- [local] 2026-10-10: Reading the deploy section of AGENTS.local.md was denied by the permission system, so a tick that skips deploy cannot confirm the live /api/health version.
+- [local] 2026-10-10: A review follow-up on #288: writing the default-branch post_review.py into .review-input/ and testing with -s lets a committed directory of that name run PR code; write to RUNNER_TEMP and test with -f.

@@ -16,18 +16,16 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#266 PR A is merged and deployed; Tasks B and C remain.** 2026-10-09 tick: PR #287
-  (`c59d7d7` on `main`) fixed the poster's verdict scan (forward walk, 200 failed-decode budget, nested
-  verdict search to depth 8, placeholder summaries rejected) and added `post_review.py --check-verdict`.
-  Live is `c59d7d7` (a CI-helper-only change, so no app behaviour moved). #266 stays open and `ready`.
-  Earlier: **#231 (trophy marks the best single) is live** from PR #285. The home branch never merges to
-  `main`, so it lags `main` by design.
-- **Next action:** build #266 Task B (read `docs/superpowers/plans/2026-10-08-review-severity-266.md`).
-  B owns `.github/workflows/opencode-review.yml`: delete the inline `has_verdict`, call `--check-verdict`
-  from the default branch, and decide on purpose that a verdict `build` withholds for a secret exits 0.
-  Rebase on #279 (another session's) first. Then Task C. #229's deferred day icons stay blocked on
-  the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest,
-  #220-#223 `blocked`. Seven new `[local]` friction entries are logged and reviewed; none is a PR yet.
+- **Current focus:** **#266 Task B is merged (PR #288, `e2c37a8` on `main`); Task C remains.** 2026-10-10 tick:
+  the review prompt now has critical/major/minor severities and the workflow calls the default-branch
+  `post_review.py --check-verdict` instead of the inline `has_verdict`. Workflow-only, so no deploy and
+  live is unchanged at `c59d7d7`. The new prompt is unexercised live: the bot skipped on #288 because no
+  model returned a usable verdict. #266 stays open and `ready`. The home branch never merges to `main`.
+- **Next action:** build #266 Task C (read `docs/superpowers/plans/2026-10-08-review-severity-266.md`),
+  the poster change for REQUEST_CHANGES/APPROVE tiers; B must stay merged first. Fold in the review
+  follow-up from #288: write the default-branch poster copy to `$RUNNER_TEMP` and test with `[ -f ]`, not
+  `.review-input/` with `-s`. #229's deferred day icons stay blocked on the owner's source artifact.
+  #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
@@ -38,7 +36,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** none. Live is `c59d7d7` (`main`), deployed 2026-10-09.
+- **Deploy gap:** none. Live is `c59d7d7` (`main`); `e2c37a8` is workflow-only and not in the app image.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -65,9 +63,10 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-10T06:48:12Z, live session. Checkpoint: deployed @ 2026-10-10T07:00:46Z (no deploy needed: #288 changes only .github/workflows/opencode-review.yml, not in the app image; live unchanged).
+(none)
 
 ## Needs owner
+- **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. Decide on a model or key (see #279).
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
 - **#231 is live (`088922f`).** The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
   in `IMPROVEMENTS.md` 2026-10-08. Four `[local]` friction entries from that tick are logged, not yet PRs.
