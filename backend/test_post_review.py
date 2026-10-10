@@ -1,6 +1,7 @@
 """scripts/post_review.py: the reviewer's output is untrusted, so each rule is pinned."""
 import importlib.util
 import json
+import time
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
@@ -210,6 +211,16 @@ def test_a_body_cannot_open_a_code_block():
 def real_verdict(summary="real answer"):
     return json.dumps({"summary": summary, "findings": [
         {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]})
+
+
+def test_a_fence_followed_by_lots_of_whitespace_is_not_slow():
+    start = time.monotonic()
+    assert pr.extract_json("`" * 3 + " " * 40_000 + "x") is None
+    assert time.monotonic() - start < 1
+
+
+def test_a_leading_bom_does_not_hide_a_verdict():
+    assert pr.extract_json("\ufeff" + real_verdict()) is not None
 
 
 def test_braces_around_a_verdict_make_it_unstructured():

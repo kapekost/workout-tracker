@@ -62,10 +62,11 @@ def extract_json(text):
     one code fence. Prose around it, a second object, or a verdict nested in a longer object
     makes the output unstructured, so text a misled model quotes from the PR cannot replace
     the real answer."""
-    text = text[:MAX_INPUT].strip()
-    fenced = re.fullmatch(FENCE + r"(?:json)?\s*(.*?)\s*" + FENCE, text, re.DOTALL)
+    text = text[:MAX_INPUT].lstrip("\ufeff").strip()
+    if text.startswith(FENCE) and text.endswith(FENCE) and len(text) >= 2 * len(FENCE):
+        text = text[len(FENCE):-len(FENCE)].strip().removeprefix("json")
     try:
-        obj = json.loads(fenced.group(1) if fenced else text)
+        obj = json.loads(text)
     except (ValueError, RecursionError):
         return None
     return obj if is_verdict(obj) else None
