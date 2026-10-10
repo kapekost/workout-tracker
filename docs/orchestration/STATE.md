@@ -20,7 +20,7 @@
   the review prompt now has critical/major/minor severities and the workflow calls the default-branch
   `post_review.py --check-verdict` instead of the inline `has_verdict`. Workflow-only, so no deploy and
   live is unchanged at `c59d7d7`. The new prompt is unexercised live: the bot skipped on #288 because no
-  model returned a usable verdict. #266 stays open and `ready`. The home branch never merges to `main`.
+  model returned a usable verdict. #266 was auto-closed by PR #288's `Closes #266` and reopened by the 2026-10-10 reconcile (board Status reset to Todo); it stays open and `ready`. Do not put `Closes #266` in Task C's PR until C is the last task. The home branch never merges to `main`.
 - **Next action:** build #266 Task C (read `docs/superpowers/plans/2026-10-08-review-severity-266.md`),
   the poster change for REQUEST_CHANGES/APPROVE tiers; B must stay merged first. Fold in the review
   follow-up from #288: write the default-branch poster copy to `$RUNNER_TEMP` and test with `[ -f ]`, not
@@ -36,11 +36,11 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** none. Live is `c59d7d7` (`main`); `e2c37a8` is workflow-only and not in the app image.
+- **Deploy gap:** none. Live is `c59d7d7` (`main`); `e2c37a8`, `65f24fb` (#279) and `102490a` (#290) are workflow, test and docs only, not in the app image.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
-  so check the SW output before merging). #249, #250, #252-#254, #270 and #271 are gone from the open
-  list. #279 (`ci/working-review-models`) belongs to another session.
+  so check the SW output before merging), #289 (source-map-js). #249, #250, #252-#254, #270 and #271 are gone from the open
+  list. #279 and #290 are merged.
 - **Rejected reference branch:** `claude/icons-scale-up` (29471aa, worktree `~/dev/wt-icons-scale-up`)
   is the per-item attempt the owner turned down. Keep it only for its measured PNG crop boxes (spec
   §9). Never PR it, and delete it once #229 fully ships.
@@ -66,7 +66,7 @@
 (none)
 
 ## Needs owner
-- **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. Decide on a model or key (see #279).
+- **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. After #279 and #290 the bot still skipped with free-model rate limits; #291 makes that legible. Decide on a model or key.
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
 - **#231 is live (`088922f`).** The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
   in `IMPROVEMENTS.md` 2026-10-08. Four `[local]` friction entries from that tick are logged, not yet PRs.
