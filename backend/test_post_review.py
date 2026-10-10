@@ -325,8 +325,8 @@ def finding(sev=None, line=11, body="breaks", **extra):
     return f
 
 
-def built(findings, round_n=1, **extra):
-    return pr.build(review(findings, **extra), PATCHES, REPO, round_n)
+def built(findings, **extra):
+    return pr.build(review(findings, **extra), PATCHES, REPO)
 
 
 def test_severity_wins_over_blocking_when_both_are_present():
@@ -479,20 +479,31 @@ def test_a_skipped_notice_carries_no_marker_and_posts_a_comment(tmp_path, monkey
     assert not [a for a, _ in run_main.calls if a[0].endswith("/dismissals")]
 
 
-def test_past_the_round_cap_majors_are_deferred_and_criticals_still_request_changes():
-    major = built([finding("major", body="m")], round_n=3)
-    assert major.event == "COMMENT" and major.comments == [] and major.demoted == 1
-    assert "(past the round cap)" in major.body and "**Deferred**" in major.body
-    assert major.body.startswith("**CLEAN**")
-    both = built([finding("major", body="m"), finding("critical", body="c")], round_n=3)
-    assert both.event == "REQUEST_CHANGES" and [c["body"] for c in both.comments] == ["c"]
-    assert built([finding("major")], round_n=2).event == "REQUEST_CHANGES"
+def test_majors_block_in_every_round():
+    r = built([finding("major", body="m")])
+    assert r.event == "REQUEST_CHANGES" and [c["body"] for c in r.comments] == ["m"]
 
 
-def test_past_the_round_cap_with_a_demoted_major_comments_instead_of_approving():
-    r = built([finding("major"), finding("minor", body="nit")], round_n=4)
-    assert r.event == "COMMENT"
-    assert r.body.index("(past the round cap)") < r.body.index("nit")
+def test_blocks_posted_counts_marked_bot_blocks_even_when_dismissed():
+    reviews = [bot_review(1, "CHANGES_REQUESTED"), bot_review(2, "DISMISSED"),
+               bot_review(3, "COMMENTED"), bot_review(4, "CHANGES_REQUESTED", marker=False),
+               bot_review(5, "CHANGES_REQUESTED", login="someone")]
+    assert pr.blocks_posted(reviews) == 2
+    assert pr.blocks_posted(None) == 0
+
+
+def test_the_third_block_on_one_pr_is_posted_as_a_comment_with_the_findings_intact(tmp_path, monkeypatch):
+    prior = [bot_review(1, "CHANGES_REQUESTED"), bot_review(2, "DISMISSED")]
+    posted = run_main(tmp_path, monkeypatch, review([finding("major")]), reviews=prior)
+    assert posted[0]["event"] == "COMMENT" and len(posted[0]["comments"]) == 1
+    assert "already requested changes" in posted[0]["body"]
+    assert posted[0]["body"].endswith("<!-- review-round:3 -->")
+
+
+def test_the_second_block_still_requests_changes(tmp_path, monkeypatch):
+    posted = run_main(tmp_path, monkeypatch, review([finding("major")]),
+                      reviews=[bot_review(1, "CHANGES_REQUESTED")])
+    assert posted[0]["event"] == "REQUEST_CHANGES"
 
 
 REFUSED = Proc(1, stderr="gh: Unprocessable Entity (HTTP 422)")

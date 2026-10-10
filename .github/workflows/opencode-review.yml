@@ -294,9 +294,7 @@ jobs:
 
             Each `critical` or `major` finding names the input or state that triggers it.
             If you cannot name one, the finding is `minor`. `critical` and `major` ask for
-            changes; `minor` findings are only listed as deferred. After a PR's second
-            review round the poster defers every `major` too, so only `critical` findings
-            still block.
+            changes; `minor` findings are only listed as deferred.
 
             Before writing any claim, read the line, test or doc it is about. On 2026-10-03 a
             review of this repo produced four false Criticals that were true only on a stale
