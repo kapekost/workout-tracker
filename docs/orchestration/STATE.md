@@ -65,7 +65,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-10T06:48:12Z, live session.
+- **#266** — claimed 2026-10-10T06:48:12Z, live session. Checkpoint: claimed @ 2026-10-10T06:52:30Z (live session).
 
 ## Needs owner
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
