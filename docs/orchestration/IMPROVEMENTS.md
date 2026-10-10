@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 87 -->
+<!-- last-reviewed-count: 92 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -95,3 +95,8 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [template] 2026-10-10: orch-checkpoint.sh has no 'skipped' deploy stage, so a no-deploy outcome is recorded as 'deployed' with the reason in the note.
 - [local] 2026-10-10: Reading the deploy section of AGENTS.local.md was denied by the permission system, so a tick that skips deploy cannot confirm the live /api/health version.
 - [local] 2026-10-10: A review follow-up on #288: writing the default-branch post_review.py into .review-input/ and testing with -s lets a committed directory of that name run PR code; write to RUNNER_TEMP and test with -f.
+- [local] 2026-10-10: The auto-mode classifier denied bash scripts/deploy.sh with no explanation although AGENTS.md documents it as the deploy path, so a merged tick ended with deploy undone (#266 C). Fix candidate: an allow rule for that exact command.
+- [local] 2026-10-10: The opencode MCP reviewer subagent failed with 'spawn opencode ENOENT' and no native Agent tool existed, so plan decision 12's reviewer pass was a self-review (#266 C).
+- [local] 2026-10-10: A cp of AGENTS.local.md into a fresh worktree is denied, and deploy.sh needs it under its own ROOT, so deploys must run from the shared checkout after a ff-only of main (#266 C).
+- [local] 2026-10-10: macOS BSD sed rejects 'sed -i' without a suffix, breaking inline mutation-test loops; use python edits (#266 C).
+- [local] 2026-10-10: DECISIONS.md says newest at the bottom but the first entry after the header is dated 2026-10-03, so where to append is unclear (#266 C).

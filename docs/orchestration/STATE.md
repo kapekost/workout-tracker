@@ -16,16 +16,14 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#266 Task B is merged (PR #288, `e2c37a8` on `main`); Task C remains.** 2026-10-10 tick:
-  the review prompt now has critical/major/minor severities and the workflow calls the default-branch
-  `post_review.py --check-verdict` instead of the inline `has_verdict`. Workflow-only, so no deploy and
-  live is unchanged at `c59d7d7`. The new prompt is unexercised live: the bot skipped on #288 because no
-  model returned a usable verdict. #266 was auto-closed by PR #288's `Closes #266` and reopened by the 2026-10-10 reconcile (board Status reset to Todo); it stays open and `ready`. Do not put `Closes #266` in Task C's PR until C is the last task. The home branch never merges to `main`.
-- **Next action:** build #266 Task C (read `docs/superpowers/plans/2026-10-08-review-severity-266.md`),
-  the poster change for REQUEST_CHANGES/APPROVE tiers; B must stay merged first. Fold in the review
-  follow-up from #288: write the default-branch poster copy to `$RUNNER_TEMP` and test with `[ -f ]`, not
-  `.review-input/` with `-s`. #229's deferred day icons stay blocked on the owner's source artifact.
-  #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
+- **Current focus:** **#266 is done: Task C merged (PR #297, `1391388` on `main`) and the issue is closed.** 2026-10-10 tick:
+  `post_review.py` now picks REQUEST_CHANGES, APPROVE or COMMENT from per-finding severity, defers minors, caps blocking
+  findings after round 2, falls back to COMMENT on a 422 and dismisses the bot's stale CHANGES_REQUESTED after a clean run.
+  The workflow file is untouched. Not deployed: the auto-mode classifier denied `scripts/deploy.sh`, and the change is
+  scripts, tests and docs only, so live stays `c59d7d7` with nothing missing from the app. Still open: the live throwaway-PR
+  check (deliberate bug, then fix push, then a third-round major under Deferred), which needs a working review model.
+  The home branch never merges to `main`.
+- **Next action:** pick the next `ready` item by rank. #291, #293 and #295 are `ready` (#291 left `post_review.py` to #266 C, which has now landed, so re-read it first). #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
@@ -36,7 +34,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** none. Live is `c59d7d7` (`main`); `e2c37a8`, `65f24fb` (#279) and `102490a` (#290) are workflow, test and docs only, not in the app image.
+- **Deploy gap:** none that matters. Live is `c59d7d7`; `e2c37a8`, `65f24fb` (#279), `102490a` (#290) and `1391388` (#297) are workflow, script, test and docs only, not in the app image. Local `main` is fast-forwarded to `1391388`.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging), #289 (source-map-js). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -63,7 +61,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#266** — claimed 2026-10-10T08:28:10Z, live session. Checkpoint: done @ 2026-10-10T08:49:44Z (PR #297 merged; deploy denied by classifier, not needed).
+(none)
 
 ## Needs owner
 - **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. After #279 and #290 the bot still skipped with free-model rate limits; #291 makes that legible. Decide on a model or key.

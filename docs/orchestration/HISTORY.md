@@ -9,6 +9,31 @@
 
 ---
 
+## 2026-10-10 - Tick: #266 Task C merged (review bot severity states, PR #297)
+
+**Pick.** #266 had been auto-closed again by PR #288's "Closes #266" with Task C outstanding; reopened it and reset
+the board to Todo. Sonnet tier, no UI.
+
+**Execute.** `scripts/post_review.py`: severity picks REQUEST_CHANGES, APPROVE or COMMENT; minors are deferred, blocking
+findings are capped after round 2, a 422 falls back to COMMENT, and a clean run dismisses the bot's stale
+CHANGES_REQUESTED. AGENTS.md, GUARDRAILS.md and DECISIONS.md updated; the workflow file untouched. One deviation: a
+malformed dropped finding blocks APPROVE but does not downgrade a real critical or major. 69 poster tests and 370 backend
+tests pass; six mutations each failed a test.
+
+**Review and ship.** The reviewer subagent could not run (opencode ENOENT), so the orchestrator self-reviewed. Two
+follow-ups were found and fixed before merge: any 422 dropped REQUEST_CHANGES to COMMENT before the fold, and the fold put
+the Blocking list after the round marker so that review was not counted as a round. CI green, merged as `1391388`; the
+bot skipped (free models rate limited) and Codex was out of quota.
+
+**Deploy.** Not done: the auto-mode classifier denied `scripts/deploy.sh`. The change is not in the app image, so nothing
+is missing live. Local `main` was fast-forwarded to `1391388`.
+
+**Friction.** Five new entries, cursor advanced to 92; all `[local]`, none is a PR yet.
+
+**Cost** (output tokens by stage): reconcile 4854, pick 11565, claim 2445, execute 44297, review 17674, ship 4002, deploy 3816.
+
+---
+
 ## 2026-10-10 - Tick: #266 Task B merged (review bot severity prompt and verdict gate, PR #288)
 
 **Pick.** #266 had been closed by PR #287's "Closes #266" with only Task A shipped; reopened it and set the
