@@ -57,56 +57,19 @@ def sanitize(text, repo, limit):
     return re.sub(r"([\\\[\]<>&#])", r"\\\1", text)
 
 
-MAX_DECODE_FAILURES = 200
-MAX_SEARCH_DEPTH = 8
-
-
-def last_verdict(obj):
-    """The last verdict in document order inside a decoded object, or None. Iterative and
-    depth-capped, so a deeply nested input cannot exhaust the stack."""
-    found = None
-    stack = [(obj, 0)]
-    while stack:
-        node, depth = stack.pop()
-        if is_verdict(node):
-            found = node
-        if depth >= MAX_SEARCH_DEPTH:
-            continue
-        if isinstance(node, dict):
-            children = list(node.values())
-        elif isinstance(node, list):
-            children = node
-        else:
-            continue
-        stack.extend((child, depth + 1) for child in reversed(children)
-                     if isinstance(child, (dict, list)))
-    return found
-
-
 def extract_json(text):
-    """The last JSON object whose "findings" is a list, or None. Bounded work.
-
-    The last one, because a model may narrate an example of the shape before giving its
-    real answer, and the answer comes last. The scan moves forward and skips past each
-    object it decodes, so only a failed decode spends from the budget: a reply that
-    restates many small objects before its answer cannot push the answer out of reach."""
-    text = text[:MAX_INPUT]
-    decoder = json.JSONDecoder()
-    found = None
-    failures = 0
-    pos = text.find("{")
-    while pos != -1 and failures < MAX_DECODE_FAILURES:
-        try:
-            obj, end = decoder.raw_decode(text, pos)
-        except (ValueError, RecursionError):
-            failures += 1
-            pos = text.find("{", pos + 1)
-            continue
-        verdict = last_verdict(obj)
-        if verdict is not None:
-            found = verdict
-        pos = text.find("{", end)
-    return found
+    """The verdict, or None. The output must be exactly one JSON object, optionally inside
+    one code fence. Prose around it, a second object, or a verdict nested in a longer object
+    makes the output unstructured, so text a misled model quotes from the PR cannot replace
+    the real answer."""
+    text = text[:MAX_INPUT].lstrip("\ufeff").strip()
+    if text.startswith(FENCE) and text.endswith(FENCE) and len(text) >= 2 * len(FENCE):
+        text = text[len(FENCE):-len(FENCE)].strip().removeprefix("json")
+    try:
+        obj = json.loads(text)
+    except (ValueError, RecursionError):
+        return None
+    return obj if is_verdict(obj) else None
 
 
 def is_verdict(obj):
