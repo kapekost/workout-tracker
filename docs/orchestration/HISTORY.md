@@ -9,6 +9,18 @@
 
 ---
 
+## 2026-10-10 - Housekeeping: owner comments on #296 and #294 answered, STATE corrected
+
+Resolved Needs-owner items, moved verbatim: "Review bot has no working model. `stealth/space-bunny-alpha` fails and both
+free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised
+live. After #279 and #290 the bot still skipped with free-model rate limits; #300 now says so in the skip notice. Decide on
+a model or key." Owner bought OpenRouter credits and a full-prompt run returned a verdict. "`[unsure]` The PR reviewer
+cannot run tests, so it can post a false Blocking verdict against green CI (seen on #300)." Now #301.
+PLAYBOOK diverges from `main` by two additive home-only paragraphs (UI/UX verdict is a claim, CI green is not reviewed);
+GUARDRAILS is identical. Kept both, nothing to take from `main`. No Issue lacked a state or a board item.
+
+---
+
 ## 2026-10-10 - Tick: #291 merged (review bot stops at the daily free-model limit, PR #300)
 
 **Pick.** Top ready item by board order; workflow script plus tests, effort S, `post_review.py` untouched. Housekeeping:
