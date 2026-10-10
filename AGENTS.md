@@ -46,17 +46,18 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
 `major`, `minor`); `post_review.py` parses it and chooses the state, never the model:
 
 - Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each changed line
-  and a short body list for the rest. Only minor findings post `APPROVE`. A skipped notice, plain
-  output, a withheld secret, a malformed finding or a finding set aside by the round cap posts
-  `COMMENT`, never `APPROVE`.
+  and a short body list for the rest. `APPROVE` needs a strictly clean review: no finding of any
+  severity and no notes. A skipped notice, plain output, a withheld secret, a malformed finding,
+  a finding set aside by the round cap or a minor finding posts `COMMENT`.
 - Minor findings are never inline. They sit in one `Deferred` list of at most three lines plus a
   count of the rest.
 - After two reviews on one PR, only critical findings still block; majors move to `Deferred`. The
   poster counts rounds from a hidden marker in its own earlier reviews.
-- A clean re-review dismisses the bot's own earlier `REQUEST_CHANGES`.
-- GitHub may refuse a state (422): `APPROVE` while the repo setting "Allow GitHub Actions to
+- A clean re-review dismisses the bot's own `REQUEST_CHANGES` on earlier commits, never one on the
+  current head. Any other review leaves it standing.
+- GitHub may refuse a state (HTTP 422): `APPROVE` while the repo setting "Allow GitHub Actions to
   create and approve pull requests" is off, `REQUEST_CHANGES` on a PR the bot authored. The same
-  body is then posted as a `COMMENT`. Turning that setting on is an owner decision; until then a
+  body is then posted as a `COMMENT` that says so, with a workflow warning. Turning that setting on is an owner decision; until then a
   clean run reads as a comment. An approval is one more agent review, not the owner's.
 
 `post_review.py` also caps findings (20, 400 chars each), removes URLs and HTML, escapes brackets,

@@ -14,9 +14,9 @@ The second form only reports, through its exit status, whether the file holds a 
 Output that is not the expected JSON is posted inside a code block, truncated.
 
 The script, not the model, chooses the review state. Critical and major findings request
-changes, a review with only minor findings approves, and anything that could not be fully
-read or was set aside comments. GitHub may refuse a state, in which case the same body is
-posted as a comment.
+changes, and only a review with no findings, notes or set-aside items approves; anything else
+comments. GitHub may refuse a state, in which case the body is posted as a comment with a
+line saying so.
 """
 import json
 import os
@@ -166,15 +166,16 @@ def severity_of(finding):
     return "major" if finding.get("blocking") is True else "minor"
 
 
-def decide_event(counts, kind, demoted):
+def decide_event(counts, kind, demoted, has_notes):
     """The review state. kind is "review" only for a structured, non-skipped review; a skipped
-    notice, plain output and a withheld secret never approve. A finding that could not be
-    read or that the round cap set aside also prevents approval."""
+    notice, plain output and a withheld secret never approve. Approval needs a strictly clean
+    review: no finding of any severity, none dropped or set aside by the round cap, and no
+    note about something the reviewer could not verify."""
     if kind != "review":
         return "COMMENT"
     if counts["critical"] or counts["major"]:
         return "REQUEST_CHANGES"
-    if counts["dropped"] or demoted:
+    if counts["minor"] or counts["dropped"] or demoted or has_notes:
         return "COMMENT"
     return "APPROVE"
 
@@ -237,7 +238,10 @@ def build(text, patches, repo, round_n=1):
 
     skipped = data.get("skipped") is True and not findings
     kind = "skipped" if skipped else "review"
-    event = decide_event(counts, kind, demoted)
+    notes = data.get("notes")
+    clean_notes = ([sanitize(n, repo, MAX_BODY) for n in notes[:5] if isinstance(n, str)]
+                   if isinstance(notes, list) else [])
+    event = decide_event(counts, kind, demoted, bool(notes))
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
     summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
@@ -257,11 +261,8 @@ def build(text, patches, repo, round_n=1):
         parts += ["", "**Deferred**"] + shown_lines
         if deferred_total > len(shown_lines):
             parts.append(f"- and {deferred_total - len(shown_lines)} more not shown")
-    notes = data.get("notes")
-    if isinstance(notes, list):
-        clean = [sanitize(n, repo, MAX_BODY) for n in notes[:5] if isinstance(n, str)]
-        if clean:
-            parts += ["", "**Notes**"] + [f"- {n}" for n in clean]
+    if clean_notes:
+        parts += ["", "**Notes**"] + [f"- {n}" for n in clean_notes]
     return Built("review", "\n".join(parts), comments, event, counts, demoted, skipped)
 
 
@@ -305,10 +306,10 @@ def signed(body, model, repo):
 
 
 def pr_reviews(repo, pr):
-    """The PR's reviews as dicts with id, state, login and body, or None when GitHub cannot be
+    """The PR's reviews as dicts with id, state, commit_id, login and body, or None when GitHub cannot be
     asked. The login is an API field, not review text, so model output cannot set it."""
     out = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/pulls/{pr}/reviews",
-                          "--jq", ".[] | {id, state, login: .user.login, body}"],
+                          "--jq", ".[] | {id, state, commit_id, login: .user.login, body}"],
                          capture_output=True, text=True)
     if out.returncode != 0:
         print(f"could not list reviews: {out.stderr.strip()}", file=sys.stderr)
@@ -333,7 +334,21 @@ def review_round(reviews):
 
 
 def refused(r):
-    return r.returncode != 0 and "422" in (r.stderr + r.stdout)
+    return r.returncode != 0 and "HTTP 422" in (r.stderr + r.stdout)
+
+
+def one_line(text, limit=300):
+    """Gh error text on one line, so a line of it cannot start a workflow command."""
+    return " ".join(str(text).split())[:limit]
+
+
+def with_note(body, note):
+    """Adds a paragraph before the round marker, which must stay the last line or the round
+    is not counted."""
+    marker = ROUND_MARKER.search(body)
+    if not marker:
+        return f"{body}\n\n{note}"
+    return f"{body[:marker.start()].rstrip()}\n\n{note}\n\n{marker.group().strip()}"
 
 
 def post_review(repo, pr, head_sha, body, comments, event):
@@ -341,7 +356,8 @@ def post_review(repo, pr, head_sha, body, comments, event):
     for a state it refuses (APPROVE while Actions may not approve, REQUEST_CHANGES on the
     bot's own PR) and for an inline line it cannot place, so a refusal tries the lesser
     change first: the same state with the comments folded into the body, then COMMENT with
-    the comments, then COMMENT with them folded."""
+    the comments, then COMMENT with them folded. A review that ends in a different state says
+    so in its body and in a workflow warning."""
     url = f"repos/{repo}/pulls/{pr}/reviews"
 
     def attempt(ev, cs, text):
@@ -351,36 +367,37 @@ def post_review(repo, pr, head_sha, body, comments, event):
     folded_body = body
     if comments:
         folded = [f"- {sanitize(c['path'], repo, 120)}:{c['line']} {c['body']}" for c in comments]
-        listing = "\n\n**Blocking**\n" + "\n".join(folded)
-        marker = ROUND_MARKER.search(body)
-        # The round marker must stay the last line or the round is not counted.
-        folded_body = (body[:marker.start()].rstrip() + listing + "\n\n" + marker.group().strip()
-                       if marker else body + listing)
+        folded_body = with_note(body, "**Blocking**\n" + "\n".join(folded))
+    refusal = f"_Posted as COMMENT because GitHub rejected {event} (HTTP 422)._"
     tries = [(event, comments, body)]
     if comments:
         tries.append((event, [], folded_body))
     if event != "COMMENT":
-        tries.append(("COMMENT", comments, body))
+        tries.append(("COMMENT", comments, with_note(body, refusal)))
         if comments:
-            tries.append(("COMMENT", [], folded_body))
+            tries.append(("COMMENT", [], with_note(folded_body, refusal)))
     for i, (ev, cs, text) in enumerate(tries):
         r = attempt(ev, cs, text)
         if not refused(r) or i == len(tries) - 1:
+            if r.returncode == 0 and ev != event:
+                print(f"::warning::GitHub rejected {event} (HTTP 422), the review was posted as {ev}")
             return r, ev
         print(f"GitHub refused {ev} ({len(cs)} inline), trying a lesser form: "
               f"{(r.stderr + r.stdout).strip()}", file=sys.stderr)
 
 
 def dismiss_stale(repo, pr, head_sha, reviews):
-    """Dismisses the bot's earlier CHANGES_REQUESTED reviews. Failure is logged, never fatal."""
+    """Dismisses the bot's CHANGES_REQUESTED reviews of earlier commits. A review of the
+    current head stands. Failure is a warning, never fatal."""
     short = re.sub(r"[^0-9a-fA-F]", "", head_sha)[:7]
     for rev in reviews or []:
-        if rev.get("login") != BOT_LOGIN or rev.get("state") != "CHANGES_REQUESTED":
+        if (rev.get("login") != BOT_LOGIN or rev.get("state") != "CHANGES_REQUESTED"
+                or rev.get("commit_id") == head_sha):
             continue
         r = gh([f"repos/{repo}/pulls/{pr}/reviews/{rev.get('id')}/dismissals", "-X", "PUT"],
                {"message": f"Superseded by a clean re-review of {short}.", "event": "DISMISS"})
         if r.returncode != 0:
-            print(f"could not dismiss review {rev.get('id')}: {r.stderr.strip()}", file=sys.stderr)
+            print(f"::warning::could not dismiss review {rev.get('id')}: {one_line(r.stderr)}")
 
 
 def main(argv):
@@ -410,7 +427,7 @@ def main(argv):
     r, event = post_review(repo, pr, head_sha, body, built.comments, built.event)
     print(f"posted review as {event} (round {round_n})" if r.returncode == 0 else r.stderr,
           file=sys.stderr)
-    if r.returncode == 0 and not built.skipped and not (built.counts["critical"] or built.counts["major"]):
+    if r.returncode == 0 and built.event == "APPROVE":
         dismiss_stale(repo, pr, head_sha, reviews)
     return r.returncode
 
