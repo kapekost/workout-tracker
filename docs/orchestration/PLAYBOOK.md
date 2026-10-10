@@ -353,8 +353,12 @@ only because the owner happened to ask about it, not by anything in this file. H
    if checks haven't registered yet server-side — confirm `gh pr view <PR> --json
    headRefOid,statusCheckRollup` shows the commit you just pushed before trusting a green result; if
    it's stale, wait and re-check rather than merging on faith. Once genuinely green: merge immediately
-   (`gh pr merge <PR> --squash --delete-branch`), no further live approval needed. If checks exit
-   non-zero, treat red CI as a hard stop — do not merge, fix and push again. **A clean code-review
+   (`gh pr merge <PR> --squash --delete-branch`), no further live approval needed. **Confirm the merge
+   succeeded with `gh pr view <PR> --json state`** rather than relying on the exit code of `gh pr merge`
+   from inside a worktree (which can print a misleading "main is already used by worktree" error even
+   when the merge succeeded). Then run `bash scripts/task_cleanup.sh <issue-number>` to remove the
+   worktree, branch, venv and node_modules — idempotent cleanup that works locally and in a sandbox.
+   If checks exit non-zero, treat red CI as a hard stop — do not merge, fix and push again. **A clean code-review
    verdict from step 5 does not clear a red run here** — review reads the diff, it never executes it,
    so it cannot catch a failure that only exists at runtime in CI's actual environment. Real case,
    #124/PR #147 (2026-09-07): an independent review returned "ready to merge" on a diff that, once
