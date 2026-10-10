@@ -358,9 +358,11 @@ jobs:
                 timeout) short="timed out after $((MODEL_TIMEOUT_SECS / 60)) minutes" ;;
                 *"Rate limit"*) short="rate limited" ;;
                 *"data policy"*) short="no endpoint matches the no-training privacy policy" ;;
+                *"free-models-per-day"*) short="daily free-model limit reached" ;;
                 *) short="failed, see the Actions log" ;;
               esac
               echo "- \`$model\`: $short" >> "$RUNNER_TEMP/skip-reasons.txt"
+              if [[ "$why" == *"free-models-per-day"* ]]; then break; fi
             fi
             if [ "$rc" -eq 0 ] && has_verdict "$RUNNER_TEMP/review.txt"; then used="$model"; break; fi
             if [ "$rc" -eq 0 ]; then

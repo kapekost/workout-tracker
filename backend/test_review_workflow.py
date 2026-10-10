@@ -33,3 +33,12 @@ def test_the_loop_runs_the_generated_list_and_reports_the_winner():
 def test_a_discarded_review_is_never_signed():
     leak = TEXT.index("review output contained the API key; discarded")
     assert TEXT.index('used=""', leak) < TEXT.index('echo "model=$used"', leak)
+
+
+def test_the_loop_stops_on_daily_free_model_limit():
+    """When a model fails with free-models-per-day, the loop breaks and does not try further models."""
+    assert '*"free-models-per-day"*) short="daily free-model limit reached"' in TEXT
+    # The break must come after recording the reason
+    case_arm_pos = TEXT.index('*"free-models-per-day"*)')
+    break_pos = TEXT.index('if [[ "$why" == *"free-models-per-day"* ]]; then break; fi', case_arm_pos)
+    assert break_pos > case_arm_pos
