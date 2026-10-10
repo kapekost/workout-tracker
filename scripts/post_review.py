@@ -12,18 +12,29 @@ The second form only reports, through its exit status, whether the file holds a 
 (0) or not (1). It makes no network call and runs no process.
 
 Output that is not the expected JSON is posted inside a code block, truncated.
+
+The script, not the model, chooses the review state. Critical and major findings request
+changes, a review with only minor findings approves, and anything that could not be fully
+read or was set aside comments. GitHub may refuse a state, in which case the same body is
+posted as a comment.
 """
 import json
 import os
 import re
 import subprocess
 import sys
+from typing import NamedTuple
 
 MAX_FINDINGS = 20
 MAX_BODY = 400
 MAX_SUMMARY = 200
 MAX_PLAIN = 3000
 MAX_INPUT = 50_000
+MAX_DEFERRED = 3
+ROUND_CAP = 2
+BOT_LOGIN = "github-actions[bot]"
+SEVERITIES = ("critical", "major", "minor")
+ROUND_MARKER = re.compile(r"<!-- review-round:\d+ -->\s*$")
 
 SECRET = re.compile(r"sk-or-|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|Bearer [A-Za-z0-9._-]{20,}")
 WITHHELD = ("**Automated review withheld.** The output matched a secret pattern "
@@ -136,56 +147,122 @@ def is_line(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def build(text, patches, repo):
-    """Returns ("review", body, comments) or ("plain", body, [])."""
+class Built(NamedTuple):
+    kind: str          # "review" is posted as a review, "plain" as an issue comment
+    body: str
+    comments: list
+    event: str         # REQUEST_CHANGES, APPROVE or COMMENT
+    counts: dict       # critical, major (still counted), minor, dropped (malformed)
+    demoted: int       # majors set aside by the round cap
+    skipped: bool
+
+
+def severity_of(finding):
+    """A valid "severity" wins. Without one, "blocking": true is major and anything else is
+    minor. A severity outside the three words is treated as absent."""
+    sev = finding.get("severity")
+    if isinstance(sev, str) and sev.strip().lower() in SEVERITIES:
+        return sev.strip().lower()
+    return "major" if finding.get("blocking") is True else "minor"
+
+
+def decide_event(counts, kind, demoted):
+    """The review state. kind is "review" only for a structured, non-skipped review; a skipped
+    notice, plain output and a withheld secret never approve. A finding that could not be
+    read or that the round cap set aside also prevents approval."""
+    if kind != "review":
+        return "COMMENT"
+    if counts["critical"] or counts["major"]:
+        return "REQUEST_CHANGES"
+    if counts["dropped"] or demoted:
+        return "COMMENT"
+    return "APPROVE"
+
+
+def plain_result(body):
+    return Built("plain", body, [], "COMMENT",
+                 {"critical": 0, "major": 0, "minor": 0, "dropped": 0}, 0, False)
+
+
+def build(text, patches, repo, round_n=1):
+    """Turns the reviewer's output into a Built. round_n is this review's round on the PR;
+    past ROUND_CAP only critical findings still request changes."""
     if SECRET.search(text):
-        return "plain", WITHHELD, []
+        return plain_result(WITHHELD)
     data = extract_json(text)
     if data is None:
-        return "plain", plain_comment(text) if text.strip() else "The reviewer produced no output.", []
+        return plain_result(plain_comment(text) if text.strip() else "The reviewer produced no output.")
     if SECRET.search(json.dumps(data, ensure_ascii=False)):
-        return "plain", WITHHELD, []
+        return plain_result(WITHHELD)
 
     findings = data.get("findings")
     if not isinstance(findings, list):
         findings = []
-    blocking_lines, optional_lines, comments = [], [], []
-    for f in findings[:MAX_FINDINGS]:
+    valid = []
+    dropped = 0
+    for f in findings:
         if not isinstance(f, dict):
+            dropped += 1
             continue
         path = f.get("file")
-        line = f.get("line")
         body = sanitize(f.get("body", ""), repo, MAX_BODY)
         if not body or not isinstance(path, str):
+            dropped += 1
             continue
-        blocking = f.get("blocking") is True
-        anchored = is_line(line) and path in patches and line in commentable_lines(patches[path])
-        if blocking and anchored:
-            comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
-            continue
+        valid.append((SEVERITIES.index(severity_of(f)), path, f.get("line"), body))
+    # Sorted before the cap, so a pile of minor findings cannot push a critical one out.
+    valid.sort(key=lambda row: row[0])
+
+    capped = round_n > ROUND_CAP
+    counts = {"critical": 0, "major": 0, "minor": 0, "dropped": dropped}
+    demoted = 0
+    for rank, *_ in valid:
+        if SEVERITIES[rank] == "major" and capped:
+            demoted += 1
+        else:
+            counts[SEVERITIES[rank]] += 1
+    blocking_lines, demoted_lines, minor_lines, comments = [], [], [], []
+    for rank, path, line, body in valid[:MAX_FINDINGS]:
+        sev = SEVERITIES[rank]
         shown = sanitize(path, repo, 120)
         where = f"{shown}:{line}" if is_line(line) else shown
-        (blocking_lines if blocking else optional_lines).append(f"- {where} {body}")
+        if sev == "major" and capped:
+            demoted_lines.append(f"- {where} {body} (past the round cap)")
+        elif sev == "minor":
+            minor_lines.append(f"- {where} {body}")
+        elif is_line(line) and path in patches and line in commentable_lines(patches[path]):
+            comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
+        else:
+            blocking_lines.append(f"- {where} {body}")
+
+    skipped = data.get("skipped") is True and not findings
+    kind = "skipped" if skipped else "review"
+    event = decide_event(counts, kind, demoted)
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
     summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
-    if data.get("skipped") is True and not findings:
+    if skipped:
         head = f"**Automated review skipped.** {summary}".strip()
-    elif comments or blocking_lines:
+    elif event == "REQUEST_CHANGES":
         head = f"**BLOCKING** {summary}".strip()
     else:
         head = f"**CLEAN** {summary}".strip()
     parts = [head]
     if blocking_lines:
         parts += ["", "**Blocking (not on a changed line)**"] + blocking_lines
-    if optional_lines:
-        parts += ["", "**Optional**"] + optional_lines[:3]
+    deferred_lines = demoted_lines + minor_lines
+    deferred_total = counts["minor"] + demoted
+    if deferred_lines:
+        shown_lines = deferred_lines[:MAX_DEFERRED]
+        parts += ["", "**Deferred**"] + shown_lines
+        if deferred_total > len(shown_lines):
+            parts.append(f"- and {deferred_total - len(shown_lines)} more not shown")
     notes = data.get("notes")
     if isinstance(notes, list):
         clean = [sanitize(n, repo, MAX_BODY) for n in notes[:5] if isinstance(n, str)]
         if clean:
             parts += ["", "**Notes**"] + [f"- {n}" for n in clean]
-    return "review", "\n".join(parts), comments
+    return Built("review", "\n".join(parts), comments, event, counts, demoted, skipped)
 
 
 def gh(args, payload=None):
@@ -227,6 +304,73 @@ def signed(body, model, repo):
     return f"{body}\n\n_Reviewed by `{sanitize(model, repo, 80)}`_" if model else body
 
 
+def pr_reviews(repo, pr):
+    """The PR's reviews as dicts with id, state, login and body, or None when GitHub cannot be
+    asked. The login is an API field, not review text, so model output cannot set it."""
+    out = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/pulls/{pr}/reviews",
+                          "--jq", ".[] | {id, state, login: .user.login, body}"],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        print(f"could not list reviews: {out.stderr.strip()}", file=sys.stderr)
+        return None
+    reviews = []
+    for row in out.stdout.splitlines():
+        try:
+            obj = json.loads(row)
+        except ValueError:
+            continue
+        if isinstance(obj, dict):
+            reviews.append(obj)
+    return reviews
+
+
+def review_round(reviews):
+    """This review's round: the bot's earlier marked reviews plus one. Skipped notices and
+    plain output carry no marker, so a provider failure does not use up a round."""
+    prior = [r for r in reviews or []
+             if r.get("login") == BOT_LOGIN and ROUND_MARKER.search(str(r.get("body") or ""))]
+    return len(prior) + 1
+
+
+def refused(r):
+    return r.returncode != 0 and "422" in (r.stderr + r.stdout)
+
+
+def post_review(repo, pr, head_sha, body, comments, event):
+    """Posts the review and returns (result, event actually posted). A state GitHub refuses
+    (APPROVE while Actions may not approve, REQUEST_CHANGES on the bot's own PR) is retried
+    once as a COMMENT with the same body, then inline comments GitHub refuses are folded
+    into the body."""
+    url = f"repos/{repo}/pulls/{pr}/reviews"
+
+    def attempt(ev, cs, text):
+        return gh([url, "-X", "POST"],
+                  {"commit_id": head_sha, "event": ev, "body": text, "comments": cs})
+
+    r = attempt(event, comments, body)
+    if refused(r) and event != "COMMENT":
+        print(f"GitHub refused {event}, posting as COMMENT: {(r.stderr + r.stdout).strip()}",
+              file=sys.stderr)
+        event = "COMMENT"
+        r = attempt(event, comments, body)
+    if refused(r) and comments:
+        folded = [f"- {sanitize(c['path'], repo, 120)}:{c['line']} {c['body']}" for c in comments]
+        r = attempt(event, [], body + "\n\n**Blocking**\n" + "\n".join(folded))
+    return r, event
+
+
+def dismiss_stale(repo, pr, head_sha, reviews):
+    """Dismisses the bot's earlier CHANGES_REQUESTED reviews. Failure is logged, never fatal."""
+    short = re.sub(r"[^0-9a-fA-F]", "", head_sha)[:7]
+    for rev in reviews or []:
+        if rev.get("login") != BOT_LOGIN or rev.get("state") != "CHANGES_REQUESTED":
+            continue
+        r = gh([f"repos/{repo}/pulls/{pr}/reviews/{rev.get('id')}/dismissals", "-X", "PUT"],
+               {"message": f"Superseded by a clean re-review of {short}.", "event": "DISMISS"})
+        if r.returncode != 0:
+            print(f"could not dismiss review {rev.get('id')}: {r.stderr.strip()}", file=sys.stderr)
+
+
 def main(argv):
     if len(argv) == 3 and argv[1] == "--check-verdict":
         return check_verdict(argv[2])
@@ -237,24 +381,25 @@ def main(argv):
     with open(path, encoding="utf-8", errors="replace") as fh:
         text = fh.read(200_000)
 
-    patches = pr_patches(repo, pr) if extract_json(text) else {}
-    kind, body, comments = build(text, patches, repo)
-    if kind == "review":
-        body = signed(body, os.environ.get("REVIEW_MODEL", ""), repo)
-    if kind == "plain":
+    structured = extract_json(text) is not None
+    patches = pr_patches(repo, pr) if structured else {}
+    reviews = pr_reviews(repo, pr) if structured else None
+    round_n = review_round(reviews)
+    built = build(text, patches, repo, round_n)
+    body = built.body
+    if built.kind == "plain":
         r = gh([f"repos/{repo}/issues/{pr}/comments", "-X", "POST"], {"body": body})
         print("posted plain comment" if r.returncode == 0 else r.stderr, file=sys.stderr)
         return r.returncode
 
-    payload = {"commit_id": head_sha, "event": "COMMENT", "body": body, "comments": comments}
-    r = gh([f"repos/{repo}/pulls/{pr}/reviews", "-X", "POST"], payload)
-    if r.returncode != 0 and comments and "422" in (r.stderr + r.stdout):
-        # GitHub refused a line: fold the comments into the body rather than lose them.
-        folded = [f"- {sanitize(c['path'], repo, 120)}:{c['line']} {c['body']}" for c in comments]
-        payload = {"commit_id": head_sha, "event": "COMMENT",
-                   "body": body + "\n\n**Blocking**\n" + "\n".join(folded), "comments": []}
-        r = gh([f"repos/{repo}/pulls/{pr}/reviews", "-X", "POST"], payload)
-    print("posted review" if r.returncode == 0 else r.stderr, file=sys.stderr)
+    body = signed(body, os.environ.get("REVIEW_MODEL", ""), repo)
+    if not built.skipped:
+        body += f"\n\n<!-- review-round:{round_n} -->"
+    r, event = post_review(repo, pr, head_sha, body, built.comments, built.event)
+    print(f"posted review as {event} (round {round_n})" if r.returncode == 0 else r.stderr,
+          file=sys.stderr)
+    if r.returncode == 0 and not built.skipped and not (built.counts["critical"] or built.counts["major"]):
+        dismiss_stale(repo, pr, head_sha, reviews)
     return r.returncode
 
 

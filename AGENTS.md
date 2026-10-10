@@ -42,19 +42,35 @@ it cannot do damage:
   commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
   and `bash scripts/deploy.sh` were each denied with the repo unchanged.
 
-It posts **one review**: a verdict line, one inline comment per blocking finding that sits
-on a changed line, and a short body list for findings that do not (plus at most three optional
-nits). The model prints JSON; `post_review.py` parses it, caps it (20 findings, 400 chars each),
-removes URLs and HTML, escapes brackets, angle brackets and # so nothing renders as a link, image or
-mention, drops lines not in the diff, and withholds the whole output if it matches a secret
-pattern (checked before and after JSON decoding). Output that is not that JSON is posted
-truncated inside a code block. A skipped review is JSON with `"skipped": true`. It posts as a `COMMENT`, never
-`--approve` or `--request-changes`. On a re-review it reads the history file and looks at the
-diff since its own last review. If the default branch has no `post_review.py`, the post job writes a fixed notice instead. If the review job fails or times out, the post job still runs and writes a different fixed notice, so a missing review is visible on the PR.
+It posts **one review**. The model prints JSON with a severity per finding (`critical`,
+`major`, `minor`); `post_review.py` parses it and chooses the state, never the model:
+
+- Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each changed line
+  and a short body list for the rest. Only minor findings post `APPROVE`. A skipped notice, plain
+  output, a withheld secret, a malformed finding or a finding set aside by the round cap posts
+  `COMMENT`, never `APPROVE`.
+- Minor findings are never inline. They sit in one `Deferred` list of at most three lines plus a
+  count of the rest.
+- After two reviews on one PR, only critical findings still block; majors move to `Deferred`. The
+  poster counts rounds from a hidden marker in its own earlier reviews.
+- A clean re-review dismisses the bot's own earlier `REQUEST_CHANGES`.
+- GitHub may refuse a state (422): `APPROVE` while the repo setting "Allow GitHub Actions to
+  create and approve pull requests" is off, `REQUEST_CHANGES` on a PR the bot authored. The same
+  body is then posted as a `COMMENT`. Turning that setting on is an owner decision; until then a
+  clean run reads as a comment. An approval is one more agent review, not the owner's.
+
+`post_review.py` also caps findings (20, 400 chars each), removes URLs and HTML, escapes brackets,
+angle brackets and # so nothing renders as a link, image or mention, drops lines not in the diff,
+and withholds the whole output if it matches a secret pattern (checked before and after JSON
+decoding). Output that is not that JSON is posted truncated inside a code block. A skipped review
+is JSON with `"skipped": true`. On a re-review it reads the history file and looks at the diff
+since its own last review. If the default branch has no `post_review.py`, the post job writes a
+fixed notice instead. If the review job fails or times out, the post job still runs and writes a
+different fixed notice, so a missing review is visible on the PR.
 
 So when you see it:
 
-- **A "Blocking" verdict is a concern.** Handle it like red CI: fix it, or answer it in the
+- **A "Blocking" verdict (`REQUEST_CHANGES`) is a concern.** Handle it like red CI: fix it, or answer it in the
   thread. Never wave it through because the diff looked fine to you. It will not stop a merge
   — nothing about it is a required check in the merge sense; it is a person-shaped opinion
   from a bot.
