@@ -62,7 +62,11 @@ branch_merged() {
 }
 
 if [ ! -e "$worktree_path" ]; then
-  git worktree prune
+  # Never `git worktree prune`: it drops every worktree whose path looks missing, which in a
+  # sandbox mounting the repo elsewhere is every other task's.
+  if git worktree list --porcelain | grep -qxF "worktree $worktree_path"; then
+    git worktree remove "$worktree_path"
+  fi
   echo "worktree already gone: $worktree_path"
   if [ -n "$branch_arg" ]; then
     branch_name=$branch_arg
@@ -76,7 +80,7 @@ else
   real_worktree=$(cd "$worktree_path" && pwd -P)
   # A leftover directory that git does not know makes git -C resolve to the main checkout.
   if ! git worktree list --porcelain | grep -qxF "worktree $real_worktree"; then
-    echo "Cannot clean: $worktree_path is not a registered worktree; remove it by hand" >&2
+    echo "Cannot clean: $worktree_path is not a registered worktree under this path; check git worktree list, and git worktree repair if the repo moved" >&2
     exit 1
   fi
   case "$start_dir/" in

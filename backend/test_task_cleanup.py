@@ -1,4 +1,5 @@
 """scripts/task_cleanup.sh: idempotent per-task cleanup."""
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -293,3 +294,23 @@ def test_unregistered_directory_is_refused_before_deleting():
         assert returncode != 0, output
         assert "not a registered worktree" in output
         assert (stray / "backend" / ".venv").exists()
+
+
+def test_worktree_gone_does_not_unregister_other_worktrees():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        other_path, _ = make_task_worktree(repo, 3)
+        commit_in(other_path, "work.txt")
+        # A worktree whose directory looks missing, as when the repo is mounted elsewhere.
+        moved = Path(tmp_dir) / "moved-issue-3"
+        other_path.rename(moved)
+        _, branch = make_task_worktree(repo, 9)
+        shutil.rmtree(repo / ".claude" / "worktrees" / "issue-9")
+
+        output, returncode = run_cleanup(repo, 9)
+
+        assert returncode == 0, output
+        assert "worktree already gone" in output
+        listing = run_git("worktree", "list", "--porcelain", cwd=repo)
+        assert "issue-3" in listing
+        assert "issue-9" not in listing
