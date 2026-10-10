@@ -16,14 +16,11 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** **#266 is done: Task C merged (PR #297, `1391388` on `main`) and the issue is closed.** 2026-10-10 tick:
-  `post_review.py` now picks REQUEST_CHANGES, APPROVE or COMMENT from per-finding severity, defers minors, caps blocking
-  findings after round 2, falls back to COMMENT on a 422 and dismisses the bot's stale CHANGES_REQUESTED after a clean run.
-  The workflow file is untouched. Not deployed: the auto-mode classifier denied `scripts/deploy.sh`, and the change is
-  scripts, tests and docs only, so live stays `c59d7d7` with nothing missing from the app. Still open: the live throwaway-PR
-  check (deliberate bug, then fix push, then a third-round major under Deferred), which needs a working review model.
-  The home branch never merges to `main`.
-- **Next action:** pick the next `ready` item by rank. #291, #293, #295, #298 (P1) and #299 are `ready`, board order #291 first (#291 is workflow-only; #298 and #299 both edit `post_review.py`, so run them one after the other). #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
+- **Current focus:** **#291 is done: PR #300 merged (`ee02bb1` on `main`).** 2026-10-10 tick: the review workflow's model loop
+  now stops at the daily free-model limit and the skip notice says so, instead of repeating "rate limited" per model. Workflow
+  and tests only, so no deploy; live stays `c59d7d7`. Still open from #266: the live throwaway-PR check, which needs a working
+  review model. The home branch never merges to `main`.
+- **Next action:** pick the next `ready` item by rank. #293, #295, #298 (P1) and #299 are `ready`; #298 and #299 both edit `post_review.py`, so run them one after the other. #229's deferred day icons stay blocked on the owner's source artifact. #157 stays skipped (auth handling, no `approved`), #201 owner-lowest, #220-#223 `blocked`.
 - **#229 state, corrected:** it shipped as **PR #267, merged to `main` 2026-10-04** (`72bea5c`).
   Tasks 1, 2, 3, 5 and 6 are on `main`: the `icon` role scale with `accentDeep`/`muted3`/`tint()`,
   the `icon-scale.test.js` standing guard, `PngIcon` plus the three `IconNav*` components, the
@@ -34,7 +31,7 @@
   `docs/superpowers/plans/2026-10-03-design-review-findings.md` still asserts "#229 is
   unimplemented" and tells the reader not to file icon findings — **that premise is now false and
   must not be used to suppress new ones.** Fixing that document is part of #236's scope.
-- **Deploy gap:** none that matters. Live is `c59d7d7`; `e2c37a8`, `65f24fb` (#279), `102490a` (#290) and `1391388` (#297) are workflow, script, test and docs only, not in the app image. Local `main` is fast-forwarded to `1391388`.
+- **Deploy gap:** none that matters. Live is `c59d7d7`; `e2c37a8`, `65f24fb` (#279), `102490a` (#290), `1391388` (#297) and `ee02bb1` (#300) are workflow, script, test and docs only, not in the app image. Local `main` is fast-forwarded to `1391388`.
 - **Open Dependabot PRs, all green and MERGEABLE:** #251 (react group), #280 (actions/cache 6.1.0),
   #281 (jsdom), #282 (vite 8.3.2), #283 (vite-plugin-pwa 2.0.0, a major: it builds the service worker,
   so check the SW output before merging), #289 (source-map-js). #249, #250, #252-#254, #270 and #271 are gone from the open
@@ -61,10 +58,11 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#291** — claimed 2026-10-10T09:02:58Z, live session. Checkpoint: done @ 2026-10-10T09:27:28Z.
+(none)
 
 ## Needs owner
-- **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. After #279 and #290 the bot still skipped with free-model rate limits; #291 makes that legible. Decide on a model or key.
+- **Review bot has no working model.** `stealth/space-bunny-alpha` fails and both free nemotron models lack a no-training endpoint, so reviews are skipped and #266's severity prompt cannot be exercised live. After #279 and #290 the bot still skipped with free-model rate limits; #300 now says so in the skip notice. Decide on a model or key.
+- **`[unsure]` The PR reviewer cannot run tests**, so it can post a false Blocking verdict against green CI (seen on #300). Logged 2026-10-10; answer in the thread and merge on green, but decide if its prompt should say so.
 - **Decide whether Actions may approve PRs** (repo setting 'Allow GitHub Actions to create and approve pull requests', off now). #266's plan makes APPROVE fall back to COMMENT while it is off. Three `[template]` friction entries (2026-10-08) await cross-repo PRs.
 - **#231 is live (`088922f`).** The final head had no independent bot review (reviewer skipped, Codex at its limit); `[unsure]` entry
   in `IMPROVEMENTS.md` 2026-10-08. Four `[local]` friction entries from that tick are logged, not yet PRs.

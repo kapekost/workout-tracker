@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 92 -->
+<!-- last-reviewed-count: 95 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -100,3 +100,6 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-10: A cp of AGENTS.local.md into a fresh worktree is denied, and deploy.sh needs it under its own ROOT, so deploys must run from the shared checkout after a ff-only of main (#266 C).
 - [local] 2026-10-10: macOS BSD sed rejects 'sed -i' without a suffix, breaking inline mutation-test loops; use python edits (#266 C).
 - [local] 2026-10-10: DECISIONS.md says newest at the bottom but the first entry after the header is dated 2026-10-03, so where to append is unclear (#266 C).
+- [local] 2026-10-10: #291: macOS bash 3.2 has no mapfile, so loop-running workflow tests need a shim locally; CI bash 5 is unaffected.
+- [unsure] 2026-10-10: #291: the PR reviewer bot could not run tests and reasoned from the workflow text, posting a false Blocking verdict that contradicted green CI.
+- [local] 2026-10-10: #291: timeout is not available in the zsh tool shell, so bounding gh pr checks --watch needed polling with sleep.

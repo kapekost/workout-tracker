@@ -9,6 +9,26 @@
 
 ---
 
+## 2026-10-10 - Tick: #291 merged (review bot stops at the daily free-model limit, PR #300)
+
+**Pick.** Top ready item by board order; workflow script plus tests, effort S, `post_review.py` untouched. Housekeeping:
+GUARDRAILS.md on the home branch replaced with main's copy; STATE next action updated.
+
+**Execute.** The model loop in `opencode-review.yml` gets a `free-models-per-day` arm that records the reason once and
+stops, so the skip notice no longer repeats "rate limited" per model.
+
+**Review and ship.** The first review found three real defects: the arm sat after the broader "Rate limit" arm so it was
+unreachable, the break skipped the `review.txt` reset, and the test did not pin order. All fixed. A later bot
+CHANGES_REQUESTED claimed the new tests fail; that was false (Backend tests passed, 374) and was answered in the thread.
+CI green, merged as `ee02bb1`. No deploy: workflow and tests only, live stays `c59d7d7`.
+
+**Friction.** mapfile missing on macOS bash 3.2; reviewer bot reasoned without running tests; no `timeout` in the zsh tool
+shell. Three entries logged.
+
+**Cost (output tokens per stage).** reconcile 12471, pick 11310, claim 2599, execute 10211, review 20486, ship 3890.
+
+---
+
 ## 2026-10-10 - Tick: #266 Task C merged (review bot severity states, PR #297)
 
 **Pick.** #266 had been auto-closed again by PR #288's "Closes #266" with Task C outstanding; reopened it and reset
