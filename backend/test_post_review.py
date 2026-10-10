@@ -484,17 +484,35 @@ def test_approve_refused_with_422_is_reposted_as_comment(tmp_path, monkeypatch):
     assert run_main.rc == 0
 
 
-def test_request_changes_refused_with_422_is_reposted_as_comment(tmp_path, monkeypatch):
-    posted = run_main(tmp_path, monkeypatch, review([finding("major")]), responses=[REFUSED, Proc()])
-    assert [p["event"] for p in posted] == ["REQUEST_CHANGES", "COMMENT"]
-    assert posted[1]["body"].startswith("**BLOCKING**") and len(posted[1]["comments"]) == 1
-
-
-def test_a_refused_line_after_the_state_fallback_is_folded_into_the_body(tmp_path, monkeypatch):
-    posted = run_main(tmp_path, monkeypatch, review([finding("major", body="breaks")]),
+def test_request_changes_refused_with_422_is_reposted_as_comment_keeping_the_inline_lines(tmp_path, monkeypatch):
+    posted = run_main(tmp_path, monkeypatch, review([finding("major")]),
                       responses=[REFUSED, REFUSED, Proc()])
-    assert [p["event"] for p in posted] == ["REQUEST_CHANGES", "COMMENT", "COMMENT"]
-    assert posted[2]["comments"] == [] and "a.py:11 breaks" in posted[2]["body"]
+    assert [p["event"] for p in posted] == ["REQUEST_CHANGES", "REQUEST_CHANGES", "COMMENT"]
+    assert posted[2]["body"].startswith("**BLOCKING**") and len(posted[2]["comments"]) == 1
+
+
+def test_a_refused_line_is_folded_into_the_body_and_keeps_the_state(tmp_path, monkeypatch):
+    posted = run_main(tmp_path, monkeypatch, review([finding("major", body="breaks")]),
+                      responses=[REFUSED, Proc()])
+    assert [p["event"] for p in posted] == ["REQUEST_CHANGES", "REQUEST_CHANGES"]
+    assert posted[1]["comments"] == [] and "a.py:11 breaks" in posted[1]["body"]
+
+
+def test_a_folded_body_keeps_the_round_marker_last_so_the_round_is_counted(tmp_path, monkeypatch):
+    posted = run_main(tmp_path, monkeypatch, review([finding("major", body="breaks")]),
+                      responses=[REFUSED, Proc()])
+    folded = posted[1]["body"]
+    assert folded.endswith("<!-- review-round:1 -->")
+    assert folded.index("a.py:11 breaks") < folded.index("<!-- review-round")
+    assert pr.review_round([{"login": pr.BOT_LOGIN, "body": folded}]) == 2
+
+
+def test_state_and_line_both_refused_ends_as_a_comment_with_the_lines_folded(tmp_path, monkeypatch):
+    posted = run_main(tmp_path, monkeypatch, review([finding("major", body="breaks")]),
+                      responses=[REFUSED, REFUSED, REFUSED, Proc()])
+    assert [p["event"] for p in posted] == ["REQUEST_CHANGES"] * 2 + ["COMMENT"] * 2
+    assert posted[3]["comments"] == [] and "a.py:11 breaks" in posted[3]["body"]
+    assert run_main.rc == 0
 
 
 def test_a_non_422_failure_is_not_retried(tmp_path, monkeypatch):

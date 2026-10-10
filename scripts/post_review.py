@@ -337,26 +337,38 @@ def refused(r):
 
 
 def post_review(repo, pr, head_sha, body, comments, event):
-    """Posts the review and returns (result, event actually posted). A state GitHub refuses
-    (APPROVE while Actions may not approve, REQUEST_CHANGES on the bot's own PR) is retried
-    once as a COMMENT with the same body, then inline comments GitHub refuses are folded
-    into the body."""
+    """Posts the review and returns (result, event actually posted). GitHub answers 422 both
+    for a state it refuses (APPROVE while Actions may not approve, REQUEST_CHANGES on the
+    bot's own PR) and for an inline line it cannot place, so a refusal tries the lesser
+    change first: the same state with the comments folded into the body, then COMMENT with
+    the comments, then COMMENT with them folded."""
     url = f"repos/{repo}/pulls/{pr}/reviews"
 
     def attempt(ev, cs, text):
         return gh([url, "-X", "POST"],
                   {"commit_id": head_sha, "event": ev, "body": text, "comments": cs})
 
-    r = attempt(event, comments, body)
-    if refused(r) and event != "COMMENT":
-        print(f"GitHub refused {event}, posting as COMMENT: {(r.stderr + r.stdout).strip()}",
-              file=sys.stderr)
-        event = "COMMENT"
-        r = attempt(event, comments, body)
-    if refused(r) and comments:
+    folded_body = body
+    if comments:
         folded = [f"- {sanitize(c['path'], repo, 120)}:{c['line']} {c['body']}" for c in comments]
-        r = attempt(event, [], body + "\n\n**Blocking**\n" + "\n".join(folded))
-    return r, event
+        listing = "\n\n**Blocking**\n" + "\n".join(folded)
+        marker = ROUND_MARKER.search(body)
+        # The round marker must stay the last line or the round is not counted.
+        folded_body = (body[:marker.start()].rstrip() + listing + "\n\n" + marker.group().strip()
+                       if marker else body + listing)
+    tries = [(event, comments, body)]
+    if comments:
+        tries.append((event, [], folded_body))
+    if event != "COMMENT":
+        tries.append(("COMMENT", comments, body))
+        if comments:
+            tries.append(("COMMENT", [], folded_body))
+    for i, (ev, cs, text) in enumerate(tries):
+        r = attempt(ev, cs, text)
+        if not refused(r) or i == len(tries) - 1:
+            return r, ev
+        print(f"GitHub refused {ev} ({len(cs)} inline), trying a lesser form: "
+              f"{(r.stderr + r.stdout).strip()}", file=sys.stderr)
 
 
 def dismiss_stale(repo, pr, head_sha, reviews):
