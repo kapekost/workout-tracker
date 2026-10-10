@@ -34,13 +34,14 @@ def make_test_repo(tmp_path):
     """Create a test git repo with main branch and return the path."""
     repo = tmp_path / "test_repo"
     repo.mkdir()
-    run_git("init", cwd=repo)
+    run_git("init", "-b", "main", cwd=repo)
     run_git("config", "user.email", "test@example.com", cwd=repo)
     run_git("config", "user.name", "Test User", cwd=repo)
 
     # Create initial commit
     (repo / "README.md").write_text("# Test\n")
-    run_git("add", "README.md", cwd=repo)
+    (repo / ".gitignore").write_text(".venv/\nnode_modules/\n")
+    run_git("add", "README.md", ".gitignore", cwd=repo)
     run_git("commit", "-m", "initial", cwd=repo)
 
     return repo
@@ -66,12 +67,12 @@ def test_everything_present_is_cleaned_up():
         # Create worktree and branch
         worktree_path, branch = make_task_worktree(repo, issue_num)
 
-        # Create venv and node_modules in the worktree
-        venv_path = worktree_path / ".venv"
+        # Create venv and node_modules where this repo keeps them
+        venv_path = worktree_path / "backend" / ".venv"
         venv_path.mkdir(parents=True)
         (venv_path / "dummy").write_text("venv file")
 
-        node_path = worktree_path / "node_modules"
+        node_path = worktree_path / "frontend" / "node_modules"
         node_path.mkdir(parents=True)
         (node_path / "dummy").write_text("node file")
 
@@ -100,9 +101,10 @@ def test_everything_present_is_cleaned_up():
         branches = run_git("branch", "-a", cwd=repo)
         assert f"implement/issue-{issue_num}" not in branches
 
-        # Verify output contains action lines
-        lines = output.split("\n")
-        assert len(lines) > 0, f"Should print action lines, got: {output}"
+        assert "removed backend/.venv" in output
+        assert "removed frontend/node_modules" in output
+        assert "removed worktree" in output
+        assert f"removed branch {branch}" in output
 
 
 def test_everything_already_gone_is_idempotent():
@@ -118,8 +120,7 @@ def test_everything_already_gone_is_idempotent():
         # Should succeed even though nothing was cleaned
         assert returncode == 0, f"Should succeed on idempotent run, output: {output}"
 
-        # Output should indicate what was skipped/not found
-        # No error for missing worktree/branch
+        assert "worktree already gone" in output, f"Should say what it found, got: {output}"
 
 
 def test_dirty_worktree_is_refused():
@@ -132,8 +133,9 @@ def test_dirty_worktree_is_refused():
         # Create worktree and branch
         worktree_path, branch = make_task_worktree(repo, issue_num)
 
-        # Create uncommitted changes
+        # Create uncommitted changes and a venv that must survive the refusal
         (worktree_path / "dirty.txt").write_text("uncommitted")
+        (worktree_path / "backend" / ".venv").mkdir(parents=True)
 
         # Try to cleanup (should fail)
         output, returncode = run_cleanup(repo, issue_num)
@@ -141,12 +143,11 @@ def test_dirty_worktree_is_refused():
         # Should refuse with non-zero exit code
         assert returncode != 0, f"Should refuse dirty worktree, output: {output}"
         # Git worktree remove will catch the dirty state and report it
-        assert "uncommitted" in output.lower() or "dirty" in output.lower() or "changes" in output.lower() \
-            or "modified" in output.lower() or "untracked" in output.lower(), \
-            f"Should mention why it refused, got: {output}"
+        assert "uncommitted changes" in output, f"Should mention why it refused, got: {output}"
 
-        # Worktree should still exist
+        # Nothing is deleted before the refusal
         assert worktree_path.exists(), "Worktree should not be removed when refusing"
+        assert (worktree_path / "backend" / ".venv").exists(), "venv must survive a refusal"
 
 
 def test_unmerged_branch_is_refused():
@@ -171,10 +172,88 @@ def test_unmerged_branch_is_refused():
 
         # Should refuse with non-zero exit code
         assert returncode != 0, f"Should refuse unmerged branch, output: {output}"
-        assert "merge" in output.lower() or "unmerged" in output.lower(), \
-            f"Should mention the merge status, got: {output}"
+        assert "not shown to be merged" in output, f"Should mention the merge status, got: {output}"
 
         # Worktree and branch should still exist
         assert worktree_path.exists(), "Worktree should not be removed when refusing"
         branches = run_git("branch", "-a", cwd=repo)
         assert f"implement/issue-{issue_num}" in branches
+
+
+def commit_in(path, name):
+    (path / name).write_text(name)
+    run_git("add", name, cwd=path)
+    run_git("commit", "-m", name, cwd=path)
+
+
+def add_origin(repo, tmp_path):
+    """Give the repo an origin whose main it tracks, as a real checkout has."""
+    origin = tmp_path / "origin.git"
+    run_git("init", "--bare", "-b", "main", str(origin))
+    run_git("remote", "add", "origin", str(origin), cwd=repo)
+    run_git("push", "origin", "main", cwd=repo)
+    run_git("fetch", "origin", cwd=repo)
+
+
+def test_squash_merged_branch_is_cleaned_up():
+    """The repo merges with --squash, so the branch is never an ancestor of main."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        repo = make_test_repo(tmp_path)
+        add_origin(repo, tmp_path)
+        worktree_path, branch = make_task_worktree(repo, 7)
+        commit_in(worktree_path, "feature.txt")
+
+        run_git("merge", "--squash", branch, cwd=repo)
+        run_git("commit", "-m", "squashed", cwd=repo)
+        run_git("push", "origin", "main", cwd=repo)
+        run_git("fetch", "origin", cwd=repo)
+
+        output, returncode = run_cleanup(repo, 7)
+
+        assert returncode == 0, output
+        assert not worktree_path.exists()
+        assert f"removed branch {branch}" in output
+        assert branch not in run_git("branch", cwd=repo)
+
+
+def test_branch_is_read_from_the_worktree():
+    """A task branch need not be named implement/issue-<n>."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        worktree_path = repo / ".claude" / "worktrees" / "issue-8"
+        worktree_path.parent.mkdir(parents=True)
+        run_git("worktree", "add", str(worktree_path), "-b", "implement/task-cleanup", cwd=repo)
+
+        output, returncode = run_cleanup(repo, 8)
+
+        assert returncode == 0, output
+        assert "removed branch implement/task-cleanup" in output
+        assert "implement/task-cleanup" not in run_git("branch", cwd=repo)
+
+
+def test_run_from_inside_the_worktree_is_refused():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        worktree_path, _ = make_task_worktree(repo, 9)
+
+        output, returncode = run_cleanup(worktree_path, 9)
+
+        assert returncode != 0, output
+        assert "main checkout" in output
+        assert worktree_path.exists()
+
+
+def test_worktree_gone_with_unmerged_branch_is_refused():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        worktree_path, branch = make_task_worktree(repo, 10)
+        commit_in(worktree_path, "work.txt")
+        run_git("worktree", "remove", str(worktree_path), cwd=repo)
+
+        output, returncode = run_cleanup(repo, 10)
+
+        assert returncode != 0, output
+        assert "worktree already gone" in output
+        assert "not shown to be merged" in output
+        assert branch in run_git("branch", cwd=repo)
