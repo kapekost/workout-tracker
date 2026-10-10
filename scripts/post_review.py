@@ -58,13 +58,16 @@ def sanitize(text, repo, limit):
 
 
 def extract_json(text):
-    """The verdict, or None. The output must be exactly one JSON object, optionally inside
-    one code fence. Prose around it, a second object, or a verdict nested in a longer object
-    makes the output unstructured, so text a misled model quotes from the PR cannot replace
-    the real answer."""
+    """The verdict, or None. The output is either one JSON object, or prose around exactly
+    one code fence holding one JSON object. A second fence, an unclosed fence, a second
+    object, or a verdict nested in a longer object makes the output unstructured, so text a
+    misled model quotes from the PR cannot replace the real answer."""
     text = text[:MAX_INPUT].lstrip("\ufeff").strip()
-    if text.startswith(FENCE) and text.endswith(FENCE) and len(text) >= 2 * len(FENCE):
-        text = text[len(FENCE):-len(FENCE)].strip().removeprefix("json")
+    parts = text.split(FENCE)
+    if len(parts) == 3:
+        text = parts[1].strip().removeprefix("json")
+    elif len(parts) != 1:
+        return None
     try:
         obj = json.loads(text)
     except (ValueError, RecursionError):
