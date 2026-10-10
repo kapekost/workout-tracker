@@ -187,6 +187,12 @@ jobs:
           # load AGENTS.md as instructions). Missing files just leave the copy empty.
           git show "origin/$DEFAULT_BRANCH:AGENTS.md" > .review-input/base-AGENTS.md 2>/dev/null || true
           git show "origin/$DEFAULT_BRANCH:docs/orchestration/GUARDRAILS.md" > .review-input/base-GUARDRAILS.md 2>/dev/null || true
+          # The verdict check runs this copy, never the checkout's: the step that runs the model
+          # holds OPENROUTER_API_KEY, and the checkout is editable by the PR author. It lives
+          # outside the checkout because a committed directory at the same path would be run
+          # as a package by python.
+          git show "origin/$DEFAULT_BRANCH:scripts/post_review.py" > "$RUNNER_TEMP/post_review.py" 2>/dev/null \
+            || rm -f "$RUNNER_TEMP/post_review.py"
           chmod -R a-w . 2>/dev/null || true
 
       - name: Run the review
@@ -227,8 +233,8 @@ jobs:
               to. Merge, push, deploy, edit files, comment on Issues: never.
 
             You are an **extra automated reviewer**. Not a gate, not a human sign-off. Your
-            output is posted as an ordinary comment under this bot's login; it is not the
-            owner's approval and never grants the `approved` label.
+            output is posted as a review under this bot's login; it is not the owner's
+            approval and never grants the `approved` label.
 
             Being right matters more than being long. **The length rules below govern the
             report, not the search.** Look for bugs, regressions, missing tests, broken
@@ -257,10 +263,23 @@ jobs:
 
             ## 2. Report only what a reader would act on
 
-            **Blocking**: bugs, regressions, security, data loss, broken types, missing
-            tests, performance bottlenecks, docs asserting something untrue, and any
-            earlier finding still unaddressed. Each needs the concrete failure it causes.
-            **Not blocking**: style, naming, taste. Mark these `"blocking": false`.
+            Give every finding a `severity`:
+
+            - `critical`: a realistic failure in the shipped behaviour with a concrete
+              trigger: data loss, a wrong result, a crash, auth or secret exposure, or a
+              gate that does not gate.
+            - `major`: a real defect with lower reach: a missing test for changed
+              behaviour, a doc asserting something untrue, a regression on a rare path, or
+              an earlier finding still unaddressed.
+            - `minor`: everything else, including style, naming, taste, speculative or
+              edge-case hardening of a path no caller reaches, and retry-path polish.
+
+            Each `critical` or `major` finding names the input or state that triggers it.
+            If you cannot name one, the finding is `minor`. `critical` and `major` ask for
+            changes; `minor` findings are only listed as deferred. After a PR's second
+            review round the poster defers every `major` too, so only `critical` findings
+            still block.
+
             Before writing any claim, read the line, test or doc it is about. On 2026-10-03 a
             review of this repo produced four false Criticals that were true only on a stale
             base branch. If the default branch's `AGENTS.md` or `GUARDRAILS.md` already permits
@@ -275,11 +294,14 @@ jobs:
 
                 {"summary": "<one line, max 150 chars>",
                  "findings": [
-                   {"file": "path/from/repo/root", "line": 42, "blocking": true,
+                   {"file": "path/from/repo/root", "line": 42, "severity": "critical|major|minor",
+                    "blocking": true,
                     "body": "<one line: what breaks and the failure it causes, max 300 chars>"}
                  ],
                  "notes": ["<only what you could not verify, one line each>"]}
 
+            - `blocking` is derived from `severity`: true for `critical` and `major`, false
+              for `minor`.
             - `line` is a line number in the **new** version of the file, on a line the diff
               added or kept as context. Never invent one; if you cannot give a real line,
               leave `line` out.
@@ -300,27 +322,18 @@ jobs:
           set +e
           set -uo pipefail
           : > "$RUNNER_TEMP/skip-reasons.txt"
-          # A usable verdict: a JSON object with a findings list and a real (non-placeholder) summary.
+          # One definition of a usable verdict: the default branch's post_review.py decides, so the
+          # check and the poster cannot drift. A missing copy, or exit 2 from a poster that predates
+          # --check-verdict, accepts any non-empty output and leaves the rendering to the post job.
+          CHECKER="$RUNNER_TEMP/post_review.py"
           has_verdict() {
-            python3 - "$1" <<'PY'
-          import json, sys
-          text = open(sys.argv[1], errors="replace").read()[:50000]
-          dec = json.JSONDecoder()
-          i = text.find("{")
-          for _ in range(40):
-              if i == -1:
-                  break
-              try:
-                  obj, _end = dec.raw_decode(text, i)
-                  s = obj.get("summary") if isinstance(obj, dict) else None
-                  if (isinstance(obj, dict) and isinstance(obj.get("findings"), list)
-                          and isinstance(s, str) and s.strip() and not s.lstrip().startswith("<")):
-                      sys.exit(0)
-              except (ValueError, RecursionError):
-                  pass
-              i = text.find("{", i + 1)
-          sys.exit(1)
-          PY
+            local rc
+            [ -s "$1" ] || return 1
+            [ -f "$CHECKER" ] || return 0
+            python3 -I "$CHECKER" --check-verdict "$1"
+            rc=$?
+            if [ "$rc" -eq 2 ]; then return 0; fi
+            return "$rc"
           }
           MODEL_TIMEOUT_SECS=900
           for model in stealth/space-bunny-alpha \
