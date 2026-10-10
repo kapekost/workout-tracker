@@ -16,11 +16,11 @@ def run_git(*args, cwd=None):
     return result.stdout.strip()
 
 
-def run_cleanup(repo_path, issue_num):
+def run_cleanup(repo_path, issue_num, *extra):
     """Run task_cleanup.sh and return combined output (stdout + stderr) and exit code."""
     script = Path(__file__).resolve().parent.parent / "scripts" / "task_cleanup.sh"
     result = subprocess.run(
-        ["bash", str(script), str(issue_num)],
+        ["bash", str(script), str(issue_num), *extra],
         cwd=repo_path,
         capture_output=True,
         text=True
@@ -142,7 +142,6 @@ def test_dirty_worktree_is_refused():
 
         # Should refuse with non-zero exit code
         assert returncode != 0, f"Should refuse dirty worktree, output: {output}"
-        # Git worktree remove will catch the dirty state and report it
         assert "uncommitted changes" in output, f"Should mention why it refused, got: {output}"
 
         # Nothing is deleted before the refusal
@@ -257,3 +256,40 @@ def test_worktree_gone_with_unmerged_branch_is_refused():
         assert "worktree already gone" in output
         assert "not shown to be merged" in output
         assert branch in run_git("branch", cwd=repo)
+
+
+def test_worktree_gone_with_unlisted_branch_says_branch_unknown():
+    """Never report a branch as gone when only a guessed name was checked."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        worktree_path = repo / ".claude" / "worktrees" / "issue-11"
+        worktree_path.parent.mkdir(parents=True)
+        run_git("worktree", "add", str(worktree_path), "-b", "implement/foo", cwd=repo)
+        commit_in(worktree_path, "work.txt")
+        run_git("worktree", "remove", str(worktree_path), cwd=repo)
+
+        output, returncode = run_cleanup(repo, 11)
+
+        assert returncode == 0, output
+        assert "branch unknown" in output
+        assert "branch already gone" not in output
+        assert "implement/foo" in run_git("branch", cwd=repo)
+
+        output, returncode = run_cleanup(repo, 11, "implement/foo")
+
+        assert returncode != 0, output
+        assert "not shown to be merged" in output
+        assert "implement/foo" in run_git("branch", cwd=repo)
+
+
+def test_unregistered_directory_is_refused_before_deleting():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        stray = repo / ".claude" / "worktrees" / "issue-12"
+        (stray / "backend" / ".venv").mkdir(parents=True)
+
+        output, returncode = run_cleanup(repo, 12)
+
+        assert returncode != 0, output
+        assert "not a registered worktree" in output
+        assert (stray / "backend" / ".venv").exists()

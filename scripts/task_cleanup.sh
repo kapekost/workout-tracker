@@ -2,23 +2,28 @@
 set -euo pipefail
 
 # task_cleanup.sh: idempotent per-task cleanup
-# Usage: task_cleanup.sh <issue-number>
+# Usage: task_cleanup.sh <issue-number> [branch]
 #
 # Removes what a task created, prints one line per action:
 # - its venv and node_modules inside the worktree
 # - the worktree at .claude/worktrees/issue-<n>
 # - its local branch, once the branch is shown to be merged
 #
+# The branch is read from the worktree. Once the worktree is gone it cannot be read,
+# so pass it as the second argument; without one the script tries implement/issue-<n>
+# and says when it has no branch to report on.
+#
 # Exits 0 when nothing is left to do. Exits 1, before deleting anything, when the
-# worktree has uncommitted changes, the branch is not shown to be merged, or the
-# script runs from inside the worktree it would remove.
+# worktree has uncommitted changes or is not a registered worktree, the branch is not
+# shown to be merged, or the script runs from inside the worktree it would remove.
 
-if [ $# -ne 1 ]; then
-  echo "Usage: task_cleanup.sh <issue-number>" >&2
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+  echo "Usage: task_cleanup.sh <issue-number> [branch]" >&2
   exit 1
 fi
 
 issue_num=$1
+branch_arg=${2:-}
 
 # The common dir is the main checkout's .git even when run from a linked worktree,
 # where --show-toplevel would name the worktree itself.
@@ -59,9 +64,21 @@ branch_merged() {
 if [ ! -e "$worktree_path" ]; then
   git worktree prune
   echo "worktree already gone: $worktree_path"
-  branch_name="implement/issue-$issue_num"
+  if [ -n "$branch_arg" ]; then
+    branch_name=$branch_arg
+  elif git rev-parse --verify --quiet "implement/issue-$issue_num" > /dev/null; then
+    branch_name="implement/issue-$issue_num"
+  else
+    branch_name=""
+    echo "branch unknown: no worktree to read it from; pass it as the second argument"
+  fi
 else
   real_worktree=$(cd "$worktree_path" && pwd -P)
+  # A leftover directory that git does not know makes git -C resolve to the main checkout.
+  if ! git worktree list --porcelain | grep -qxF "worktree $real_worktree"; then
+    echo "Cannot clean: $worktree_path is not a registered worktree; remove it by hand" >&2
+    exit 1
+  fi
   case "$start_dir/" in
     "$real_worktree"/*)
       echo "Cannot clean: run this from the main checkout, not from inside $worktree_path" >&2
