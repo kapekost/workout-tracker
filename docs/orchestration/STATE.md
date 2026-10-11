@@ -16,10 +16,10 @@
 - **Project:** Workout Tracker
 - **Current focus:** live is `1b1284d` (schema v7), deployed 2026-10-11. #229 shipped (PRs #267, #319).
   Housekeeping after the 2026-10-11 owner decisions (see `DECISIONS.md`).
-- **Next action, in order:** #316 (`post_review` zero-width tokens and loose secret pattern; needs
-  `security-ai-reviewer` before merge), #272 (owner confirms the header on the phone, then close),
-  #157 (forgot-password timing; auth, so reviewer agent required), then intake shaping for #317
-  (changelog popup) and #269 (review-bot reliability).
+- **Next action, in order:** #269 (review-bot reliability; first PR #323, later PRs for items 3, 5, 6
+  and the timeout label), #317 (changelog popup; needs an expert UI agent check at phone widths),
+  then the kapekost-web model-list sync (its PR #92). #316, #157 and #272 are done; #322 (backend)
+  is on `main` but not deployed.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -31,8 +31,6 @@
 - **Create the limited OpenRouter key** for the reviewer. In the OpenRouter dashboard: new key,
   credit limit set low (or credits that cannot charge extra), free models only, then store it as the
   repo secret the review workflow reads. The agent never handles the key value.
-- **Confirm #272 on the phone.** PWA: force-quit and reopen, footer shows `v 1b1284d`, header
-  holds at 320px.
 - **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`
   gates itself on an owner skim before either Issue is split. #33 merged into #32; #171 (domain
   agents) lands before #32 is sequenced. The spec needs those folded in first. Both stay `intake`.
