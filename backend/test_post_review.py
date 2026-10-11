@@ -446,6 +446,7 @@ def run_main(tmp_path, monkeypatch, text, reviews=None, responses=None, model=""
     monkeypatch.setattr(pr, "gh", fake_gh)
     monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
     monkeypatch.setattr(pr, "pr_reviews", lambda repo, n: reviews)
+    monkeypatch.setattr(pr, "block_touched", lambda *a: True)
     monkeypatch.setenv("REVIEW_MODEL", model)
     run_main.rc = pr.main(["post_review.py", "7", REPO, "abcdef1234567", str(path)])
     run_main.calls = calls
@@ -633,6 +634,7 @@ def test_dismissal_failure_does_not_fail_the_job(tmp_path, monkeypatch, capsys):
                         if args[0].endswith("/dismissals") else Proc())
     monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
     monkeypatch.setattr(pr, "pr_reviews", lambda repo, n: [bot_review(10, "CHANGES_REQUESTED")])
+    monkeypatch.setattr(pr, "block_touched", lambda *a: True)
     assert pr.main(["post_review.py", "7", REPO, "abcdef1234567", str(path)]) == 0
     assert "::warning::could not dismiss review 10: HTTP 403 ::stop-commands::x" in capsys.readouterr().out
 
@@ -684,3 +686,31 @@ def test_a_token_split_by_a_tag_is_withheld_after_sanitizing():
     for f in (finding("minor", body="leak sk-<i>or-v1-abc"), finding("major", body="leak sk-<i>or-v1-abc")):
         r = built([f])
         assert r.kind == "plain" and r.body == pr.WITHHELD
+
+
+def stub_api_lines(monkeypatch, commented, changed):
+    monkeypatch.setattr(pr, "api_lines", lambda repo, path, jq: commented if "comments" in path else changed)
+
+
+def test_a_block_is_dismissed_only_when_the_push_touched_a_file_it_commented_on(monkeypatch):
+    rev = {"id": 10, "commit_id": "old"}
+    stub_api_lines(monkeypatch, {"a.py", "b.py"}, {"b.py", "c.py"})
+    assert pr.block_touched(REPO, 7, rev, "head")
+    stub_api_lines(monkeypatch, {"a.py"}, {"c.py"})
+    assert not pr.block_touched(REPO, 7, rev, "head")
+
+
+def test_a_block_with_no_inline_comment_or_an_unreadable_compare_stands(monkeypatch):
+    rev = {"id": 10, "commit_id": "old"}
+    stub_api_lines(monkeypatch, set(), {"a.py"})
+    assert not pr.block_touched(REPO, 7, rev, "head")
+    stub_api_lines(monkeypatch, {"a.py"}, set())
+    assert not pr.block_touched(REPO, 7, rev, "head")
+
+
+def test_an_untouched_block_is_not_dismissed_by_a_clean_review(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pr, "gh", lambda args, payload=None: calls.append(args) or Proc())
+    monkeypatch.setattr(pr, "block_touched", lambda *a: False)
+    pr.dismiss_stale(REPO, 7, "abcdef1234567", [bot_review(10, "CHANGES_REQUESTED")])
+    assert calls == []
