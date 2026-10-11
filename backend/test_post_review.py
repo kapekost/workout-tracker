@@ -647,3 +647,34 @@ def test_plain_output_is_an_issue_comment_without_any_review_call(tmp_path, monk
     posted = run_main(tmp_path, monkeypatch, "prose", reviews=[bot_review(10, "CHANGES_REQUESTED")])
     assert posted == [] and run_main.calls[0][0][0].endswith("/issues/7/comments")
     assert dismissals(run_main.calls) == []
+
+
+def test_a_finding_on_a_file_the_pr_did_not_change_is_dropped_and_blocks_nothing():
+    r = built([{"file": "AGENTS.md", "body": "deleted", "severity": "major"}])
+    assert r.event == "COMMENT" and r.counts["dropped"] == 1 and r.counts["major"] == 0
+
+
+def test_without_a_pr_file_list_findings_on_any_file_are_kept():
+    r = pr.build(review([finding("major")]), {}, REPO)
+    assert r.event == "REQUEST_CHANGES" and r.counts["dropped"] == 0
+
+
+def test_a_path_with_a_dot_slash_or_whitespace_still_matches_a_changed_file():
+    for path in ("./a.py", " a.py "):
+        r = built([finding("major", file=path)])
+        assert r.event == "REQUEST_CHANGES" and r.counts["dropped"] == 0
+        assert [c["path"] for c in r.comments] == ["a.py"]
+
+
+def stub_files(monkeypatch, stdout, returncode=0):
+    monkeypatch.setattr(pr.subprocess, "run", lambda *a, **k: Proc(returncode, stdout=stdout))
+
+
+def test_pr_patches_keeps_a_renamed_files_old_name(monkeypatch):
+    stub_files(monkeypatch, json.dumps({"filename": "new.py", "previous_filename": "old.py", "patch": "p"}))
+    assert pr.pr_patches(REPO, 7) == {"new.py": "p", "old.py": "p"}
+
+
+def test_pr_patches_returns_nothing_when_a_row_is_malformed(monkeypatch):
+    stub_files(monkeypatch, json.dumps({"filename": "a.py", "patch": "p"}) + "\nnot json\n")
+    assert pr.pr_patches(REPO, 7) == {}
