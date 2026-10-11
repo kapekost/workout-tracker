@@ -218,6 +218,13 @@ Neither is filed as an issue in this repo, because neither is this repo's to fix
 host is shared infrastructure. They are recorded here so the honest answer to "what is
 backed up?" isn't mistaken for "the app is backed up, so the box is".
 
+## Password hashes are in every backup
+
+The export envelope includes `profiles.password_hash` (owner decision, 2026-10-11: accepted, not
+stripped). Treat every backup file as a credential store. An envelope that lacks hashes, such as one
+from before passwords existed, restores with nobody able to log in; users then sign back in through
+forgot-password, and the owner uses `scripts/bootstrap_owner.py`.
+
 ## Known gaps
 
 Tracked, not forgotten:
