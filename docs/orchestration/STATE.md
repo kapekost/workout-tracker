@@ -1,82 +1,48 @@
 # Orchestration State
 
-> Single-owner cursor for `/orchestrate`. Only the orchestration home branch may edit the sections
-> below; a feature branch must never touch this file. **Hard budget: ~250 lines.** Every tick reads
-> this file first, so its cost is per-tick and compounding — that is what keeping it bounded is for.
+> Single-owner cursor for `/orchestrate`. **Hard budget: ~250 lines.** Every tick reads this file
+> first, so its cost is per-tick and compounding. It lives on `main` and changes through a
+> short-lived branch and PR. The former home branch is retired; it is kept as the tag
+> `archive/orchestration-home-2026-10-11` (full tick history in its `HISTORY.md`).
 >
-> **Home branch:** `claude/workout-tracker-backlog-bu9qnw` — the real orchestration state (Cursor,
-> In-flight, Needs owner) lives there, not below. This `main` copy exists only so scripts run from
-> a plain `main` checkout (e.g. `create_issue.sh`, `orchestrate_status.sh`) can resolve the home
-> branch/Project pointers without a git worktree. Do not fill in the Cursor/In-flight sections below
-> from `main` — they are not kept current here by design (see `PLAYBOOK.md` step 1).
 > **Project number:** 3
 > **Project owner:** kapekost
 >
-> **This file keeps no Tick log.** Each tick's write-back goes straight to `HISTORY.md` — prepended
-> at the top, verbatim, per PLAYBOOK step 7 — and Cursor's "Current focus" carries the live summary
-> instead. Resolved Needs-owner items move to `HISTORY.md` the same way. A "keep the last 2-3 ticks"
-> rule was tried first here and still regrew past budget, since Cursor and Needs-owner grow on their
-> own regardless of the tick log; keeping no tick log at all, rather than a rolling window, is what
-> actually stops it recurring. `DECISIONS.md` is separate and is never compacted.
+> **This file keeps no Tick log.** Each tick's write-back goes to `HISTORY.md`, prepended at the
+> top. Resolved Needs-owner items move to `HISTORY.md` the same way. `DECISIONS.md` is never
+> compacted.
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** Accounts, continued. Since this cursor was last updated, **#84** (schema v6 +
-  auth core) and **#85** (Resend invite/reset, rate limiting, owner bootstrap) both shipped and
-  merged — the standing approval recorded below covered both. The owner then personally found and
-  filed a real cross-profile data leak (reads were never scoped to a profile, only writes were,
-  since #66) and it shipped same-day as **#110** (merged via #112): a single `acting_profile_id(conn)`
-  seam now scopes every read and 404s cross-profile `PATCH`/`DELETE`, independently of login. That
-  makes **#86** smaller than its issue body still says (comment posted narrowing it to: swap the
-  seam's body for a real session lookup, delete `_default_profile_id`, trim `/api/health`, gate
-  `/api/events`, add the frontend route guard + 401 handler). #86 also had its login/set-password
-  *screens* split out into new **#105** on 2026-09-05, so the UI can be used and proven before the
-  gate closes — #86 now only turns the door. Housekeeping shipped in the same window: backup
-  heartbeat → status file + weekly cron (#88), local/off-site backup status split apart (#93),
-  off-site Google Drive backups re-authorized and working but still on a 7-day clock the owner
-  deliberately deferred fixing (#94), active alerting deferred (#89), a CI secrets/env-file scan
-  (#111), deploy env vars moved to a target-side `.env` (#108), a Resend User-Agent/error-message
-  fix (#109). Owner deprioritized **#27** (public access) to P3 (2026-09-05): it waits until the
-  accounts system has been used for real, not just tested in CI. Intake otherwise unchanged:
-  #30/#32/#33 have specs but no `ready` children; #70 unshaped.
-- **Process note:** none of the above (10+ merged PRs, #101 through #112) was ever written back to
-  this Cursor/Tick log — reconstructed this tick from `git log` and live GitHub issue/comment state,
-  which were themselves current and consistent throughout. Only this file had drifted. Full
-  reconstruction is in this tick's log entry below.
-- **Next action:** **#105 is executing** under the standing approval recorded in `DECISIONS.md`
-  (2026-09-05, "Standing approval: the accounts workstream (#105, #86, #87)"), which names it
-  explicitly. The owner re-confirmed that reading live this tick. **No `approved` label was added by
-  the runner and none is needed** — that is exactly what the standing-approval mechanism provides.
-  #86 → #87 stay blocked behind it and are covered by the same record when their turn comes.
-
-  **Correction, same tick:** an earlier pass of this file (and PR #113 before it) reported that no
-  standing approval existed and that #105 was blocked on `/orchestrate approve 105`. That was wrong,
-  and the reason it was wrong is the finding below.
-
-  **This tick took the intake track** since the `ready` track was blocked: picked #30 (highest-ranked
-  intake after #27, which the owner deferred to P3). It stays `intake` — its spec exists and is
-  complete, but the spec's own Status block gates splitting on an owner skim that has not happened.
-  Refreshed that spec instead (#114, merged) so the skim lands against reality: it still named the
-  superseded #67 as its login dependency and still told an executor to scope rows with
-  `_default_profile_id`, the exact call site #86 exists to delete. Also learned the dependency is
-  narrower than the spec assumed — #110 shipped per-profile scoping independently of login, so
-  #30/#32 wait only on #86 swapping the `acting_profile_id(conn)` seam to a session lookup.
+- **Current focus:** live is `1b1284d` (schema v7), deployed 2026-10-11. #229 shipped (PRs #267, #319).
+  Housekeeping after the 2026-10-11 owner decisions (see `DECISIONS.md`).
+- **Next action, in order:** #316 (`post_review` zero-width tokens and loose secret pattern; needs
+  `security-ai-reviewer` before merge), #272 (owner confirms the header on the phone, then close),
+  #157 (forgot-password timing; auth, so reviewer agent required), then intake shaping for #317
+  (changelog popup) and #269 (review-bot reliability).
 
 ## Stop-condition
 (none — runner proceeds normally)
 
 ## In-flight
-(no branches in flight)
+(none)
 
 ## Needs owner
-- **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/
-  2026-08-31-ai-structured-io-design.md` (refreshed and current as of #114) gates itself on an
-  owner skim before either Issue may be split into `ready` children; every fork-in-the-road
-  question in it was already answered by owner Q&A on 2026-08-30. **2026-09-06:** #33 (nutrition)
-  merged into #32 by direct owner decision, so the spec now needs the nutrition/in-app-AI-query
-  scope folded in *before* the skim means anything. Until then #30/#32 stay `intake`.
-
-For everything else currently open, see `STATE.md` on the orchestration home branch
-(`claude/workout-tracker-backlog-bu9qnw`) — this file lags it by design (`DECISIONS.md`
-2026-09-04) and is refreshed only periodically via `copier update`/manual sync, most recently
-2026-09-10. The Cursor section above is similarly a snapshot, not a live status.
+- **Create the limited OpenRouter key** for the reviewer. In the OpenRouter dashboard: new key,
+  credit limit set low (or credits that cannot charge extra), free models only, then store it as the
+  repo secret the review workflow reads. The agent never handles the key value.
+- **Confirm #272 on the phone.** PWA: force-quit and reopen, footer shows `v 1b1284d`, header
+  holds at 320px.
+- **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`
+  gates itself on an owner skim before either Issue is split. #33 merged into #32; #171 (domain
+  agents) lands before #32 is sequenced. The spec needs those folded in first. Both stay `intake`.
+- **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
+  If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
+- **Dockerfile `COPY` list can drift from a new module import** with no CI signal (twice so far).
+  A CI step that builds the Dockerfile, or a static import check, would catch it. Owner's call.
+- **Per-day colors in `workoutPlan.js`** (`lower_a`, `upper_b`, `lower_b`) read vivid against the
+  Mono+Volt surfaces. Keep as intentional day identity, or file a follow-up?
+- **Three `[template]` improvements** for `agent-scaffold` need a cross-repo credential per
+  GUARDRAILS before an agent may open a PR there. See `IMPROVEMENTS.md`.
+- **`deploy.sh` `eval`s a gitignored file** its dirty-tree gate cannot see; the container runs as
+  root with no compose limits and unhashed requirements.

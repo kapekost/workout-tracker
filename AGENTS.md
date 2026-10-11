@@ -447,11 +447,11 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-04. Live is `e8d7335`, deployed from `main` by the owner._
+_Last updated: 2026-10-11. Live is `1b1284d`, deployed from `main` by the owner._
 
-**Running now:** commit `e8d7335`, `/api/health` `{"status":"ok","version":"e8d7335"}`.
-**Schema v7**, unchanged since 2026-10-03. `main` has since moved on with commits that
-change no app behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
+**Running now:** commit `1b1284d`, `/api/health` `{"status":"ok","version":"1b1284d"}` (verified at deploy, 2026-10-11).
+**Schema v7**, unchanged since 2026-10-03. `main` may move on with commits that change no app
+behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 
 **The login gate is ON** (#86). Verified live on 2026-10-03: an anonymous caller gets `401`
 from `/api/sessions`, `/api/export`, `/api/notes` and `/api/plan`. Not re-checked on
@@ -517,16 +517,11 @@ update. The three 2026-10-03 auth fixes have only been code-inspected plus regre
 
 **Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual.
 
-**Needs an owner call:**
-- The orchestration home branch. As of 2026-10-03, `STATE.md:7` pointed at
-  `claude/workout-tracker-backlog-bu9qnw`, which had diverged and sat 59 commits behind
-  `main`. Either merge `main` into it or re-point `STATE.md`. Re-check before relying on it.
-- The `password_hash`-in-exports decision (in `DECISIONS.md`, 2026-10-03). It needs a fresh
-  restore drill as well.
-- Whether the review models may see private code. They are free OpenRouter models that
-  may log prompts, and `data_collection: deny` is not zero retention.
-- A dedicated, spend-capped OpenRouter key for the reviewer. The model's process holds the
-  current key.
+**Needs an owner call:** create a dedicated, spend-capped OpenRouter key for the reviewer (the
+model's process holds the current key). Steps are in `docs/orchestration/STATE.md`.
+
+Decided 2026-10-11 (see `docs/orchestration/DECISIONS.md`): `STATE.md` lives on `main` and the old
+home branch is archived as a tag; `password_hash` stays in exports; review models may see the code.
 
 **Still open:** `deploy.sh` `eval`s a gitignored file its dirty-tree gate cannot see; the
 container runs as root with no compose limits and unhashed requirements. Details in

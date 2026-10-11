@@ -6,11 +6,8 @@
 > write is how an entry ends up in the wrong place, and this file is a log, not a set of slides.)
 > Format: `## <date> — <short title>` then 1-3 sentences of the decision + why.
 
-> **Note:** this file is mirrored from the orchestration home branch
-> (`claude/workout-tracker-backlog-bu9qnw`), which is the source of truth and is not merged to
-> `main` (2026-09-04 decision on that branch). `main`'s copy lags — entries here may be missing
-> intermediate decisions recorded on the home branch. Read the home branch directly for the full,
-> current log.
+> **Note:** the former orchestration home branch is retired (2026-10-11). This file on `main` is
+> the source of truth. The old branch is kept as the tag `archive/orchestration-home-2026-10-11`.
 
 ## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
 
@@ -637,3 +634,45 @@ one, so `APPROVE` stays optional: the repo setting that allows it is an owner de
 This supersedes the 2026-10-03 line that the bot "posts a comment, not a review state": the model
 still holds no token, but the `post` job does. No review state gates a merge (2026-10-05), and a
 `REQUEST_CHANGES` is handled like red CI.
+
+## 2026-10-05 — No branch protection on `main`, by choice
+
+The repo is public, so GitHub would allow branch protection on `main` for free, and a
+review of the CI setup recommended it (required checks plus code-owner review). The owner
+chose to leave it off. Agents keep merging their own PRs once `gh pr checks --watch
+--fail-fast` passes, as "Merge & branch rules" in `GUARDRAILS.md` describes.
+
+What that leaves open, stated so nobody assumes otherwise: `.github/CODEOWNERS` has no effect
+without protection, so an agent PR can change `.github/`, `.claude/` or `GUARDRAILS.md` and
+merge on green CI with no human approval. The controls are the agent's own guardrails, the
+review bot (a comment, not a gate) and the owner reading merged PRs. Revisit if an agent
+ever merges a change to those paths that the owner did not expect.
+
+## 2026-10-11 — Orchestration home branch retired; STATE.md lives on main
+
+`claude/workout-tracker-backlog-bu9qnw` had diverged from `main` (the 2026-10-03 trap) and its
+state files drifted from `main`'s. kapekost-web keeps `STATE.md` on `main` with no home-branch
+field, so this repo now does the same. The branch is archived as the tag
+`archive/orchestration-home-2026-10-11` (full tick history in its `HISTORY.md`), not deleted
+unread and not merged. `STATE.md` changes go through a short-lived branch and PR like any docs
+change. The two PLAYBOOK paragraphs only the old branch had (a UI/UX verdict is a claim to verify;
+CI green is not reviewed) and its 2026-10-05 branch-protection decision were carried over.
+
+## 2026-10-11 — `password_hash` stays in exports
+
+Stripping it is skipped (owner). An export or restore envelope without hashes means users sign
+back in through forgot-password. `docs/BACKUPS.md` states the consequence. Closes the 2026-10-03
+open question.
+
+## 2026-10-11 — Review models may see private code
+
+Accepted (owner). A reviewer that cannot read the code misses things. Keep `data_collection:
+deny` on every model, never put secrets in a prompt, and keep the repo free of secrets.
+
+## 2026-10-11 — Sync rule for shared tooling
+
+A change to tooling that is repo-specific today (opencode config, `oc-run.sh`, the CI review
+workflow, `post_review.py`, model lists, PLAYBOOK/GUARDRAILS wording) is checked against the other
+projects under `~/dev` and brought in sync there. Not blindly: read each project's own state, adapt,
+run its tests, confirm nothing breaks, one PR per project, never push to its `main`. Also recorded in
+`~/.claude/CLAUDE.md`.
