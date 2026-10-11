@@ -173,6 +173,8 @@ def build(text, patches, repo):
         body = sanitize(f.get("body", ""), repo, MAX_BODY)
         # The reviewer's checkout is stripped, so it can mistake that for changes to files the
         # PR never touched. An empty patches means the file list could not be fetched.
+        if isinstance(path, str):
+            path = path.strip().removeprefix("./")
         if not body or not isinstance(path, str) or (patches and path not in patches):
             dropped += 1
             continue
@@ -233,7 +235,7 @@ def gh(args, payload=None):
 
 def pr_patches(repo, pr):
     out = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/pulls/{pr}/files",
-                          "--jq", ".[] | {filename, patch}"],
+                          "--jq", ".[] | {filename, previous_filename, patch}"],
                          capture_output=True, text=True)
     patches = {}
     if out.returncode != 0:
@@ -241,9 +243,11 @@ def pr_patches(repo, pr):
     for row in out.stdout.splitlines():
         try:
             obj = json.loads(row)
-        except ValueError:
-            continue
-        patches[obj["filename"]] = obj.get("patch") or ""
+            for name in (obj["filename"], obj.get("previous_filename")):
+                if name:
+                    patches[name] = obj.get("patch") or ""
+        except (ValueError, KeyError, AttributeError):
+            return {}
     return patches
 
 
