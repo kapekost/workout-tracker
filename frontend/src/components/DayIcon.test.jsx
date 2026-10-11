@@ -2,40 +2,40 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import DayIcon from './DayIcon'
 import { PLAN, CYCLE, DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
+import { colors, tint } from '../lib/theme'
 
-vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
+let mockPlan = PLAN
+vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: mockPlan, cycle: CYCLE, ready: true }) }))
 
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16)
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
-}
+const svgFor = (day) => render(<DayIcon day={day} />).container.querySelector('svg')
+// The glyph's first group is filled with the day colour; the tone2 path is the only stroke that differs.
+const strokes = (svg) => [...svg.querySelectorAll('[stroke]')].map((el) => el.getAttribute('stroke'))
 
 describe('DayIcon', () => {
-  it('renders one body icon with an accent dot in the resolved day color', () => {
-    const { container } = render(<DayIcon day="upper_a" />)
-    // Day-type bodies are PNG-backed (#211: a same-color opacity accent is
-    // invisible on a plain SVG glyph), so this is an img, not an svg.
-    expect(container.querySelectorAll('img').length).toBe(1)
-    expect(container.querySelector('[data-testid="day-icon-dot"]').style.background).toBe(hexToRgb(DAY_COLORS.upper_a))
+  it('each of the four days renders a different svg', () => {
+    const html = ['upper_a', 'upper_b', 'lower_a', 'lower_b'].map((d) => svgFor(d).innerHTML.replace(/#[0-9a-f]{6}/gi, ''))
+    expect(new Set(html).size).toBe(4)
   })
-  it('renders the lower-body shape for a lower day', () => {
-    const { container } = render(<DayIcon day="lower_b" />)
-    expect(container.querySelector('[data-testid="day-icon-dot"]').style.background).toBe(hexToRgb(DAY_COLORS.lower_b))
+  it('colours the glyph with the day colour and the targeted muscles with a lighter tone', () => {
+    const svg = svgFor('lower_a')
+    expect(svg.querySelector('circle').getAttribute('fill')).toBe(DAY_COLORS.lower_a)
+    expect(strokes(svg)).toContain(tint(DAY_COLORS.lower_a, 0.6))
   })
-  // #209: the two prior tests only ever asserted the accent-dot color, never
-  // the body shape itself -- a future refactor could break upper/lower
-  // selection (DayIcon.jsx's `plan[day]?.icon === 'lower' ? IconDayLower :
-  // IconDayUpper`) while both stayed green. Assert the actual rendered
-  // asset differs between an upper and a lower day.
-  it('renders a different body shape for an upper day than a lower day', () => {
-    const upperSrc = render(<DayIcon day="upper_a" />).container.querySelector('img').getAttribute('src')
-    const lowerSrc = render(<DayIcon day="lower_a" />).container.querySelector('img').getAttribute('src')
-    expect(upperSrc).toContain('upperbody')
-    expect(lowerSrc).toContain('lowerbody')
-    expect(upperSrc).not.toBe(lowerSrc)
+  it('upper_a second tone is accentDeep', () => {
+    expect(strokes(svgFor('upper_a'))).toContain(colors.accentDeep)
   })
-  it('falls back to DAY_COLOR_FALLBACK for an unrecognized day', () => {
-    const { container } = render(<DayIcon day="bogus_day" />)
-    expect(container.querySelector('[data-testid="day-icon-dot"]').style.background).toBe(hexToRgb(DAY_COLOR_FALLBACK))
+  it('an unknown day falls back to the fallback colour and a default glyph', () => {
+    const svg = svgFor('bogus_day')
+    expect(svg.querySelector('circle').getAttribute('fill')).toBe(DAY_COLOR_FALLBACK)
+    expect(svg.innerHTML).toBe(svgFor('upper_a').innerHTML.replaceAll(DAY_COLORS.upper_a, DAY_COLOR_FALLBACK).replaceAll(colors.accentDeep, tint(DAY_COLOR_FALLBACK, 0.6)))
+  })
+  it('an unrecognised day whose PLAN icon is lower gets the squat', () => {
+    mockPlan = { ...PLAN, odd_day: { ...PLAN.upper_a, icon: 'lower' } }
+    try {
+      const shape = (svg) => svg.innerHTML.replace(/#[0-9a-f]{6}/gi, '')
+      expect(shape(svgFor('odd_day'))).toBe(shape(svgFor('lower_a')))
+    } finally {
+      mockPlan = PLAN
+    }
   })
 })

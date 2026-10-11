@@ -1,17 +1,26 @@
-import IconDayUpper from '../icons/IconDayUpper'
-import IconDayLower from '../icons/IconDayLower'
-import DayAccent from './DayAccent'
+import IconDayCurl from '../icons/IconDayCurl'
+import IconDayPress from '../icons/IconDayPress'
+import IconDaySquat from '../icons/IconDaySquat'
+import IconDayDeadlift from '../icons/IconDayDeadlift'
+import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { usePlan } from '../lib/planContext'
+import { colors, icon, tint } from '../lib/theme'
 
-export default function DayIcon({ day, size = 20 }) {
+const BY_DAY = { upper_a: IconDayCurl, upper_b: IconDayPress, lower_a: IconDaySquat, lower_b: IconDayDeadlift }
+const BY_KIND = { upper: IconDayCurl, lower: IconDaySquat }
+
+// A tint of the day colour would vanish against volt, so Upper A takes the deeper accent.
+function secondTone(day, color) {
+  return day === 'upper_a' ? colors.accentDeep : tint(color, 0.6)
+}
+
+export default function DayIcon({ day, size = icon.heading }) {
   const { plan } = usePlan()
-  const Body = plan[day]?.icon === 'lower' ? IconDayLower : IconDayUpper
+  const Glyph = BY_DAY[day] ?? BY_KIND[plan[day]?.icon] ?? IconDayCurl
+  const color = DAY_COLORS[day] ?? DAY_COLOR_FALLBACK
   return (
-    <span style={{ position: 'relative', display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
-      <Body size={size} />
-      <span style={{ position: 'absolute', bottom: -2, right: -2 }}>
-        <DayAccent day={day} size={6} data-testid="day-icon-dot" />
-      </span>
+    <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+      <Glyph size={size} color={color} tone2={secondTone(day, color)} />
     </span>
   )
 }
