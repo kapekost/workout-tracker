@@ -157,3 +157,74 @@ describe('VersionBadge when the network drops', () => {
     expect(screen.queryByText(/data may be old/i)).not.toBeInTheDocument()
   })
 })
+
+describe('VersionBadge changelog dialog', () => {
+  const entries = [
+    { date: '2026-10-01', text: 'older' },
+    { date: '2026-10-09', text: 'newest' },
+    { date: '2026-10-05', text: 'middle' },
+  ]
+  function open(list = entries) {
+    render(
+      <MemoryRouter>
+        <VersionBadge store={makeStore()} networkStore={makeNetworkStore()} entries={list} />
+      </MemoryRouter>
+    )
+    const stamp = screen.getByRole('button', { name: /^v \S+$/ })
+    fireEvent.click(stamp)
+    return stamp
+  }
+
+  it('opens a labelled dialog when the version stamp is tapped', () => {
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    open()
+    expect(screen.getByRole('dialog', { name: "What's new" })).toBeInTheDocument()
+  })
+
+  it('lists entries newest first', () => {
+    open()
+    const text = screen.getAllByRole('listitem').map(li => li.textContent)
+    expect(text.map(t => t.replace(/^\d{4}-\d\d-\d\d/, ''))).toEqual(['newest', 'middle', 'older'])
+  })
+
+  it('shows only the 10 newest entries', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ date: `2026-09-${String(i + 10).padStart(2, '0')}`, text: `e${i}` }))
+    open(many)
+    expect(screen.getAllByRole('listitem')).toHaveLength(10)
+    expect(screen.queryByText('e0')).not.toBeInTheDocument()
+    expect(screen.getByText('e11')).toBeInTheDocument()
+  })
+
+  it('closes with the close button and returns focus to the stamp', () => {
+    const stamp = open()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(stamp).toHaveFocus()
+  })
+
+  it('closes with Escape and returns focus to the stamp', () => {
+    const stamp = open()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(stamp).toHaveFocus()
+  })
+
+  it('closes on a tap outside the panel but not inside it', () => {
+    open()
+    fireEvent.click(screen.getByText('newest'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('dialog'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows a short message for an empty list', () => {
+    open([])
+    expect(screen.getByText('Nothing to show yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+  })
+
+  it('moves focus into the dialog on open', () => {
+    open()
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+  })
+})
