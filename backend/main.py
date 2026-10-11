@@ -4,7 +4,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from contextlib import contextmanager
-import sqlite3, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
+import sqlite3, logging, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone, date
 import plan_seed
@@ -734,7 +734,7 @@ def _issue_token_quietly(profile_id: int, to: str, kind: str) -> None:
             conn.commit()
         _token_email(to, raw, kind)
     except Exception:
-        pass
+        logging.getLogger("uvicorn.error").exception("forgot-password token or send failed")
 
 def current_profile(request: Request) -> dict:
     """Request-scoped identity, from the session cookie. 401 if there isn't one.
