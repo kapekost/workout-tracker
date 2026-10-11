@@ -54,8 +54,9 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
 - Majors block in every round. After the bot has posted two `REQUEST_CHANGES` reviews on one PR
   (dismissed ones count; criticals are capped too), later blocking reviews post as `COMMENT` with the findings intact. The poster
   counts from a hidden marker in its own earlier reviews.
-- A clean re-review dismisses the bot's own `REQUEST_CHANGES` on earlier commits, never one on the
-  current head. Any other review leaves it standing.
+- A clean re-review dismisses the bot's own `REQUEST_CHANGES` on earlier commits only when the new
+  commits touched a file that review commented on. A block with no inline comment, one whose files cannot be compared and one on the
+  current head stand. A trivial edit to a commented file still counts as touched. Any other review leaves it standing.
 - GitHub may refuse a state (HTTP 422): `APPROVE` while the repo setting "Allow GitHub Actions to
   create and approve pull requests" is off, `REQUEST_CHANGES` on a PR the bot authored. The same
   body is then posted as a `COMMENT` that says so, with a workflow warning. Turning that setting on is an owner decision; until then a

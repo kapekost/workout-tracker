@@ -360,13 +360,33 @@ def post_review(repo, pr, head_sha, body, comments, event):
               f"{(r.stderr + r.stdout).strip()}", file=sys.stderr)
 
 
+def api_lines(repo, path, jq):
+    r = gh([f"repos/{repo}/{path}", "--paginate", "--jq", jq])
+    if r.returncode != 0:
+        print(f"::warning::could not read {path.split('/')[0]} for a dismissal check: {one_line(r.stderr)}")
+        return set()
+    return set(r.stdout.splitlines())
+
+
+def block_touched(repo, pr, rev, head_sha):
+    """True when the push since the blocked commit changed a file the block commented on. A
+    clean incremental review only covers that push, so it says nothing about a block whose
+    files were not touched. A block with no inline comment, a failed API call or a compare against a
+    force-pushed-away commit cannot be tied to a file and stands: a stale block is cheap, a
+    wrong dismissal is not. Touching a commented file with a trivial edit still counts."""
+    commented = api_lines(repo, f"pulls/{pr}/reviews/{rev.get('id')}/comments", ".[].path")
+    changed = api_lines(repo, f"compare/{rev.get('commit_id')}...{head_sha}", ".files[] | .filename, .previous_filename // empty")
+    return bool(commented & changed)
+
+
 def dismiss_stale(repo, pr, head_sha, reviews):
-    """Dismisses the bot's CHANGES_REQUESTED reviews of earlier commits. A review of the
-    current head stands. Failure is a warning, never fatal."""
+    """Dismisses the bot's CHANGES_REQUESTED reviews of earlier commits whose files the new
+    commits touched. A review of the current head stands. Failure is a warning, never fatal."""
     short = re.sub(r"[^0-9a-fA-F]", "", head_sha)[:7]
     for rev in reviews or []:
         if (rev.get("login") != BOT_LOGIN or rev.get("state") != "CHANGES_REQUESTED"
-                or rev.get("commit_id") == head_sha):
+                or rev.get("commit_id") == head_sha
+                or not block_touched(repo, pr, rev, head_sha)):
             continue
         r = gh([f"repos/{repo}/pulls/{pr}/reviews/{rev.get('id')}/dismissals", "-X", "PUT"],
                {"message": f"Superseded by a clean re-review of {short}.", "event": "DISMISS"})
