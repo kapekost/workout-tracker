@@ -19,7 +19,7 @@
 - **Next action, in order:** #269 (review-bot reliability; first PR #323 is in, later separate PRs
   for items 3, 5, 6 and the timeout label, each through `security-ai-reviewer`). #317 (changelog
   popup, #325) and the kapekost-web model-list sync (kapekost-web#95) are done. #316, #157 and #272
-  are done; #322 and #323 are on `main` but not deployed (#322 is backend, #325 is frontend).
+  are done; #322 (backend), #323 (review workflow) and #325 (frontend) are on `main` but not deployed.
 
 ## Stop-condition
 (none — runner proceeds normally)
