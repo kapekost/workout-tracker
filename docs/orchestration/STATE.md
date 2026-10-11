@@ -16,10 +16,10 @@
 - **Project:** Workout Tracker
 - **Current focus:** live is `1b1284d` (schema v7), deployed 2026-10-11. #229 shipped (PRs #267, #319).
   Housekeeping after the 2026-10-11 owner decisions (see `DECISIONS.md`).
-- **Next action, in order:** #269 (review-bot reliability; first PR #323, later PRs for items 3, 5, 6
-  and the timeout label), #317 (changelog popup; needs an expert UI agent check at phone widths),
-  then the kapekost-web model-list sync (its PR #92). #316, #157 and #272 are done; #322 (backend)
-  is on `main` but not deployed.
+- **Next action, in order:** #269 (review-bot reliability; first PR #323 is in, later separate PRs
+  for items 3, 5, 6 and the timeout label, each through `security-ai-reviewer`). #317 (changelog
+  popup, #325) and the kapekost-web model-list sync (kapekost-web#95) are done. #316, #157 and #272
+  are done; #322 (backend), #323 (review workflow) and #325 (frontend) are on `main` but not deployed.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -28,6 +28,8 @@
 (none)
 
 ## Needs owner
+- **Close kapekost-web#92.** Superseded by kapekost-web#95; its third model
+  (`inclusionai/ling-3.0-flash-sante:free`) is not listed by OpenRouter.
 - **Create the limited OpenRouter key** for the reviewer. In the OpenRouter dashboard: new key,
   credit limit set low (or credits that cannot charge extra), free models only, then store it as the
   repo secret the review workflow reads. The agent never handles the key value.
