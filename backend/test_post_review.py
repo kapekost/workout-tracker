@@ -722,3 +722,32 @@ def test_api_lines_keeps_names_with_spaces_and_warns_on_failure(monkeypatch, cap
     monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 404"))
     assert pr.api_lines(REPO, "compare/a...b", ".x") == set()
     assert "::warning::could not read compare" in capsys.readouterr().out
+
+
+def test_a_token_split_by_a_zero_width_character_is_withheld():
+    for zw in "​‌‍‎‏⁠﻿­":
+        r = pr.build(review([finding("minor", body=f"sk-{zw}or-v1-abc")]), PATCHES, REPO)
+        assert r.kind == "plain" and r.body == pr.WITHHELD
+        raw = pr.build(f"sk-{zw}or-v1-abc", PATCHES, REPO)
+        assert raw.body == pr.WITHHELD
+
+
+def test_sanitize_strips_zero_width_characters():
+    assert pr.sanitize("a​b﻿c­d", REPO, 50) == "abcd"
+
+
+def test_ordinary_words_that_contain_the_token_prefix_are_not_withheld():
+    for text in ("the risk-or-reward trade", "disk-or-memory pressure", "Bearer token-authentication"):
+        r = pr.build(review([finding("major", body=text)]), PATCHES, REPO)
+        assert r.kind == "review" and r.event == "REQUEST_CHANGES"
+
+
+def test_real_looking_tokens_are_still_withheld():
+    for text in ("key sk-or-v1-abc", "Bearer abcdefghij0123456789xyz"):
+        r = pr.build(review([finding("minor", body=text)]), PATCHES, REPO)
+        assert r.body == pr.WITHHELD
+
+
+def test_withholding_prints_a_warning(capsys):
+    pr.build("sk-or-v1-abc", PATCHES, REPO)
+    assert "::warning::" in capsys.readouterr().out
