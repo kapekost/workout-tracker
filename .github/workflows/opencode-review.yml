@@ -378,6 +378,7 @@ jobs:
           used=""
           mapfile -t models < "$RUNNER_TEMP/models.txt"
           for model in "${models[@]}"; do
+            started=$SECONDS
             timeout -k 30 "$MODEL_TIMEOUT_SECS" opencode run --model "openrouter/$model" --format default \
               "$REVIEW_PROMPT" > "$RUNNER_TEMP/review.txt" 2> "$RUNNER_TEMP/review.err"
             rc=$?
@@ -385,8 +386,9 @@ jobs:
             if [ "$rc" -ne 0 ]; then
               why=$(tail -c 300 "$RUNNER_TEMP/review.err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')
               echo "::warning::$model failed: $why"
-              # 124: timeout sent TERM and the model exited. 137: it ignored TERM and -k escalated to KILL.
-              if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then why="timeout"; fi
+              # 124: timeout sent TERM and the model exited. 137: it ignored TERM and -k escalated
+              # to KILL, unless the run ended early, which is an outside SIGKILL such as an OOM kill.
+              if [ "$rc" -eq 124 ] || { [ "$rc" -eq 137 ] && [ $((SECONDS - started)) -ge "$MODEL_TIMEOUT_SECS" ]; }; then why="timeout"; fi
               case "$why" in
                 timeout) short="timed out after $((MODEL_TIMEOUT_SECS / 60)) minutes" ;;
                 *"free-models-per-day"*) short="daily free-model limit reached" ;;
