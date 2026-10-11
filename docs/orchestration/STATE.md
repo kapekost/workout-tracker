@@ -16,13 +16,12 @@
 - **Project:** Workout Tracker
 - **Current focus:** live is `e5ce317` (schema v7), deployed 2026-10-11 by the agent. The owner's
   standing rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** none ready and unblocked. #269 has only items 3 (big diffs: stat and "reviewed N
-  of M files") and 5 (label gate on re-review) left. Both are speculative: binaries already show as
-  one line in `pr.diff`, the poster already reviews only the diff since its last review, and no big
-  PR has failed since the 900 s cap and the fallbacks. Build them when a review actually skips, or
-  fold them into #292 (requests per review). Items 1, 2, 4, 6 and the timeout label (#327) are done.
-  #317 (#325), the kapekost-web model-list sync (kapekost-web#95) and #329 (#330) are done, and
-  everything on `main` through #330 is deployed.
+- **Next action:** intake triaged 2026-10-11. Ready, in rank order: #148 (P2 bug, offline logout;
+  needs the owner's `approved` label, session handling), #165 (P2, entity audit note, no code),
+  #236 (P2, split the remaining design-review findings into Issues), then P3 #196, #197, #294.
+  Start with #165 while #148 waits. #269 has only items 3 and 5 left, both speculative: build them
+  when a review actually skips, or fold them into #292. #296 is verified by the first real PR.
+  Everything on `main` through #332 is deployed.
 
 ## Stop-condition
 (none — runner proceeds normally)
@@ -31,6 +30,9 @@
 (none)
 
 ## Needs owner
+- **Four one-line questions, each recommended answer is on the Issue (label `needs-clarification`):**
+  #173 (PB form: "I just did this" toggle or a date field), #177 (which plan edits in v1),
+  #171 (workout-science first, nutrition later), #166 (close it into #171).
 - **Close kapekost-web#92.** Superseded by kapekost-web#95; its third model
   (`inclusionai/ling-3.0-flash-sante:free`) is not listed by OpenRouter.
 - **Create the limited OpenRouter key** for the reviewer. In the OpenRouter dashboard: new key,
