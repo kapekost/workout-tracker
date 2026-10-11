@@ -276,21 +276,24 @@ export default function Workout() {
     }).catch(() => ({}))
 
     api.get(`/sessions/${sessionId}`).then(async s => {
-      setSession(s); setSets(s.sets || [])
       const prMap = await prsPromise
-      prsAtStart.current = prMap
-      setPrs(prMap)
       // An unrecognised workout_day must not throw here: the effect's .catch
       // would swallow it and bounce to Home, making the "Couldn't find this
       // workout." fallback below unreachable. No exercises means no first
       // ID — the fallback then renders as intended.
       const exercises = PLAN[s.workout_day]?.exercises || []
       const firstId = nextIncompleteExerciseId(exercises, s.sets || [])
-      if (firstId) {
+      const firstEx = exercises.find(e => e.id === firstId)
+      // The session is set only after the prefill is known: once it is set the
+      // inputs are editable, and a prefill landing later would overwrite what
+      // the user already typed.
+      const pf = firstEx && prefillFor(firstId, s.sets || [], prMap, await ensureLastPerf(firstEx),
+        { repsHigh: firstEx.repsHigh, bodyweight: firstEx.bodyweight })
+      prsAtStart.current = prMap
+      setPrs(prMap)
+      setSession(s); setSets(s.sets || [])
+      if (pf) {
         setExpanded(firstId)
-        const firstEx = exercises.find(e => e.id === firstId)
-        const data = await ensureLastPerf(firstEx)
-        const pf = prefillFor(firstId, s.sets || [], prMap, data, { repsHigh: firstEx?.repsHigh, bodyweight: firstEx?.bodyweight })
         setWeight(pf.weight); setReps(pf.reps)
       }
     // A failed read must NOT navigate. `.catch(() => nav('/'))` threw the user

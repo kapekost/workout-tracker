@@ -257,6 +257,20 @@ describe('Workout page', () => {
     expect(screen.getByRole('button', { name: /log set/i })).not.toBeDisabled()
   })
 
+  it('the exercise is not editable until the prefill has loaded, so it cannot overwrite typing', async () => {
+    mockSession()
+    const base = api.get.getMockImplementation()
+    let release
+    const lastPerf = new Promise(resolve => { release = resolve })
+    api.get.mockImplementation(path => (path.startsWith('/exercises/') ? lastPerf : base(path)))
+    renderWorkout()
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringMatching(/^\/exercises\//)))
+    expect(screen.queryByText(ex1.name)).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
+    await act(async () => { release(null) })
+    expect(await screen.findByText(ex1.name)).toBeInTheDocument()
+  })
+
   it('a bodyweight exercise shows the Added Weight label and hint', async () => {
     // Pull-up (PLAN.upper_b.exercises[1]) is bodyweight: true; matching the
     // existing custom-session pattern used by the "unknown workout_day" test
