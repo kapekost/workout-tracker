@@ -647,3 +647,13 @@ def test_plain_output_is_an_issue_comment_without_any_review_call(tmp_path, monk
     posted = run_main(tmp_path, monkeypatch, "prose", reviews=[bot_review(10, "CHANGES_REQUESTED")])
     assert posted == [] and run_main.calls[0][0][0].endswith("/issues/7/comments")
     assert dismissals(run_main.calls) == []
+
+
+def test_a_finding_on_a_file_the_pr_did_not_change_is_dropped_and_blocks_nothing():
+    r = built([{"file": "AGENTS.md", "body": "deleted", "severity": "major"}])
+    assert r.event == "COMMENT" and r.counts["dropped"] == 1 and r.counts["major"] == 0
+
+
+def test_without_a_pr_file_list_findings_on_any_file_are_kept():
+    r = pr.build(review([finding("major")]), {}, REPO)
+    assert r.event == "REQUEST_CHANGES" and r.counts["dropped"] == 0

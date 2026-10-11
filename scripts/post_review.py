@@ -171,7 +171,9 @@ def build(text, patches, repo):
             continue
         path = f.get("file")
         body = sanitize(f.get("body", ""), repo, MAX_BODY)
-        if not body or not isinstance(path, str):
+        # The reviewer's checkout is stripped, so it can mistake that for changes to files the
+        # PR never touched. An empty patches means the file list could not be fetched.
+        if not body or not isinstance(path, str) or (patches and path not in patches):
             dropped += 1
             continue
         valid.append((SEVERITIES.index(severity_of(f)), path, f.get("line"), body))

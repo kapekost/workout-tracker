@@ -62,7 +62,7 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
   clean run reads as a comment. An approval is one more agent review, not the owner's.
 
 `post_review.py` also caps findings (20, 400 chars each), removes URLs and HTML, escapes brackets,
-angle brackets and # so nothing renders as a link, image or mention, drops lines not in the diff,
+angle brackets and # so nothing renders as a link, image or mention, drops lines not in the diff and findings on files the PR did not change (a real "this PR should also have updated X" is lost; the stripped sandbox checkout otherwise produces false ones),
 and withholds the whole output if it matches a secret pattern (checked before and after JSON
 decoding). Output that is not one JSON object, bare or in exactly one code fence with prose around it, is posted truncated inside a code block, so a second fence or object never wins. A skipped review
 is JSON with `"skipped": true`. On a re-review it reads the history file and looks at the diff
