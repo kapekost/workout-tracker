@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { readdirSync, readFileSync } from 'fs'
 import { resolve, join } from 'path'
-import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconDayUpper, IconDayLower, IconPlay, IconPause, IconRefresh, IconBarbell, IconClipboardDocumentList, IconNavHome, IconNavProgress, IconNavHistory } from './index'
+import { IconHome, IconCheck, IconTrash, IconPencil, IconClock, IconArrowTrendingUp, IconClipboardList, IconPlay, IconPause, IconRefresh, IconBarbell, IconClipboardDocumentList, IconNavHome, IconNavProgress, IconNavHistory } from './index'
 import PngIcon from './PngIcon'
 
 describe('icon components', () => {
@@ -27,7 +27,7 @@ describe('icon components', () => {
     expect(render(<IconPencil className="my-class" />).container.querySelector('svg').getAttribute('class')).toBe('my-class')
   })
 
-  // A handful of icons (Clock, History/Clipboard, day badges, the barbell app
+  // A handful of icons (Clock, History/Clipboard, the barbell app
   // mark) are baked PNGs instead of SVGs -- see #211: their opacity-accent
   // layers were invisible when drawn over an identically-colored base, a bug
   // that only a real two-tone raster (not a single-currentColor glyph) fixes.
@@ -57,38 +57,6 @@ describe('icon components', () => {
     it('is inline-level so it sits beside adjacent text without a flex wrapper', () => {
       const img = render(<IconClock />).container.querySelector('img')
       expect(img.style.display).toBe('inline-block')
-    })
-  })
-
-  // 2026-09-27 mobile icon audit: a source PNG wider than it is tall (aspect
-  // ratio > 1) loses height under object-fit: contain in a size x size box --
-  // the box's own height is capped to whatever's left after the wide image
-  // fills the width. Next to a same-size SVG (which fills its full square)
-  // or a taller-than-wide PNG (which already renders at full box height),
-  // that reads as visibly smaller/weaker at the identical size prop. A real
-  // instance still here: IconDayUpper next to IconDayLower in DayIcon.jsx's
-  // History-list rows. (IconArrowTrendingUp and IconClipboardList had the
-  // same symptom, but as of the 2026-09-27 nav icon redesign they're flat
-  // SVGs, not PNGs, so the aspect-scale hack no longer applies to them --
-  // see the 'nav icon SVG redesign' describe block below instead.) Fixed
-  // with a paint-only `transform: scale()` that restores full height
-  // without changing the element's own width/height attributes or its
-  // layout footprint anywhere it's used -- this assertion guards that fix.
-  describe('aspect-corrected wide PNG icons', () => {
-    it('IconDayUpper keeps its size x size box but scales its content up to full height', () => {
-      const img = render(<IconDayUpper size={20} />).container.querySelector('img')
-      expect(img.getAttribute('width')).toBe('20')
-      expect(img.getAttribute('height')).toBe('20')
-      expect(img.style.transform).toBe(`scale(${105 / 80})`)
-    })
-    // IconDayLower's source is taller than wide (71x81) so it already fills
-    // its full box height under plain object-fit: contain -- no correction
-    // needed or applied. This guards against a future edit accidentally
-    // adding one, which would overflow it past IconDayUpper's now-matched
-    // height instead of keeping the two visually level.
-    it('IconDayLower is left uncorrected -- its source already fills full height', () => {
-      const img = render(<IconDayLower size={20} />).container.querySelector('img')
-      expect(img.style.transform).toBe('')
     })
   })
 
@@ -205,11 +173,7 @@ describe('icon components', () => {
 
     it('every PNG in assets/icons is square except appmark', () => {
       const dir = resolve(process.cwd(), 'src/assets/icons')
-      // upperbody.png/lowerbody.png are still the old, un-normalized sources
-      // here — Task 4 of the #229 plan deletes them (DayIcon's SVG rewrite).
-      // Tighten this back to the whole directory once that lands.
-      const normalizedYet = (name) => name !== 'upperbody.png' && name !== 'lowerbody.png'
-      for (const name of readdirSync(dir).filter(normalizedYet)) {
+      for (const name of readdirSync(dir)) {
         if (!name.endsWith('.png')) continue
         const buf = readFileSync(join(dir, name))
         // PNG: 8-byte signature, then a 4-byte length + 4-byte "IHDR" chunk

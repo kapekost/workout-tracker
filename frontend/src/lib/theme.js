@@ -42,7 +42,7 @@ export const colors = {
 }
 
 // Mixes a hex colour toward white by `amount` (0-1). Used for the day icons'
-// derived second tone (DAY_TONE2 in workoutPlan.js) — see decision 4 in
+// derived second tone (secondTone in DayIcon.jsx) — see decision 4 in
 // docs/superpowers/plans/2026-10-01-icon-design-system-229.md.
 export function tint(hex, amount) {
   const n = parseInt(hex.slice(1), 16)
