@@ -16,10 +16,11 @@
 - **Project:** Workout Tracker
 - **Current focus:** live is `e5ce317` (schema v7), deployed 2026-10-11 by the agent. The owner's
   standing rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** intake triaged 2026-10-11. Ready, in rank order: #148 (P2 bug, offline logout;
-  needs the owner's `approved` label, session handling), #165 (P2, entity audit note, no code),
-  #236 (P2, split the remaining design-review findings into Issues), then P3 #196, #197, #294.
-  Start with #165 while #148 waits. #269 has only items 3 and 5 left, both speculative: build them
+- **Next action:** intake triaged 2026-10-11, #165 audit written
+  (`docs/superpowers/research/2026-10-11-workout-entities-audit.md`; it asks #173 and #139 to decide
+  the extra-session shape together). Ready, in rank order: #148 (P2 bug, offline logout; needs the
+  owner's `approved` label, session handling), #236 (P2, split the remaining design-review findings
+  into Issues), then P3 #196, #197, #294. #269 has only items 3 and 5 left, both speculative: build them
   when a review actually skips, or fold them into #292. #296 is verified by the first real PR.
   Everything on `main` through #332 is deployed.
 
