@@ -159,6 +159,20 @@ def test_forgot_password_emails_only_a_real_address(fast, anon_client, sent):
         assert conn.execute("SELECT COUNT(*) FROM auth_tokens").fetchone()[0] == 1
 
 
+def test_forgot_password_writes_nothing_before_the_response(fast, sent):
+    # The token write and its commit are the work a known address would do that
+    # an unknown one skips, so both must wait for the background task.
+    from fastapi import BackgroundTasks
+    from starlette.requests import Request
+    _profile(fast, email="known@example.com")
+    request = Request({"type": "http", "method": "POST", "headers": [],
+                       "client": ("203.0.113.9", 1), "path": "/api/auth/forgot-password"})
+    tasks = BackgroundTasks()
+    fast.forgot_password(fast.ForgotPasswordIn(email="known@example.com"), tasks, request)
+    with fast.db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM auth_tokens").fetchone()[0] == 0
+
+
 def test_forgot_password_on_a_never_invited_account_still_works(fast, anon_client, sent):
     # A member who never opened their invite can self-serve rather than being
     # told to contact an admin.

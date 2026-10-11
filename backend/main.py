@@ -725,10 +725,13 @@ def _token_email(to: str, raw: str, kind: str) -> None:
                    "The link works once and expires in 1 hour. "
                    "If this was not you, you can ignore this email.")
 
-def _token_email_quietly(to: str, raw: str, kind: str) -> None:
-    """Send and swallow failures. Only for /api/auth/forgot-password, where a
-    visible send failure would itself be an enumeration signal."""
+def _issue_token_quietly(profile_id: int, to: str, kind: str) -> None:
+    """Mint and send, swallowing failures. Only for /api/auth/forgot-password,
+    where a visible failure would itself be an enumeration signal."""
     try:
+        with db() as conn:
+            raw = mint_token(conn, profile_id, kind)
+            conn.commit()
         _token_email(to, raw, kind)
     except Exception:
         pass
@@ -892,12 +895,9 @@ def forgot_password(body: ForgotPasswordIn, background: BackgroundTasks, request
             # rather than an error, so someone who missed their invite can
             # self-serve instead of needing an admin.
             kind = "reset" if row["password_hash"] else "invite"
-            raw = mint_token(conn, row["id"], kind)
-            conn.commit()
-            # Sent after the response so the network call cannot be timed —
-            # a send that happens only for real addresses would otherwise be an
-            # enumeration oracle no matter how identical the body is.
-            background.add_task(_token_email_quietly, row["email"], raw, kind)
+            # The token write and the send both run after the response, so the
+            # known and unknown branches do the same work before it goes out.
+            background.add_task(_issue_token_quietly, row["id"], row["email"], kind)
     # Identical status and body whether or not the address exists.
     return {"status": "ok"}
 
