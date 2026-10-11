@@ -221,6 +221,9 @@ def build(text, patches, repo):
     notes = data.get("notes")
     clean_notes = ([sanitize(n, repo, MAX_BODY) for n in notes[:5] if isinstance(n, str)]
                    if isinstance(notes, list) else [])
+    limits = data.get("limits")
+    clean_limits = ([sanitize(n, repo, MAX_BODY) for n in limits[:5] if isinstance(n, str)]
+                    if isinstance(limits, list) else [])
     event = decide_event(counts, kind, bool(notes))
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
@@ -241,6 +244,9 @@ def build(text, patches, repo):
             parts.append(f"- and {counts['minor'] - len(shown_lines)} more not shown")
     if clean_notes:
         parts += ["", "**Notes**"] + [f"- {n}" for n in clean_notes]
+    if clean_limits:
+        parts += ["", "<details><summary>Review limits (sandbox, not the PR)</summary>", ""]
+        parts += [f"- {n}" for n in clean_limits] + ["", "</details>"]
     posted = "\n".join(parts + [c["body"] for c in comments])
     # Sanitizing removes tags and joins what they split, so a token can only appear here.
     if leaks(posted):

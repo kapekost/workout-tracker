@@ -49,6 +49,9 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
   and a short body list for the rest. `APPROVE` needs a strictly clean review: no finding of any
   severity and no notes. A skipped notice, plain output, a withheld secret, a malformed finding,
   or a minor finding posts `COMMENT`.
+- `notes` hold what the reviewer could not verify about the code and prevent `APPROVE`. `limits`
+  hold what the stripped sandbox kept it from checking; they post in a collapsed `<details>`
+  and never affect the state.
 - Minor findings are never inline. They sit in one `Deferred` list of at most three lines plus a
   count of the rest.
 - Majors block in every round. After the bot has posted two `REQUEST_CHANGES` reviews on one PR
