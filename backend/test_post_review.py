@@ -714,3 +714,11 @@ def test_an_untouched_block_is_not_dismissed_by_a_clean_review(monkeypatch):
     monkeypatch.setattr(pr, "block_touched", lambda *a: False)
     pr.dismiss_stale(REPO, 7, "abcdef1234567", [bot_review(10, "CHANGES_REQUESTED")])
     assert calls == []
+
+
+def test_api_lines_keeps_names_with_spaces_and_warns_on_failure(monkeypatch, capsys):
+    monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(0, stdout="my file.js\nb.py\n"))
+    assert pr.api_lines(REPO, "compare/a...b", ".x") == {"my file.js", "b.py"}
+    monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 404"))
+    assert pr.api_lines(REPO, "compare/a...b", ".x") == set()
+    assert "::warning::could not read compare" in capsys.readouterr().out

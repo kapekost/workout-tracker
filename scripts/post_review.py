@@ -362,15 +362,20 @@ def post_review(repo, pr, head_sha, body, comments, event):
 
 def api_lines(repo, path, jq):
     r = gh([f"repos/{repo}/{path}", "--paginate", "--jq", jq])
-    return set(r.stdout.split()) if r.returncode == 0 else set()
+    if r.returncode != 0:
+        print(f"::warning::could not read {path.split('/')[0]} for a dismissal check: {one_line(r.stderr)}")
+        return set()
+    return set(r.stdout.splitlines())
 
 
 def block_touched(repo, pr, rev, head_sha):
     """True when the push since the blocked commit changed a file the block commented on. A
     clean incremental review only covers that push, so it says nothing about a block whose
-    files were not touched. A block with no inline comment cannot be tied to a file and stands."""
+    files were not touched. A block with no inline comment, a failed API call or a compare against a
+    force-pushed-away commit cannot be tied to a file and stands: a stale block is cheap, a
+    wrong dismissal is not. Touching a commented file with a trivial edit still counts."""
     commented = api_lines(repo, f"pulls/{pr}/reviews/{rev.get('id')}/comments", ".[].path")
-    changed = api_lines(repo, f"compare/{rev.get('commit_id')}...{head_sha}", ".files[].filename")
+    changed = api_lines(repo, f"compare/{rev.get('commit_id')}...{head_sha}", ".files[] | .filename, .previous_filename // empty")
     return bool(commented & changed)
 
 
