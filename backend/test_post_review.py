@@ -123,7 +123,7 @@ def test_plain_output_cannot_close_its_own_code_block():
 
 def test_a_secret_hidden_behind_json_escapes_is_still_withheld():
     leak = json.dumps({"summary": "s", "findings": [{"file": "a.py", "line": 11, "blocking": True,
-                                                    "body": "sk-or-v1-abc"}]}).replace("sk-or-", "\\u0073k-or-")
+                                                    "body": "sk-or-v1-abcdefgh1234"}]}).replace("sk-or-", "\\u0073k-or-")
     assert "sk-or-" not in leak
     kind, body, _, *_ = pr.build(leak, PATCHES, REPO)
     assert kind == "plain" and body == pr.WITHHELD
@@ -149,7 +149,7 @@ def test_skipped_notice_is_marked_skipped_not_clean():
 
 
 def test_secret_in_output_is_withheld_whole():
-    for leak in ("sk-or-v1-abc", "ghp_" + "a" * 25, "Bearer " + "a" * 30):
+    for leak in ("sk-or-v1-abcdefgh1234", "ghp_" + "a" * 25, "Bearer " + "a" * 30):
         kind, body, comments, *_ = pr.build(review([{"file": "a.py", "line": 11, "blocking": True, "body": leak}]),
                                         PATCHES, REPO)
         assert kind == "plain" and body == pr.WITHHELD and comments == []
@@ -373,7 +373,7 @@ def test_clean_review_approves():
 def test_skipped_plain_and_withheld_never_approve():
     skipped = pr.build(json.dumps({"skipped": True, "summary": "No model.", "findings": []}), {}, REPO)
     plain = pr.build("just prose", {}, REPO)
-    withheld = pr.build(review([finding("minor", body="sk-or-v1-abc")]), PATCHES, REPO)
+    withheld = pr.build(review([finding("minor", body="sk-or-v1-abcdefgh1234")]), PATCHES, REPO)
     assert skipped.kind == "review" and skipped.skipped
     assert (skipped.event, plain.event, withheld.event) == ("COMMENT", "COMMENT", "COMMENT")
     assert plain.kind == "plain" and withheld.body == pr.WITHHELD
@@ -608,7 +608,7 @@ def test_no_dismissal_on_skipped_plain_withheld_or_blocking_runs(tmp_path, monke
     stale = [bot_review(10, "CHANGES_REQUESTED")]
     texts = [json.dumps({"skipped": True, "summary": "No model.", "findings": []}),
              "prose, not json",
-             review([finding("minor", body="sk-or-v1-abc")]),
+             review([finding("minor", body="sk-or-v1-abcdefgh1234")]),
              review([finding("major")]),
              review([finding("critical")])]
     for text in texts:
@@ -683,7 +683,7 @@ def test_pr_patches_returns_nothing_when_a_row_is_malformed(monkeypatch):
 
 
 def test_a_token_split_by_a_tag_is_withheld_after_sanitizing():
-    for f in (finding("minor", body="leak sk-<i>or-v1-abc"), finding("major", body="leak sk-<i>or-v1-abc")):
+    for f in (finding("minor", body="leak sk-<i>or-v1-abcdefgh1234"), finding("major", body="leak sk-<i>or-v1-abcdefgh1234")):
         r = built([f])
         assert r.kind == "plain" and r.body == pr.WITHHELD
 
@@ -722,3 +722,40 @@ def test_api_lines_keeps_names_with_spaces_and_warns_on_failure(monkeypatch, cap
     monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 404"))
     assert pr.api_lines(REPO, "compare/a...b", ".x") == set()
     assert "::warning::could not read compare" in capsys.readouterr().out
+
+
+def test_a_token_split_by_a_zero_width_character_is_withheld():
+    for zw in "​‌‍‎‏⁠﻿­":
+        r = pr.build(review([finding("minor", body=f"sk-{zw}or-v1-abcdefgh1234")]), PATCHES, REPO)
+        assert r.kind == "plain" and r.body == pr.WITHHELD
+        raw = pr.build(f"sk-{zw}or-v1-abcdefgh1234", PATCHES, REPO)
+        assert raw.body == pr.WITHHELD
+
+
+def test_sanitize_strips_zero_width_characters():
+    assert pr.sanitize("a​b﻿c­d", REPO, 50) == "abcd"
+
+
+def test_ordinary_words_that_contain_the_token_prefix_are_not_withheld():
+    for text in ("the risk-or-reward trade", "disk-or-memory pressure", "Bearer token-authentication"):
+        r = pr.build(review([finding("major", body=text)]), PATCHES, REPO)
+        assert r.kind == "review" and r.event == "REQUEST_CHANGES"
+
+
+def test_real_looking_tokens_are_still_withheld():
+    for text in ("key sk-or-v1-abcdefgh1234", "Bearer abcdefghij0123456789xyz"):
+        r = pr.build(review([finding("minor", body=text)]), PATCHES, REPO)
+        assert r.body == pr.WITHHELD
+
+
+def test_withholding_prints_a_warning(capsys):
+    pr.build("sk-or-v1-abcdefgh1234", PATCHES, REPO)
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_other_invisible_characters_and_whitespace_cannot_hide_a_token():
+    gh = "ghp_" + "A" * 36
+    for text in ("sk\u034f-or-v1-abcdefgh1234", "gh\u3164p_" + "A" * 36, "sk-or\ufe0f-v1-abcdefgh1234",
+                 "sk\U000e002d-or-v1-abcdefgh1234", "Xsk-or-v1-abcdefgh1234", "sk-or-v1-ab.cd.ef.gh12.34",
+                 gh[:10] + " " + gh[10:], "\uff53k-or-v1-abcdefgh1234"):
+        assert pr.build(review([finding("minor", body=text)]), PATCHES, REPO).body == pr.WITHHELD, text

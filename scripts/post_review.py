@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from typing import NamedTuple
 
 MAX_FINDINGS = 20
@@ -36,10 +37,28 @@ BOT_LOGIN = "github-actions[bot]"
 SEVERITIES = ("critical", "major", "minor")
 ROUND_MARKER = re.compile(r"<!-- review-round:\d+ -->\s*$")
 
-SECRET = re.compile(r"sk-or-|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|Bearer [A-Za-z0-9._-]{20,}")
+BEARER = re.compile(r"Bearer (?:[A-Za-z0-9._~+/=]{20,}|(?=[A-Za-z0-9._-]*\d)[A-Za-z0-9._-]{20,})")
+TOKEN = re.compile(r"sk-or-v\d+-|sk-or-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_")
 WITHHELD = ("**Automated review withheld.** The output matched a secret pattern "
             "and was not posted. See the Actions log for the run.")
 FENCE = "`" * 3
+
+
+def visible(text):
+    """Text with the characters that render as nothing removed and compatibility forms folded,
+    so a token cannot be hidden by splitting it. Whitespace is kept."""
+    text = unicodedata.normalize("NFKC", text)
+    return "".join(c for c in text if c.isspace() or c not in "\u115f\u1160\u3164\uffa0\u2800"
+                   and unicodedata.category(c) not in ("Cc", "Cf", "Mn", "Me"))
+
+
+def leaks(text):
+    """Whether text holds a token, even one split by invisible characters or whitespace."""
+    text = visible(text)
+    if BEARER.search(text) or TOKEN.search(text) or TOKEN.search(re.sub(r"\s+", "", text)):
+        print("::warning::the review output matched a secret pattern and was withheld")
+        return True
+    return False
 
 
 def sanitize(text, repo, limit):
@@ -49,7 +68,7 @@ def sanitize(text, repo, limit):
     cannot open a code block."""
     text = str(text)[:limit * 4]
     text = re.sub(r"<[^>]{0,200}>", "", text)
-    text = re.sub(r"[\u202a-\u202e\u2066-\u2069]", "", text)
+    text = visible(text)
     text = re.sub(r"\b\w+://\S+|\bwww\.\S+", "[link removed]", text, flags=re.I)
     text = " ".join(text.split())[:limit]
     text = re.sub(r"@(?=\w)", "@​", text)
@@ -152,12 +171,12 @@ def plain_result(body):
 
 def build(text, patches, repo):
     """Turns the reviewer's output into a Built."""
-    if SECRET.search(text):
+    if leaks(text):
         return plain_result(WITHHELD)
     data = extract_json(text)
     if data is None:
         return plain_result(plain_comment(text) if text.strip() else "The reviewer produced no output.")
-    if SECRET.search(json.dumps(data, ensure_ascii=False)):
+    if leaks(json.dumps(data, ensure_ascii=False)):
         return plain_result(WITHHELD)
 
     findings = data.get("findings")
@@ -224,7 +243,7 @@ def build(text, patches, repo):
         parts += ["", "**Notes**"] + [f"- {n}" for n in clean_notes]
     posted = "\n".join(parts + [c["body"] for c in comments])
     # Sanitizing removes tags and joins what they split, so a token can only appear here.
-    if SECRET.search(posted):
+    if leaks(posted):
         return plain_result(WITHHELD)
     return Built("review", "\n".join(parts), comments, event, counts, skipped)
 
