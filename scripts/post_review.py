@@ -222,6 +222,10 @@ def build(text, patches, repo):
             parts.append(f"- and {counts['minor'] - len(shown_lines)} more not shown")
     if clean_notes:
         parts += ["", "**Notes**"] + [f"- {n}" for n in clean_notes]
+    posted = "\n".join(parts + [c["body"] for c in comments])
+    # Sanitizing removes tags and joins what they split, so a token can only appear here.
+    if SECRET.search(posted):
+        return plain_result(WITHHELD)
     return Built("review", "\n".join(parts), comments, event, counts, skipped)
 
 

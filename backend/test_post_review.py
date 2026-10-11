@@ -678,3 +678,9 @@ def test_pr_patches_keeps_a_renamed_files_old_name(monkeypatch):
 def test_pr_patches_returns_nothing_when_a_row_is_malformed(monkeypatch):
     stub_files(monkeypatch, json.dumps({"filename": "a.py", "patch": "p"}) + "\nnot json\n")
     assert pr.pr_patches(REPO, 7) == {}
+
+
+def test_a_token_split_by_a_tag_is_withheld_after_sanitizing():
+    for f in (finding("minor", body="leak sk-<i>or-v1-abc"), finding("major", body="leak sk-<i>or-v1-abc")):
+        r = built([f])
+        assert r.kind == "plain" and r.body == pr.WITHHELD
