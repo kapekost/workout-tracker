@@ -27,7 +27,7 @@ describe('icon components', () => {
     expect(render(<IconPencil className="my-class" />).container.querySelector('svg').getAttribute('class')).toBe('my-class')
   })
 
-  // A handful of icons (Clock, History/Clipboard, day badges, the barbell app
+  // A handful of icons (Clock, History/Clipboard, the barbell app
   // mark) are baked PNGs instead of SVGs -- see #211: their opacity-accent
   // layers were invisible when drawn over an identically-colored base, a bug
   // that only a real two-tone raster (not a single-currentColor glyph) fixes.
