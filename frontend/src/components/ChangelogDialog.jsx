@@ -12,7 +12,12 @@ export default function ChangelogDialog({ entries, onClose }) {
     closeRef.current?.focus()
     function onKey(e) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+    }
   }, [onClose])
 
   return (

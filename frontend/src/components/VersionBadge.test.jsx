@@ -223,6 +223,13 @@ describe('VersionBadge changelog dialog', () => {
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
   })
 
+  it('stops the page behind from scrolling while open and restores it on close', () => {
+    open()
+    expect(document.body.style.overflow).toBe('hidden')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(document.body.style.overflow).toBe('')
+  })
+
   it('moves focus into the dialog on open', () => {
     open()
     expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
