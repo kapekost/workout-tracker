@@ -366,9 +366,9 @@ def test_notes_prevent_approval_even_with_no_findings():
     assert built([], notes=[]).event == "APPROVE"
 
 
-def test_limits_sit_in_a_collapsed_section_and_do_not_prevent_approval():
+def test_limits_sit_in_a_collapsed_section_and_prevent_approval():
     r = built([], limits=["could not read .claude/agents/reviewer.md"])
-    assert r.event == "APPROVE"
+    assert r.event == "COMMENT"
     assert "<details>" in r.body and "could not read" in r.body
     assert "**Notes**" not in r.body
 

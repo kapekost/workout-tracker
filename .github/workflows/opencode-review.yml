@@ -324,7 +324,7 @@ jobs:
 
             You cannot run tests, builds or linters, so never claim that a test fails or passes. You may say what a test does or does not assert; anything about runtime behaviour you could not check goes in `notes`.
 
-            This checkout is a deliberately stripped sandbox: `AGENTS.md`, `CLAUDE.md`, `.claude/` and `opencode.json` are removed, `HEAD~N` revisions can be stale, and most commands are denied. None of that is about the PR. Never report it as a finding or a note; if it stopped you checking something, put one line in `limits`.
+            This checkout is a deliberately stripped sandbox: `AGENTS.md`, `CLAUDE.md`, `.claude/` and `opencode.json` are removed, `HEAD~N` revisions can be stale, and most commands are denied. None of that is about the PR. Never report it as a finding; if it stopped you checking something, put one line in `limits`.
 
             ## 3. Output: one JSON object, nothing else
 

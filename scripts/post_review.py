@@ -224,7 +224,7 @@ def build(text, patches, repo):
     limits = data.get("limits")
     clean_limits = ([sanitize(n, repo, MAX_BODY) for n in limits[:5] if isinstance(n, str)]
                     if isinstance(limits, list) else [])
-    event = decide_event(counts, kind, bool(notes))
+    event = decide_event(counts, kind, bool(notes) or bool(limits))
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
     summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
