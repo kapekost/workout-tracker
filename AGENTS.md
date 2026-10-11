@@ -450,9 +450,9 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-11. Live is `1b1284d`, deployed from `main` by the owner._
+_Last updated: 2026-10-11. Live is `e5ce317`, deployed from `main` by the agent (owner's standing instruction: deploy once verified)._
 
-**Running now:** commit `1b1284d`, `/api/health` `{"status":"ok","version":"1b1284d"}` (verified at deploy, 2026-10-11).
+**Running now:** commit `e5ce317`, `/api/health` `{"status":"ok","version":"e5ce317"}` (verified at deploy, 2026-10-11). The login page loaded in a browser, and the version stamp opened the What's new dialog. Flows behind the login were not driven.
 **Schema v7**, unchanged since 2026-10-03. `main` may move on with commits that change no app
 behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 

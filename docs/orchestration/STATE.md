@@ -14,15 +14,15 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `1b1284d` (schema v7), deployed 2026-10-11. #229 shipped (PRs #267, #319).
-  Housekeeping after the 2026-10-11 owner decisions (see `DECISIONS.md`).
+- **Current focus:** live is `e5ce317` (schema v7), deployed 2026-10-11 by the agent. The owner's
+  standing rule: deploy once verified and ready to merge, check the live URL, then merge.
 - **Next action:** none ready and unblocked. #269 has only items 3 (big diffs: stat and "reviewed N
   of M files") and 5 (label gate on re-review) left. Both are speculative: binaries already show as
   one line in `pr.diff`, the poster already reviews only the diff since its last review, and no big
   PR has failed since the 900 s cap and the fallbacks. Build them when a review actually skips, or
   fold them into #292 (requests per review). Items 1, 2, 4, 6 and the timeout label (#327) are done.
-  #317 (#325) and the kapekost-web model-list sync (kapekost-web#95) are done. #322 (backend),
-  #323 and #327 (review workflow) and #325 (frontend) are on `main` but not deployed.
+  #317 (#325), the kapekost-web model-list sync (kapekost-web#95) and #329 (#330) are done, and
+  everything on `main` through #330 is deployed.
 
 ## Stop-condition
 (none — runner proceeds normally)
