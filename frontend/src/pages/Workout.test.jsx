@@ -257,6 +257,19 @@ describe('Workout page', () => {
     expect(screen.getByRole('button', { name: /log set/i })).not.toBeDisabled()
   })
 
+  it('a leading zero is dropped as a number is typed, but 0 and 0.5 stay as typed', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    const weightInput = screen.getAllByRole('spinbutton')[0]
+    const typed = value => { fireEvent.change(weightInput, { target: { value } }); return weightInput.value }
+    expect(typed('0')).toBe('0')
+    expect(typed('05')).toBe('5')
+    expect(typed('007.5')).toBe('7.5')
+    expect(typed('0.5')).toBe('0.5')
+    expect(typed('00')).toBe('0')
+  })
+
   it('the exercise is not editable until the prefill has loaded, so it cannot overwrite typing', async () => {
     mockSession()
     const base = api.get.getMockImplementation()

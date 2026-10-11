@@ -157,7 +157,8 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
       <input type="number" value={draft} inputMode={mode} aria-label={label}
         onFocus={() => setEditing(true)}
         onChange={e => {
-          const raw = e.target.value
+          // "0" then "5" must read 5, not 05; "0" and "0.5" stay as typed.
+          const raw = e.target.value.replace(/^0+(?=\d)/, '')
           setEditing(true)
           setDraft(raw)
           // Commit every *valid* keystroke so the parent stays in sync (a
