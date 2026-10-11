@@ -25,8 +25,8 @@ def test_generated_config_denies_data_collection_for_every_listed_model(tmp_path
 
 
 def test_the_free_router_is_listed_first_and_never_twice():
-    block = TEXT[TEXT.index("# The one model list"):TEXT.index("} > \"$RUNNER_TEMP/models.txt\"")]
-    assert block.index("echo openrouter/free") < block.index("curl")
+    block = TEXT[TEXT.index("# The one model list"):TEXT.index("} > \"$RUNNER_TEMP/configured.txt\"")]
+    assert block.index("echo openrouter/free") < block.index("stealth/")
     assert block.count("openrouter/free") == 1
 
 

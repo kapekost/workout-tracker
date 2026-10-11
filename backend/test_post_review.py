@@ -366,6 +366,21 @@ def test_notes_prevent_approval_even_with_no_findings():
     assert built([], notes=[]).event == "APPROVE"
 
 
+def test_limits_sit_in_a_collapsed_section_and_prevent_approval():
+    r = built([], limits=["could not read .claude/agents/reviewer.md"])
+    assert r.event == "COMMENT"
+    assert "<details>" in r.body and "could not read" in r.body
+    assert "**Notes**" not in r.body
+
+
+def test_limits_are_sanitized_capped_and_ignored_unless_a_list_of_strings():
+    r = built([], limits=["see https://evil.example <b>x</b>"] + ["l"] * 9)
+    assert "evil.example" not in r.body and "<b>" not in r.body
+    assert r.body.count("\n- ") == 5
+    assert "<details>" not in built([], limits="not a list").body
+    assert "<details>" not in built([], limits=[3, None]).body
+
+
 def test_clean_review_approves():
     assert built([]).event == "APPROVE"
 

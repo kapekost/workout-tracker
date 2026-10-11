@@ -184,13 +184,30 @@ jobs:
           JSON
           # The one model list: the auto-routed free router first, then live stealth previews when
           # OpenRouter lists any, then the fixed free fallbacks. Every model is configured with
-          # data_collection deny.
+          # data_collection deny. A model the endpoint no longer lists is dropped, and a run with
+          # none left fails here instead of looking like a provider outage. If the endpoint cannot
+          # be read, the list is used as it stands.
+          if curl -fsS --retry 2 --max-time 20 https://openrouter.ai/api/v1/models \
+               | jq -r '.data[].id' > "$RUNNER_TEMP/listed.txt"; then
+            listed=1
+          else
+            listed=0
+          fi
           {
             echo openrouter/free
-            curl -fsS --retry 2 --max-time 20 https://openrouter.ai/api/v1/models \
-              | jq -r '.data[].id | select(test("^stealth/[A-Za-z0-9._-]+$"))' | head -n 2 || true
+            grep -E '^stealth/[A-Za-z0-9._-]+$' "$RUNNER_TEMP/listed.txt" | head -n 2 || true
             printf '%s\n' cohere/north-mini-code:free apodex/apodex-1.1-mini:free
-          } > "$RUNNER_TEMP/models.txt"
+          } > "$RUNNER_TEMP/configured.txt"
+          if [ "$listed" -eq 1 ]; then
+            grep -Fxf "$RUNNER_TEMP/listed.txt" "$RUNNER_TEMP/configured.txt" > "$RUNNER_TEMP/models.txt" || true
+            if [ ! -s "$RUNNER_TEMP/models.txt" ]; then
+              echo "::error::none of the configured review models is listed by OpenRouter"
+              exit 1
+            fi
+          else
+            echo "::warning::could not read the OpenRouter model list; using the configured models unchecked"
+            cp "$RUNNER_TEMP/configured.txt" "$RUNNER_TEMP/models.txt"
+          fi
           jq --rawfile m "$RUNNER_TEMP/models.txt" \
             '.provider.openrouter.models = ([$m | split("\n")[] | select(length > 0)
               | {(.): {options: {provider: {data_collection: "deny"}}}}] | add)' \
@@ -307,6 +324,8 @@ jobs:
 
             You cannot run tests, builds or linters, so never claim that a test fails or passes. You may say what a test does or does not assert; anything about runtime behaviour you could not check goes in `notes`.
 
+            This checkout is a deliberately stripped sandbox: `AGENTS.md`, `CLAUDE.md`, `.claude/` and `opencode.json` are removed, `HEAD~N` revisions can be stale, and most commands are denied. None of that is about the PR. Never report it as a finding; if it stopped you checking something, put one line in `limits`.
+
             ## 3. Output: one JSON object, nothing else
 
             Print exactly this shape, with no prose, heading or code fence around it:
@@ -317,7 +336,8 @@ jobs:
                     "blocking": true,
                     "body": "<one line: what breaks and the failure it causes, max 300 chars>"}
                  ],
-                 "notes": ["<only what you could not verify, one line each>"]}
+                 "notes": ["<what you could not verify about the code, one line each>"],
+                 "limits": ["<what the sandbox kept you from checking, one line each>"]}
 
             - `blocking` is derived from `severity`: true for `critical` and `major`, false
               for `minor`.
@@ -326,7 +346,7 @@ jobs:
               leave `line` out.
             - At most 20 findings. Drop the weakest rather than compressing them.
             - Nothing found: `"findings": []` and a `summary` such as `3 files, no findings`.
-            - A denied command is a `notes` entry, not a reason to stop.
+            - A denied command is a `limits` entry, not a reason to stop.
 
             **You have no GitHub token.** Do not run `gh pr review`, `gh pr comment` or
             `gh api`. A separate step validates your JSON and posts it.
@@ -391,7 +411,7 @@ jobs:
           fi
           echo "model=$used" >> "$GITHUB_OUTPUT"
           if [ ! -s "$RUNNER_TEMP/review.txt" ]; then
-            echo "::notice::automated review skipped, no model produced a usable verdict"
+            echo "::warning::automated review skipped, no model produced a usable verdict"
             # JSON, so post_review.py can tell this notice from model prose. Reasons are
             # fixed strings written above, never model output.
             python3 - "$RUNNER_TEMP/skip-reasons.txt" > "$RUNNER_TEMP/review.txt" <<'PY'
