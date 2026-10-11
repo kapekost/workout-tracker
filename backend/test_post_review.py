@@ -756,6 +756,6 @@ def test_withholding_prints_a_warning(capsys):
 def test_other_invisible_characters_and_whitespace_cannot_hide_a_token():
     gh = "ghp_" + "A" * 36
     for text in ("sk\u034f-or-v1-abcdefgh1234", "gh\u3164p_" + "A" * 36, "sk-or\ufe0f-v1-abcdefgh1234",
-                 "sk\U000e002d-or-v1-abcdefgh1234", "Xsk-or-v1-abcdefgh1234",
+                 "sk\U000e002d-or-v1-abcdefgh1234", "Xsk-or-v1-abcdefgh1234", "sk-or-v1-ab.cd.ef.gh12.34",
                  gh[:10] + " " + gh[10:], "\uff53k-or-v1-abcdefgh1234"):
         assert pr.build(review([finding("minor", body=text)]), PATCHES, REPO).body == pr.WITHHELD, text

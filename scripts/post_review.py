@@ -38,7 +38,7 @@ SEVERITIES = ("critical", "major", "minor")
 ROUND_MARKER = re.compile(r"<!-- review-round:\d+ -->\s*$")
 
 BEARER = re.compile(r"Bearer (?:[A-Za-z0-9._~+/=]{20,}|(?=[A-Za-z0-9._-]*\d)[A-Za-z0-9._-]{20,})")
-TOKEN = re.compile(r"sk-or-v\d+-[A-Za-z0-9]{8,}|sk-or-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_")
+TOKEN = re.compile(r"sk-or-v\d+-|sk-or-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_")
 WITHHELD = ("**Automated review withheld.** The output matched a secret pattern "
             "and was not posted. See the Actions log for the run.")
 FENCE = "`" * 3
