@@ -1,9 +1,11 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
 import { colors, type, icon } from '../lib/theme'
 import { updateStore, shouldCheckForUpdate } from '../lib/swUpdate'
 import { networkStatusStore } from '../lib/networkStatus'
 import { IconExclamationTriangle, IconRefresh } from '../icons'
+import ChangelogDialog from './ChangelogDialog'
+import changelog from '../lib/changelog.json'
 
 // A brief, purely cosmetic tap-feedback flash. checkNow() (swUpdate.js)
 // doesn't hand back anything to await -- it fires registration.update() and
@@ -19,11 +21,17 @@ const CHECKING_FLASH_MS = 1500
 // never grows. shouldCheckForUpdate is the same pathname gate main.jsx uses
 // to decide whether to even run a check -- reused here as the DISPLAY gate,
 // so the two can never disagree about whether now is a safe moment.
-export default function VersionBadge({ store = updateStore, networkStore = networkStatusStore }) {
+export default function VersionBadge({ store = updateStore, networkStore = networkStatusStore, entries = changelog }) {
   const ready = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const stale = useSyncExternalStore(networkStore.subscribe, networkStore.getSnapshot)
   const { pathname } = useLocation()
   const [checking, setChecking] = useState(false)
+  const [open, setOpen] = useState(false)
+  const stampRef = useRef(null)
+  const closeChangelog = useCallback(() => {
+    setOpen(false)
+    stampRef.current?.focus()
+  }, [])
 
   function handleCheck() {
     setChecking(true)
@@ -51,9 +59,20 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <span className="font-mono" style={{ color: colors.muted2, fontSize: type.size.xs }}>
+      {/* Same top-anchored 44px zone as the check button below. */}
+      <button type="button" ref={stampRef} onClick={() => setOpen(true)} aria-haspopup="dialog"
+        className="font-mono"
+        style={{
+          position: 'relative', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          color: colors.muted2, fontSize: type.size.xs,
+        }}>
         v {__APP_COMMIT__}
-      </span>
+        <span aria-hidden="true" style={{
+          position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
+          width: 'max(100%, 44px)', height: 44,
+        }} />
+      </button>
+      {open && <ChangelogDialog entries={entries} onClose={closeChangelog} />}
       {/* Not `.tap-target`: that class centers its invisible 44px hit-zone on the
           button, which bleeds upward into the title text directly above this row
           (confirmed by a real hit-test: clicking the title triggered this button).
