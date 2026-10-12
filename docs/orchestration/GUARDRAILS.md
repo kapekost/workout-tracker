@@ -60,7 +60,10 @@ the `approved` label itself. See "Approval is human-only" below.
 A task is **destructive** if it does any of:
 - Drops/renames DB tables or columns, or runs a migration with data loss.
 - Deletes more than 10 tracked files in one task.
-- Changes auth, session, secret, or token handling.
+- Changes auth, session, secret, or token handling, unless it touches no schema, secret or token
+  format and `security-ai-reviewer` or `staff-engineer-reviewer` reviews the diff before merge (the
+  client-side logout retry is the example). Anything on the "always needs a fresh human approval"
+  list still needs the label.
 - Any other irreversible action (history rewrite, remote branch deletion).
 
 **Flow:** a destructive task stays blocked until its Issue has the `approved` label (or, for

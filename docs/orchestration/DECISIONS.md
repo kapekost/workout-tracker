@@ -676,3 +676,11 @@ workflow, `post_review.py`, model lists, PLAYBOOK/GUARDRAILS wording) is checked
 projects under `~/dev` and brought in sync there. Not blindly: read each project's own state, adapt,
 run its tests, confirm nothing breaks, one PR per project, never push to its `main`. Also recorded in
 `~/.claude/CLAUDE.md`.
+
+## 2026-10-12 — Low-risk auth and session changes need an expert review, not the `approved` label
+
+Owner: non-risky, non-disruptive changes that an expert agent can review should not wait on a label.
+An auth or session change that touches no schema, secret or token format is reviewed by
+`security-ai-reviewer` or `staff-engineer-reviewer` before merge instead. The "always needs a fresh
+human approval" list is unchanged, and agents still never add `approved`. Also decided: the workflow
+keeps `openrouter/free` first to save Claude tokens (#296), and recurring prompt review folds into #171.
