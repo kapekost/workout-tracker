@@ -1,4 +1,5 @@
 [
+  { "date": "2026-10-13", "text": "If you sign out while offline, the app now finishes signing you out on the server as soon as it can reach it again." },
   { "date": "2026-10-11", "text": "Typing a number into weight or reps no longer leaves a leading zero in front of it." },
   { "date": "2026-10-11", "text": "Weight and reps you enter right after opening a workout are no longer replaced by the suggested values." },
   { "date": "2026-10-11", "text": "Tap the version number to see what changed in recent updates." }
