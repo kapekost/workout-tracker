@@ -19,10 +19,12 @@ export const SessionContext = createContext({
 // lifetime, so the intent is kept until a request succeeds.
 const PENDING_LOGOUT = 'pendingLogout'
 
+function logoutPending() {
+  try { return !!localStorage.getItem(PENDING_LOGOUT) } catch { return false }
+}
+
 function retryPendingLogout() {
-  try {
-    if (!localStorage.getItem(PENDING_LOGOUT)) return Promise.resolve()
-  } catch { return Promise.resolve() }
+  if (!logoutPending()) return Promise.resolve()
   return auth.logout().then(() => {
     try { localStorage.removeItem(PENDING_LOGOUT) } catch { /* best effort */ }
   }, () => { /* still offline; try again later */ })
@@ -36,7 +38,11 @@ export function SessionProvider({ children }) {
     // A 401 here is the logged-out answer, not a failure -- it is how the app
     // asks the question. Everything waits on `ready` rather than on the shape
     // of the answer.
-    retryPendingLogout().then(() => auth.me()).then(setProfile).catch(() => setProfile(null)).finally(() => setReady(true))
+    // While the logout is still pending the cookie is live but the user left, so
+    // /auth/me must not bring the profile back.
+    retryPendingLogout()
+      .then(() => (logoutPending() ? null : auth.me()))
+      .then(setProfile).catch(() => setProfile(null)).finally(() => setReady(true))
     // ...but only a request that *settles* sets `ready`, and a server that
     // accepts the connection and then never answers settles nothing. App renders
     // nothing at all until `ready`, so that is a blank page with no text and no

@@ -317,6 +317,16 @@ describe('a logout the server never heard (#148)', () => {
     expect(localStorage.getItem('pendingLogout')).toBeNull()
   })
 
+  it('stays signed out at start while the logout still cannot be sent', async () => {
+    localStorage.setItem('pendingLogout', '1')
+    auth.logout.mockRejectedValue(new Error('offline'))
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('ready')).toHaveTextContent('true'))
+    expect(screen.getByTestId('who')).toHaveTextContent('none')
+    expect(auth.me).not.toHaveBeenCalled()
+  })
+
   it('does not retry when no logout is pending', async () => {
     auth.me.mockRejectedValue(new Error('401'))
     render(<SessionProvider><Probe /></SessionProvider>)
