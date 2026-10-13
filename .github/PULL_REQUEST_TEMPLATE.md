@@ -6,6 +6,7 @@
 
 - [ ] Verification commands from the task/plan were run and passed
 - [ ] CI is green
+- [ ] User-visible change: one plain-language entry added to `frontend/src/lib/changelog.json` (or none needed)
 
 ## Guardrails checklist
 
