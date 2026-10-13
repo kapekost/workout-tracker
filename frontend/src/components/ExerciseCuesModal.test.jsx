@@ -125,4 +125,57 @@ describe('ExerciseCuesModal', () => {
     act(() => { vi.advanceTimersByTime(0) }) // the reduced-motion exit still goes through setTimeout(fn, 0), not a synchronous call
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('the pinned Done button closes the sheet the same way', () => {
+    const onClose = vi.fn()
+    renderOpen(onClose)
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(onClose).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(MODAL_EXIT_MS) })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the Done button outside the scrolling area', () => {
+    const { container } = render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={() => {}} />)
+    const scroller = container.querySelector('.cues-sheet > div')
+    expect(scroller).toHaveStyle({ overflowY: 'auto' })
+    expect(scroller).not.toContainElement(screen.getByRole('button', { name: 'Done' }))
+  })
+
+  it('moves focus into the sheet on open', () => {
+    const { container } = render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={() => {}} />)
+    expect(container.querySelector('.cues-sheet')).toHaveFocus()
+  })
+
+  it('returns focus to the opener on unmount', () => {
+    const opener = document.createElement('button')
+    document.body.appendChild(opener)
+    opener.focus()
+    const { unmount } = render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={() => {}} />)
+    expect(opener).not.toHaveFocus()
+    unmount()
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
+
+  it('wraps Tab from the last control to the first, and Shift+Tab the other way', () => {
+    render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={() => {}} />)
+    const first = screen.getByRole('button', { name: 'Close' })
+    const last = screen.getByRole('button', { name: 'Done' })
+    last.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(first).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
+    expect(last).toHaveFocus()
+  })
+
+  it('pulls Tab back into the sheet when focus has left it', () => {
+    render(<ExerciseCuesModal ex={ex} color="#6ee7b7" onClose={() => {}} />)
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    outside.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+    outside.remove()
+  })
 })
