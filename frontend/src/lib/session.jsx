@@ -15,6 +15,21 @@ export const SessionContext = createContext({
   signOut: async () => {},
 })
 
+// A logout the server never heard leaves the httponly cookie valid for its whole
+// lifetime, so the intent is kept until a request succeeds.
+const PENDING_LOGOUT = 'pendingLogout'
+
+function logoutPending() {
+  try { return !!localStorage.getItem(PENDING_LOGOUT) } catch { return false }
+}
+
+function retryPendingLogout() {
+  if (!logoutPending()) return Promise.resolve()
+  return auth.logout().then(() => {
+    try { localStorage.removeItem(PENDING_LOGOUT) } catch { /* best effort */ }
+  }, () => { /* still offline; try again later */ })
+}
+
 export function SessionProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [ready, setReady] = useState(false)
@@ -23,7 +38,11 @@ export function SessionProvider({ children }) {
     // A 401 here is the logged-out answer, not a failure -- it is how the app
     // asks the question. Everything waits on `ready` rather than on the shape
     // of the answer.
-    auth.me().then(setProfile).catch(() => setProfile(null)).finally(() => setReady(true))
+    // While the logout is still pending the cookie is live but the user left, so
+    // /auth/me must not bring the profile back.
+    retryPendingLogout()
+      .then(() => (logoutPending() ? null : auth.me()))
+      .then(setProfile).catch(() => setProfile(null)).finally(() => setReady(true))
     // ...but only a request that *settles* sets `ready`, and a server that
     // accepts the connection and then never answers settles nothing. App renders
     // nothing at all until `ready`, so that is a blank page with no text and no
@@ -71,6 +90,11 @@ export function SessionProvider({ children }) {
   // the account /auth/me just answered for, and throwing them away would defeat
   // the offline read they exist for. A ref, not a "first run" flag, because
   // StrictMode mounts twice and a flag would be consumed by the first mount.
+  useEffect(() => {
+    window.addEventListener('online', retryPendingLogout)
+    return () => window.removeEventListener('online', retryPendingLogout)
+  }, [])
+
   const lastProfileId = useRef(undefined)
   useEffect(() => {
     const current = profile?.id
@@ -80,14 +104,22 @@ export function SessionProvider({ children }) {
     lastProfileId.current = current
   }, [profile?.id, purgeApiReads])
 
-  const signIn = useCallback((p) => setProfile(p), [])
+  // A new login ends the old intent, or the retry would sign the new session out.
+  const signIn = useCallback((p) => {
+    try { localStorage.removeItem(PENDING_LOGOUT) } catch { /* best effort */ }
+    setProfile(p)
+  }, [])
 
   const signOut = useCallback(async () => {
     // Never rejects, and the local state clears either way. If the request
     // failed the cookie may outlive it, but leaving the UI claiming a session
     // the user just ended would be the worse lie -- and /auth/me corrects it
     // on the next load. Nothing a caller could usefully do with the error.
-    try { await auth.logout() } catch { /* offline logout is still a logout */ }
+    try {
+      await auth.logout()
+    } catch {
+      try { localStorage.setItem(PENDING_LOGOUT, '1') } catch { /* best effort */ }
+    }
     setProfile(null)
 
     // #124: this is an installed, offline-capable PWA on a phone that goes to

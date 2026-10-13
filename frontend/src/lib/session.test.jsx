@@ -37,7 +37,7 @@ function Probe() {
 }
 
 
-beforeEach(() => { vi.clearAllMocks() })
+beforeEach(() => { vi.clearAllMocks(); localStorage.clear() })
 
 describe('SessionProvider', () => {
   it('exposes the profile when /auth/me answers with one', async () => {
@@ -288,5 +288,49 @@ describe('useSession outside a provider', () => {
     render(<Probe />)
     expect(screen.getByTestId('who')).toHaveTextContent('none')
     expect(screen.getByTestId('ready')).toHaveTextContent('true')
+  })
+})
+
+describe('a logout the server never heard (#148)', () => {
+  it('keeps the intent and retries it when the device comes back online', async () => {
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    auth.logout.mockRejectedValue(new Error('offline'))
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('kapekost'))
+    fireEvent.click(screen.getByText('sign out'))
+    await waitFor(() => expect(localStorage.getItem('pendingLogout')).toBe('1'))
+
+    auth.logout.mockResolvedValue(null)
+    auth.logout.mockClear()
+    await act(async () => { window.dispatchEvent(new Event('online')) })
+    await waitFor(() => expect(localStorage.getItem('pendingLogout')).toBeNull())
+    expect(auth.logout).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries at start before asking who is signed in', async () => {
+    localStorage.setItem('pendingLogout', '1')
+    auth.logout.mockResolvedValue(null)
+    auth.me.mockRejectedValue(new Error('401'))
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('ready')).toHaveTextContent('true'))
+    expect(auth.logout).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('pendingLogout')).toBeNull()
+  })
+
+  it('stays signed out at start while the logout still cannot be sent', async () => {
+    localStorage.setItem('pendingLogout', '1')
+    auth.logout.mockRejectedValue(new Error('offline'))
+    auth.me.mockResolvedValue({ id: 1, username: 'kapekost' })
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('ready')).toHaveTextContent('true'))
+    expect(screen.getByTestId('who')).toHaveTextContent('none')
+    expect(auth.me).not.toHaveBeenCalled()
+  })
+
+  it('does not retry when no logout is pending', async () => {
+    auth.me.mockRejectedValue(new Error('401'))
+    render(<SessionProvider><Probe /></SessionProvider>)
+    await waitFor(() => expect(screen.getByTestId('ready')).toHaveTextContent('true'))
+    expect(auth.logout).not.toHaveBeenCalled()
   })
 })
