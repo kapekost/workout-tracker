@@ -31,12 +31,12 @@ export default function ExerciseDetails({ ex, color }) {
         <Eyebrow style={{ marginBottom: 12 }}>Target</Eyebrow>
         <div style={{ display: 'flex', gap: 32 }}>
           <div>
+            <Eyebrow style={{ marginBottom: 4 }}>Sets</Eyebrow>
             <p className="font-mono" style={{ fontSize: type.size.display, fontWeight: type.weight.bold, color, lineHeight: 1 }}>{ex.sets}</p>
-            <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 2 }}>sets</p>
           </div>
           <div>
+            <Eyebrow style={{ marginBottom: 4 }}>Reps</Eyebrow>
             <p className="font-mono" style={{ fontSize: type.size.display, fontWeight: type.weight.bold, color, lineHeight: 1 }}>{ex.repsLow}–{ex.repsHigh}</p>
-            <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 2 }}>reps</p>
           </div>
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function ExerciseDetails({ ex, color }) {
               padding: '8px 0',
               borderBottom: i < ex.cues.length - 1 ? `1px solid ${colors.border}` : 'none'
             }}>
-              <span className="font-mono" style={{ color, fontWeight: type.weight.bold, fontSize: type.size.base, minWidth: 20, paddingTop: 2 }}>
+              <span className="font-mono" style={{ color: colors.muted2, fontWeight: type.weight.bold, fontSize: type.size.base, minWidth: 20, paddingTop: 2 }}>
                 {String(i + 1).padStart(2, '0')}
               </span>
               <span style={{ color: colors.textSecondary, fontSize: type.size.lg, lineHeight: 1.5 }}>{cue}</span>

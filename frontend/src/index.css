@@ -298,13 +298,14 @@ body:has(.timer-bar) .toast { --toast-lift: 85px; }
      rules Task 5 deleted. */
   .screen-on-marker { display: none; }
 }
+.skeleton {
+  background: linear-gradient(90deg,#1a1a1a 25%,#2f2f2f 37%,#1a1a1a 63%);
+  background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
+}
+/* Keep this block after every rule that sets an animation it turns off. */
 @media (prefers-reduced-motion: reduce) {
   .timer-bar.flash, .toast, .skeleton, .route-fade { animation: none; }
   .recovery-ring circle { transition: none !important; }
   .cues-overlay, .cues-sheet { transition: none !important; }
-}
-.skeleton {
-  background: linear-gradient(90deg,#1a1a1a 25%,#2f2f2f 37%,#1a1a1a 63%);
-  background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
 }
 @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }

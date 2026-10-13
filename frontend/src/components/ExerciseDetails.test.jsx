@@ -27,6 +27,18 @@ describe('ExerciseDetails', () => {
     expect(track).toHaveBeenCalledWith('cues_open', { exercise_id: 'bench_press' })
   })
 
+  it('puts the Sets and Reps labels above their numbers, like the workout steppers', () => {
+    render(<ExerciseDetails ex={ex} color="#6ee7b7" />)
+    const label = screen.getByText('Sets')
+    expect(label.nextElementSibling).toHaveTextContent('3')
+    expect(screen.getByText('Reps').nextElementSibling).toHaveTextContent('6–10')
+  })
+
+  it('keeps the volt accent off the cue index so the target stays the one focal point', () => {
+    render(<ExerciseDetails ex={ex} color="#6ee7b7" />)
+    expect(screen.getByText('01')).not.toHaveStyle({ color: '#6ee7b7' })
+  })
+
   it('shows the YouTube fallback and does not track demo_view when there are no demo frames', () => {
     render(<ExerciseDetails ex={ex} color="#6ee7b7" />)
     expect(screen.getByText(/Watch form demo on YouTube/)).toBeInTheDocument()
