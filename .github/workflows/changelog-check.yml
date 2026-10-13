@@ -1,0 +1,34 @@
+name: Changelog check
+
+# A PR that changes app code adds an entry to the in-app "What's new" list, or says why
+# not with a "Changelog: none" line in its description.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require a changelog entry for app changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          files=$(git diff --name-only "$BASE_SHA"...HEAD)
+          app=$(echo "$files" | grep -E '^(frontend/src/|backend/).*\.(jsx?|py)$' | grep -Ev '(\.test\.|/test_|/tests?/|conftest)' || true)
+          [ -z "$app" ] && exit 0
+          echo "$files" | grep -qx 'frontend/src/lib/changelog.json' && exit 0
+          printf '%s' "$PR_BODY" | grep -qiE '^Changelog: none' && exit 0
+          echo "::error::App code changed but frontend/src/lib/changelog.json did not. Add one plain-language entry, or put 'Changelog: none' on its own line in the PR description."
+          echo "$app"
+          exit 1

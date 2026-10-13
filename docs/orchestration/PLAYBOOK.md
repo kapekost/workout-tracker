@@ -364,8 +364,9 @@ only because the owner happened to ask about it, not by anything in this file. H
    Reuse the existing tokens and CSS classes; a review that comes back recommending a component
    library or a design-system layer for this app has answered the wrong question.
 6. **PR:** if the change is visible to the user, add one `{date, text}` entry in plain language to
-   `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. Doc, CI and
-   tooling changes need none. Open a PR referencing the Issue (`Closes #N`), then run
+   `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. CI fails an app-code PR
+   without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body.
+   Doc, CI and tooling PRs need nothing. Open a PR referencing the Issue (`Closes #N`), then run
    `gh pr checks <PR> --watch --fail-fast` to block until CI finishes. **Right after any push** (new PR
    or a new commit on one already open), `--watch` can return a stale rollup for the *previous* commit
    if checks haven't registered yet server-side — confirm `gh pr view <PR> --json
