@@ -1,4 +1,5 @@
 [
+  { "date": "2026-10-14", "text": "Tapping Log Set twice, or retrying after a bad connection, now logs the set once, and a screen reader announces each set you log." },
   { "date": "2026-10-14", "text": "The exercise form-cues sheet now has a Done button at the bottom you can reach with your thumb, keyboard focus stays inside the sheet, and the sets and reps labels sit above their numbers." },
   { "date": "2026-10-13", "text": "If you sign out while offline, the app now finishes signing you out on the server as soon as it can reach it again." },
   { "date": "2026-10-11", "text": "Typing a number into weight or reps no longer leaves a leading zero in front of it." },

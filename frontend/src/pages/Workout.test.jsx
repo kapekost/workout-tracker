@@ -789,3 +789,73 @@ describe('Workout: a note save that fails', () => {
     expect(screen.queryByText(/not saved/i)).not.toBeInTheDocument()
   })
 })
+
+describe('Workout: Log Set is safe to repeat (#339)', () => {
+  const timeout = () => Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' })
+  const logButton = () => screen.getByRole('button', { name: /log set/i })
+
+  it('a double-tap logs one set', async () => {
+    mockSession()
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await act(async () => {
+      fireEvent.click(logButton())
+      fireEvent.click(logButton())
+    })
+    expect(api.post).toHaveBeenCalledTimes(1)
+  })
+
+  it('a retry of the same set after a network failure reuses the key', async () => {
+    mockSession()
+    api.post.mockRejectedValueOnce(timeout())
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await act(async () => { fireEvent.click(logButton()) })
+    await screen.findByText(/tap log set again/i)
+    await act(async () => { fireEvent.click(logButton()) })
+    expect(api.post).toHaveBeenCalledTimes(2)
+    const [first, second] = api.post.mock.calls.map(c => c[1].client_id)
+    expect(first).toBeTruthy()
+    expect(second).toBe(first)
+  })
+
+  it('changing reps after a failure starts a new key', async () => {
+    mockSession()
+    api.post.mockRejectedValueOnce(timeout())
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await act(async () => { fireEvent.click(logButton()) })
+    await screen.findByText(/tap log set again/i)
+    fireEvent.change(screen.getAllByRole('spinbutton')[1], { target: { value: '9' } })
+    await act(async () => { fireEvent.click(logButton()) })
+    const [first, second] = api.post.mock.calls.map(c => c[1].client_id)
+    expect(second).not.toBe(first)
+  })
+
+  it('a server rejection does not carry its key into the next attempt', async () => {
+    mockSession()
+    api.post.mockRejectedValueOnce(Object.assign(new Error('API POST → 422'), { status: 422 }))
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await act(async () => { fireEvent.click(logButton()) })
+    await screen.findByText(/not allowed/i)
+    await act(async () => { fireEvent.click(logButton()) })
+    const [first, second] = api.post.mock.calls.map(c => c[1].client_id)
+    expect(second).not.toBe(first)
+  })
+
+  it('a successful log is announced in a live region', async () => {
+    mockSession()
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    await act(async () => { fireEvent.click(logButton()) })
+    const message = await screen.findByText(/set 1 logged/i)
+    expect(message).toHaveAttribute('role', 'status')
+    expect(message).toHaveAttribute('aria-live', 'polite')
+  })
+})
