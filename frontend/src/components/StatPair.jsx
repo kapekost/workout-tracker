@@ -7,7 +7,7 @@ import { colors, type, space, font } from '../lib/theme'
 // Eyebrow. Only Progress.jsx's PR/Sessions row uses this; both call sites
 // pass no `size`/`color` override for the label, so this keeps rendering
 // identically to before.
-export default function StatPair({ label, value, valueColor, valueSize = '1.5rem', align = 'left' }) {
+export default function StatPair({ label, value, valueColor, valueSize = type.size.title, align = 'left' }) {
   return (
     <div style={{ textAlign: align }}>
       <Eyebrow color={colors.muted} size={type.size.base}>{label}</Eyebrow>

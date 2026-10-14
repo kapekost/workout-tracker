@@ -1,9 +1,10 @@
 import { forwardRef } from 'react'
-import { colors, space, type } from '../lib/theme'
+import { colors, space, icon } from '../lib/theme'
+import { IconChevronDown } from '../icons'
 
 // The expandable-row + chevron shell duplicated verbatim between Workout.jsx
 // and History.jsx (design-system inventory §3.2e): a `card` wrapper, a
-// clickable header row ending in the ∧/∨ glyph, and a body rendered only
+// clickable header row ending in a chevron, and a body rendered only
 // while open.
 //
 // `header` is everything that renders before the chevron — each call site
@@ -53,7 +54,12 @@ const DisclosureRow = forwardRef(function DisclosureRow(
         }}
       >
         {header}
-        <span style={{ color: colors.muted, fontSize: type.size.strong }}>{isOpen ? '∧' : '∨'}</span>
+        <IconChevronDown
+          size={icon.body}
+          color={colors.muted}
+          data-open={isOpen}
+          style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none' }}
+        />
       </button>
       {isOpen && (
         <div style={{ borderTop: `1px solid ${colors.border}`, padding: bodyPadding }}>

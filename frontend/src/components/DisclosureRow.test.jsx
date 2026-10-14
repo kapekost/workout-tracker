@@ -4,26 +4,25 @@ import { createRef } from 'react'
 import DisclosureRow from './DisclosureRow'
 
 describe('DisclosureRow', () => {
-  it('shows the header and the ∨ glyph, and hides children, when closed', () => {
+  it('shows the header and a down chevron, and hides children, when closed', () => {
     render(
       <DisclosureRow header={<span>Bench Press</span>} isOpen={false} onToggle={() => {}}>
         <p>Set details</p>
       </DisclosureRow>
     )
     expect(screen.getByText('Bench Press')).toBeInTheDocument()
-    expect(screen.getByText('∨')).toBeInTheDocument()
+    expect(document.querySelector('svg[data-open="false"]').style.transform).toBe('none')
     expect(screen.queryByText('Set details')).not.toBeInTheDocument()
   })
 
-  it('shows children and flips to the ∧ glyph when open', () => {
+  it('shows children and flips the chevron when open', () => {
     render(
       <DisclosureRow header={<span>Bench Press</span>} isOpen={true} onToggle={() => {}}>
         <p>Set details</p>
       </DisclosureRow>
     )
     expect(screen.getByText('Set details')).toBeInTheDocument()
-    expect(screen.getByText('∧')).toBeInTheDocument()
-    expect(screen.queryByText('∨')).not.toBeInTheDocument()
+    expect(document.querySelector('svg[data-open="true"]').style.transform).toBe('rotate(180deg)')
   })
 
   it('calls onToggle when the header row is clicked', () => {
