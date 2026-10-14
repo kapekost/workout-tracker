@@ -95,7 +95,7 @@ describe('Progress page', () => {
     const prValue = screen.getByText('Personal Record').nextElementSibling
     const sessionsValue = screen.getByText('Sessions').nextElementSibling
     expect(prValue.style.fontSize).toBe(type.size.display)
-    expect(sessionsValue.style.fontSize).toBe('1.5rem')
+    expect(sessionsValue.style.fontSize).toBe(type.size.title)
   })
 
   describe('Personal Record shows the best single (#231)', () => {
