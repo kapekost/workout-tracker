@@ -94,6 +94,15 @@ const HOLD_REPEAT_MS = 90
 // ~20-30px of clearance instead of ~70-90px of dead space.
 const EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR = 69
 
+const VISUALLY_HIDDEN = {
+  position: 'absolute', width: 1, height: 1, overflow: 'hidden',
+  clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap',
+}
+
+// randomUUID is missing on a plain-HTTP origin; the key only has to be unique per tap.
+const newLogKey = () =>
+  globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
 function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', label = 'value' }) {
   const timers = useRef({ timeout: null, interval: null })
   const suppressClick = useRef(false)
@@ -217,6 +226,12 @@ export default function Workout() {
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(8)
   const [logging, setLogging] = useState(false)
+  // Synchronous, unlike `logging`: two taps in one render both see logging=false.
+  const logInFlight = useRef(false)
+  // The key of the last log attempt that got no answer. A retry of the same set
+  // reuses it, so a write that landed before the timeout is not written twice.
+  const pendingLog = useRef(null)
+  const [announcement, setAnnouncement] = useState('')
   const [finishing, setFinishing] = useState(false)
   const [summary, setSummary] = useState(null)
   // restStartMs is an absolute timestamp, so restoring it on mount reproduces
@@ -368,21 +383,30 @@ export default function Workout() {
   const setsForExercise = (id) => sets.filter(s => s.exercise_id === id)
 
   async function logSet(ex) {
-    if (logging) return
+    if (logging || logInFlight.current) return
     // Must run synchronously in this click handler (before any await). The
     // rest-timer beep fires later from a setInterval, and mobile browsers
     // only let an AudioContext produce sound once it's unlocked by a gesture.
     unlockAudio()
+    logInFlight.current = true
     setLogging(true)
     const existingSets = setsForExercise(ex.id)
+    const setNumber = nextSetNumber(existingSets)
+    const signature = `${ex.id}|${setNumber}|${reps}|${weight}`
+    if (pendingLog.current?.signature !== signature) {
+      pendingLog.current = { signature, key: newLogKey() }
+    }
     try {
       const newSet = await api.post(`/sessions/${sessionId}/sets`, {
         exercise_id: ex.id,
         exercise_name: ex.name,
-        set_number: nextSetNumber(existingSets),
+        set_number: setNumber,
         reps,
-        weight_kg: weight
+        weight_kg: weight,
+        client_id: pendingLog.current.key
       })
+      pendingLog.current = null
+      setAnnouncement(`Set ${setNumber} logged: ${weight} kg, ${reps} reps`)
       track('set_logged', { exercise_id: ex.id })
       const newSets = [...sets, newSet]
       setSets(newSets)
@@ -431,6 +455,9 @@ export default function Workout() {
       //   no status — network drop or the 8s abort. The write may or may not
       //               have landed, which is why this branch keeps the retry
       //               hint AND points at the set list to check first.
+      // A server answer means the write did not happen; only a missing status
+      // leaves it open, and that is the one case that keeps the key.
+      if (e?.status) pendingLog.current = null
       if (e?.status === 401) {
         // api.js is already routing this to the logout handler and the screen
         // is being torn down; a toast racing the redirect is noise. Falls
@@ -443,6 +470,7 @@ export default function Workout() {
         showToast("Couldn't save that set — check the sets above, then tap Log Set again", 'error')
       }
     }
+    logInFlight.current = false
     setLogging(false)
   }
 
@@ -525,6 +553,7 @@ export default function Workout() {
   return (
     <div style={{ paddingTop: 16, paddingBottom: EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR }}>
       <Toast toast={toast} />
+      <div role="status" aria-live="polite" style={VISUALLY_HIDDEN}>{announcement}</div>
       <TimerBar
         restStartMs={restStartMs}
         restTargetSec={restTargetSec}
