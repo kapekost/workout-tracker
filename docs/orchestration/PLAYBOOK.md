@@ -318,6 +318,10 @@ only because the owner happened to ask about it, not by anything in this file. H
    duplicate (2026-09-07) before either cost more than one item's worth of rework.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
+   If the change states anything about training science (`recovery.js`, `muscles.js`, `overload.js`,
+   the plan seed, exercise cues, volume or frequency copy, or a spec for #167, #170 or adaptive
+   coaching), also run the `workout-science` agent. Like any review, its findings are verified
+   against `docs/superpowers/research/2026-08-16-recovery-science.md` before they are acted on.
    **A subagent's own "verified clean" claim on a grep/search sweep needs spot-checking, not just
    trusting** — especially when it distinguishes "real code" from "test fixture" for you. Real case,
    2026-09-15 (#168): a subagent reported zero remaining old-color references, correctly noting
