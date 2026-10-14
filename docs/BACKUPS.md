@@ -56,6 +56,11 @@ the schema version each table first appeared at, so an envelope only has to cont
 tables that existed when it was written. An old backup stays importable as new tables
 are added — a property that gets re-broken easily, so it has regression tests.
 
+A column added to an existing table (`sets.client_id`) needs no such entry: export is
+`SELECT *`, restore accepts any column the live table has, and an older envelope simply
+leaves it `NULL`. A member's merge import drops `client_id` so the copies it adds cannot
+collide with the originals.
+
 ### 4. Snapshots — local, then off-site (manual)
 
 `scripts/backup.sh`, run by hand on the host. There is **no cron**: it was nightly

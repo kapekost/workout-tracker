@@ -116,10 +116,11 @@ cues for a 4-day Upper/Lower split.
   image-build time and copied into the backend image (`/app/static`).
 - **Packaging**: a single multi-stage Docker image. One container, nothing else.
 - **Data**: SQLite file at `/app/data/workouts.db`, persisted via the `./data`
-  volume. Never commit the DB; `data/` is gitignored. Schema **v7**: `profiles`
+  volume. Never commit the DB; `data/` is gitignored. Schema **v9**: `profiles`
   (#66, 2026-08-31) added accounts and a `profile_id` on every other table,
   backfilled to a seeded `kapekost`/admin profile; #84 (2026-09-05) added
-  `profiles.email`, `auth_tokens` and `auth_sessions`. Every data endpoint now
+  `profiles.email`, `auth_tokens` and `auth_sessions`; `sets.client_id` (#339)
+  makes a repeated Log Set a no-op for any caller that sends a key. Every data endpoint now
   requires a session (#86), so an unauthenticated caller gets 401 and
   `_default_profile_id` is gone.
 

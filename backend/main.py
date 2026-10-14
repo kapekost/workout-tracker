@@ -27,7 +27,7 @@ TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # The head of the migration chain, named so the tests that assert "migrated all
 # the way" have one thing to track. _migrate's last block is what sets it.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 # #141: a member's merge-mode import has no admin gate on size the way replace
 # always effectively did (only an admin could reach /api/import at all before
 # #87). Deliberately not matched to /api/events's 100-per-batch cap: that cap
@@ -309,6 +309,14 @@ def _migrate(conn):
     # reseed in _import_replace is what gives their profiles a plan back.
     if v < 8:
         conn.execute("PRAGMA user_version = 8")
+    # --- v8 -> v9: sets.client_id, the key that makes Log Set safe to repeat ---
+    # Nullable and unique only where present, so rows that predate it never collide.
+    if v < 9:
+        if not _column_exists(conn, "sets", "client_id"):
+            conn.execute("ALTER TABLE sets ADD COLUMN client_id TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sets_client_id "
+                     "ON sets(profile_id, client_id) WHERE client_id IS NOT NULL")
+        conn.execute("PRAGMA user_version = 9")
 
 def init():
     with db() as conn:
@@ -357,6 +365,8 @@ class SetIn(BaseModel):
     set_number: int = Field(ge=1)
     reps: int = Field(ge=1)
     weight_kg: float = Field(ge=0, le=1000)
+    # One per log attempt: a repeat of the same key returns the stored set.
+    client_id: Optional[str] = Field(default=None, min_length=1, max_length=64)
 
 class SessionPatch(BaseModel):
     completed: Optional[bool] = None
@@ -1099,12 +1109,22 @@ def add_set(sid: int, s: SetIn, profile_id: int = Depends(acting_profile_id)):
         if not conn.execute("SELECT id FROM sessions WHERE id = ? AND profile_id = ?",
                             (sid, profile_id)).fetchone():
             raise HTTPException(404)
+        # OR IGNORE only ever skips a repeated client_id: the unique index is
+        # partial, so a set without a key cannot conflict, and SetIn has already
+        # checked every NOT NULL column.
         cur = conn.execute(
-            "INSERT INTO sets (session_id, exercise_id, exercise_name, set_number, reps, weight_kg, profile_id) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg, profile_id))
+            "INSERT OR IGNORE INTO sets (session_id, exercise_id, exercise_name, set_number, reps, "
+            "weight_kg, profile_id, client_id) VALUES (?,?,?,?,?,?,?,?)",
+            (sid, s.exercise_id, s.exercise_name, s.set_number, s.reps, s.weight_kg, profile_id,
+             s.client_id))
         conn.commit()
-        row = conn.execute("SELECT * FROM sets WHERE id = ?", (cur.lastrowid,)).fetchone()
+        if cur.rowcount:
+            row = conn.execute("SELECT * FROM sets WHERE id = ?", (cur.lastrowid,)).fetchone()
+        else:
+            row = conn.execute("SELECT * FROM sets WHERE profile_id = ? AND client_id = ?",
+                               (profile_id, s.client_id)).fetchone()
+            if row["session_id"] != sid:
+                raise HTTPException(409, "client_id already used for a set in another session")
         return dict(row)
 
 @app.delete("/api/sessions/{sid}/sets/{set_id}")
@@ -1709,7 +1729,9 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
             new_session_id = session_id_map.get(row.get("session_id"))
             if new_session_id is None:
                 continue  # orphaned: no session in this envelope to attach to
-            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id")}
+            # client_id is dropped too: kept, it would collide with the caller's
+            # own originals and reject the whole import.
+            new_row = {k: v for k, v in row.items() if k not in ("id", "profile_id", "client_id")}
             new_row["session_id"] = new_session_id
             new_row["profile_id"] = profile_id
             cols = list(new_row.keys())
