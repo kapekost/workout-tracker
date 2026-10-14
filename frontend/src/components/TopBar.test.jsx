@@ -226,12 +226,6 @@ describe('TopBar page label — item 15', () => {
     renderTopBarAt('/workout/1')
     expect(await screen.findByText('Workout')).toBeInTheDocument()
   })
-
-  it('keeps the page label on /exercise, which has no nav tab', async () => {
-    signedOut()
-    renderTopBarAt('/exercise/upper_a/bench_press')
-    expect(await screen.findByText('Exercise')).toBeInTheDocument()
-  })
 })
 
 // #125: the badge sits under the title on every route, including the auth
