@@ -17,6 +17,7 @@ import { unlockAudio } from '../lib/sound'
 import { loadRestTimer, saveRestTimer, clearRestTimer } from '../lib/restTimerStorage'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
+import { summarize } from '../lib/sessionStats'
 import Eyebrow from '../components/Eyebrow'
 import Chip from '../components/Chip'
 import DayAccent from '../components/DayAccent'
@@ -515,7 +516,6 @@ export default function Workout() {
       track('session_finish', { session_id: sessionId })
       clearRestTimer(sessionId)
       refresh()
-      const { summarize } = await import('../lib/sessionStats')
       let serverPrs = []
       try { serverPrs = await api.get(`/sessions/${sessionId}/prs`) } catch {}
       // summarize() expects exercise_id -> number (weight); prsAtStart.current
