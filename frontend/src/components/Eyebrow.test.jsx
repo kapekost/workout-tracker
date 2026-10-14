@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import Eyebrow from './Eyebrow'
+import Eyebrow, { fieldLabel } from './Eyebrow'
 import { colors, type } from '../lib/theme'
 
 // jsdom's CSSOM serializes an inline hex color back out as rgb(...) — see
@@ -20,6 +20,16 @@ describe('Eyebrow', () => {
     expect(el.style.fontWeight).toBe(String(type.weight.bold))
     expect(el.style.textTransform).toBe('uppercase')
     expect(el.style.letterSpacing).toBe(type.labelTracking)
+  })
+
+  it('as="label" with fieldLabel labels its field and keeps the eyebrow treatment', () => {
+    render(<><Eyebrow as="label" htmlFor="f" {...fieldLabel}>Username</Eyebrow><input id="f" /></>)
+    const el = screen.getByLabelText('Username')
+    expect(el.tagName).toBe('INPUT')
+    const label = screen.getByText('Username')
+    expect(label.tagName).toBe('LABEL')
+    expect(label.style.textTransform).toBe('uppercase')
+    expect(label.style.display).toBe('block')
   })
 
   it('applies explicit color/size overrides instead of silently using the default', () => {

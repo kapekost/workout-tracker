@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
-import { colors, type, icon } from '../lib/theme'
+import { colors, type, icon, space } from '../lib/theme'
 import { updateStore, shouldCheckForUpdate } from '../lib/swUpdate'
 import { networkStatusStore } from '../lib/networkStatus'
 import { IconExclamationTriangle, IconRefresh } from '../icons'
@@ -58,7 +58,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: space.xs }}>
       {/* Same top-anchored 44px zone as the check button below. */}
       <button type="button" ref={stampRef} onClick={() => setOpen(true)} aria-haspopup="dialog"
         className="font-mono"
@@ -118,7 +118,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
           on slow gym wifi. Hedged language is the same reasoning the comment
           above already applied to the tooltip. */}
       <span role="status" aria-atomic="true"
-        style={{ display: 'flex', alignItems: 'center', gap: 4,
+        style={{ display: 'flex', alignItems: 'center', gap: space.xs,
           color: colors.muted2, fontWeight: type.weight.bold, fontSize: type.size.xs, lineHeight: 1.2 }}>
         {stale ? <>
           <IconExclamationTriangle size={icon.caption} />

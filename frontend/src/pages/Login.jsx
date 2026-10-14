@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { auth } from '../api'
 import { useSession } from '../lib/session'
+import Eyebrow, { fieldLabel } from '../components/Eyebrow'
 import { colors, type, space } from '../lib/theme'
 
 const linkButtonStyle = {
@@ -101,13 +102,13 @@ export default function Login() {
       )}
 
       <form onSubmit={submit} className="card" style={{ padding: space.xl, marginBottom: space.xxl }}>
-        <label className="field-label" htmlFor="login-username">Username</label>
+        <Eyebrow as="label" htmlFor="login-username" {...fieldLabel}>Username</Eyebrow>
         <input id="login-username" className="field" type="text" value={username}
           autoComplete="username" autoCapitalize="none" autoCorrect="off"
           onChange={e => setUsername(e.target.value)}
           style={{ marginBottom: space.lg }} />
 
-        <label className="field-label" htmlFor="login-password">Password</label>
+        <Eyebrow as="label" htmlFor="login-password" {...fieldLabel}>Password</Eyebrow>
         <div className="field-row" style={{ marginBottom: space.xl }}>
           {/* type flips to "text" when revealed, which is also why the iOS
               text-entry hints are set here: without them the keyboard would
@@ -141,7 +142,7 @@ export default function Login() {
 
       {forgot && (
         <form onSubmit={sendReset} className="card" style={{ padding: space.xl }}>
-          <label className="field-label" htmlFor="reset-email">Email</label>
+          <Eyebrow as="label" htmlFor="reset-email" {...fieldLabel}>Email</Eyebrow>
           <input id="reset-email" className="field" type="email" value={email}
             autoComplete="email" autoCapitalize="none" autoCorrect="off"
             onChange={e => setEmail(e.target.value)}

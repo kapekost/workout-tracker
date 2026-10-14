@@ -1,5 +1,5 @@
 import Eyebrow from './Eyebrow'
-import { colors, type, space } from '../lib/theme'
+import { colors, type, space, font } from '../lib/theme'
 
 // The one component that ignored theme.js entirely (2026-09-06 UI review,
 // item 17) -- '#9ca3af', '#fff', '0.75rem', 700 and '0.08em' were hardcoded
@@ -12,7 +12,7 @@ export default function StatPair({ label, value, valueColor, valueSize = '1.5rem
     <div style={{ textAlign: align }}>
       <Eyebrow color={colors.muted} size={type.size.base}>{label}</Eyebrow>
       <p style={{
-        color: valueColor ?? colors.text, fontFamily: 'JetBrains Mono, monospace',
+        color: valueColor ?? colors.text, fontFamily: font.mono,
         fontSize: valueSize, fontWeight: type.weight.bold, marginTop: space.xs,
       }}>
         {value}

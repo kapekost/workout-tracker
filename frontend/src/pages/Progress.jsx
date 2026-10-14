@@ -7,7 +7,7 @@ import Chip from '../components/Chip'
 import EmptyState from '../components/EmptyState'
 import LoadError from '../components/LoadError'
 import StatPair from '../components/StatPair'
-import { colors, type, space, icon } from '../lib/theme'
+import { colors, type, space, icon, font } from '../lib/theme'
 import { IconTrophy, IconArrowTrendingUp } from '../icons'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -15,7 +15,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '8px 14px' }}>
       <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 4 }}>{label}</p>
-      <p style={{ color: colors.accent, fontFamily: 'JetBrains Mono, monospace', fontWeight: type.weight.bold, fontSize: '1rem' }}>
+      <p style={{ color: colors.accent, fontFamily: font.mono, fontWeight: type.weight.bold, fontSize: '1rem' }}>
         {payload[0].value} kg
       </p>
     </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth } from '../api'
 import { useSession } from '../lib/session'
+import Eyebrow, { fieldLabel } from '../components/Eyebrow'
 import { colors, type, space } from '../lib/theme'
 
 function Alert({ children }) {
@@ -69,7 +70,7 @@ export default function SetPassword() {
         </div>
       ) : (
         <form onSubmit={submit} className="card" style={{ padding: space.xl }}>
-          <label className="field-label" htmlFor="new-password">New password</label>
+          <Eyebrow as="label" htmlFor="new-password" {...fieldLabel}>New password</Eyebrow>
           {/* The rule the API enforces, stated next to the field it applies
               to instead of buried in the intro paragraph. */}
           {/* muted, not muted2: this is the one rule the user has to comply
@@ -94,7 +95,7 @@ export default function SetPassword() {
             </button>
           </div>
 
-          <label className="field-label" htmlFor="confirm-password">Confirm password</label>
+          <Eyebrow as="label" htmlFor="confirm-password" {...fieldLabel}>Confirm password</Eyebrow>
           <input id="confirm-password" className="field" type={fieldType} value={confirm}
             autoComplete="new-password"
             autoCapitalize="none" autoCorrect="off" spellCheck="false"

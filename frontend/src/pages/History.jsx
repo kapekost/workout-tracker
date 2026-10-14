@@ -11,7 +11,7 @@ import DisclosureRow from '../components/DisclosureRow'
 import { useToast } from '../lib/useToast'
 import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { track } from '../lib/analytics'
-import { colors, type, space, icon } from '../lib/theme'
+import { colors, type, space, icon, font } from '../lib/theme'
 import { IconClock, IconCheck } from '../icons'
 
 function sessionDuration(s) {
@@ -52,7 +52,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
                 display: 'flex', justifyContent: 'space-between',
                 padding: '5px 0', borderBottom: `1px solid ${colors.divider}`
               }}>
-                <span style={{ color: colors.muted, fontFamily: 'JetBrains Mono, monospace', fontSize: type.size.base }}>Set {st.set_number}</span>
+                <span style={{ color: colors.muted, fontFamily: font.mono, fontSize: type.size.base }}>Set {st.set_number}</span>
                 <span className="font-mono" style={{
                   fontSize: type.size.lg, fontWeight: type.weight.bold,
                   color: st.weight_kg === best ? colors.success : colors.textSecondary

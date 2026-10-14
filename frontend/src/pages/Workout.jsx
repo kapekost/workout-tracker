@@ -25,7 +25,7 @@ import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import Toast from '../components/Toast'
 import { useToast } from '../lib/useToast'
-import { colors, type, space, icon } from '../lib/theme'
+import { colors, type, space, icon, font } from '../lib/theme'
 import { IconCheck, IconTrash, IconMinus, IconPlus, IconSparkles, IconTrophy, IconClipboardDocumentList, IconPencil } from '../icons'
 
 function Stat({ label, value }) {
@@ -48,7 +48,7 @@ function SetRow({ s, armed, onRequestDelete }) {
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       padding: '8px 0', borderBottom: `1px solid ${colors.border}`
     }}>
-      <span style={{ color: colors.muted, fontSize: type.size.md, fontFamily: 'JetBrains Mono, monospace' }}>
+      <span style={{ color: colors.muted, fontSize: type.size.md, fontFamily: font.mono }}>
         Set {s.set_number}
       </span>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
@@ -180,7 +180,7 @@ function NumControl({ value, onChange, step = 1, min = 0, mode = 'numeric', labe
         }}
         onBlur={e => commit(e.target.value)}
         style={{ width: 72, minHeight: 44, boxSizing: 'border-box', textAlign: 'center', background: colors.border, border: 'none', borderRadius: 8,
-          color: colors.text, fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
+          color: colors.text, fontFamily: font.mono, fontSize: '1.25rem', fontWeight: type.weight.bold, padding: '10px 0' }} />
       <button className="btn-icon" aria-label={`increase ${label}`}
         onPointerDown={() => startHold(1)} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
         onClick={() => handleClick(1)}><IconPlus size={icon.control} /></button>

@@ -128,10 +128,6 @@ button:focus-visible, a:focus-visible {
    the fields read as flat filled blocks rather than as something you type
    into. One shared set of classes instead, since both screens need exactly
    the same field. */
-.field-label {
-  display: block; color: var(--muted); font-size: 0.7rem; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px;
-}
 .field {
   width: 100%; min-height: 48px; padding: 12px 14px;
   background: var(--bg); color: #fff;
@@ -269,7 +265,7 @@ body:has(.timer-bar) .toast { --toast-lift: 85px; }
 .rest-block { text-align: center; min-width: 88px; }
 /* REST / GO / PAUSED, read at arm's length in the middle of a set. Was
    0.6rem with 0.1em tracking — below the floor, and its tracking matched no
-   other uppercase label in the app (.field-label and Eyebrow both use
+   other uppercase label in the app (Eyebrow uses
    type.labelTracking = 0.08em). */
 .rest-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; }
 /* Was 2.2rem — larger than type.size.display, i.e. off the top of the scale.
