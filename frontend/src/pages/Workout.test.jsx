@@ -14,6 +14,14 @@ vi.mock('../lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
 import { api } from '../api'
 
+const sessionStatsLoaded = vi.hoisted(() => ({ value: false }))
+vi.mock('../lib/sessionStats', async (importOriginal) => {
+  sessionStatsLoaded.value = true
+  return importOriginal()
+})
+// Read before any test runs, so a lazy import from an earlier test cannot satisfy it.
+const loadedWithPage = sessionStatsLoaded.value
+
 const ex1 = PLAN.upper_a.exercises[0]
 const ex2 = PLAN.upper_a.exercises[1]
 
@@ -87,6 +95,12 @@ describe('Workout page', () => {
     await act(async () => { fireEvent.click(finishBtn) })
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/sessions/1', { completed: true }))
     await screen.findByText(/workout complete/i)
+  })
+
+  it('loads the summary code with the page, not on Finish', () => {
+    // A lazy import fails after a deploy (the old bundle asks for a chunk that
+    // no longer exists), and the catch then reports a finish that already saved.
+    expect(loadedWithPage).toBe(true)
   })
 
   it('logs the next set with max(set_number)+1, not count+1', async () => {
