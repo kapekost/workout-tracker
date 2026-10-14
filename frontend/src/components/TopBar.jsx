@@ -8,11 +8,10 @@ import { IconBarbell, IconUser } from '../icons'
 // Home/Progress/History are reachable from NavBar's own tabs, which already
 // render a mint label for the active one at the bottom of the same screen
 // (2026-09-06 UI review, item 15) -- printing it again up here just
-// duplicated it. Workout and Exercise have no nav tab, so this is the only
-// place either names the screen you're on.
+// duplicated it. Workout has no nav tab, so this is the only
+// place it names the screen you're on.
 function pageLabel(pathname) {
   if (pathname.startsWith('/workout')) return 'Workout'
-  if (pathname.startsWith('/exercise')) return 'Exercise'
   return ''
 }
 

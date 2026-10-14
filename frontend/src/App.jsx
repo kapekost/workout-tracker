@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import Workout from './pages/Workout'
-import Exercise from './pages/Exercise'
 import Progress from './pages/Progress'
 import History from './pages/History'
 import PersonalBests from './pages/PersonalBests'
@@ -51,7 +50,6 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/workout/:sessionId" element={<Workout />} />
-      <Route path="/exercise/:workoutDay/:exerciseId" element={<Exercise />} />
       <Route path="/progress" element={<Progress />} />
       <Route path="/history" element={<History />} />
       <Route path="/personal-bests" element={<PersonalBests />} />

@@ -15,7 +15,6 @@ import { PLAN, CYCLE } from '../src/data/workoutPlan.js'
 
 const ACTIVE_SESSION_ID = 1
 const WORKOUT_DAY = 'upper_a'
-const EXERCISE_ID = 'bench_press' // PLAN.upper_a.exercises[0].id
 
 const sessions = [
   {
@@ -73,7 +72,6 @@ const PAGES = [
   { name: 'Workout', path: `/workout/${ACTIVE_SESSION_ID}`, ready: (page) => page.getByRole('button', { name: /Finish Workout/i }) },
   { name: 'History', path: '/history', ready: (page) => page.getByRole('heading', { name: 'History', level: 1 }) },
   { name: 'Progress', path: '/progress', ready: (page) => page.getByRole('button', { name: 'Bench Press' }) },
-  { name: 'Exercise', path: `/exercise/${WORKOUT_DAY}/${EXERCISE_ID}`, ready: (page) => page.getByRole('heading', { name: 'Bench Press', level: 1 }) },
   // The one page that renders no NavBar (see NavBar.jsx) — so it is also the
   // only one whose tap-target floor is carried entirely by its own controls.
   { name: 'Login', path: '/login', ready: (page) => page.getByRole('heading', { name: 'Log in', level: 1 }) },
