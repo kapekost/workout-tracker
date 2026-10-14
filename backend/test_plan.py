@@ -69,7 +69,7 @@ def test_migration_is_a_noop_for_a_profile_with_existing_rows(mainmod):
         assert [dict(r) for r in after_exercises] == [dict(r) for r in before_exercises]
 
 
-def test_a_backup_taken_before_the_plan_was_backed_up_still_restores(client, reauthenticate):
+def test_a_backup_taken_before_the_plan_was_backed_up_still_restores(client, reauthenticate, mainmod):
     """Every envelope already on disk reports the schema_version current when it
     was written, so any backup taken before plan_days joined the export is a v7
     envelope with no plan tables. The envelope gate requires the tables a given
@@ -79,7 +79,7 @@ def test_a_backup_taken_before_the_plan_was_backed_up_still_restores(client, rea
     accepted, and the reseed above gives the restored profiles their default
     plan."""
     env = client.get("/api/export").json()
-    assert env["schema_version"] == 8
+    assert env["schema_version"] == mainmod.SCHEMA_VERSION
     legacy = {"exported_at": env["exported_at"], "schema_version": 7,
               "tables": {k: v for k, v in env["tables"].items()
                          if not k.startswith("plan_")}}
