@@ -120,7 +120,7 @@ cues for a 4-day Upper/Lower split.
   (#66, 2026-08-31) added accounts and a `profile_id` on every other table,
   backfilled to a seeded `kapekost`/admin profile; #84 (2026-09-05) added
   `profiles.email`, `auth_tokens` and `auth_sessions`; `sets.client_id` (#339)
-  makes a repeated Log Set a no-op. Every data endpoint now
+  makes a repeated Log Set a no-op for any caller that sends a key. Every data endpoint now
   requires a session (#86), so an unauthenticated caller gets 401 and
   `_default_profile_id` is gone.
 
