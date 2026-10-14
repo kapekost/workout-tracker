@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
 import VersionBadge from './VersionBadge'
-import { colors, type, icon } from '../lib/theme'
+import { colors, type, icon, space } from '../lib/theme'
 import { useSession } from '../lib/session'
 import { IconBarbell, IconUser } from '../icons'
 
@@ -54,7 +54,7 @@ export default function TopBar() {
     }}>
       <div className="page-shell" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px'
+        padding: `${space.md}px ${space.xl}px`
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, minWidth: 0 }}>
           <span style={{
@@ -65,7 +65,7 @@ export default function TopBar() {
           </span>
           <VersionBadge />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: space.smd, minWidth: 0 }}>
           {authScreen ? (
             // With NavBar gone from these screens, this is the only way back
             // into the app for someone who tapped "Log in" and changed their

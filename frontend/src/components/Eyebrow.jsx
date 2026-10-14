@@ -7,9 +7,12 @@ import { colors, type } from '../lib/theme'
 // differs from the default, and `style` is a last-resort escape hatch
 // (e.g. a call site needing a different fontWeight) applied after the base
 // styling so it can override anything above it.
-export default function Eyebrow({ children, color = colors.muted2, size = type.size.xs, style }) {
+// Props for an Eyebrow used as a form <label> above a field.
+export const fieldLabel = { color: colors.muted, size: type.size.sm, style: { display: 'block', marginBottom: 6 } }
+
+export default function Eyebrow({ as: Tag = 'p', children, color = colors.muted2, size = type.size.xs, style, ...rest }) {
   return (
-    <p style={{
+    <Tag {...rest} style={{
       color,
       fontSize: size,
       fontWeight: type.weight.bold,
@@ -18,6 +21,6 @@ export default function Eyebrow({ children, color = colors.muted2, size = type.s
       ...style,
     }}>
       {children}
-    </p>
+    </Tag>
   )
 }

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import Eyebrow from './Eyebrow'
-import { colors, type, icon } from '../lib/theme'
+import { colors, type, icon, space } from '../lib/theme'
 import { IconNavHome, IconNavProgress, IconNavHistory } from '../icons'
 
 const tabs = [
@@ -33,14 +33,14 @@ export default function NavBar() {
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
       background: colors.card, borderTop: `1px solid ${colors.border}`,
-      display: 'flex', paddingTop: 8, paddingLeft: 0, paddingRight: 0,
+      display: 'flex', paddingTop: space.sm, paddingLeft: 0, paddingRight: 0,
       // env(safe-area-inset-bottom) is 0 on a non-notched device, so this
       // renders identically to the old flat 20px there; on a notched
       // device it grows to clear the home-indicator area, same pattern
       // TimerBar's own `bottom` offset already uses (index.css). Combined
       // rendered height feeds --navbar-height (index.css :root) — keep
       // that in sync if this ever changes.
-      paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
+      paddingBottom: `calc(${space.xxl}px + env(safe-area-inset-bottom))`,
       zIndex: 50
     }}>
       {/* TopBar already solves the same problem by wrapping its contents in

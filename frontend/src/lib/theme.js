@@ -125,6 +125,10 @@ export const type = {
   labelTracking: '0.08em',
 }
 
+export const font = {
+  mono: "'JetBrains Mono', monospace",
+}
+
 export const space = {
   xs: 4,
   sm: 8,
