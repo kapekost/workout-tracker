@@ -275,6 +275,9 @@ describe('Workout page', () => {
     mockSession()
     renderWorkout()
     await screen.findByText(ex1.name)
+    // The card's own effect copies the prefilled value into the input after the
+    // render that shows it; typing before it runs lets it overwrite the typing.
+    await act(async () => {})
     const weightInput = screen.getAllByRole('spinbutton')[0]
     const typed = value => { fireEvent.change(weightInput, { target: { value } }); return weightInput.value }
     expect(typed('0')).toBe('0')
