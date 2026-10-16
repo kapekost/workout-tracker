@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from pydantic import BaseModel, Field, field_validator
-from typing import Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from typing import Annotated, Literal, Optional
 from contextlib import contextmanager
 import sqlite3, logging, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
 import bcrypt
@@ -401,6 +401,56 @@ class ImportIn(BaseModel):
     mode: str = "replace"
     confirm: bool = False
     envelope: dict
+
+PLAN_UPDATE_SCHEMA = "workout-tracker/plan-update/v1"
+_SLUG = r"^[a-z][a-z0-9_]{0,63}$"
+
+class PlanExerciseOp(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["modify", "add", "remove"]
+    exercise_id: str = Field(pattern=_SLUG)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    alt: Optional[str] = Field(default=None, max_length=128)
+    sets: Optional[int] = Field(default=None, ge=1, le=10, strict=True)
+    reps_low: Optional[int] = Field(default=None, ge=1, le=50, strict=True)
+    reps_high: Optional[int] = Field(default=None, ge=1, le=50, strict=True)
+    bodyweight: Optional[bool] = Field(default=None, strict=True)
+    muscles: Optional[list[Annotated[str, Field(max_length=32)]]] = Field(default=None, max_length=10)
+    yt_url: Optional[str] = Field(default=None, max_length=512, pattern=r"^https://")
+    cues: Optional[list[Annotated[str, Field(max_length=160)]]] = Field(default=None, max_length=8)
+
+    @model_validator(mode="after")
+    def _op_rules(self):
+        given = {f for f in self.model_fields_set if f not in ("op", "exercise_id")}
+        nulled = sorted(f for f in given - {"alt", "yt_url"} if getattr(self, f) is None)
+        if nulled:
+            raise ValueError(f"{', '.join(nulled)} cannot be null")
+        if self.op == "remove" and given:
+            raise ValueError(f"remove takes no fields, got {sorted(given)}")
+        if self.op == "modify" and not given:
+            raise ValueError("modify changes nothing, send at least one field")
+        if self.op == "add":
+            missing = [f for f in ("name", "sets", "reps_low", "reps_high") if f not in given]
+            if missing:
+                raise ValueError(f"add requires {', '.join(missing)}")
+        if self.reps_low is not None and self.reps_high is not None and self.reps_high < self.reps_low:
+            raise ValueError("reps_high must be at least reps_low")
+        return self
+
+class PlanDayUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    day_key: str = Field(pattern=_SLUG)
+    exercise_updates: list[PlanExerciseOp] = Field(max_length=20)
+
+class PlanUpdateEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["workout-tracker/plan-update/v1"] = Field(alias="schema")
+    summary: str = Field(max_length=500)
+    day_updates: list[PlanDayUpdate] = Field(max_length=10)
+
+class PlanUpdateIn(BaseModel):
+    envelope: dict
+    confirm: bool = False
 
 class PersonalBestIn(BaseModel):
     exercise_id: str = Field(max_length=64)
@@ -1026,6 +1076,124 @@ def get_plan(profile_id: int = Depends(acting_profile_id)):
             }
             cycle.append(day["day_key"])
         return {"plan": plan, "cycle": cycle}
+
+def _plan_update_error(env_raw, err: ValidationError) -> str:
+    """Name the first failure by path, op and field."""
+    e = err.errors()[0]
+    loc = list(e["loc"])
+    where = ".".join(f"[{p}]" if isinstance(p, int) else str(p) for p in loc).replace(".[", "[")
+    op = ""
+    try:
+        node = env_raw
+        for p in loc[:4]:
+            node = node[p]
+        if len(loc) >= 4:
+            op = f" ({node.get('op')} {node.get('exercise_id')})"
+    except (KeyError, IndexError, TypeError, AttributeError):
+        pass
+    msg = e["msg"].removeprefix("Value error, ")
+    return f"{where or 'envelope'}{op}: {msg}"
+
+def _apply_plan_update(conn, profile_id, update: PlanUpdateEnvelope):
+    """Run the ops in order against the profile's plan; the caller owns the transaction.
+
+    The preview and the write share this one pass, so they cannot disagree.
+    remove deletes only the plan_exercises row. sets, personal_bests and
+    exercise_notes key on exercise_id as free text, so a removed exercise's
+    history stays where it was.
+    """
+    counts = {"add": 0, "modify": 0, "remove": 0}
+    details, days = [], set()
+    for du in update.day_updates:
+        day_row = conn.execute("SELECT id, name FROM plan_days WHERE profile_id = ? AND day_key = ?",
+                               (profile_id, du.day_key)).fetchone()
+        if not day_row:
+            raise HTTPException(400, f"day_key: unknown day '{du.day_key}'")
+        days.add(du.day_key)
+        label = day_row["name"]
+        for op in du.exercise_updates:
+            tag = f"day '{du.day_key}' ({op.op} {op.exercise_id})"
+            cur = conn.execute("SELECT * FROM plan_exercises WHERE plan_day_id = ? AND exercise_id = ?",
+                               (day_row["id"], op.exercise_id)).fetchone()
+            if op.op == "add":
+                if conn.execute(
+                        "SELECT 1 FROM plan_exercises e JOIN plan_days d ON d.id = e.plan_day_id "
+                        "WHERE d.profile_id = ? AND e.exercise_id = ?",
+                        (profile_id, op.exercise_id)).fetchone():
+                    raise HTTPException(400, f"{tag}: exercise_id already in the plan, use modify instead")
+                pos = conn.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM plan_exercises "
+                                   "WHERE plan_day_id = ?", (day_row["id"],)).fetchone()[0]
+                conn.execute(
+                    "INSERT INTO plan_exercises (plan_day_id, exercise_id, name, alt, sets, reps_low, "
+                    "reps_high, bodyweight, muscles_json, yt_url, cues_json, sort_order) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (day_row["id"], op.exercise_id, op.name, op.alt, op.sets, op.reps_low,
+                     op.reps_high, int(bool(op.bodyweight)), json.dumps(op.muscles or []),
+                     op.yt_url, json.dumps(op.cues or []), pos))
+                details.append(f"{label}: added {op.name} ({op.sets}x{op.reps_low}-{op.reps_high})")
+            elif not cur:
+                raise HTTPException(400, f"{tag}: exercise_id not in this day's exercises")
+            elif op.op == "remove":
+                conn.execute("DELETE FROM plan_exercises WHERE id = ?", (cur["id"],))
+                details.append(f"{label}: removed {cur['name']}")
+            else:
+                new_low = op.reps_low if op.reps_low is not None else cur["reps_low"]
+                new_high = op.reps_high if op.reps_high is not None else cur["reps_high"]
+                if new_high < new_low:
+                    raise HTTPException(400, f"{tag}: reps_high {new_high} is below reps_low {new_low}")
+                changes = []
+                if op.sets is not None and op.sets != cur["sets"]:
+                    changes.append(f"{cur['sets']}\u2192{op.sets} sets")
+                if (new_low, new_high) != (cur["reps_low"], cur["reps_high"]):
+                    changes.append(f"reps {cur['reps_low']}-{cur['reps_high']}\u2192{new_low}-{new_high}")
+                other = [f for f in ("name", "alt", "bodyweight", "muscles", "yt_url", "cues")
+                         if f in op.model_fields_set]
+                changes += [f"{f} updated" for f in other]
+                cols = {"name": op.name, "alt": op.alt, "sets": op.sets, "reps_low": new_low,
+                        "reps_high": new_high,
+                        "bodyweight": None if op.bodyweight is None else int(op.bodyweight),
+                        "muscles_json": None if op.muscles is None else json.dumps(op.muscles),
+                        "yt_url": op.yt_url,
+                        "cues_json": None if op.cues is None else json.dumps(op.cues)}
+                sets = {c: v for c, v in cols.items()
+                        if v is not None or c in op.model_fields_set}
+                conn.execute(
+                    "UPDATE plan_exercises SET " + ", ".join(f"{c} = ?" for c in sets)
+                    + ", updated_at = datetime('now') WHERE id = ?", (*sets.values(), cur["id"]))
+                details.append(f"{label}: {cur['name']} " + (", ".join(changes) or "no change"))
+            counts[op.op] += 1
+    return {"days_affected": len(days), "exercises_added": counts["add"],
+            "exercises_modified": counts["modify"], "exercises_removed": counts["remove"],
+            "details": details, "ai_summary": update.summary}
+
+@app.post("/api/plan/update")
+def update_plan(body: PlanUpdateIn, profile_id: int = Depends(acting_profile_id)):
+    """Add, modify or remove exercises inside the acting profile's existing days.
+
+    confirm=false validates and returns a preview; nothing is written. confirm=true
+    re-validates against the current plan and writes all or nothing. Whole days
+    cannot be added or removed.
+    """
+    try:
+        update = PlanUpdateEnvelope.model_validate(body.envelope)
+    except ValidationError as err:
+        raise HTTPException(400, _plan_update_error(body.envelope, err))
+    with db() as conn:
+        # The write lock comes first so the open-session check and the edit see one plan.
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
+                            (profile_id,)).fetchone():
+                raise HTTPException(409, "Finish or discard your current workout first")
+            preview = _apply_plan_update(conn, profile_id, update)
+        except BaseException:
+            conn.rollback()
+            raise
+        if body.confirm:
+            conn.commit()
+        else:
+            conn.rollback()
+        return preview
 
 @app.post("/api/sessions")
 def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
