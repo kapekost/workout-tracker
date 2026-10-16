@@ -16,15 +16,12 @@
 - **Project:** Workout Tracker
 - **Current focus:** live is `50742e6` (schema v7). The owner's standing rule: deploy once
   verified and ready to merge, check the live URL, then merge.
-- **Next action:** #148 (failed logout kept and retried, #336) and #236 (design-review findings
-  split into Issues, e.g. #340, #345, #350) are done. #335 sets the rule that a low-risk
-  auth/session change needs an expert review, not the `approved` label. #337 and #338 put the
-  in-app changelog rule in the PLAYBOOK and make CI require an entry for app-code PRs. The #165
-  audit is `docs/superpowers/research/2026-10-11-workout-entities-audit.md`; #173 was split into
-  #351 and #352 (intake, P3). Queue in progress: #197/#345/#196 (cues modal), #339 (Log Set
-  idempotency, schema), #341-#344/#348/#349 (token and nav sweep), #171 (workout-science agent),
-  #177 (plan-edit v1 plan). #269 has only items 3 and 5 left, both speculative. #296 is verified
-  by the first real PR. `main` through #336 is deployed; #337 and #338 change no app behaviour.
+- **Next action:** #177 part B (`POST /api/plan/reset` + `EXERCISE_CATALOG`, effort:M), then part C
+  (Plan page). Part A (#222) is merged, not deployed. B waits on two owner answers in
+  `docs/superpowers/plans/2026-10-14-plan-edit-v1-177.md`: swap candidates from a fixed server-side
+  catalog (recommended), and block edits mid-workout (recommended). #221/#223 stay blocked on #220
+  (its `blocked` label is cleared; #220 is `ready`). Other `ready`: #294, #269 (items 3 and 5 only,
+  speculative), #201. Cues sheet (#354), #339, the token and nav sweep and #171 are done.
 
 ## Stop-condition
 (none — runner proceeds normally)
