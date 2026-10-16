@@ -10,6 +10,21 @@
 
 ---
 
+**Tick 2026-10-16: #222 shipped (PR #379, `e9c49f6`), part A of the #177 plan.**
+`POST /api/plan/update` is on `main`, backend only, not deployed. The queue in STATE.md was stale:
+#197/#345/#196 (PR #354), #339, #341-#344/#348/#349 and #171 were already closed. Removed the stale
+`blocked` label from #222 and #220 as the plan said. The route was written by a subagent, then
+reviewed read-only; review fixes: `yt_url` must be https, tests for the per-profile `add` duplicate
+check and a lone surrogate (pydantic already rejects it). Own probe found explicit `null` on `name`
+or `sets` returned a 500; now a 400 with regression tests. 481 backend tests pass. The opencode
+bot posted CHANGES_REQUESTED with two blocking findings, both false (`GET /api/plan` is in `GATED`
+at `test_auth.py:480`; `main.py:156` is migration SQL); answered on the PR, then merged. Codex hit
+its usage limit and reviewed nothing. Friction: `gh` token invalid in this session, so the board
+rank could not be read and `task_cleanup.sh` only knows `issue-<n>` worktree names; the
+`origin/feat/222-plan-update` branch was left (remote branch deletion needs approval).
+
+---
+
 **`main`'s `Needs owner`/`Closed` snapshot as of 2026-09-05, recovered during the 2026-09-10
 `copier update` reconciliation.** `main`'s `STATE.md` had not been synced from the orchestration
 home branch since around this point — see the Cursor section above, and `HISTORY.md`/`STATE.md`
