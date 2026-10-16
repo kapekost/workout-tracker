@@ -416,7 +416,7 @@ class PlanExerciseOp(BaseModel):
     reps_high: Optional[int] = Field(default=None, ge=1, le=50, strict=True)
     bodyweight: Optional[bool] = Field(default=None, strict=True)
     muscles: Optional[list[Annotated[str, Field(max_length=32)]]] = Field(default=None, max_length=10)
-    yt_url: Optional[str] = Field(default=None, max_length=512)
+    yt_url: Optional[str] = Field(default=None, max_length=512, pattern=r"^https://")
     cues: Optional[list[Annotated[str, Field(max_length=160)]]] = Field(default=None, max_length=8)
 
     @model_validator(mode="after")

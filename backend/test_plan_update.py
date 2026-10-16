@@ -299,3 +299,24 @@ def test_null_on_a_required_field_is_a_400_not_a_500(client, field, op):
     r = post(client, envelope(day("upper_a", body)), confirm=True)
     assert r.status_code == 400
     assert field in r.json()["detail"]
+
+
+def test_yt_url_must_be_https(client):
+    r = post(client, envelope(day("upper_a", {"op": "modify", "exercise_id": "ohp",
+                                              "yt_url": "javascript:alert(1)"})))
+    assert r.status_code == 400
+    assert "yt_url" in r.json()["detail"]
+
+
+def test_a_lone_surrogate_in_a_name_is_a_400(client):
+    raw = ('{"envelope":{"schema":"%s","summary":"x","day_updates":[{"day_key":"upper_a",'
+           '"exercise_updates":[{"op":"modify","exercise_id":"ohp","name":"\\ud800"}]}]},'
+           '"confirm":true}' % SCHEMA)
+    r = client.post("/api/plan/update", content=raw, headers={"content-type": "application/json"})
+    assert r.status_code == 400
+
+
+def test_add_duplicate_check_is_per_profile(client, mainmod, anon_client):
+    assert post(client, envelope(day("upper_a", NEW_EX)), confirm=True).status_code == 200
+    other, _ = second_profile_client(mainmod, anon_client)
+    assert post(other, envelope(day("upper_a", NEW_EX)), confirm=True).status_code == 200
