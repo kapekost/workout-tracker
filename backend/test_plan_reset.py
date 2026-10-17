@@ -4,7 +4,6 @@ import re
 import pytest
 
 import plan_seed
-from main import PlanExerciseOp
 from test_plan_update import NEW_EX, day, envelope, plan_rows, post, second_profile_client
 
 SLUG = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -133,8 +132,8 @@ def test_catalog_links_and_cues_are_within_the_caps():
 
 
 @pytest.mark.parametrize("entry", plan_seed.EXERCISE_CATALOG, ids=lambda e: e["exercise_id"])
-def test_every_catalog_entry_is_accepted_as_an_add_op(entry):
-    PlanExerciseOp.model_validate({"op": "add", **entry})
+def test_every_catalog_entry_is_accepted_as_an_add_op(mainmod, entry):
+    mainmod.PlanExerciseOp.model_validate({"op": "add", **entry})
 
 
 def test_a_swap_from_the_catalog_is_accepted_by_update(client):
