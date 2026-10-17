@@ -56,6 +56,9 @@ export function ActiveSessionProvider({ children }) {
   // ends mid-use must not leave a banner offering to resume something now
   // unreachable.
   useEffect(() => {
+    // `ready` belongs to the profile whose read it reports, so it drops with the
+    // profile instead of carrying the previous one's answer into the next.
+    setReady(false)
     if (profile) refresh()
     else { setActive(null); setFailed(false) }
   }, [profile, refresh])
