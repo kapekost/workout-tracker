@@ -22,6 +22,8 @@ anything here — a transcription slip is a real content regression, not a
 style nit.
 """
 
+import copy
+
 DEFAULT_PLAN = [
     {
         "day_key": "upper_a",
@@ -565,9 +567,9 @@ _ALTERNATIVES = [
         "exercise_id": "ez_bar_curl",
         "name": "EZ-Bar Curl",
         "alt": None,
-        "sets": 3,
-        "reps_low": 8,
-        "reps_high": 12,
+        "sets": 2,
+        "reps_low": 10,
+        "reps_high": 15,
         "bodyweight": False,
         "muscles": ["Biceps", "Brachialis"],
         "yt_url": "https://www.youtube.com/results?search_query=ez+bar+curl+form+tutorial",
@@ -586,7 +588,7 @@ _ALTERNATIVES = [
         "reps_low": 10,
         "reps_high": 15,
         "bodyweight": False,
-        "muscles": ["Biceps (Long Head)"],
+        "muscles": ["Biceps", "Brachialis"],
         "yt_url": "https://www.youtube.com/results?search_query=incline+dumbbell+curl+form+tutorial",
         "cues": [
             "Bench at about 45°, shoulders back against the pad",
@@ -652,7 +654,7 @@ _ALTERNATIVES = [
         "alt": "Dumbbells or bodyweight",
         "sets": 3,
         "reps_low": 10,
-        "reps_high": 14,
+        "reps_high": 15,
         "bodyweight": False,
         "muscles": ["Quads", "Glutes", "Hamstrings"],
         "yt_url": "https://www.youtube.com/results?search_query=walking+lunge+form+tutorial",
@@ -666,7 +668,7 @@ _ALTERNATIVES = [
     {
         "exercise_id": "glute_bridge",
         "name": "Glute Bridge",
-        "alt": "Barbell or bodyweight",
+        "alt": "Bodyweight or weighted",
         "sets": 3,
         "reps_low": 10,
         "reps_high": 15,
@@ -678,23 +680,6 @@ _ALTERNATIVES = [
             "Tuck the ribs and squeeze the glutes to lift",
             "Stop when the hips are level with the knees and shoulders",
             "Lower under control",
-        ],
-    },
-    {
-        "exercise_id": "seated_leg_curl",
-        "name": "Seated Leg Curl",
-        "alt": "Machine",
-        "sets": 3,
-        "reps_low": 10,
-        "reps_high": 15,
-        "bodyweight": False,
-        "muscles": ["Hamstrings"],
-        "yt_url": "https://www.youtube.com/results?search_query=seated+leg+curl+machine+form+tutorial",
-        "cues": [
-            "Adjust the pad just above the heels",
-            "Keep the hips pressed into the seat",
-            "Curl through the full range",
-            "Return slowly, do not let the stack drop",
         ],
     },
     {
@@ -733,4 +718,4 @@ _ALTERNATIVES = [
     },
 ]
 
-EXERCISE_CATALOG = [dict(ex) for day in DEFAULT_PLAN for ex in day["exercises"]] + _ALTERNATIVES
+EXERCISE_CATALOG = copy.deepcopy([ex for day in DEFAULT_PLAN for ex in day["exercises"]] + _ALTERNATIVES)

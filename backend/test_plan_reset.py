@@ -143,3 +143,22 @@ def test_a_swap_from_the_catalog_is_accepted_by_update(client):
                        {"op": "remove", "exercise_id": "bench_press"},
                        {"op": "add", **alt}))
     assert post(client, env, confirm=True).status_code == 200
+
+
+def test_catalog_entries_do_not_share_lists_with_the_seed():
+    entry = next(e for e in plan_seed.EXERCISE_CATALOG if e["exercise_id"] in DEFAULT_IDS)
+    seed = next(ex for d in plan_seed.DEFAULT_PLAN for ex in d["exercises"]
+                if ex["exercise_id"] == entry["exercise_id"])
+    assert entry["muscles"] is not seed["muscles"]
+    assert entry["cues"] is not seed["cues"]
+
+
+def test_reset_seeds_a_profile_that_has_no_plan_rows(mainmod, client, anon_client, seed_profile_id):
+    _, fresh_id = second_profile_client(mainmod, anon_client)
+    fresh = plan_rows(mainmod, fresh_id)
+    with mainmod.db() as conn:
+        conn.execute("DELETE FROM plan_days WHERE profile_id = ?", (seed_profile_id,))
+        conn.commit()
+    assert plan_rows(mainmod, seed_profile_id) == []
+    assert client.post("/api/plan/reset").status_code == 200
+    assert plan_rows(mainmod, seed_profile_id) == fresh
