@@ -48,7 +48,7 @@ function Stepper({ label, value, min, max, disabled, onChange }) {
 export default function Plan() {
   const nav = useNavigate()
   const { plan, cycle, retry } = usePlan()
-  const { active, refresh } = useActiveSession()
+  const { active, ready, failed, refresh } = useActiveSession()
   const { toast, showToast } = useToast()
   const { armedId, confirm } = useConfirmWindow()
   const [openDay, setOpenDay] = useState(null)
@@ -62,7 +62,10 @@ export default function Plan() {
   const inFlight = useRef(false)
 
   const days = cycle.map(id => plan[id]).filter(Boolean)
+  // Controls wait for the open-workout read: an unanswered or failed read says
+  // nothing about whether one is open, so it must not look like "none".
   const locked = Boolean(active)
+  const canEdit = ready && !failed && !locked
   const ranked = edit?.swapping && catalog ? rankSwapCandidates(catalog, plan, edit.ex) : []
   const candidates = edit?.showAll ? ranked : ranked.slice(0, SWAP_SHOWN)
 
@@ -155,6 +158,13 @@ export default function Plan() {
         </div>
       )}
 
+      {ready && failed && !locked && (
+        <div className="card" style={{ padding: space.xl, marginBottom: 14, color: colors.muted2, fontSize: type.size.md }}>
+          <p style={{ marginBottom: space.sm }}>Couldn't check whether a workout is open, so editing is off for now.</p>
+          <button type="button" className="tap-target" onClick={refresh} style={linkButton}>Try again</button>
+        </div>
+      )}
+
       {days.map(day => {
         const color = DAY_COLORS[day.id] || DAY_COLOR_FALLBACK
         return (
@@ -174,7 +184,7 @@ export default function Plan() {
             }
           >
             {day.exercises.map((ex, i) => {
-              const editing = !locked && edit?.dayKey === day.id && edit.ex.id === ex.id
+              const editing = canEdit && edit?.dayKey === day.id && edit.ex.id === ex.id
               return (
                 <div key={ex.id} style={{
                   padding: '10px 0',
@@ -186,7 +196,7 @@ export default function Plan() {
                       <span className="font-mono" style={{ color, fontSize: type.size.md, fontWeight: type.weight.bold, whiteSpace: 'nowrap' }}>
                         {ex.sets}×{ex.repsLow}–{ex.repsHigh}
                       </span>
-                      {!locked && !editing && (
+                      {canEdit && !editing && (
                         <button type="button" className="tap-target" aria-label={`Edit ${ex.name}`}
                           disabled={busy} onClick={() => startEdit(day.id, ex)} style={linkButton}>Edit</button>
                       )}
@@ -259,12 +269,12 @@ export default function Plan() {
         )
       })}
 
-      {!locked && armedId === 'reset' && (
+      {canEdit && armedId === 'reset' && (
         <p style={{ color: colors.muted2, fontSize: type.size.md, marginTop: space.xxl }}>
           This replaces every day with the recommended plan. Your logged workouts are kept.
         </p>
       )}
-      {!locked && (
+      {canEdit && (
         <button type="button" className="btn-secondary" onClick={reset} disabled={busy}
           style={{ width: '100%', marginTop: armedId === 'reset' ? space.md : space.xxl, color: armedId === 'reset' ? colors.danger : colors.text }}>
           {armedId === 'reset' ? 'Tap again to reset your plan' : 'Reset to recommended'}

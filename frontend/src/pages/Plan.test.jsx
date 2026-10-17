@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import Plan from './Plan'
 import { PLAN, CYCLE } from '../data/workoutPlan'
 
-const state = vi.hoisted(() => ({ active: null }))
+const state = vi.hoisted(() => ({ active: null, ready: true, failed: false }))
 const retry = vi.hoisted(() => vi.fn())
 const refresh = vi.hoisted(() => vi.fn())
 
@@ -12,7 +12,7 @@ vi.mock('../lib/planContext', () => ({
   usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true, failed: false, retry }),
 }))
 vi.mock('../lib/activeSession', () => ({
-  useActiveSession: () => ({ active: state.active, refresh }),
+  useActiveSession: () => ({ active: state.active, ready: state.ready, failed: state.failed, refresh }),
 }))
 vi.mock('../api', () => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -47,6 +47,8 @@ function httpError(status, detail) {
 beforeEach(() => {
   vi.clearAllMocks()
   state.active = null
+  state.ready = true
+  state.failed = false
   api.get.mockImplementation(async (path) => {
     if (path === '/plan/catalog') return CATALOG
     throw new Error(`unexpected GET ${path}`)
@@ -277,5 +279,26 @@ describe('Plan review fixes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+})
+
+
+describe('Plan before the open-workout state is known', () => {
+  it('offers no controls until the active-session read has answered', () => {
+    state.ready = false
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Upper A/ }))
+    expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset to recommended' })).not.toBeInTheDocument()
+  })
+
+  it('offers no controls and a retry when the read failed, rather than guessing', () => {
+    state.failed = true
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Upper A/ }))
+    expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset to recommended' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(refresh).toHaveBeenCalled()
   })
 })
