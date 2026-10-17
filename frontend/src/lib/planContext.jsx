@@ -24,7 +24,12 @@ export function PlanProvider({ children }) {
       return
     }
     let cancelled = false
-    setData({ id: profileId, plan: {}, cycle: [], settled: false, failed: false })
+    // A refetch of a plan already on screen keeps it there. Clearing it would
+    // unmount every route until the answer arrives, which is what a write's
+    // retry() would otherwise do to the page that made the write.
+    setData(d => (d.id === profileId && d.settled && !d.failed)
+      ? d
+      : { id: profileId, plan: {}, cycle: [], settled: false, failed: false })
     api.get('/plan')
       .then(r => {
         if (cancelled) return

@@ -79,6 +79,12 @@ describe('NavBar', () => {
     expect(iconTones('Home')).toEqual(new Set([colors.muted, colors.muted3]))
   })
 
+  // /plan is opened from Home's header and is not a tab of its own.
+  it('/plan lights the Home icon (a sub-page of Home)', () => {
+    renderAt('/plan')
+    expect(iconTones('Home')).toEqual(new Set([colors.accent, colors.accentDeep]))
+  })
+
   // #229 sign-off: active tab paints accent + accentDeep; inactive tabs paint
   // muted + muted3. Never opacity-dim a multi-hue asset (the failure mode on
   // record at #211/#213/#228) -- color is the only state signal now.

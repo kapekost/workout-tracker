@@ -1,4 +1,5 @@
 [
+  { "date": "2026-10-17", "text": "You can now change the sets and reps of your plan's exercises, swap one for another, or reset the whole plan to the recommended one from Home." },
   { "date": "2026-10-14", "text": "The open and close arrow on workout and history rows is now a proper chevron, and the Sessions number on Progress is slightly larger." },
   { "date": "2026-10-14", "text": "During a workout the bottom bar no longer lights up Home, since no tab is the page you are on." },
   { "date": "2026-10-14", "text": "Finish Workout no longer reports an error right after an app update when the workout was in fact saved." },

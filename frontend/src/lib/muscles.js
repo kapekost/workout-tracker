@@ -50,13 +50,19 @@ export const EXERCISE_PATTERN = {
   tricep_pushdown: 'isolation', db_curl: 'isolation', hammer_curl: 'isolation',
   skull_crusher: 'isolation', lateral_raise: 'isolation', leg_curl: 'isolation',
   leg_ext: 'isolation', standing_calf: 'isolation', seated_calf: 'isolation',
+  cable_fly: 'isolation', face_pull: 'isolation', ez_bar_curl: 'isolation',
+  incline_db_curl: 'isolation', overhead_tricep_ext: 'isolation', bench_dip: 'isolation',
+  leg_press_calf: 'isolation', single_leg_calf_raise: 'isolation',
 
   bench_press: 'compound_upper', incline_press: 'compound_upper',
   ohp: 'compound_upper', bent_row: 'compound_upper', cable_row: 'compound_upper',
   lat_pulldown: 'compound_upper', pullup: 'compound_upper',
+  db_bench_press: 'compound_upper', chest_supported_row: 'compound_upper',
+  one_arm_row: 'compound_upper', db_shoulder_press: 'compound_upper',
 
   back_squat: 'compound_lower', deadlift: 'compound_lower', rdl: 'compound_lower',
   leg_press: 'compound_lower', bss: 'compound_lower', hip_thrust: 'compound_lower',
+  goblet_squat: 'compound_lower', walking_lunge: 'compound_lower', glute_bridge: 'compound_lower',
 }
 
 // Unclassified exercises get the LONGEST tau on purpose: the resulting estimate

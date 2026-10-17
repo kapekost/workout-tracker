@@ -87,6 +87,20 @@ describe('PlanProvider', () => {
     expect(api.get).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps the loaded plan mounted while a refetch after a write is in flight', async () => {
+    session.profile = { id: 1 }
+    api.get.mockResolvedValueOnce({ plan: PLAN_A, cycle: ['upper_a'] })
+    mount()
+    await waitFor(() => expect(screen.getByTestId('days')).toHaveTextContent('upper_a'))
+    let resolve
+    api.get.mockReturnValueOnce(new Promise(r => { resolve = r }))
+    fireEvent.click(screen.getByText('retry'))
+    expect(screen.getByTestId('ready')).toHaveTextContent('true')
+    expect(screen.getByTestId('days')).toHaveTextContent('upper_a')
+    await act(async () => { resolve({ plan: PLAN_B, cycle: ['full'] }) })
+    expect(screen.getByTestId('days')).toHaveTextContent('full')
+  })
+
   it('gives up waiting after 5s but still swaps a late answer in', async () => {
     vi.useFakeTimers()
     session.profile = { id: 1 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { StartOrResumeButton, planForDay, VersionStamp, lastTrainedByDay, nextWorkoutId } from './Home'
 import { PLAN, CYCLE, getNextWorkoutId } from '../data/workoutPlan'
 
@@ -292,5 +292,21 @@ describe('Home when a read fails', () => {
     renderHome()
     await screen.findByRole('button', { name: /^Start / })
     expect(screen.queryByText('Muscle groups')).not.toBeInTheDocument()
+  })
+})
+
+describe('Home plan link', () => {
+  it('opens the plan editor from the header', async () => {
+    mockHomeApi()
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/plan" element={<p>plan editor</p>} />
+        </Routes>
+      </MemoryRouter>
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit plan' }))
+    expect(screen.getByText('plan editor')).toBeInTheDocument()
   })
 })
