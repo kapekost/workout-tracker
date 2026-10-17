@@ -101,6 +101,20 @@ describe('PlanProvider', () => {
     expect(screen.getByTestId('days')).toHaveTextContent('full')
   })
 
+  it('keeps the loaded plan and does not flag a failure when a refetch after a write fails', async () => {
+    session.profile = { id: 1 }
+    api.get.mockResolvedValueOnce({ plan: PLAN_A, cycle: ['upper_a'] })
+    mount()
+    await waitFor(() => expect(screen.getByTestId('days')).toHaveTextContent('upper_a'))
+    api.get.mockRejectedValueOnce(new Error('offline'))
+    fireEvent.click(screen.getByText('retry'))
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+    await act(async () => {})
+    expect(screen.getByTestId('failed')).toHaveTextContent('false')
+    expect(screen.getByTestId('ready')).toHaveTextContent('true')
+    expect(screen.getByTestId('days')).toHaveTextContent('upper_a')
+  })
+
   it('gives up waiting after 5s but still swaps a late answer in', async () => {
     vi.useFakeTimers()
     session.profile = { id: 1 }

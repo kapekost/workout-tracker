@@ -15,7 +15,9 @@ import { colors, type, space, icon } from '../lib/theme'
 import { IconArrowLeft, IconMinus, IconPlus } from '../icons'
 
 const FINISH_FIRST = 'Finish or discard your current workout first'
-const SWAP_LINE = 'The history for the old exercise stays under its old name and will not show under the new one.'
+const SWAP_SHOWN = 8
+const swapLine = (ex, dayName, picked) =>
+  `Replaces ${ex.name} and goes to the end of ${dayName} with ${picked.sets}×${picked.reps_low}–${picked.reps_high}. History for ${ex.name} stays under its own name and will not show under the new one.`
 
 const linkButton = {
   background: 'none', border: 'none', color: colors.accent, cursor: 'pointer', padding: 0,
@@ -61,19 +63,23 @@ export default function Plan() {
 
   const days = cycle.map(id => plan[id]).filter(Boolean)
   const locked = Boolean(active)
-  const candidates = edit?.swapping && catalog ? rankSwapCandidates(catalog, plan, edit.ex) : []
+  const ranked = edit?.swapping && catalog ? rankSwapCandidates(catalog, plan, edit.ex) : []
+  const candidates = edit?.showAll ? ranked : ranked.slice(0, SWAP_SHOWN)
 
   // Every write refetches the plan, so each screen that reads it shows the change.
-  async function write(path, body) {
+  async function write(path, body, done) {
     if (inFlight.current) return false
     inFlight.current = true
     setBusy(true)
     try {
       await api.post(path, body)
       retry()
+      showToast(done)
       return true
     } catch (err) {
       if (err.status === 409) refresh()
+      // No answer, or a server error: the write may have landed, so show the real plan.
+      if (!err.status || err.status >= 500) retry()
       showToast(err.detail ?? "Couldn't save your plan. Try again.", 'error')
       return false
     } finally {
@@ -84,19 +90,25 @@ export default function Plan() {
 
   function startEdit(dayKey, ex) {
     setEdit({
-      dayKey, ex, swapping: false, picked: null,
+      dayKey, ex, swapping: false, picked: null, showAll: false,
       draft: { sets: ex.sets, repsLow: ex.repsLow, repsHigh: ex.repsHigh },
     })
   }
 
+  // Reps from never passes reps to: moving one pulls the other along.
   function setDraft(field, value) {
-    setEdit(e => ({ ...e, draft: { ...e.draft, [field]: value } }))
+    setEdit(e => {
+      const draft = { ...e.draft, [field]: value }
+      if (field === 'repsLow' && draft.repsLow > draft.repsHigh) draft.repsHigh = draft.repsLow
+      if (field === 'repsHigh' && draft.repsHigh < draft.repsLow) draft.repsLow = draft.repsHigh
+      return { ...e, draft }
+    })
   }
 
   async function saveEdit() {
     const op = modifyOp(edit.ex, edit.draft)
     if (!op) return setEdit(null)
-    if (await write('/plan/update', planUpdateBody(edit.dayKey, [op]))) setEdit(null)
+    if (await write('/plan/update', planUpdateBody(edit.dayKey, [op]), 'Saved')) setEdit(null)
   }
 
   async function loadCatalog() {
@@ -109,18 +121,18 @@ export default function Plan() {
   }
 
   function openSwap() {
-    setEdit(e => ({ ...e, swapping: true, picked: null }))
+    setEdit(e => ({ ...e, swapping: true, picked: null, showAll: false }))
     if (catalog === null) loadCatalog()
   }
 
   async function confirmSwap() {
     const ops = [{ op: 'remove', exercise_id: edit.ex.id }, { op: 'add', ...edit.picked }]
-    if (await write('/plan/update', planUpdateBody(edit.dayKey, ops))) setEdit(null)
+    if (await write('/plan/update', planUpdateBody(edit.dayKey, ops), 'Swapped')) setEdit(null)
   }
 
   async function reset() {
     if (!confirm('reset')) return
-    if (await write('/plan/reset')) setEdit(null)
+    if (await write('/plan/reset', undefined, 'Plan reset')) setEdit(null)
   }
 
   return (
@@ -176,7 +188,7 @@ export default function Plan() {
                       </span>
                       {!locked && !editing && (
                         <button type="button" className="tap-target" aria-label={`Edit ${ex.name}`}
-                          onClick={() => startEdit(day.id, ex)} style={linkButton}>Edit</button>
+                          disabled={busy} onClick={() => startEdit(day.id, ex)} style={linkButton}>Edit</button>
                       )}
                     </span>
                   </div>
@@ -192,7 +204,7 @@ export default function Plan() {
                       <button type="button" className="btn-primary" onClick={saveEdit} disabled={busy}>
                         {busy ? 'Saving…' : 'Save'}
                       </button>
-                      <div style={{ display: 'flex', gap: space.sm }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.sm }}>
                         <button type="button" className="btn-secondary" onClick={openSwap} disabled={busy}>Swap</button>
                         <button type="button" className="btn-secondary" onClick={() => setEdit(null)} disabled={busy}>Cancel</button>
                       </div>
@@ -206,7 +218,7 @@ export default function Plan() {
                         <LoadError what="the alternatives" onRetry={loadCatalog} />
                       ) : catalog === null ? (
                         <p style={mutedText}>Loading alternatives…</p>
-                      ) : candidates.length === 0 ? (
+                      ) : ranked.length === 0 ? (
                         <p style={mutedText}>No other exercises are free to swap in.</p>
                       ) : candidates.map(c => {
                         const picked = edit.picked?.exercise_id === c.exercise_id
@@ -224,9 +236,13 @@ export default function Plan() {
                           </button>
                         )
                       })}
+                      {!edit.showAll && ranked.length > SWAP_SHOWN && (
+                        <button type="button" className="btn-secondary" disabled={busy}
+                          onClick={() => setEdit(e => ({ ...e, showAll: true }))}>Show all {ranked.length}</button>
+                      )}
                       {edit.picked && (
                         <div style={{ display: 'grid', gap: space.sm }}>
-                          <p style={{ color: colors.muted2, fontSize: type.size.md }}>{SWAP_LINE}</p>
+                          <p style={{ color: colors.muted2, fontSize: type.size.md }}>{swapLine(edit.ex, day.name, edit.picked)}</p>
                           <button type="button" className="btn-primary" onClick={confirmSwap} disabled={busy}>
                             {busy ? 'Swapping…' : 'Confirm swap'}
                           </button>
@@ -243,9 +259,14 @@ export default function Plan() {
         )
       })}
 
+      {!locked && armedId === 'reset' && (
+        <p style={{ color: colors.muted2, fontSize: type.size.md, marginTop: space.xxl }}>
+          This replaces every day with the recommended plan. Your logged workouts are kept.
+        </p>
+      )}
       {!locked && (
         <button type="button" className="btn-secondary" onClick={reset} disabled={busy}
-          style={{ width: '100%', marginTop: space.xxl, color: armedId === 'reset' ? colors.danger : colors.text }}>
+          style={{ width: '100%', marginTop: armedId === 'reset' ? space.md : space.xxl, color: armedId === 'reset' ? colors.danger : colors.text }}>
           {armedId === 'reset' ? 'Tap again to reset your plan' : 'Reset to recommended'}
         </button>
       )}

@@ -28,7 +28,7 @@ const CATALOG = [
     bodyweight: false, muscles: ['Quads', 'Glutes'], yt_url: null, cues: [] },
 ]
 
-const SWAP_LINE = 'The history for the old exercise stays under its old name and will not show under the new one.'
+const swapLine = (day, sets) => `Replaces Bench Press and goes to the end of ${day} with ${sets}. History for Bench Press stays under its own name and will not show under the new one.`
 const FINISH_FIRST = 'Finish or discard your current workout first'
 
 function renderPage() {
@@ -104,7 +104,7 @@ describe('Plan editing', () => {
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'Swap' }))
     fireEvent.click(await screen.findByRole('button', { name: /Dumbbell Bench Press/ }))
-    expect(screen.getByText(SWAP_LINE)).toBeInTheDocument()
+    expect(screen.getByText(swapLine('Upper A', '3×8–12'))).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm swap' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
@@ -208,5 +208,74 @@ describe('Plan while a workout is open', () => {
     expect(screen.getByText('Bench Press')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reset to recommended' })).not.toBeInTheDocument()
+  })
+})
+
+
+describe('Plan review fixes', () => {
+  it('refetches after a failure with no server answer, because the write may have landed', async () => {
+    api.post.mockRejectedValue(new Error('timeout'))
+    renderPage()
+    await openEditor('Bench Press')
+    fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save your plan")
+    expect(retry).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps reps from at or below reps to', async () => {
+    api.post.mockResolvedValue({})
+    renderPage()
+    await openEditor('Bench Press')
+    for (let i = 0; i < 5; i++) fireEvent.click(screen.getByRole('button', { name: 'decrease Reps to' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    const op = api.post.mock.calls[0][1].envelope.day_updates[0].exercise_updates[0]
+    expect(op.reps_high).toBe(5)
+    expect(op.reps_low).toBe(5)
+  })
+
+  it('caps the swap list at 8 and reveals the rest on request', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      exercise_id: `alt_${i}`, name: `Alt ${String(i).padStart(2, '0')}`, alt: null, sets: 3, reps_low: 8, reps_high: 12,
+      bodyweight: false, muscles: ['Chest'], yt_url: null, cues: [],
+    }))
+    api.get.mockImplementation(async () => many)
+    renderPage()
+    await openEditor('Bench Press')
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }))
+    await screen.findByRole('button', { name: /Alt 00/ })
+    expect(screen.getAllByRole('button', { name: /^Alt / })).toHaveLength(8)
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 12' }))
+    expect(screen.getAllByRole('button', { name: /^Alt / })).toHaveLength(12)
+  })
+
+  it('says what a reset replaces once it is armed', () => {
+    renderPage()
+    expect(screen.queryByText(/Your logged workouts are kept/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to recommended' }))
+    expect(screen.getByText(/replaces every day with the recommended plan/i)).toBeInTheDocument()
+    expect(screen.getByText(/Your logged workouts are kept/)).toBeInTheDocument()
+  })
+
+  it('disables the other Edit buttons while a save is in flight', async () => {
+    let settle
+    api.post.mockReturnValue(new Promise(r => { settle = r }))
+    renderPage()
+    await openEditor('Bench Press')
+    fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByRole('button', { name: 'Edit Bent-over Row' })).toBeDisabled()
+    settle({})
+    await waitFor(() => expect(retry).toHaveBeenCalled())
+  })
+
+  it('confirms a successful save with a short message', async () => {
+    api.post.mockResolvedValue({})
+    renderPage()
+    await openEditor('Bench Press')
+    fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 })
