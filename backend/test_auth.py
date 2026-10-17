@@ -479,6 +479,8 @@ GATED = [
     # AI plan updates Phase 1 — the acting profile's own DB-backed plan.
     ("GET",    "/api/plan", None),
     ("POST",   "/api/plan/update", {"envelope": {}, "confirm": False}),
+    ("POST",   "/api/plan/reset", None),
+    ("GET",    "/api/plan/catalog", None),
     ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
     ("GET",    "/api/sessions", None),
     ("GET",    "/api/sessions/{sid}", None),

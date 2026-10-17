@@ -1195,6 +1195,31 @@ def update_plan(body: PlanUpdateIn, profile_id: int = Depends(acting_profile_id)
             conn.rollback()
         return preview
 
+@app.post("/api/plan/reset")
+def reset_plan(profile_id: int = Depends(acting_profile_id)):
+    """Replace the acting profile's plan with plan_seed.DEFAULT_PLAN.
+
+    History (sets, personal bests, notes) is keyed by exercise_id and is left alone.
+    """
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
+                            (profile_id,)).fetchone():
+                raise HTTPException(409, "Finish or discard your current workout first")
+            conn.execute("DELETE FROM plan_days WHERE profile_id = ?", (profile_id,))
+            _seed_plan_for_profile(conn, profile_id)
+        except BaseException:
+            conn.rollback()
+            raise
+        conn.commit()
+        return {"reset": True}
+
+@app.get("/api/plan/catalog")
+def get_plan_catalog(profile_id: int = Depends(acting_profile_id)):
+    """The exercises the plan editor may swap in (plan_seed.EXERCISE_CATALOG)."""
+    return plan_seed.EXERCISE_CATALOG
+
 @app.post("/api/sessions")
 def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
