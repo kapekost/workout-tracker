@@ -18,13 +18,17 @@ def test_export_has_the_spec_shape(client):
     assert body["plan"] == client.get("/api/plan").json()
 
 
-def test_recent_sessions_are_completed_only_newest_first_and_capped(client):
-    for i in range(3):
-        _session(client, "upper_a", [("bench_press", 80 + i, 8)])
+def test_recent_sessions_are_completed_only_newest_first_and_capped(mainmod, client):
+    ids = [_session(client, "upper_a", [("bench_press", 80 + i, 8)]) for i in range(3)]
+    # Dates out of id order, so the date sort is tested and not only the id tie-break.
+    with mainmod.db() as conn:
+        for sid, date in zip(ids, ("2026-10-03", "2026-10-01", "2026-10-02")):
+            conn.execute("UPDATE sessions SET date = ? WHERE id = ?", (date, sid))
+        conn.commit()
     _session(client, "lower_a", [("squat", 100, 5)], complete=False)
     sessions = export(client).json()["recent_sessions"]
     assert len(sessions) == 3
-    assert [s["sets"][0]["weight_kg"] for s in sessions] == [82.0, 81.0, 80.0]
+    assert [s["sets"][0]["weight_kg"] for s in sessions] == [80.0, 82.0, 81.0]
     assert sessions[0].keys() == {"date", "workout_day", "sets"}
     assert sessions[0]["sets"][0].keys() == {"exercise_id", "exercise_name", "set_number",
                                               "reps", "weight_kg"}
@@ -32,6 +36,9 @@ def test_recent_sessions_are_completed_only_newest_first_and_capped(client):
 
 
 def test_sessions_param_is_bounded(client):
+    for i in range(21):
+        _session(client, "upper_a", [("bench_press", 80, 8)])
+    assert len(export(client).json()["recent_sessions"]) == 20
     assert export(client, sessions=0).status_code == 422
     assert export(client, sessions=101).status_code == 422
 
@@ -48,8 +55,10 @@ def test_personal_bests_and_notes_are_included(client):
 def test_export_is_scoped_to_the_acting_profile(mainmod, client, anon_client):
     _session(client, "upper_a", [("bench_press", 80, 8)])
     client.put("/api/exercises/bench_press/note", json={"note": "mine"})
+    client.post("/api/personal-bests", json=_pb())
     other, _ = second_profile_client(mainmod, anon_client)
     body = export(other).json()
+    assert body["plan"] == other.get("/api/plan").json()
     assert body["recent_sessions"] == [] and body["notes"] == {} and body["personal_bests"] == []
 
 
