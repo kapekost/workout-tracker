@@ -58,6 +58,16 @@ describe('PersonalBests page', () => {
     expect(screen.getByText('from 100 kg × 3')).toBeInTheDocument()
   })
 
+  it('keeps a record whose exercise has left the plan, under its stored name', async () => {
+    api.get.mockResolvedValue([
+      { id: 7, exercise_id: 'retired_lift', exercise_name: 'Retired Lift',
+        weight_kg: 60, reps: 5, single_kg: null, single_estimated: false, achieved_year: 2022, achieved_note: null },
+    ])
+    renderPage()
+    expect(await screen.findByText('Retired Lift')).toBeInTheDocument()
+    expect(screen.getByText('60 kg × 5')).toBeInTheDocument()
+  })
+
   it('shows an empty state with no entries', async () => {
     api.get.mockResolvedValue([])
     renderPage()

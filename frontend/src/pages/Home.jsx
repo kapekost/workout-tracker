@@ -185,17 +185,24 @@ export default function Home() {
     <div style={{ paddingTop: 16 }}>
       <Toast toast={toast} />
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <Eyebrow color={colors.accent} size={type.size.base} style={{ marginBottom: 4 }}>
-          {active ? 'In progress' : 'Next up'}
-        </Eyebrow>
-        <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
-          <DayIcon day={next.id} /> {next.name}
-        </h1>
-        <p style={{ color: colors.muted2, marginTop: 6, fontSize: type.size.lg }}>{next.tag}</p>
-        <p style={{ color: colors.muted, marginTop: 6, fontSize: type.size.md }}>
-          {lastWorkoutLabel(sessions)}
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: space.md, marginBottom: 32 }}>
+        <div>
+          <Eyebrow color={colors.accent} size={type.size.base} style={{ marginBottom: 4 }}>
+            {active ? 'In progress' : 'Next up'}
+          </Eyebrow>
+          <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, lineHeight: 1.1 }}>
+            <DayIcon day={next.id} /> {next.name}
+          </h1>
+          <p style={{ color: colors.muted2, marginTop: 6, fontSize: type.size.lg }}>{next.tag}</p>
+          <p style={{ color: colors.muted, marginTop: 6, fontSize: type.size.md }}>
+            {lastWorkoutLabel(sessions)}
+          </p>
+        </div>
+        <button className="tap-target" onClick={() => nav('/plan')}
+          style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.accent,
+            fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer', padding: '7px 14px', whiteSpace: 'nowrap' }}>
+          Edit plan
+        </button>
       </div>
 
       {/* Exercise preview */}

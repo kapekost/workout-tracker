@@ -24,7 +24,12 @@ export function PlanProvider({ children }) {
       return
     }
     let cancelled = false
-    setData({ id: profileId, plan: {}, cycle: [], settled: false, failed: false })
+    // A refetch of a plan already on screen keeps it there. Clearing it would
+    // unmount every route until the answer arrives, which is what a write's
+    // retry() would otherwise do to the page that made the write.
+    setData(d => (d.id === profileId && d.settled && !d.failed)
+      ? d
+      : { id: profileId, plan: {}, cycle: [], settled: false, failed: false })
     api.get('/plan')
       .then(r => {
         if (cancelled) return
@@ -32,7 +37,12 @@ export function PlanProvider({ children }) {
       })
       // An empty plan stands for "could not ask", not "no workouts", so the
       // app shows a retry instead of pages that make claims from it.
-      .catch(() => { if (!cancelled) setData(d => ({ ...d, settled: true, failed: true })) })
+      .catch(() => {
+        if (cancelled) return
+        // A refetch that fails while a good plan is on screen leaves it there:
+        // the write that triggered it already succeeded.
+        setData(d => (d.settled && !d.failed ? d : { ...d, settled: true, failed: true }))
+      })
     // Only a request that settles sets `settled`, and a server that accepts the
     // connection and never answers settles nothing. The app waits on `ready`,
     // so the wait is capped and counts as a failure until the answer arrives.

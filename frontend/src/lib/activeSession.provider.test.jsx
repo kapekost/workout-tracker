@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { ActiveSessionProvider, useActiveSession } from './activeSession'
 import { SessionContext } from './session'
 
@@ -99,6 +99,46 @@ describe('ActiveSessionProvider', () => {
   // Wave 1.1. A rejected read says we could not find out whether a session is
   // in progress; it does not say there isn't one. Nulling `active` here made
   // Home replace Resume with Start over a live workout.
+  it('is not ready for the next profile until that profile\'s own read has answered', async () => {
+    api.get.mockResolvedValueOnce([])
+    const { setProfile } = renderWith(PROFILE)
+    await waitFor(() => expect(screen.getByTestId('ready')).toHaveTextContent('true'))
+    setProfile(null)
+    expect(screen.getByTestId('ready')).toHaveTextContent('false')
+    let answer
+    api.get.mockReturnValueOnce(new Promise(r => { answer = r }))
+    setProfile({ id: 2, username: 'other', role: 'member' })
+    expect(screen.getByTestId('ready')).toHaveTextContent('false')
+    await act(async () => { answer([{ id: 9, completed: 0 }]) })
+    expect(screen.getByTestId('ready')).toHaveTextContent('true')
+    expect(screen.getByTestId('active')).toHaveTextContent('9')
+  })
+
+  it('ignores a read that was started for the previous profile and lands late', async () => {
+    let answerA, answerB
+    api.get.mockReturnValueOnce(new Promise(r => { answerA = r }))
+    const { setProfile } = renderWith(PROFILE)
+    api.get.mockReturnValueOnce(new Promise(r => { answerB = r }))
+    setProfile({ id: 2, username: 'other', role: 'member' })
+    await act(async () => { answerA([]) })
+    expect(screen.getByTestId('ready')).toHaveTextContent('false')
+    expect(screen.getByTestId('active')).toHaveTextContent('none')
+    await act(async () => { answerB([{ id: 9, completed: 0 }]) })
+    expect(screen.getByTestId('ready')).toHaveTextContent('true')
+    expect(screen.getByTestId('active')).toHaveTextContent('9')
+  })
+
+  it('ignores a failed read that was started for the previous profile', async () => {
+    let failA
+    api.get.mockReturnValueOnce(new Promise((_, rej) => { failA = rej }))
+    const { setProfile } = renderWith(PROFILE)
+    api.get.mockReturnValueOnce(new Promise(() => {}))
+    setProfile({ id: 2, username: 'other', role: 'member' })
+    await act(async () => { failA(new Error('offline')) })
+    expect(screen.getByTestId('failed')).toHaveTextContent('false')
+    expect(screen.getByTestId('ready')).toHaveTextContent('false')
+  })
+
   it('keeps the active session when a refresh fails, and says the read failed', async () => {
     api.get.mockResolvedValueOnce([{ id: 12, completed: 0 }])
     const { setProfile } = renderWith(PROFILE)

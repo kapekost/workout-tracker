@@ -19,6 +19,7 @@ export default function NavBar() {
   // onto '/progress' before the generic match runs.
   const active = pathname === '/' ? '/'
     : pathname.startsWith('/personal-bests') ? '/progress'
+    : pathname.startsWith('/plan') ? '/'
     : tabs.find(t => pathname.startsWith(t.path) && t.path !== '/')?.path ?? null
 
   // The auth screens are deliberately chrome-free. Keeping the app's primary

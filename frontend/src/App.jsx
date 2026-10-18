@@ -5,6 +5,7 @@ import Workout from './pages/Workout'
 import Progress from './pages/Progress'
 import History from './pages/History'
 import PersonalBests from './pages/PersonalBests'
+import Plan from './pages/Plan'
 import Login from './pages/Login'
 import SetPassword from './pages/SetPassword'
 import NavBar from './components/NavBar'
@@ -53,6 +54,7 @@ function AppRoutes() {
       <Route path="/progress" element={<Progress />} />
       <Route path="/history" element={<History />} />
       <Route path="/personal-bests" element={<PersonalBests />} />
+      <Route path="/plan" element={<Plan />} />
       <Route path="/login" element={<Login />} />
       {/* The path the invite and reset emails already point at —
           {APP_BASE_URL}/set-password?token=<raw>. */}

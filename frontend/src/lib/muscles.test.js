@@ -184,3 +184,18 @@ describe('allExercises', () => {
     expect(allExercises(plan).map(e => e.id)).toEqual(['squat', 'row'])
   })
 })
+
+describe('catalog-only exercises', () => {
+  const PATTERNS = {
+    isolation: ['cable_fly', 'face_pull', 'ez_bar_curl', 'incline_db_curl', 'overhead_tricep_ext',
+      'bench_dip', 'leg_press_calf', 'single_leg_calf_raise'],
+    compound_upper: ['db_bench_press', 'chest_supported_row', 'one_arm_row', 'db_shoulder_press'],
+    compound_lower: ['goblet_squat', 'walking_lunge', 'glute_bridge'],
+  }
+
+  it.each(Object.entries(PATTERNS).flatMap(([pattern, ids]) => ids.map(id => [id, pattern])))(
+    '%s is classed %s and resolves to that tau', (id, pattern) => {
+      expect(EXERCISE_PATTERN[id]).toBe(pattern)
+      expect(tauFor(id)).toBe(PATTERN_TAU[pattern])
+    })
+})

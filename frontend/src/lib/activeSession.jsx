@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { api } from '../api'
 import { useSession } from './session'
 import { clearRestTimer } from './restTimerStorage'
@@ -21,13 +21,20 @@ export function ActiveSessionProvider({ children }) {
   const [active, setActive] = useState(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
+  // Bumped whenever the profile changes. A read answers for the profile it was
+  // started under, so one that lands after the switch is discarded.
+  const generation = useRef(0)
 
   const refresh = useCallback(async () => {
+    const mine = generation.current
     try {
       const sessions = await api.get('/sessions')
+      if (mine !== generation.current) return
       setActive(findActiveSession(sessions))
       setFailed(false)
+      setReady(true)
     } catch {
+      if (mine !== generation.current) return
       // Deliberately NOT setActive(null). A rejected read says nothing about
       // whether a session is in progress — it says we could not find out. The
       // 2026-10-03 design review's Wave 1.1 finding: nulling here made Home
@@ -37,7 +44,6 @@ export function ActiveSessionProvider({ children }) {
       // Start costs real data. `failed` is the signal consumers need, so they
       // can avoid offering either action rather than guessing.
       setFailed(true)
-    } finally {
       setReady(true)
     }
   }, [])
@@ -56,6 +62,10 @@ export function ActiveSessionProvider({ children }) {
   // ends mid-use must not leave a banner offering to resume something now
   // unreachable.
   useEffect(() => {
+    // `ready` belongs to the profile whose read it reports, so it drops with the
+    // profile instead of carrying the previous one's answer into the next.
+    generation.current += 1
+    setReady(false)
     if (profile) refresh()
     else { setActive(null); setFailed(false) }
   }, [profile, refresh])
