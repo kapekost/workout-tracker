@@ -10,6 +10,23 @@
 
 ---
 
+**Tick 2026-10-17/18: #177 shipped (parts B and C, PRs #381 and #382, `cfc6211`).**
+The plan editor is complete on `main` and not deployed: `POST /api/plan/reset`, a 37-entry
+exercise catalog served by `GET /api/plan/catalog`, and a Plan page (Edit plan on Home): edit
+sets and reps, swap an exercise, reset to recommended, blocked while a workout is open. #381 fixed
+a CI-only failure (a module-level `import main` in a test ran `init()` against `/app`; passed
+locally only because the sandbox is root). #382 was built by a Haiku-tier subagent (opencode is not
+installed in this environment) and reviewed by me, a code reviewer and separate UI and UX reviews of
+phone-width screenshots, each finding checked against the code. Codex then found three real races in
+the active-session code, all in the same area: the page trusted "no open workout" before the read
+answered, `ready` was not reset on a profile change, and a late read from the previous profile could
+satisfy readiness. Root cause fixed in `activeSession.jsx` with a per-profile generation. Codex hit
+its usage limit on the last commit. Friction: `gh` token invalid so no board rank and no
+`create_issue.sh`; `task_cleanup.sh` only knows `issue-<n>` worktree names; my own `pkill -f` pattern
+matched its own shell. Follow-ups not filed as Issues for that reason: see STATE.md.
+
+---
+
 **Tick 2026-10-16: #222 shipped (PR #379, `e9c49f6`), part A of the #177 plan.**
 `POST /api/plan/update` is on `main`, backend only, not deployed. The queue in STATE.md was stale:
 #197/#345/#196 (PR #354), #339, #341-#344/#348/#349 and #171 were already closed. Removed the stale
