@@ -93,6 +93,8 @@ describe('Workout page', () => {
     await screen.findByText(ex1.name)
     const finishBtn = screen.getByRole('button', { name: /finish workout/i })
     await act(async () => { fireEvent.click(finishBtn) })
+    expect(api.patch).not.toHaveBeenCalled()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /tap again to finish/i })) })
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/sessions/1', { completed: true }))
     await screen.findByText(/workout complete/i)
   })
@@ -155,6 +157,7 @@ describe('Workout page', () => {
     await screen.findByText(ex1.name)
     const btn = screen.getAllByRole('button', { name: /finish/i })[0]
     await act(async () => { fireEvent.click(btn) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /tap again to finish/i })) })
     await screen.findByText(/workout complete/i)
     expect(screen.getByText(new RegExp(`${ex1.name}.*baseline`, 'i'))).toBeInTheDocument()
     expect(screen.queryByText(/new pr/i)).not.toBeInTheDocument()
