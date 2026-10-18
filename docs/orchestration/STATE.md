@@ -14,9 +14,9 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `a324a1d` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
+- **Current focus:** live is `e460fde` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
   off-site `ok`) shipped the plan editor (#177 A-C), the plan export (#220), #369 and the Dependabot bumps;
-  `a324a1d` adds Plan page copy only.
+  `a324a1d` and `e460fde` change copy only (Plan page; em dashes and wordy text, #388).
   Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
   rule: deploy once verified and ready to merge, check the live URL, then merge.
 - **Next action:** #221/#223 (AI export prompt and paste-back, `ready`), #294,
