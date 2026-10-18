@@ -16,12 +16,14 @@
 - **Project:** Workout Tracker
 - **Current focus:** live is `50742e6` (schema v7). The owner's standing rule: deploy once
   verified and ready to merge, check the live URL, then merge.
-- **Next action:** #177 part B (`POST /api/plan/reset` + `EXERCISE_CATALOG`, effort:M), then part C
-  (Plan page). Part A (#222) is merged, not deployed. B waits on two owner answers in
-  `docs/superpowers/plans/2026-10-14-plan-edit-v1-177.md`: swap candidates from a fixed server-side
-  catalog (recommended), and block edits mid-workout (recommended). #221/#223 stay blocked on #220
-  (its `blocked` label is cleared; #220 is `ready`). Other `ready`: #294, #269 (items 3 and 5 only,
-  speculative), #201. Cues sheet (#354), #339, the token and nav sweep and #171 are done.
+- **Next action:** the plan editor (#177 A, B, C = PRs #379, #381, #382) is on `main` and
+  **not deployed**; deploying it is a behaviour change with no schema change (backup first is good
+  practice). Then #220/#221/#223 (AI export and paste-back, `ready`, no longer blocked by #222), #294,
+  #269 (items 3 and 5 only, speculative), #201. Follow-ups from the #177 reviews, to file as Issues
+  once `gh` works: swap in place instead of at the end of the day (needs a backend position),
+  focus management on the Plan page, a "Go to workout" link in its locked state, a test that really
+  exercises the in-flight guard, a muscle-tag check in CI for catalog entries, and old growth/targeting
+  wording in the seed (`plan_seed.py`, e.g. "calves grow under stretch").
 
 ## Stop-condition
 (none — runner proceeds normally)
