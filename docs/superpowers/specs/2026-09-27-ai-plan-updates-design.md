@@ -248,7 +248,7 @@ Phase 1's task-by-task implementation plan is
 
 ---
 
-## 3. Export format (Phase 2 — spec'd, not built)
+## 3. Export format (Phase 2, built in #220; `prompt_template` is null until #221)
 
 `GET /api/plan/export?sessions=20` (acting profile, `sessions` caps how many recent **completed**
 sessions are included — default 20, matching this codebase's own existing "recent, not all-time"
