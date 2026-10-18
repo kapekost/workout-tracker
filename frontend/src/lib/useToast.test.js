@@ -23,30 +23,30 @@ describe('useToast', () => {
     expect(result.current.toast).toEqual({ message: 'Failed to save', type: 'error' })
   })
 
-  it('auto-clears after 2500ms', () => {
+  it('auto-clears after 4000ms', () => {
     const { result } = renderHook(() => useToast())
     act(() => result.current.showToast('Saved'))
-    act(() => { vi.advanceTimersByTime(2500) })
+    act(() => { vi.advanceTimersByTime(4000) })
     expect(result.current.toast).toBeNull()
   })
 
-  it('does not clear before 2500ms has elapsed', () => {
+  it('does not clear before 4000ms has elapsed', () => {
     const { result } = renderHook(() => useToast())
     act(() => result.current.showToast('Saved'))
-    act(() => { vi.advanceTimersByTime(2499) })
+    act(() => { vi.advanceTimersByTime(3999) })
     expect(result.current.toast).not.toBeNull()
   })
 
   it('a second call resets the timer instead of being cut short by the first', () => {
     const { result } = renderHook(() => useToast())
     act(() => result.current.showToast('First'))
-    act(() => { vi.advanceTimersByTime(2000) }) // first timer has 500ms left to run
+    act(() => { vi.advanceTimersByTime(3000) }) // first timer has 1000ms left to run
     act(() => result.current.showToast('Second'))
-    act(() => { vi.advanceTimersByTime(2000) }) // past the first call's original deadline
+    act(() => { vi.advanceTimersByTime(3000) }) // past the first call's original deadline
     // The first call's timeout must have been cancelled — otherwise it would
     // have fired here and cleared the second toast early.
     expect(result.current.toast).toEqual({ message: 'Second', type: 'default' })
-    act(() => { vi.advanceTimersByTime(500) }) // now the second call's own 2500ms is up
+    act(() => { vi.advanceTimersByTime(1000) }) // now the second call's own 4000ms is up
     expect(result.current.toast).toBeNull()
   })
 })

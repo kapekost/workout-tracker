@@ -715,7 +715,7 @@ export default function Workout() {
                 )}
                 {lastPerf[ex.id].suggestion?.warmup && (
                   <p style={{ color: colors.muted, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 4 }}>
-                    Warm-up: <strong>{lastPerf[ex.id].suggestion.warmup.weight_kg}kg</strong> × {lastPerf[ex.id].suggestion.warmup.reps}
+                    Warm-up: <strong>{lastPerf[ex.id].suggestion.warmup.weight_kg}kg</strong> × {lastPerf[ex.id].suggestion.warmup.reps}. Logged sets count.
                   </p>
                 )}
                 {(() => {

@@ -1,4 +1,5 @@
 [
+  { "date": "2026-10-19", "text": "Messages stay on screen a little longer, the rest timer shows your rest time before you start it, and the warm-up hint says logged sets count." },
   { "date": "2026-10-18", "text": "Finish Workout now asks for a second tap, so a stray tap no longer ends your workout." },
   { "date": "2026-10-18", "text": "Messages and hints across the app are shorter and plainer: errors, toasts, the version banner and the recovery note." },
   { "date": "2026-10-18", "text": "On the Plan page, Save and Swap now say they apply to every future workout of that day, and that past workouts and history stay as they are." },
