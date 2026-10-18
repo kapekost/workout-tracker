@@ -35,6 +35,10 @@
 ## Needs owner
 - **Design-review decisions (`needs-clarification`):** #340 (Finish Workout: confirm tap,
   un-finish, or neither) and #350 (Wave 4 items). Agents do not pick.
+- **#389 privacy choice.** Spec PR `docs/superpowers/specs/2026-10-18-pb-comparison-design.md`: opt-in vs
+  opt-out, anonymous vs names. Recommended: opt-in, anonymous. Not implemented until you choose.
+- **Cue copy deny rule.** `frontend/src/data/workoutPlan.js` is denied to agents. Its ~35 cue em dashes and
+  the matching `backend/plan_seed.py` wording (#388) need you to allow it or do it.
 - **Close kapekost-web#92.** Superseded by kapekost-web#95; its third model
   (`inclusionai/ling-3.0-flash-sante:free`) is not listed by OpenRouter.
 - **Create the limited OpenRouter key** for the reviewer. In the OpenRouter dashboard: new key,
