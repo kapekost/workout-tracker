@@ -42,7 +42,7 @@ export default function SetPassword() {
       // Unknown, expired and already-used tokens all answer the same thing on
       // purpose, and so does a password that breaks the length rule. Both are
       // shown as written.
-      setError(err.detail || 'Could not reach the server — check your connection and try again.')
+      setError(err.detail || "Can't reach the server. Check your connection.")
       setBusy(false)
     }
   }
@@ -113,7 +113,7 @@ export default function SetPassword() {
               <Link to="/login" style={{ color: colors.accent, fontWeight: type.weight.semibold }}>
                 Go to log in
               </Link>
-              {' — you can send yourself a fresh link from there.'}
+              {' to get a fresh link.'}
             </p>
           )}
         </form>

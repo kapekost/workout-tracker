@@ -95,7 +95,7 @@ describe('Home (full page)', () => {
     renderHome()
     const startBtn = await screen.findByRole('button', { name: /^Start/ })
     fireEvent.click(startBtn)
-    expect(await screen.findByText("Couldn't start the workout — try again")).toBeInTheDocument()
+    expect(await screen.findByText("Couldn't start the workout. Try again.")).toBeInTheDocument()
   })
 
   it('a 409 on start says a workout is already open and re-reads the active session', async () => {

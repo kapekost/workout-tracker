@@ -181,7 +181,7 @@ describe('PersonalBests page', () => {
     await screen.findByText('No historical PBs logged yet.')
     fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
-    await screen.findByText(/failed to save — check the values/i)
+    await screen.findByText(/failed to save\. check the values/i)
   })
 })
 

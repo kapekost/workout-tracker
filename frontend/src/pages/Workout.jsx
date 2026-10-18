@@ -204,7 +204,7 @@ function WeightFieldLabel({ bodyweight }) {
 
 function prLabel(p) {
   const who = p.exercise_name ? `${p.exercise_name} ` : ''
-  if (p.type === 'baseline') return `${p.exercise_name} — baseline set`
+  if (p.type === 'baseline') return `${p.exercise_name} baseline set`
   if (p.type === 'weight')  return `Highest ${who}weight: ${p.value}kg`
   if (p.type === 'reps')    return `Most ${who}reps ${p.unit}: ${p.value}`
   if (p.type === '1rm')     return `Highest ${who}est. 1RM: ${p.value}kg`
@@ -336,7 +336,7 @@ export default function Workout() {
         Check your connection
       </h1>
       <div className="form-error">
-        We couldn't open this workout. Your sets are safe — nothing was logged or lost.
+        We couldn't open this workout. Nothing was lost.
       </div>
       <button className="btn-secondary" style={{ marginTop: 16 }} onClick={() => window.location.reload()}>
         Try again
@@ -366,7 +366,7 @@ export default function Workout() {
               const isBaseline = p.type === 'baseline'
               return (
                 <p key={i} style={{ color: isBaseline ? colors.muted : colors.success, fontSize: type.size.md }}>
-                  {isBaseline ? prLabel(p) : <><IconSparkles size={icon.body} /> New PR — {prLabel(p)}</>}
+                  {isBaseline ? prLabel(p) : <><IconSparkles size={icon.body} /> New PR: {prLabel(p)}</>}
                 </p>
               )
             })}
@@ -464,11 +464,11 @@ export default function Workout() {
         // is being torn down; a toast racing the redirect is noise. Falls
         // through to setLogging(false) like every other branch.
       } else if (e?.status === 422) {
-        showToast('That value is not allowed — check weight and reps', 'error')
+        showToast('That value is not allowed. Check weight and reps.', 'error')
       } else if (e?.status >= 400 && e?.status < 500) {
-        showToast("Couldn't save that set — the server rejected it", 'error')
+        showToast("Couldn't save that set. The server rejected it.", 'error')
       } else {
-        showToast("Couldn't save that set — check the sets above, then tap Log Set again", 'error')
+        showToast("Couldn't save that set. Check the sets above, then tap Log Set again.", 'error')
       }
     }
     logInFlight.current = false
@@ -504,7 +504,7 @@ export default function Workout() {
       // Leaving it open and controlled is also the retry: fix the connection,
       // tap away again.
       setNoteFailed(prev => ({ ...prev, [exId]: true }))
-      showToast('Note not saved — still here, tap to retry', 'error')
+      showToast('Note not saved. Your text is kept. Tap to retry.', 'error')
     }
   }
 

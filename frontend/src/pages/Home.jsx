@@ -142,7 +142,7 @@ export default function Home() {
         showToast('A workout is already in progress', 'error')
         refresh()
       } else {
-        showToast("Couldn't start the workout — try again", 'error')
+        showToast("Couldn't start the workout. Try again.", 'error')
       }
       setStarting(false)
     }
@@ -291,7 +291,7 @@ export default function Home() {
           className="tap-target"
           onClick={async () => {
             try { await downloadExport() }
-            catch { showToast("Couldn't export your data — try again", 'error') }
+            catch { showToast("Couldn't export your data. Try again.", 'error') }
           }}
           style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
                    fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}

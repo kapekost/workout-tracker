@@ -64,26 +64,26 @@ describe('VersionBadge', () => {
 
   it('swaps to the update-ready prompt once the store reports ready', () => {
     renderBadge(makeStore({ getSnapshot: () => true }))
-    expect(screen.getByText('New version — tap to reload')).toBeInTheDocument()
+    expect(screen.getByText('New version. Tap to reload')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Check for update' })).not.toBeInTheDocument()
   })
 
   it("tapping the ready prompt calls the store's applyUpdate", () => {
     const store = makeStore({ getSnapshot: () => true })
     renderBadge(store)
-    fireEvent.click(screen.getByText('New version — tap to reload'))
+    fireEvent.click(screen.getByText('New version. Tap to reload'))
     expect(store.applyUpdate).toHaveBeenCalledTimes(1)
   })
 
   it('suppresses the ready prompt while a workout is in progress', () => {
     renderBadge(makeStore({ getSnapshot: () => true }), '/workout/9')
-    expect(screen.queryByText('New version — tap to reload')).not.toBeInTheDocument()
+    expect(screen.queryByText('New version. Tap to reload')).not.toBeInTheDocument()
     expect(screen.getByText(/^v \S+$/)).toBeInTheDocument()
   })
 
   it('shows the ready prompt again once off the workout screen', () => {
     renderBadge(makeStore({ getSnapshot: () => true }), '/progress')
-    expect(screen.getByText('New version — tap to reload')).toBeInTheDocument()
+    expect(screen.getByText('New version. Tap to reload')).toBeInTheDocument()
   })
 
   // #145: no indication today when the app is silently serving cached data
@@ -114,7 +114,7 @@ describe('VersionBadge', () => {
 
   it('suppresses the stale-data indicator once a real update is ready (the row swaps entirely)', () => {
     renderBadge(makeStore({ getSnapshot: () => true }), '/', makeNetworkStore({ getSnapshot: () => true }))
-    expect(screen.getByText('New version — tap to reload')).toBeInTheDocument()
+    expect(screen.getByText('New version. Tap to reload')).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })

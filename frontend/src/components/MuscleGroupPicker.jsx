@@ -10,7 +10,7 @@ import DayIcon from './DayIcon'
 // The blind spot it discloses is one-directional: unlogged training can only
 // make this estimate OVERSTATE freshness, never understate it.
 export const DISCLOSURE =
-  'Estimated from your logged training only — no sleep or HRV data, and it ' +
+  'Estimated from your logged training only. No sleep, HRV or soreness data, and it ' +
   "doesn't know about classes or training you log elsewhere. Trust how you " +
   'feel over this estimate.'
 
@@ -71,8 +71,8 @@ export function RecoveryRing({ freshness, size = 44 }) {
 }
 
 function rawFact(group) {
-  if (!group.lastDate) return `${group.label} — not trained yet.`
-  return `${group.label} — last trained ${group.hoursSince}h ago, ` +
+  if (!group.lastDate) return `${group.label}: not trained yet.`
+  return `${group.label}: last trained ${group.hoursSince}h ago, ` +
     `${group.fractionalSets} fractional sets.`
 }
 

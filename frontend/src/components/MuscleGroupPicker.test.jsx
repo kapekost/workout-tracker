@@ -170,7 +170,7 @@ describe('MuscleGroupPicker', () => {
   it('shows a neutral fact, not a nudge, for a never-trained group', () => {
     render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /Chest/ }))
-    expect(screen.getByText(/Chest — not trained yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Chest: not trained yet/i)).toBeInTheDocument()
   })
 
   it('uses none of the banned words in the collapsed grid', () => {

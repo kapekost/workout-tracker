@@ -97,7 +97,7 @@ export default function PersonalBests() {
       setNote('')
     } catch (err) {
       if (err.message?.includes('409')) showToast("You've already logged this exact PB (same exercise, weight, reps, and year).", 'error')
-      else showToast('Failed to save — check the values and try again', 'error')
+      else showToast('Failed to save. Check the values and try again.', 'error')
     }
     setSaving(false)
   }

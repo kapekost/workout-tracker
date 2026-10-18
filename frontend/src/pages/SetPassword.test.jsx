@@ -102,7 +102,7 @@ describe('SetPassword', () => {
     fillPassword('a long enough password')
     fireEvent.click(screen.getByRole('button', { name: 'Set password' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not reach/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/can't reach the server/i)
   })
 
   it('does not submit twice while the request is in flight', async () => {

@@ -48,7 +48,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
         position: 'relative', fontSize: type.size.sm, fontWeight: type.weight.semibold, color: colors.accent,
         background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
       }}>
-        New version — tap to reload
+        New version. Tap to reload
         <span aria-hidden="true" style={{
           position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)',
           width: 'max(100%, 44px)', height: 44,
@@ -131,7 +131,7 @@ export default function VersionBadge({ store = updateStore, networkStore = netwo
             position: 'absolute', width: 1, height: 1, margin: -1, padding: 0,
             overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
           }}>
-            Network unreachable — data shown may be out of date.
+            Network unreachable. Data shown may be out of date.
           </span>
         </> : null}
       </span>
