@@ -15,7 +15,7 @@ Both need a profile flag, so this is a schema change (v10) and needs an export s
 
 ## Like for like
 
-Compare the same exercise on the same basis: the heaviest weight at or above the user's own rep count is not the same as their best, so use the estimated 1RM already computed for PRs (the same formula as the "est. 1RM" PR toast) for both sides, and show it as "est. 1RM". Show raw weight only when the exercise is a one-rep best on both sides. The line names the basis, so the numbers are never read as lifted loads.
+Compare the same exercise on one basis for everyone: the estimated 1RM already used for PR detection (same formula as the "est. 1RM" PR toast). The line says "est. 1RM", so the numbers are never read as loads lifted. Raw weight is not compared, because 100 kg for 10 reps and 100 kg for 1 are different bests.
 
 ## Read endpoint
 
