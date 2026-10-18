@@ -28,7 +28,7 @@ const CATALOG = [
     bodyweight: false, muscles: ['Quads', 'Glutes'], yt_url: null, cues: [] },
 ]
 
-const swapLine = (day, sets) => `From now on, every ${day} has Dumbbell Bench Press instead of Bench Press, at the end of the day, with ${sets}. History for Bench Press stays under its own name and will not show under the new one.`
+const swapLine = () => 'Bench Press history stays under its old name.'
 const FINISH_FIRST = 'Finish or discard your current workout first'
 
 function renderPage() {
@@ -62,7 +62,7 @@ describe('Plan editing', () => {
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
     fireEvent.click(screen.getByRole('button', { name: 'decrease Reps from' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/plan/update', {
       envelope: {
@@ -75,7 +75,7 @@ describe('Plan editing', () => {
       confirm: true,
     }))
     await waitFor(() => expect(retry).toHaveBeenCalledTimes(1))
-    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save for every Upper A' })).not.toBeInTheDocument()
   })
 
   it('sends only the field that changed', async () => {
@@ -83,7 +83,7 @@ describe('Plan editing', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'decrease Reps to' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     const [, body] = api.post.mock.calls[0]
@@ -95,9 +95,9 @@ describe('Plan editing', () => {
   it('closes the editor without posting when nothing changed', async () => {
     renderPage()
     await openEditor('Bench Press')
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
     expect(api.post).not.toHaveBeenCalled()
-    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save for every Upper A' })).not.toBeInTheDocument()
   })
 
   it('swap posts the remove and the add in one envelope for that day', async () => {
@@ -106,8 +106,8 @@ describe('Plan editing', () => {
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'Swap' }))
     fireEvent.click(await screen.findByRole('button', { name: /Dumbbell Bench Press/ }))
-    expect(screen.getByText(swapLine('Upper A', '3×8–12'))).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm swap' }))
+    expect(screen.getByText(swapLine())).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Swap in every Upper A' }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     const [path, body] = api.post.mock.calls[0]
@@ -143,7 +143,7 @@ describe('Plan editing', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Reps from' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(detail)
     expect(retry).not.toHaveBeenCalled()
@@ -154,7 +154,7 @@ describe('Plan editing', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(FINISH_FIRST)
     expect(refresh).toHaveBeenCalled()
@@ -167,7 +167,7 @@ describe('Plan editing', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
-    const save = screen.getByRole('button', { name: 'Save' })
+    const save = screen.getByRole('button', { name: 'Save for every Upper A' })
     fireEvent.click(save)
     fireEvent.click(save)
     expect(api.post).toHaveBeenCalledTimes(1)
@@ -220,7 +220,7 @@ describe('Plan review fixes', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save your plan")
     expect(retry).toHaveBeenCalledTimes(1)
   })
@@ -230,7 +230,7 @@ describe('Plan review fixes', () => {
     renderPage()
     await openEditor('Bench Press')
     for (let i = 0; i < 5; i++) fireEvent.click(screen.getByRole('button', { name: 'decrease Reps to' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     const op = api.post.mock.calls[0][1].envelope.day_updates[0].exercise_updates[0]
     expect(op.reps_high).toBe(5)
@@ -266,7 +266,7 @@ describe('Plan review fixes', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
     expect(screen.getByRole('button', { name: 'Edit Bent-over Row' })).toBeDisabled()
     settle({})
     await waitFor(() => expect(retry).toHaveBeenCalled())
@@ -274,10 +274,9 @@ describe('Plan review fixes', () => {
 
   it('says an edit applies to every future workout of that day, not past ones', async () => {
     renderPage()
-    expect(await screen.findByText(/apply to every future workout of that day/i)).toBeInTheDocument()
-    expect(screen.getByText(/workouts you've already logged stay as they are/i)).toBeInTheDocument()
     await openEditor('Bench Press')
-    expect(screen.getByText('Applies to every Upper A from now on.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save for every Upper A' })).toBeInTheDocument()
+    expect(screen.getByText('Past workouts stay as logged.')).toBeInTheDocument()
   })
 
   it('confirms a successful save with a short message', async () => {
@@ -285,7 +284,7 @@ describe('Plan review fixes', () => {
     renderPage()
     await openEditor('Bench Press')
     fireEvent.click(screen.getByRole('button', { name: 'increase Sets' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save for every Upper A' }))
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 })

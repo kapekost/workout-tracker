@@ -1,5 +1,5 @@
 [
-  { "date": "2026-10-18", "text": "The Plan page now says that an edit or swap applies to every future workout of that day, and that workouts you have already logged do not change." },
+  { "date": "2026-10-18", "text": "On the Plan page, Save and Swap now say they apply to every future workout of that day, and that past workouts and history stay as they are." },
   { "date": "2026-10-17", "text": "You can now change the sets and reps of your plan's exercises, swap one for another, or reset the whole plan to the recommended one from Home." },
   { "date": "2026-10-14", "text": "The open and close arrow on workout and history rows is now a proper chevron, and the Sessions number on Progress is slightly larger." },
   { "date": "2026-10-14", "text": "During a workout the bottom bar no longer lights up Home, since no tab is the page you are on." },
