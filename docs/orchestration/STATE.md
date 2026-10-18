@@ -14,11 +14,11 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `50742e6` (schema v7). The owner's standing rule: deploy once
-  verified and ready to merge, check the live URL, then merge.
-- **Next action:** the plan editor (#177 A, B, C = PRs #379, #381, #382) is on `main` and
-  **not deployed**; deploying it is a behaviour change with no schema change (backup first is good
-  practice). Then #220/#221/#223 (AI export and paste-back, `ready`, no longer blocked by #222), #294,
+- **Current focus:** live is `353a5b8` (schema v9), deployed 2026-10-18 after a host backup (local and
+  off-site `ok`): ships the plan editor (#177 A-C), the plan export (#220), #369 and the Dependabot bumps.
+  Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
+  rule: deploy once verified and ready to merge, check the live URL, then merge.
+- **Next action:** #221/#223 (AI export prompt and paste-back, `ready`), #294,
   #269 (items 3 and 5 only, speculative), #201. Follow-ups from the #177 reviews, to file as Issues
   once `gh` works: swap in place instead of at the end of the day (needs a backend position),
   focus management on the Plan page, a "Go to workout" link in its locked state, a test that really
