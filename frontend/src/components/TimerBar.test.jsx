@@ -15,7 +15,7 @@ describe('TimerBar rest states', () => {
   it('idle: READY and the dash glyph', () => {
     render(<TimerBar {...baseProps} restStartMs={null} paused={false} pausedRem={null} />)
     expect(screen.getByText('READY')).toBeInTheDocument()
-    expect(screen.getByText('—:—')).toBeInTheDocument()
+    expect(screen.getByText('--:--')).toBeInTheDocument()
   })
 
   it('resting: REST and a live countdown', () => {
@@ -41,7 +41,7 @@ describe('TimerBar rest states', () => {
     expect(screen.queryByText('READY')).not.toBeInTheDocument()
     // The dash-glyph placeholder and the (dimmed, disabled) controls stay
     // exactly as in the plain idle state — only the label text changes.
-    expect(screen.getByText('—:—')).toBeInTheDocument()
+    expect(screen.getByText('--:--')).toBeInTheDocument()
   })
 
   it('idle + sets already logged this session: falls back to ordinary READY (hasLoggedSets default)', () => {

@@ -85,7 +85,7 @@ describe('Login', () => {
     fillCredentials()
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not reach/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/can't reach the server/i)
   })
 
   it('clears a previous error when the next attempt is submitted', async () => {

@@ -53,7 +53,7 @@ export default function TimerBar({ restStartMs, restTargetSec, onAddRest, onSkip
             {showIdleHint ? 'LOG A SET' : !resting ? 'READY' : paused ? 'PAUSED' : rem === 0 ? 'GO' : 'REST'}
           </div>
           <div className="rest-clock">
-            {resting ? formatClock(rem) : '—:—'}
+            {resting ? formatClock(rem) : '--:--'}
           </div>
         </div>
         <button className="btn-icon" disabled={!resting} aria-label="add 30 seconds" onClick={() => { track('rest_adjust', { delta: 30 }); onAddRest(30) }}>+30s</button>

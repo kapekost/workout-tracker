@@ -75,7 +75,7 @@ export default function ExerciseDetails({ ex, color }) {
             Watch form demo on YouTube
           </a>
           <p style={{ color: colors.muted, fontSize: type.size.sm, textAlign: 'center', marginTop: 10 }}>
-            Opens a YouTube search — pick a video from Jeff Nippard or Alan Thrall for evidence-based technique
+            Opens a YouTube search. Try Jeff Nippard or Alan Thrall for technique.
           </p>
         </div>
       </ExerciseDemo>

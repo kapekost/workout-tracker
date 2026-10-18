@@ -611,7 +611,7 @@ describe('per-exercise notes', () => {
     // Wave 1.3 changed this copy deliberately: "Failed to save note" named the
     // problem and stopped there, with no next step and no statement about
     // whether the words survived — which, in the old flow, they had not.
-    expect(await screen.findByText(/still here, tap to retry/i)).toBeInTheDocument()
+    expect(await screen.findByText(/your text is kept\. tap to retry/i)).toBeInTheDocument()
   })
 
   // #229 decision 8: a muted text action, not a button-styled glyph+label.
@@ -683,7 +683,7 @@ describe('Workout: a failed session read must not throw you out of the workout',
       throw new Error(`unmocked GET ${path}`)
     })
     renderWorkout()
-    expect(await screen.findByText(/Your sets are safe/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Nothing was lost/i)).toBeInTheDocument()
     // The old code was `.catch(() => nav('/'))`, which rendered the "/" route.
     expect(screen.queryByText('home')).not.toBeInTheDocument()
   })
@@ -795,7 +795,7 @@ describe('Workout: a note save that fails', () => {
   it('says the note is still here and how to retry', async () => {
     mockWithFailedNote()
     await openEditorAndType('grip gave out')
-    expect(await screen.findByText(/still here, tap to retry/i)).toBeInTheDocument()
+    expect(await screen.findByText(/your text is kept\. tap to retry/i)).toBeInTheDocument()
   })
 
   it('a successful save shows no not-saved marker', async () => {

@@ -63,7 +63,7 @@ export default function Login() {
       // password" covers an unknown user, a wrong password and a never-invited
       // account alike). Show them as written; rewording here would either leak
       // more than the endpoint chose to, or say less than it meant to.
-      setError(sentenceCase(err.detail) || 'Could not reach the server — check your connection and try again.')
+      setError(sentenceCase(err.detail) || "Can't reach the server. Check your connection.")
       setBusy(false)
     }
   }
