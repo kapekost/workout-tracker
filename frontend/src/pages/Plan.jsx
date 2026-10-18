@@ -17,7 +17,7 @@ import { IconArrowLeft, IconMinus, IconPlus } from '../icons'
 const FINISH_FIRST = 'Finish or discard your current workout first'
 const SWAP_SHOWN = 8
 const swapLine = (ex, dayName, picked) =>
-  `Replaces ${ex.name} and goes to the end of ${dayName} with ${picked.sets}×${picked.reps_low}–${picked.reps_high}. History for ${ex.name} stays under its own name and will not show under the new one.`
+  `From now on, every ${dayName} has ${picked.name} instead of ${ex.name}, at the end of the day, with ${picked.sets}×${picked.reps_low}–${picked.reps_high}. History for ${ex.name} stays under its own name and will not show under the new one.`
 
 const linkButton = {
   background: 'none', border: 'none', color: colors.accent, cursor: 'pointer', padding: 0,
@@ -149,7 +149,8 @@ export default function Plan() {
       </button>
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Your plan</h1>
       <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>
-        Change the sets and reps, or swap an exercise.
+        Change the sets and reps, or swap an exercise. Changes apply to every future workout of
+        that day; workouts you've already logged stay as they are.
       </p>
 
       {locked && (
@@ -211,6 +212,7 @@ export default function Plan() {
                         onChange={v => setDraft('repsLow', v)} />
                       <Stepper label="Reps to" value={edit.draft.repsHigh} min={1} max={50} disabled={busy}
                         onChange={v => setDraft('repsHigh', v)} />
+                      <p style={mutedText}>Applies to every {day.name} from now on.</p>
                       <button type="button" className="btn-primary" onClick={saveEdit} disabled={busy}>
                         {busy ? 'Saving…' : 'Save'}
                       </button>

@@ -28,7 +28,7 @@ const CATALOG = [
     bodyweight: false, muscles: ['Quads', 'Glutes'], yt_url: null, cues: [] },
 ]
 
-const swapLine = (day, sets) => `Replaces Bench Press and goes to the end of ${day} with ${sets}. History for Bench Press stays under its own name and will not show under the new one.`
+const swapLine = (day, sets) => `From now on, every ${day} has Dumbbell Bench Press instead of Bench Press, at the end of the day, with ${sets}. History for Bench Press stays under its own name and will not show under the new one.`
 const FINISH_FIRST = 'Finish or discard your current workout first'
 
 function renderPage() {
@@ -270,6 +270,14 @@ describe('Plan review fixes', () => {
     expect(screen.getByRole('button', { name: 'Edit Bent-over Row' })).toBeDisabled()
     settle({})
     await waitFor(() => expect(retry).toHaveBeenCalled())
+  })
+
+  it('says an edit applies to every future workout of that day, not past ones', async () => {
+    renderPage()
+    expect(await screen.findByText(/apply to every future workout of that day/i)).toBeInTheDocument()
+    expect(screen.getByText(/workouts you've already logged stay as they are/i)).toBeInTheDocument()
+    await openEditor('Bench Press')
+    expect(screen.getByText('Applies to every Upper A from now on.')).toBeInTheDocument()
   })
 
   it('confirms a successful save with a short message', async () => {
