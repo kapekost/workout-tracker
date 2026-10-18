@@ -106,7 +106,7 @@ hard rules, and status log — independent of orchestration and unaffected by it
 ## What this is
 
 A mobile-first gym tracker: logs sets/reps/weight, tracks progress, shows form
-cues for a 4-day Upper/Lower split.
+cues for a 4-day Upper/Lower split. Dark theme only, by design.
 
 - **Backend**: Python FastAPI + SQLite. Serves the built frontend as static files
   and the JSON API from one process (`uvicorn main:app` on `:8000` inside the

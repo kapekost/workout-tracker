@@ -21,6 +21,7 @@ blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre { margin: 0; }
 }
 
 :root {
+  color-scheme: dark;
   --bg: #0d0d0d;
   --card: #1a1a1a;
   --border: #2a2a2a;

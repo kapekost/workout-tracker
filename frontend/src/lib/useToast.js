@@ -5,12 +5,11 @@ import { useCallback, useRef, useState } from 'react'
 // (Workout.jsx, Home.jsx ×2, History.jsx, PersonalBests.jsx) despite a
 // single shared `.toast` CSS class, now owned once.
 //
-// Same 2500ms dismiss delay as every site it replaces. Unlike those sites,
-// a second showToast() call clears the previous pending timer before
+// A second showToast() call clears the previous pending timer before
 // starting a new one, so a toast shown while an earlier one is still fading
-// out gets its own full 2500ms instead of being cut short by the first
+// out gets its own full delay instead of being cut short by the first
 // call's timeout firing on schedule.
-const DISMISS_MS = 2500
+const DISMISS_MS = 4000
 
 export function useToast() {
   const [toast, setToast] = useState(null)
