@@ -259,6 +259,7 @@ export default function Workout() {
   // PersonalBests.jsx's confirmId: only one set can be armed at a time, and
   // arming one disarms whatever was armed before it.
   const { armedId: confirmSetId, confirm: confirmDeleteSet } = useConfirmWindow()
+  const { armedId: finishArmed, confirm: confirmFinish } = useConfirmWindow()
 
   async function ensureLastPerf(ex) {
     if (ex.id in lastPerf) return lastPerf[ex.id]
@@ -582,12 +583,12 @@ export default function Workout() {
               (2026-09-06 UI review, item 18c). */}
           <p style={{ color: colors.muted2, fontSize: type.size.lg, marginTop: 2 }}>{session.date}</p>
         </div>
-        <button className="tap-target" onClick={finishWorkout} disabled={finishing}
+        <button className="tap-target" onClick={() => { if (confirmFinish('finish')) finishWorkout() }} disabled={finishing}
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color,
             fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer',
             padding: '7px 14px', whiteSpace: 'nowrap', opacity: finishing ? 0.55 : 1, flexShrink: 0,
             display: 'flex', alignItems: 'center', gap: 4 }}>
-          {finishing ? 'Saving…' : <><IconCheck size={icon.body} /> Finish Workout</>}
+          {finishing ? 'Saving…' : finishArmed ? 'Tap again to finish' : <><IconCheck size={icon.body} /> Finish Workout</>}
         </button>
       </div>
 
