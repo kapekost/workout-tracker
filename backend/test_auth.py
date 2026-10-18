@@ -481,6 +481,7 @@ GATED = [
     ("POST",   "/api/plan/update", {"envelope": {}, "confirm": False}),
     ("POST",   "/api/plan/reset", None),
     ("GET",    "/api/plan/catalog", None),
+    ("GET",    "/api/plan/export", None),
     ("POST",   "/api/sessions", {"workout_day": "upper_a"}),
     ("GET",    "/api/sessions", None),
     ("GET",    "/api/sessions/{sid}", None),

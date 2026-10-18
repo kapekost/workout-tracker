@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks, Query
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -1034,6 +1034,40 @@ def get_current_profile(profile: dict = Depends(current_profile)):
     # of them is a frontend change first.
     return {k: profile[k] for k in ("id", "username", "role", "icon")}
 
+def _load_plan(conn, profile_id: int) -> dict:
+    days = conn.execute(
+        "SELECT * FROM plan_days WHERE profile_id = ? ORDER BY sort_order",
+        (profile_id,)).fetchall()
+    plan = {}
+    cycle = []
+    for day in days:
+        exercises = conn.execute(
+            "SELECT * FROM plan_exercises WHERE plan_day_id = ? ORDER BY sort_order",
+            (day["id"],)).fetchall()
+        plan[day["day_key"]] = {
+            "id": day["day_key"],
+            "name": day["name"],
+            "tag": day["tag"],
+            "icon": day["icon"],
+            "exercises": [
+                {
+                    "id": ex["exercise_id"],
+                    "name": ex["name"],
+                    "alt": ex["alt"],
+                    "sets": ex["sets"],
+                    "repsLow": ex["reps_low"],
+                    "repsHigh": ex["reps_high"],
+                    "bodyweight": bool(ex["bodyweight"]),
+                    "muscles": json.loads(ex["muscles_json"]),
+                    "ytUrl": ex["yt_url"],
+                    "cues": json.loads(ex["cues_json"]),
+                }
+                for ex in exercises
+            ],
+        }
+        cycle.append(day["day_key"])
+    return {"plan": plan, "cycle": cycle}
+
 @app.get("/api/plan")
 def get_plan(profile_id: int = Depends(acting_profile_id)):
     """The acting profile's plan, shaped to match workoutPlan.js's existing
@@ -1044,38 +1078,42 @@ def get_plan(profile_id: int = Depends(acting_profile_id)):
     objects.
     """
     with db() as conn:
-        days = conn.execute(
-            "SELECT * FROM plan_days WHERE profile_id = ? ORDER BY sort_order",
-            (profile_id,)).fetchall()
-        plan = {}
-        cycle = []
-        for day in days:
-            exercises = conn.execute(
-                "SELECT * FROM plan_exercises WHERE plan_day_id = ? ORDER BY sort_order",
-                (day["id"],)).fetchall()
-            plan[day["day_key"]] = {
-                "id": day["day_key"],
-                "name": day["name"],
-                "tag": day["tag"],
-                "icon": day["icon"],
-                "exercises": [
-                    {
-                        "id": ex["exercise_id"],
-                        "name": ex["name"],
-                        "alt": ex["alt"],
-                        "sets": ex["sets"],
-                        "repsLow": ex["reps_low"],
-                        "repsHigh": ex["reps_high"],
-                        "bodyweight": bool(ex["bodyweight"]),
-                        "muscles": json.loads(ex["muscles_json"]),
-                        "ytUrl": ex["yt_url"],
-                        "cues": json.loads(ex["cues_json"]),
-                    }
-                    for ex in exercises
-                ],
-            }
-            cycle.append(day["day_key"])
-        return {"plan": plan, "cycle": cycle}
+        return _load_plan(conn, profile_id)
+
+@app.get("/api/plan/export")
+def export_plan_context(sessions: int = Query(20, ge=1, le=100),
+                        profile_id: int = Depends(acting_profile_id)):
+    """The acting profile's plan, recent completed sessions, personal bests and
+    notes as one JSON document to paste into an external AI chat. The
+    constraints travel in the data because the app cannot control what a human
+    pastes the export into. prompt_template stays null until the prompt (#221)
+    exists.
+    """
+    with db() as conn:
+        recent = []
+        for s in conn.execute(
+                "SELECT id, date, workout_day FROM sessions WHERE profile_id = ? AND completed = 1 "
+                "ORDER BY date DESC, id DESC LIMIT ?", (profile_id, sessions)).fetchall():
+            sets = conn.execute(
+                "SELECT exercise_id, exercise_name, set_number, reps, weight_kg FROM sets "
+                "WHERE session_id = ? ORDER BY id", (s["id"],)).fetchall()
+            recent.append({"date": s["date"], "workout_day": s["workout_day"],
+                           "sets": [dict(r) for r in sets]})
+        bests = conn.execute(
+            "SELECT exercise_id, weight_kg, reps, achieved_year FROM personal_bests "
+            "WHERE profile_id = ? ORDER BY exercise_id, weight_kg DESC", (profile_id,)).fetchall()
+        notes = conn.execute("SELECT exercise_id, note FROM exercise_notes WHERE profile_id = ?",
+                             (profile_id,)).fetchall()
+        return {
+            "schema": "workout-tracker/plan-context-export/v1",
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "plan": _load_plan(conn, profile_id),
+            "recent_sessions": recent,
+            "personal_bests": [dict(r) for r in bests],
+            "notes": {r["exercise_id"]: r["note"] for r in notes},
+            "constraints": {"weight_unit": "kg", "no_recovery_percentages_or_readiness_scores": True},
+            "prompt_template": None,
+        }
 
 def _plan_update_error(env_raw, err: ValidationError) -> str:
     """Name the first failure by path, op and field."""
