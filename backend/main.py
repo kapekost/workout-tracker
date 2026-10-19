@@ -405,6 +405,59 @@ class ImportIn(BaseModel):
 PLAN_UPDATE_SCHEMA = "workout-tracker/plan-update/v1"
 _SLUG = r"^[a-z][a-z0-9_]{0,63}$"
 
+PLAN_UPDATE_PROMPT = """You are a strength-training coach helping update a lifter's workout plan inside an app called
+Workout Tracker. You will be given a JSON export of their current plan, recent training history,
+and personal bests below, plus (optionally) their own note about what they want changed.
+
+Your job: propose specific, structured changes to their CURRENT PLAN'S STRUCTURE ONLY — which
+exercises appear on which day, how many sets, and their target rep range. You cannot log workouts,
+set a specific target weight for today, rename the app, or add a new training day — only modify,
+add, or remove exercises within the days already present in the plan you were given.
+
+Output ONLY a single JSON object. No prose before or after it. No markdown code fences. It must be
+parseable by a strict JSON parser on the first try, exactly matching this shape:
+
+{
+  "schema": "workout-tracker/plan-update/v1",
+  "summary": "<one short paragraph, plain language: what you changed and why>",
+  "day_updates": [
+    {
+      "day_key": "<a day_key value copied exactly from the plan you were given>",
+      "exercise_updates": [
+        {"op": "modify", "exercise_id": "<id already in that day>", "sets": <int, optional>,
+         "reps_low": <int, optional>, "reps_high": <int, optional>},
+        {"op": "add", "exercise_id": "<new_lowercase_snake_case_id>", "name": "<Display Name>",
+         "alt": "<short equipment/variation note>", "sets": <int>, "reps_low": <int>,
+         "reps_high": <int>, "bodyweight": <true or false>, "muscles": ["<1-4 short tags>"],
+         "cues": ["<3-5 short, imperative form cues, matching the terse style of the cues already in
+                   the plan you were given>"]},
+        {"op": "remove", "exercise_id": "<id already in that day>"}
+      ]
+    }
+  ]
+}
+
+Hard rules:
+- sets: 1-10. reps_low and reps_high: 1-50, and reps_high must be >= reps_low. Never output a value
+  outside these ranges.
+- "modify" and "remove" may only name an exercise_id that already exists, in the day you named, in
+  the plan you were given. Never invent one for those two operations.
+- "add" must use a new exercise_id, not already present anywhere in the plan.
+- Do not express anything as a recovery percentage, a "readiness" score, or any other numeric
+  confidence/fatigue score. Plain language only.
+- Do not invent training history, personal bests, or notes that were not in the data you were given.
+- If you don't have a specific, evidence-based reason to change a day, leave that day out of
+  day_updates entirely rather than making a change to justify including it.
+- Output nothing but the JSON object. It will be parsed by a program, not read by a person first —
+  any extra text, even a one-line intro, will make it fail to import.
+
+Here is the export:
+<PASTE THE EXPORTED JSON HERE>
+
+Here is what I want changed (leave this section out entirely if you just want general programming
+judgement based on the history above):
+<YOUR OWN NOTE, OR DELETE THIS LINE>"""
+
 class PlanExerciseOp(BaseModel):
     model_config = ConfigDict(extra="forbid")
     op: Literal["modify", "add", "remove"]
@@ -1086,8 +1139,8 @@ def export_plan_context(sessions: int = Query(20, ge=1, le=100),
     """The acting profile's plan, recent completed sessions, personal bests and
     notes as one JSON document to paste into an external AI chat. The
     constraints travel in the data because the app cannot control what a human
-    pastes the export into. prompt_template stays null until the prompt (#221)
-    exists.
+    pastes the export into. prompt_template is the instruction text that goes
+    with it; its reply schema is the one POST /api/plan/update accepts.
     """
     with db() as conn:
         recent = []
@@ -1112,7 +1165,7 @@ def export_plan_context(sessions: int = Query(20, ge=1, le=100),
             "personal_bests": [dict(r) for r in bests],
             "notes": {r["exercise_id"]: r["note"] for r in notes},
             "constraints": {"weight_unit": "kg", "no_recovery_percentages_or_readiness_scores": True},
-            "prompt_template": None,
+            "prompt_template": PLAN_UPDATE_PROMPT,
         }
 
 def _plan_update_error(env_raw, err: ValidationError) -> str:
