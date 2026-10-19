@@ -684,3 +684,13 @@ An auth or session change that touches no schema, secret or token format is revi
 `security-ai-reviewer` or `staff-engineer-reviewer` before merge instead. The "always needs a fresh
 human approval" list is unchanged, and agents still never add `approved`. Also decided: the workflow
 keeps `openrouter/free` first to save Claude tokens (#296), and recurring prompt review folds into #171.
+
+## 2026-10-19 — #389 opt-in and anonymous; #340 confirm tap; #350 left to expert passes
+
+- **#389:** members opt in to appearing in the PB comparison, and the note lists anonymous ranks, not names.
+  Needs a plan and a schema change (v10, profile flag) with a backup snapshot before deploy. Not built yet.
+- **#340:** Finish Workout takes a second tap (the same confirm window as the delete buttons). No un-finish.
+- **#350:** the owner delegated Wave 4 to a UI and a UX expert pass. Taken: 4s toasts, idle rest clock shows
+  the saved target, "Logged sets count." on the warm-up hint, `color-scheme: dark`. Left as is: `:hover`
+  (mobile-first) and the duplicate version stamp (the Home footer one is the runbook check).
+
