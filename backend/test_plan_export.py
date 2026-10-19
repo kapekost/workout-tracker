@@ -64,3 +64,18 @@ def test_export_is_scoped_to_the_acting_profile(mainmod, client, anon_client):
 
 def test_export_requires_a_session(anon_client):
     assert export(anon_client).status_code == 401
+
+
+def test_export_serves_the_prompt_template(mainmod, client):
+    template = export(client).json()["prompt_template"]
+    assert template == mainmod.PLAN_UPDATE_PROMPT
+    # The reply schema the ingestion endpoint accepts, named exactly.
+    assert mainmod.PLAN_UPDATE_SCHEMA in template
+    assert "Output ONLY a single JSON object" in template
+    assert "<PASTE THE EXPORTED JSON HERE>" in template
+
+
+def test_prompt_template_is_the_same_for_every_profile(mainmod, client, anon_client):
+    mine = export(client).json()["prompt_template"]
+    other, _ = second_profile_client(mainmod, anon_client)
+    assert export(other).json()["prompt_template"] == mine
