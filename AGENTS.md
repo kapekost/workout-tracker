@@ -451,9 +451,9 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-14. Live is `7e199da`, deployed from `main` by the agent (owner's standing instruction: deploy once verified)._
+_Last updated: 2026-10-19. Live is `e35084c`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
 
-**Running now:** commit `7e199da`, `/api/health` `{"status":"ok","version":"7e199da"}` (verified at deploy, 2026-10-14). No browser check of the live site and no flow behind the login was driven; the Log Set change was checked in a browser against a local backend only.
+**Running now:** commit `e35084c`, `/api/health` `{"status":"ok","version":"e35084c"}` (verified at deploy, 2026-10-19). No browser check of the live site and no flow behind the login was driven; the Finish confirm tap and Wave 4 were checked in a browser with mocked data only.
 **Schema v9** (`sets.client_id`, #339), migrated at that deploy from a backup taken minutes before (local and off-site `ok`). No restore drill or admin export snapshot was run for it. `main` may move on with commits that change no app
 behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 

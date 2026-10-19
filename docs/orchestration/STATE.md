@@ -14,9 +14,10 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `e460fde` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
+- **Current focus:** live is `e35084c` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
   off-site `ok`) shipped the plan editor (#177 A-C), the plan export (#220), #369 and the Dependabot bumps;
-  `a324a1d` and `e460fde` change copy only (Plan page; em dashes and wordy text, #388).
+  `a324a1d` and `e460fde` change copy only. `e35084c` adds the Finish confirm tap (#340) and Wave 4 (#350);
+  both checked at 390px and 320px with mocked data only.
   Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
   rule: deploy once verified and ready to merge, check the live URL, then merge.
 - **Next action:** #221/#223 (AI export prompt and paste-back, `ready`), #294,
@@ -33,10 +34,8 @@
 (none)
 
 ## Needs owner
-- **Design-review decisions (`needs-clarification`):** #340 (Finish Workout: confirm tap,
-  un-finish, or neither) and #350 (Wave 4 items). Agents do not pick.
-- **#389 privacy choice.** Spec PR `docs/superpowers/specs/2026-10-18-pb-comparison-design.md`: opt-in vs
-  opt-out, anonymous vs names. Recommended: opt-in, anonymous. Not implemented until you choose.
+- **#389 backup snapshot.** Decided opt-in and anonymous (see `DECISIONS.md`). Next is a plan, then a schema
+  v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.
 - **Cue copy deny rule.** `frontend/src/data/workoutPlan.js` is denied to agents. Its ~35 cue em dashes and
   the matching `backend/plan_seed.py` wording (#388) need you to allow it or do it.
 - **Close kapekost-web#92.** Superseded by kapekost-web#95; its third model
