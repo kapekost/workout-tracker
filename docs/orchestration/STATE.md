@@ -20,12 +20,8 @@
   both checked at 390px and 320px with mocked data only.
   Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
   rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** #221/#223 (AI export prompt and paste-back, `ready`), #294,
-  #269 (items 3 and 5 only, speculative), #201. Follow-ups from the #177 reviews, to file as Issues
-  once `gh` works: swap in place instead of at the end of the day (needs a backend position),
-  focus management on the Plan page, a "Go to workout" link in its locked state, a test that really
-  exercises the in-flight guard, a muscle-tag check in CI for catalog entries, and old growth/targeting
-  wording in the seed (`plan_seed.py`, e.g. "calves grow under stretch").
+- **Next action:** #223 (export and paste-back UI; deploying it also ships #397, merged and not live), #294,
+  #269 (items 3 and 5 only, speculative), #201. The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
 (none — runner proceeds normally)

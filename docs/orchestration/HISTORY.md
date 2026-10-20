@@ -10,6 +10,15 @@
 
 ---
 
+**Tick 2026-10-18/19 (three ticks, archived late): copy sweep, #340/#350, PB comparison, #221.**
+- 10-18: #390 copy sweep (#388) deployed as `e460fde`; #391 spec for #389 (opt-in, anonymous). Expert passes were source-only because the Chrome extension was down.
+- 10-18: #393 Finish confirm tap (#340) and #394 Wave 4 (#350), deployed as `e35084c`, checked at 390px and 320px with mocked data only.
+- 10-19: #396 plan for #389. The bot's BLOCKING had no findings (it could not read the diff); answered in the thread and merged docs-only. The plan follows the spec (ordered values, no rank labels) where DECISIONS says "anonymous ranks".
+- 10-19: #397 serves `prompt_template` from `/api/plan/export` (#221). Merged, not deployed (backend only); ships with #223. A stale `blocked` label on #221 and #223 was removed.
+- 10-20 audit: #221 closed; the six #177 follow-ups filed as #398 to #403; `docs/CHANGELOG.md` backfilled.
+
+---
+
 **Tick 2026-10-17/18: #177 shipped (parts B and C, PRs #381 and #382, `cfc6211`).**
 The plan editor is complete on `main` and not deployed: `POST /api/plan/reset`, a 37-entry
 exercise catalog served by `GET /api/plan/catalog`, and a Plan page (Edit plan on Home): edit
