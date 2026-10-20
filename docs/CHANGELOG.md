@@ -3,6 +3,17 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-10-14 to 2026-10-19 — Plan editor, plan export, idempotent Log Set, copy sweep
+
+Backfill: this file was not updated after 2026-10-03. The in-app list is `frontend/src/lib/changelog.json`.
+
+- **Schema v9** (`#339`, `#356`, `#357`): `sets.client_id` makes a repeated Log Set a no-op for any caller that sends a key.
+- **Plan editor** (`#177`, `#222`, `#381`, `#382`; live `353a5b8`): edit sets and reps, swap an exercise from a catalog, reset to recommended, blocked while a workout is open.
+- **Plan export** (`#220`; live `353a5b8`): `GET /api/plan/export`. `#397` adds `prompt_template` to it (`#221`); merged, goes live with `#223`.
+- **Copy sweep** (`#388`, `#390`; live `e460fde`): no em dashes, shorter UI text.
+- **Finish Workout needs a second tap** (`#340`) and **design review Wave 4** (`#350`); live `e35084c`.
+- The "Unreleased" entry below (`#275`) has been live since schema v8.
+
 ## Unreleased — A restore no longer deletes every profile's plan (`#275`)
 
 Not yet deployed. **Schema moves v7 → v8** (no DDL change; the bump exists so
