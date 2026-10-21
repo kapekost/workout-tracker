@@ -21,7 +21,8 @@
   Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
   rule: deploy once verified and ready to merge, check the live URL, then merge.
 - **Next action:** #223 (export and paste-back UI; deploying it also ships #397, merged and not live), #294,
-  #269 (items 3 and 5 only, speculative), #201. The #177 follow-ups are Issues #398 to #403.
+  #269 (items 3 and 5 only, speculative), then the mobile children #410 to #419 (#201 split 2026-10-21, closed).
+  The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
 (none — runner proceeds normally)

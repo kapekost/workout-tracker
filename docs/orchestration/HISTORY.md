@@ -10,6 +10,15 @@
 
 ---
 
+**Tick 2026-10-21: split #201 (React Native app) into #410 to #419.**
+- #201 was XL with no effort label and a Phase 1 plan that said "Closes #201". Split into ten ready children (effort S or M) via `scripts/create_issue.sh`, all on the board as Todo; #201 commented and closed as split.
+- #413 (auth flow) is flagged for security-ai-reviewer or staff-engineer-reviewer review (2026-10-12 decision); session auth is a cookie, so a backend auth change there needs a fresh approval. #419 (EAS builds) may need the owner's Apple account.
+- Offline-first from the spec's "Why" has no acceptance criterion and is uncovered.
+- Housekeeping: #398 to #403 added to the board as Todo.
+- Cost (output tokens): reconcile 0, pick 6593, claim 251, execute 7540, tail 0.
+
+---
+
 **Tick 2026-10-18/19 (three ticks, archived late): copy sweep, #340/#350, PB comparison, #221.**
 - 10-18: #390 copy sweep (#388) deployed as `e460fde`; #391 spec for #389 (opt-in, anonymous). Expert passes were source-only because the Chrome extension was down.
 - 10-18: #393 Finish confirm tap (#340) and #394 Wave 4 (#350), deployed as `e35084c`, checked at 390px and 320px with mocked data only.
