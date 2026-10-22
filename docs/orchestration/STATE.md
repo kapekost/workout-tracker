@@ -14,8 +14,8 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `1bc08a8` (main; schema v9), deployed 2026-10-23 with the React 19.3.1 bump. Plan days can be added, renamed, removed and reordered through `/api/plan/days` (backend only, no screen uses it yet). `/api/health` reported `1bc08a8` and the live login page loads with that stamp. No logged-in call against the live site. Frontend tests need Node 22.22.2 or newer (jsdom 30); see AGENTS.md. Dependabot #405 (fastapi 0.146.0) still fails its test check and is not merged. The owner's standing rule (2026-10-22): test locally before the merge, merge, then deploy from `main` and check the live URL.
-- **Next action:** #269 PR 1 per the merged plan (`docs/superpowers/plans/2026-10-22-review-bot-big-diffs-and-rereview-269.md`: input builder plus poster coverage line, both dormant), then PR 2 (workflow wiring and prompt), each through security-ai-reviewer; item 7 (reviewer privacy order) is its own PR. Then mobile #410 to #412 (S, batch), the old-PR review audit (#459), the mobile children #413 to #419. #431 is owned by another session in worktree `icons-431`; do not pick it. The coach tickets #444 to #450 stay `intake` until triaged and follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
+- **Current focus:** live is `1bc08a8` (main; schema v9), deployed 2026-10-23 with the React 19.3.1 bump. Plan days can be added, renamed, removed and reordered through `/api/plan/days` (backend only, no screen uses it yet). `/api/health` reported `1bc08a8` and the live login page loads with that stamp. No logged-in call against the live site. Frontend tests need Node 22.22.2 or newer (jsdom 30); see AGENTS.md. Dependabot #405 (fastapi 0.146.0) was rebased and its checks now pass; it still needs a normal review before merge. The owner's standing rule (2026-10-22): test locally before the merge, merge, then deploy from `main` and check the live URL.
+- **Next action:** review and merge Dependabot #405, then #269 PR 1 per the merged plan (`docs/superpowers/plans/2026-10-22-review-bot-big-diffs-and-rereview-269.md`: input builder plus poster coverage line, both dormant), then PR 2 (workflow wiring and prompt), each through security-ai-reviewer; item 7 (reviewer privacy order) is its own PR. Then mobile #410 to #412 (S, batch), the old-PR review audit (#459), the mobile children #413 to #419. #431 is owned by another session in worktree `icons-431`; do not pick it. The coach tickets #444 to #450 stay `intake` until triaged and follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
@@ -45,6 +45,8 @@
 
 - **Live smoke test.** Agents have no login, so every deploy ends "health ok, behaviour not verified". A
   throwaway smoke-test profile would fix that but is an auth and secrets topic. Proposal only; no implementation.
+
+- **Unsure improvement items.** The permission rules around `AGENTS.local.md` and the missing "skipped" stage in `orch-checkpoint.sh` (a docs-only merge reads as deployed) are logged in `IMPROVEMENTS.md` as `[unsure]`; say if either is worth a change.
 
 ## Standing, not blocking
 - **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`
