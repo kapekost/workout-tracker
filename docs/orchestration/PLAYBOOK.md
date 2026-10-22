@@ -339,7 +339,7 @@ only because the owner happened to ask about it, not by anything in this file. H
 
    **If the change touches the UI, two extra gates apply** (owner's call 2026-09-06, see
    `DECISIONS.md`):
-   - **Look at it rendered.** Deploy it or run it, open the actual page, take a screenshot. Reading
+   - **Look at it rendered.** Run it locally, open the actual page, take a screenshot. Reading
      the diff is not looking at it. Three defects shipped on 2026-09-05 through a green suite and a
      code review, and every one was obvious in the first screenshot: a header printing "Log in"
      twice, the app's bottom nav on an auth screen, and every client-side route 404ing — which had
@@ -390,6 +390,9 @@ only because the owner happened to ask about it, not by anything in this file. H
 
    Local delegation and CI review share one review-model key and one daily free allowance, which
    is why delegation stays limited to large mechanical steps.
+   **Order: test, merge, deploy.** Merge comes first, so test well before it: run the full suites and
+   the app locally against a throwaway database (see AGENTS.md "Running the whole app locally"), and
+   drive the changed flow in the browser. Deploy from `main` after the merge, then check the live URL.
 6. **PR:** if the change is visible to the user, add one `{date, text}` entry in plain language to
    `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. CI fails an app-code PR
    without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body, with

@@ -732,3 +732,11 @@ Owner: no paid models for the first few versions of the coach and the first onbo
 on the coach's OpenRouter key is already set by the owner, as a backstop. This closes the open item in the
 entry above: the coach stays free-only, so the free-only rule is not relaxed for now. A paid model returns
 as a new owner call, only if free models cannot return valid JSON on a real coach prompt.
+
+## 2026-10-22 (later) — Merge first, deploy from `main`; test locally before the merge
+
+Owner: the order is merge, then deploy from `main`, then check the live URL. This replaces "deploy the branch,
+check, then merge" (2026-10-11), which left live on a branch SHA that `main` never contains. Because a merge now
+comes before anything is live, the PR is tested well locally first: run the backend and frontend against a
+throwaway database, drive the changed flow in the browser, and run the full test suites. "Deploy once verified"
+stands: the agent still deploys itself, from `main`, without asking.
