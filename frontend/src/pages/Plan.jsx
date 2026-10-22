@@ -275,8 +275,12 @@ export default function Plan() {
         </p>
       )}
       {canEdit && (
+        <button type="button" className="btn-secondary" onClick={() => nav('/plan/ai')}
+          style={{ width: '100%', marginTop: space.xxl }}>Update with AI</button>
+      )}
+      {canEdit && (
         <button type="button" className="btn-secondary" onClick={reset} disabled={busy}
-          style={{ width: '100%', marginTop: armedId === 'reset' ? space.md : space.xxl, color: armedId === 'reset' ? colors.danger : colors.text }}>
+          style={{ width: '100%', marginTop: space.md, color: armedId === 'reset' ? colors.danger : colors.text }}>
           {armedId === 'reset' ? 'Tap again to reset your plan' : 'Reset to recommended'}
         </button>
       )}

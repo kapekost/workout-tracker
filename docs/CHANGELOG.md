@@ -3,6 +3,10 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## Unreleased — AI plan updates: export and paste-back screen (`#223`)
+
+- **Update with AI** (`/plan/ai`, linked from Plan): one button copies the prompt and the plan export, a textarea takes the AI's reply, Preview calls `POST /api/plan/update` with `confirm: false` and shows counts plus the change list, Confirm applies it. Editing the reply drops the preview. Ships with `#397` (`prompt_template` on `GET /api/plan/export`).
+
 ## 2026-10-14 to 2026-10-19 — Plan editor, plan export, idempotent Log Set, copy sweep
 
 Backfill: this file was not updated after 2026-10-03. The in-app list is `frontend/src/lib/changelog.json`.
