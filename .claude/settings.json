@@ -24,7 +24,6 @@
       "Read(./.mcp.json)",
       "Write(./.mcp.json)",
       "Edit(./.mcp.json)",
-      "Read(./data/**)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
       "Bash(git reset --hard*)",
