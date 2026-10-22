@@ -260,6 +260,8 @@ describe('Workout page', () => {
     api.post.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'))
     renderWorkout()
     await screen.findByText(ex1.name)
+    // Typing before the card's prefill effect runs lets the effect overwrite it.
+    await act(async () => {})
     const weightInput = screen.getAllByRole('spinbutton')[0]
     const repsInput = screen.getAllByRole('spinbutton')[1]
     fireEvent.change(weightInput, { target: { value: '77.5' } })
