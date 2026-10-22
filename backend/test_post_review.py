@@ -774,3 +774,81 @@ def test_other_invisible_characters_and_whitespace_cannot_hide_a_token():
                  "sk\U000e002d-or-v1-abcdefgh1234", "Xsk-or-v1-abcdefgh1234", "sk-or-v1-ab.cd.ef.gh12.34",
                  gh[:10] + " " + gh[10:], "\uff53k-or-v1-abcdefgh1234"):
         assert pr.build(review([finding("minor", body=text)]), PATCHES, REPO).body == pr.WITHHELD, text
+
+
+def coverage(**extra):
+    return {"mode": "full", "since": "", "shown": 3, "total": 3, "omitted": [], **extra}
+
+
+def read_cov(cov, tmp_path):
+    (tmp_path / "coverage.json").write_text(json.dumps(cov))
+    return pr.read_coverage(str(tmp_path / "review.txt"))
+
+
+def covered(findings, cov, tmp_path, **extra):
+    return pr.build(review(findings, **extra), PATCHES, REPO, read_cov(cov, tmp_path))
+
+
+def test_coverage_of_all_files_is_one_line_and_still_approves_a_clean_review(tmp_path):
+    r = covered([], coverage(), tmp_path)
+    assert r.event == "APPROVE"
+    assert "**Coverage** reviewed 3 of 3 changed files" in r.body
+    assert "Not shown" not in r.body
+
+
+def test_partial_coverage_prevents_approve_and_lists_omitted_files(tmp_path):
+    r = covered([], coverage(shown=1, omitted=["docs/a.md", "docs/b.md"]), tmp_path)
+    assert r.event == "COMMENT"
+    assert "reviewed 1 of 3 changed files" in r.body
+    assert "Not shown: docs/a.md, docs/b.md" in r.body
+
+
+def test_partial_coverage_lists_five_names_and_counts_the_rest(tmp_path):
+    r = covered([], coverage(shown=0, total=9, omitted=[f"f{i}.md" for i in range(9)]), tmp_path)
+    assert "f4.md" in r.body and "f5.md" not in r.body and "and 4 more" in r.body
+
+
+def test_partial_coverage_still_requests_changes_for_a_major(tmp_path):
+    r = covered([finding("major")], coverage(shown=1), tmp_path)
+    assert r.event == "REQUEST_CHANGES"
+
+
+def test_an_incremental_review_names_the_commit_it_started_from(tmp_path):
+    r = covered([], coverage(mode="incremental", since="abc1234"), tmp_path)
+    assert "reviewed 3 of 3 changed files since abc1234" in r.body
+    assert r.event == "APPROVE"
+
+
+def test_coverage_file_names_are_sanitized_like_findings(tmp_path):
+    r = covered([], coverage(shown=0, omitted=["see https://evil.example <b>x</b>.md", "a[b](c)#1.md"]), tmp_path)
+    assert "evil.example" not in r.body and "<b>" not in r.body
+    assert "a\\[b\\]" in r.body and "\\#1" in r.body
+
+
+def test_a_since_that_is_not_a_short_sha_is_dropped(tmp_path):
+    r = covered([], coverage(mode="incremental", since="[x](http://evil.example)"), tmp_path)
+    assert "evil.example" not in r.body and "since" not in r.body.split("**Coverage**")[1]
+
+
+def test_a_malformed_coverage_file_is_ignored_not_fatal(tmp_path):
+    review_file = tmp_path / "review.txt"
+    review_file.write_text("x")
+    cov = tmp_path / "coverage.json"
+    assert pr.read_coverage(str(review_file)) is None
+    for bad in ["not json", "[]", '{"mode": "full"}', json.dumps(coverage(shown="3")),
+                json.dumps(coverage(shown=True)), json.dumps(coverage(shown=4, total=3)),
+                json.dumps(coverage(shown=-1)), json.dumps(coverage(omitted="a.md")),
+                json.dumps(coverage(omitted=[3])), json.dumps(coverage(mode="other")),
+                json.dumps(coverage(total=10**9, shown=1))]:
+        cov.write_text(bad)
+        assert pr.read_coverage(str(review_file)) is None, bad
+    cov.write_text(json.dumps(coverage()))
+    assert pr.read_coverage(str(review_file))["total"] == 3
+    r = pr.build(review([]), PATCHES, REPO, None)
+    assert r.event == "APPROVE" and "Coverage" not in r.body
+
+
+def test_a_skipped_notice_prints_no_coverage(tmp_path):
+    text = json.dumps({"skipped": True, "summary": "No model.", "findings": []})
+    r = pr.build(text, {}, REPO, read_cov(coverage(shown=0), tmp_path))
+    assert r.skipped and "Coverage" not in r.body
