@@ -3,8 +3,11 @@
 Mobile-first workout tracker PWA: logs sets/reps/weight, tracks progress, shows
 form cues for a 4-day Upper/Lower split (Upper A → Lower A → Upper B → Lower B).
 
-Runs as a single Docker container on a resource-constrained home server (a
-Raspberry Pi 3 B+, alongside other long-running services on the same box).
+A multi-profile app with login: every account has its own sessions, sets and plan
+behind a session cookie, and sign-in is by invitation only. It runs as a single
+Docker container, currently hosted on a Raspberry Pi 3 B+ at home behind a
+Cloudflare Tunnel. Cloud hosting and a wider multi-user rollout are planned, not
+current state; access stays invite-only until the mobile app ships.
 **Ops truth lives in [AGENTS.md](AGENTS.md)** (generic) **and
 `AGENTS.local.md`** (gitignored — the real deploy target's specifics) —
 runbook, hard rules, backup & restore, status. This file is the newcomer
