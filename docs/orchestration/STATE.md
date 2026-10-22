@@ -14,13 +14,8 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `d463748` (schema v9; same content as `631907f` on `main`). It ships #223 (Update with AI, `/plan/ai`) and #397 (`prompt_template` on the plan export); `/api/health` verified, nothing behind the login driven. Before it, live was `e35084c` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
-  off-site `ok`) shipped the plan editor (#177 A-C), the plan export (#220), #369 and the Dependabot bumps;
-  `a324a1d` and `e460fde` change copy only. `e35084c` adds the Finish confirm tap (#340) and Wave 4 (#350);
-  both checked at 390px and 320px with mocked data only.
-  Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
-  rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** #269 (items 3 and 5 only, speculative), then the mobile children #410 to #419 (#201 split 2026-10-21, closed). #294 shipped as PR #425 (PLAYBOOK rules, docs only; nothing to deploy).
+- **Current focus:** live is `6f397bf` (schema v9; same app content as `8f9a6b3` on `main`). It ships the cue sweep (#434, copy only: new plans and plan reset get the dash-free cues, stored plans are untouched). Before it, live was `d463748` (#223 Update with AI, #397). `/api/health`, the served bundle and the closed login gate were checked; nothing behind the login was driven. The owner's standing rule: deploy once verified and ready to merge, check the live URL, then merge.
+- **Next action:** #428 persona design (brainstorm with the owner first; evidence in `docs/superpowers/research/2026-10-22-coach-persona-and-split-evidence.md`), #430 and #431 (flexible split, ready), #269 (items 3 and 5 only), then the mobile children #410 to #419. Owner calls waiting: #432, #433.
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
@@ -32,8 +27,7 @@
 ## Needs owner
 - **#389 backup snapshot.** Decided opt-in and anonymous (see `DECISIONS.md`). Next is a plan, then a schema
   v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.
-- **Cue copy deny rule.** `frontend/src/data/workoutPlan.js` is denied to agents. Its ~35 cue em dashes and
-  the matching `backend/plan_seed.py` wording (#388) need you to allow it or do it.
+- **Stray settings commit `9727f63` on `main`.** An agent chain run in the wrong directory committed the owner's `/permissions` edit (removed the `Read(./data/**)` deny from `.claude/settings.json`) and pushed it under a deploy.sh message. Owner chose to leave it. The deny is gone from the tracked file, so agents can read `frontend/src/data/`.
 - **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
   If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
 
