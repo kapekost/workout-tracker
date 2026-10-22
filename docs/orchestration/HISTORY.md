@@ -10,6 +10,15 @@
 
 ---
 
+**Tick 2026-10-22 (later): evidence review, #427 split, #434 cue sweep, deploy.sh fix.**
+- Research PR #429 (coach persona and split evidence; ten sampled DOIs resolved). #427 split into #430 to #433; #428 is the persona ticket; #434 cue sweep shipped (PR #435, live `6f397bf`).
+- `deploy.sh` rejected every deploy after a squash-merge because the live SHA is never an ancestor of `main`. Fixed in #437 and #438: it now compares content, tolerating conflicts only in `docs/` and the changelog. First plain deploy with no override passed.
+- The staff-engineer-reviewer found a modify/delete hole in #437 (a deleted file HEAD still had would be accepted); fixed and tested.
+- Two mistakes recorded: #435 was merged in the same step that read the bot's BLOCKING verdict (answered in the thread afterwards), and `9727f63` landed on `main` as above.
+- The bot reviewer skipped twice (both free models returned no JSON) and blocked on false or already-answered points three times; each answered in the thread with evidence.
+
+---
+
 **Tick 2026-10-22: #294 PLAYBOOK delegation, report length, bot review and outage rules (PR #425).**
 - Docs only, so no deploy; live stays `d463748`. Squash-merged as `cb97d83`.
 - The bot review was skipped (both models ended without a JSON verdict), so the diff was read by hand. The review job ran, so the OpenRouter key works.
