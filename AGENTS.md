@@ -370,6 +370,11 @@ the deploy includes a schema change — the script doesn't do that step for
 you, and can't: that endpoint needs an admin session now, which the script has
 no way to obtain.
 
+The script prints a warning when `ssh-add -l` shows no key loaded. Without one, ssh falls back
+to a passphrase prompt that a non-interactive shell cannot answer, and the failure reads as
+`Permission denied (publickey)`. Load the key (`ssh-add`) in the terminal that runs the deploy.
+Never pass `BatchMode=yes`: it blocks the passphrase prompt and gives the same misleading error.
+
 ## Gotchas learned the hard way
 
 **A deploy is invisible to an installed PWA until it re-checks.** The service
