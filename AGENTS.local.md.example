@@ -50,6 +50,17 @@ DEPLOY_APP_DIR=/home/user/workout-tracker
 DEPLOY_SSH_OPTS='-o ConnectTimeout=10'
 ```
 
+## Delegate command (optional)
+
+How a tick hands a large mechanical step to a cheaper model (see PLAYBOOK step 4). Put the
+command that runs it against a worktree here, and where it logs each run. Leave this out and
+ticks never delegate.
+
+```
+DELEGATE_CMD=<command that takes a worktree path and a task file>
+DELEGATE_LEDGER=<per-project catch-up ledger path>
+```
+
 ## Application environment
 
 **Secrets do not live in this file.** They live in a `.env` file next to
