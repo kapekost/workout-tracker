@@ -1,4 +1,8 @@
 """Add, rename, remove and reorder plan days (#430)."""
+import sqlite3
+import threading
+import time
+
 import pytest
 
 import plan_seed
@@ -91,6 +95,24 @@ def test_patch_with_nothing_to_change_400(client):
 def test_starting_a_session_on_a_removed_day_400(mainmod, client):
     client.delete("/api/plan/days/lower_b")
     assert client.post("/api/sessions", json={"workout_day": "lower_b"}).status_code == 400
+
+
+def test_removal_cannot_land_between_the_day_check_and_the_insert(mainmod, client, seed_profile_id):
+    remover = sqlite3.connect(mainmod.DB_PATH)
+    result = {}
+    start = threading.Thread(
+        target=lambda: result.update(r=client.post("/api/sessions", json={"workout_day": "lower_b"})))
+    try:
+        remover.execute("BEGIN IMMEDIATE")
+        remover.execute("DELETE FROM plan_days WHERE profile_id = ? AND day_key = 'lower_b'", (seed_profile_id,))
+        start.start()
+        time.sleep(0.3)
+        remover.commit()
+    finally:
+        remover.close()
+    start.join(5)
+    # Checking the day before taking the lock would read it while it still exists, then fail on the insert.
+    assert result["r"].status_code == 400
 
 
 def test_rename_unknown_day_404(client):

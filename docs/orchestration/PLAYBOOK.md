@@ -376,7 +376,9 @@ only because the owner happened to ask about it, not by anything in this file. H
    **Bot and free-model reviews.** One is an extra reviewer, never a merge gate and never a human
    sign-off. It may approve only a strictly clean, unambiguous review; a skipped review, or a
    "no findings" from a model that showed no sign of reading the diff, is not an approval.
-   Re-verify its claims against the branch you ship.
+   Re-verify its claims against the branch you ship. A skipped review leaves every check green
+   (the job passes), so look for the "Automated review skipped" comment before merging; when it is
+   there, a `staff-engineer-reviewer` pass on the diff is mandatory and stands in for the bot.
 
    **When the stronger reviewer is unavailable** (credits or tokens ran out), do not merge on a
    free-model review alone: stop, or queue the work. Delegated agents may keep working on local
@@ -390,7 +392,10 @@ only because the owner happened to ask about it, not by anything in this file. H
    is why delegation stays limited to large mechanical steps.
 6. **PR:** if the change is visible to the user, add one `{date, text}` entry in plain language to
    `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. CI fails an app-code PR
-   without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body.
+   without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body, with
+   nothing after it (`Changelog: none (backend only)` fails). To fix a failed check, edit the PR
+   body; `gh run rerun` reuses the old body and fails again, and `gh pr checks` may keep showing the
+   stale run, so read the newest run's conclusion.
    Doc, CI and tooling PRs need nothing. Open a PR referencing the Issue (`Closes #N`), then run
    `gh pr checks <PR> --watch --fail-fast` to block until CI finishes. **Right after any push** (new PR
    or a new commit on one already open), `--watch` can return a stale rollup for the *previous* commit

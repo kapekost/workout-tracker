@@ -50,7 +50,9 @@ the `approved` label itself. See "Approval is human-only" below.
   because no branch protection counts one. The bot's login posting any state is **never** the
   owner's approval, never the `approved` label, and never a substitute for a human approver
   (GitHub also excludes `GITHUB_TOKEN` approvals from branch protection). The owner is **not** in
-  the loop per PR; no verdict at all is not a concern. A `REQUEST_CHANGES` (headline
+  the loop per PR; silence from a draft, fork or Dependabot PR is not a concern. A "skipped"
+  review comment is: the job still passes and `gh pr checks` shows green, but no model read the
+  diff, so a `staff-engineer-reviewer` pass is mandatory before merge. A `REQUEST_CHANGES` (headline
   **BLOCKING**) *is* a concern: treat it exactly like red CI, fix it or answer it in the thread,
   never wave it through on the grounds that the PR looked fine to you.
 - **Never force-push.** Never push directly to `main`.

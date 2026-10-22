@@ -35,6 +35,11 @@
 - **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
   If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
 
+- **Deploy before merge** leaves live on a branch SHA (`9225cf8` for #430) that `main` never contains; merging
+  first and deploying from `main` would avoid it. The standing rule is deploy, check, then merge. Keep it or flip it?
+- **Live smoke test.** Agents have no login, so every deploy ends "health ok, behaviour not verified". A
+  throwaway smoke-test profile would fix that but is an auth and secrets topic. Proposal only; no implementation.
+
 ## Standing, not blocking
 - **#30/#32 need a spec skim, not a decision.** `docs/superpowers/specs/2026-08-31-ai-structured-io-design.md`
   gates itself on an owner skim before either Issue is split. #33 merged into #32; #171 (domain
