@@ -40,6 +40,11 @@ different branches. This plan fixes those. It does not restate the Issue's backg
 - Tests: `backend/test_post_review.py` (98 tests, poster), `backend/test_review_workflow.py` (text
   and extracted-snippet checks of the workflow). All existing tests must keep passing unchanged
   except where a task names one.
+- Two failures seen on real PRs that the prompt change in PR 2 must address: on #458 the bot
+  reported files as deleted that the PR never touched (it read the stripped checkout, not the real
+  diff), and on #440 it re-raised one answered finding in five reviews. The PR 2 prompt tells the model
+  to judge only what `pr.diff` shows and to skip a finding the prior reviews show as answered,
+  unless the new diff changes the answer.
 - PR #469 edits the model-list block of the same workflow file. The hunks here touch the diff
   capture, the prompt and the artifact; rebase on whichever merges first.
 

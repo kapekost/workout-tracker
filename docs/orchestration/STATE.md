@@ -32,6 +32,16 @@
 - **#389 backup snapshot.** Decided opt-in and anonymous (see `DECISIONS.md`). Next is a plan, then a schema
   v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.
 - **Stray settings commit `9727f63` on `main`.** An agent chain run in the wrong directory committed the owner's `/permissions` edit (removed the `Read(./data/**)` deny from `.claude/settings.json`) and pushed it under a deploy.sh message. Owner chose to leave it. The deny is gone from the tracked file, so agents can read `frontend/src/data/`.
+- **CI reviewer model fallback policy (#269 item 7).** `DECISIONS.md` (2026-10-22 later) lets the list prefer
+  private models and fall back to any free model. How far the fallback may go (which models, for which PRs)
+  is the owner's call. Not acted on.
+- **Dockerfile `COPY` drift check.** Whether to add a CI step that builds the Dockerfile (see Standing) is the
+  owner's call. Not acted on.
+- **Stale local branches.** Twelve local branches do not contain `main` (`backlog-branch`, `chore/theme-token-sweep`,
+  `claim-219`, `claim-266`, `claude/design-review-wave0`, `claude/icons-scale-up`,
+  `claude/workout-tracker-backlog-bu9qnw`, `docs/plan-269-review-bot`, `fix/finish-workout-error`,
+  `progress-pb-redesign-review-fix`, and two `worktree-agent-*`). The session that listed them made none of
+  them, so it deleted none. Their owners or the owner should say which are safe to remove.
 - **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
   If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
 

@@ -34,6 +34,14 @@ if [[ "$DEPLOY_SSH_OPTS" == *BatchMode* ]]; then
   exit 1
 fi
 
+# A warning, not an error: the key may still come from a keychain or a prompt in
+# an interactive terminal. With neither, ssh fails later with a misleading
+# "Permission denied (publickey)".
+if ! ssh-add -l >/dev/null 2>&1; then
+  echo "warning: ssh-add -l shows no key loaded in the agent. If the ssh steps below fail with" >&2
+  echo "         'Permission denied (publickey)', run ssh-add in this terminal and retry." >&2
+fi
+
 short_sha="$(git -C "$ROOT" rev-parse --short HEAD)"
 image="kapekost/workout-tracker"
 local_tag="$image:$short_sha"
