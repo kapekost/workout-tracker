@@ -10,6 +10,15 @@
 
 ---
 
+**Tick 2026-10-22 (#269 plan).**
+- Merged: #470, the plan for #269 items 3 and 5 (big diffs, re-review cost), linked in the Issue as **Plan:**. Two PRs: input builder plus poster coverage line first (dormant), then workflow wiring and prompt. No app change, nothing to deploy; live stays `9225cf8`.
+- The plan records a latent bug: after a skipped review the next push is diffed from the skipped commit, so that push's changes go unreviewed. The history job should pick the last bot review that carries the round marker.
+- Housekeeping: coach tickets #444 to #455, #459, #466 added to the board as Todo; #445, #446, #448 bodies updated to the coach decisions; item 7 added to #269. Doc PR #469 (STATE cursor, reviewer privacy decision) is open: the bot skipped its review, so it needs a staff-engineer-reviewer pass before merge.
+- The bot's CLEAN verdict on #470 was generic and missed a wrong line number the author had already fixed.
+- Cost (output tokens): reconcile 11041, pick 24461, claim 919, execute 17442, tail 0.
+
+---
+
 **Tick 2026-10-22 (#430 plan days endpoints).**
 - Merged: #463 (add, rename, remove, reorder plan days; 31 new tests, backend 582 green). Live is `9225cf8` (the branch build; `main` holds the squash `1d7514c`) after a plain `deploy.sh`.
 - Rules as shipped: key is a slug of the name and skips any key in the plan or in session history; cap 7 days; removal 409s with an open session on that day or for the last day; reorder must name each day once; another profile's day is 404.
