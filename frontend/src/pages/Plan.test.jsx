@@ -210,6 +210,7 @@ describe('Plan while a workout is open', () => {
     expect(screen.getByText('Bench Press')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reset to recommended' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Update with AI' })).not.toBeInTheDocument()
   })
 })
 
@@ -291,6 +292,14 @@ describe('Plan review fixes', () => {
 
 
 describe('Plan before the open-workout state is known', () => {
+  it('offers Update with AI above the reset note while no workout is open', () => {
+    renderPage()
+    const ai = screen.getByRole('button', { name: 'Update with AI' })
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to recommended' }))
+    const note = screen.getByText(/replaces every day/)
+    expect(ai.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('offers no controls until the active-session read has answered', () => {
     state.ready = false
     renderPage()

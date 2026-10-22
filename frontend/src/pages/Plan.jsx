@@ -269,14 +269,14 @@ export default function Plan() {
         )
       })}
 
+      {canEdit && (
+        <button type="button" className="btn-secondary" onClick={() => nav('/plan/ai')}
+          style={{ width: '100%', marginTop: space.xxl }}>Update with AI</button>
+      )}
       {canEdit && armedId === 'reset' && (
         <p style={{ color: colors.muted2, fontSize: type.size.md, marginTop: space.xxl }}>
           This replaces every day with the recommended plan. Your logged workouts are kept.
         </p>
-      )}
-      {canEdit && (
-        <button type="button" className="btn-secondary" onClick={() => nav('/plan/ai')}
-          style={{ width: '100%', marginTop: space.xxl }}>Update with AI</button>
       )}
       {canEdit && (
         <button type="button" className="btn-secondary" onClick={reset} disabled={busy}
