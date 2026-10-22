@@ -4,7 +4,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from typing import Annotated, Literal, Optional
 from contextlib import contextmanager
-import sqlite3, logging, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
+import re, sqlite3, logging, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
 import bcrypt
 from datetime import datetime, timezone, date
 import plan_seed
@@ -1306,6 +1306,114 @@ def reset_plan(profile_id: int = Depends(acting_profile_id)):
         conn.commit()
         return {"reset": True}
 
+MAX_PLAN_DAYS = 7
+
+def _clean_day_name(v):
+    if v is None:
+        return v
+    v = v.strip()
+    if not _day_slug(v):
+        raise ValueError("name needs at least one letter or digit")
+    return v
+
+class PlanDayIn(BaseModel):
+    name: str = Field(max_length=40)
+    tag: Optional[str] = Field(None, max_length=80)
+    icon: Optional[str] = Field(None, max_length=32)
+    _clean_name = field_validator("name")(_clean_day_name)
+
+class PlanDayPatch(BaseModel):
+    name: Optional[str] = Field(None, max_length=40)
+    tag: Optional[str] = Field(None, max_length=80)
+    icon: Optional[str] = Field(None, max_length=32)
+    _clean_name = field_validator("name")(_clean_day_name)
+
+class PlanOrderIn(BaseModel):
+    order: list[str] = Field(max_length=MAX_PLAN_DAYS)
+
+def _day_slug(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:60]
+    return slug if not slug or slug[0].isalpha() else "day_" + slug
+
+def _plan_day_or_404(conn, profile_id, day_key):
+    row = conn.execute("SELECT * FROM plan_days WHERE profile_id = ? AND day_key = ?",
+                       (profile_id, day_key)).fetchone()
+    if not row:
+        raise HTTPException(404, "no such plan day")
+    return row
+
+@app.post("/api/plan/days", status_code=201)
+def add_plan_day(body: PlanDayIn, profile_id: int = Depends(acting_profile_id)):
+    """Append a day. Its key comes from the name and is never one the profile has
+    used before, in the plan or in session history, so an old session cannot be
+    read as belonging to a different day."""
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        count = conn.execute("SELECT COUNT(*) FROM plan_days WHERE profile_id = ?",
+                             (profile_id,)).fetchone()[0]
+        if count >= MAX_PLAN_DAYS:
+            raise HTTPException(409, f"A plan has at most {MAX_PLAN_DAYS} days")
+        used = {r[0] for r in conn.execute(
+            "SELECT day_key FROM plan_days WHERE profile_id = ? "
+            "UNION SELECT workout_day FROM sessions WHERE profile_id = ?", (profile_id, profile_id))}
+        base = _day_slug(body.name)
+        key, n = base, 1
+        while key in used:
+            n += 1
+            key = f"{base}_{n}"
+        conn.execute(
+            "INSERT INTO plan_days (profile_id, day_key, name, tag, icon, sort_order) "
+            "VALUES (?, ?, ?, ?, ?, ?)", (profile_id, key, body.name, body.tag, body.icon, count))
+        conn.commit()
+        return {"id": key}
+
+@app.patch("/api/plan/days/{day_key}")
+def update_plan_day(day_key: str, body: PlanDayPatch, profile_id: int = Depends(acting_profile_id)):
+    """Change a day's name, tag or icon. The key stays, so history keeps pointing at it."""
+    fields = body.model_dump(exclude_unset=True)
+    if not fields or fields.get("name", "") is None:
+        raise HTTPException(400, "send at least one of name, tag, icon; name cannot be null")
+    with db() as conn:
+        _plan_day_or_404(conn, profile_id, day_key)
+        conn.execute("UPDATE plan_days SET " + ", ".join(f"{c} = ?" for c in fields) +
+                     ", updated_at = datetime('now') WHERE profile_id = ? AND day_key = ?",
+                     (*fields.values(), profile_id, day_key))
+        conn.commit()
+        return {"id": day_key}
+
+@app.delete("/api/plan/days/{day_key}")
+def remove_plan_day(day_key: str, profile_id: int = Depends(acting_profile_id)):
+    """Remove a day and its exercises. Past sessions keep their workout_day string."""
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        day = _plan_day_or_404(conn, profile_id, day_key)
+        if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND workout_day = ? AND completed = 0",
+                        (profile_id, day_key)).fetchone():
+            raise HTTPException(409, "Finish or discard your current workout first")
+        if conn.execute("SELECT COUNT(*) FROM plan_days WHERE profile_id = ?",
+                        (profile_id,)).fetchone()[0] <= 1:
+            raise HTTPException(409, "A plan needs at least one day")
+        conn.execute("DELETE FROM plan_days WHERE id = ?", (day["id"],))
+        conn.execute("UPDATE plan_days SET sort_order = sort_order - 1 "
+                     "WHERE profile_id = ? AND sort_order > ?", (profile_id, day["sort_order"]))
+        conn.commit()
+        return {"removed": day_key}
+
+@app.put("/api/plan/days/order")
+def reorder_plan_days(body: PlanOrderIn, profile_id: int = Depends(acting_profile_id)):
+    """Set the cycle. `order` must list every current day exactly once."""
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        current = {r[0] for r in conn.execute(
+            "SELECT day_key FROM plan_days WHERE profile_id = ?", (profile_id,))}
+        if len(body.order) != len(set(body.order)) or set(body.order) != current:
+            raise HTTPException(400, "order must list each plan day exactly once")
+        for pos, key in enumerate(body.order):
+            conn.execute("UPDATE plan_days SET sort_order = ? WHERE profile_id = ? AND day_key = ?",
+                         (pos, profile_id, key))
+        conn.commit()
+        return {"order": body.order}
+
 @app.get("/api/plan/catalog")
 def get_plan_catalog(profile_id: int = Depends(acting_profile_id)):
     """The exercises the plan editor may swap in (plan_seed.EXERCISE_CATALOG)."""
@@ -1314,12 +1422,13 @@ def get_plan_catalog(profile_id: int = Depends(acting_profile_id)):
 @app.post("/api/sessions")
 def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
+        # Take the write lock before the checks, or two simultaneous starts both pass the open-session
+        # check and a day removal can slip in between the day check and the insert.
+        conn.execute("BEGIN IMMEDIATE")
         if not conn.execute(
             "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
             (profile_id, s.workout_day)).fetchone():
             raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
-        # Take the write lock before the check, or two simultaneous starts both pass it.
-        conn.execute("BEGIN IMMEDIATE")
         if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
                         (profile_id,)).fetchone():
             raise HTTPException(409, "a workout is already in progress")
