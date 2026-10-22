@@ -24,11 +24,12 @@ grouping explicitly (`ProjectV2ViewConfigurationInput` only exposes `visibleFiel
 group-by input). Verified empirically 2026-09-10, not assumed from docs. The script is idempotent
 — safe to re-run, it skips creating a duplicate if a board view already exists.
 
-Note what this does *not* solve on its own: the `Status` field's `Todo`/`Done` values already
-track `state:OPEN`/`state:CLOSED` via GitHub's own built-in automation, but nothing yet writes
-`In Progress` when a tick actually claims an Issue (see `STATE.md`'s `## In-flight` section for
-where that claim already lives) — so today the board shows two real columns and one empty one.
-Wiring that write is tracked separately; it needs its own design, not a same-file follow-on here.
+The `Status` field's `Todo`/`Done` values track `state:OPEN`/`state:CLOSED` through GitHub's own
+built-in automation. `In Progress` is written by the `orchestrate-tick` workflow: its checkpoint
+script (`orch-checkpoint.sh`) moves the Issue's card at each stage. `claimed` through `merged`
+set In Progress, `deployed` and `done` set Done, and `stopped` sets Todo. A failed board update
+only warns, because the status comment on the Issue is the claim. A tick run by hand has to move
+the card itself.
 
 ## Feature intake (product owner → Issues)
 
