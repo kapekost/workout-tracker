@@ -283,17 +283,23 @@ Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.
 - The backend refuses to build context for a profile without a current consent and checks again at claim
   time, so a withdrawn consent stops queued items. Withdrawal is in v1.
 - Consent text names the AI provider and its retention, and notes are capped in length.
-- **The coach uses an API key under the provider's commercial terms, not the owner's subscription.** The
-  plan terms bar automated access except through an API key and tell anyone building a service to use one;
-  commercial API data is not used for training and is kept 30 days by default. Safety-flagged content can be
-  kept up to two years on every route. Source: `docs/superpowers/research/2026-10-22-ai-provider-terms-options.md`.
-- **Two hard findings from that research.** The provider's own API cannot pin processing to the EU, so
-  the consent text must say plainly that processing happens outside the EU under standard contractual
-  clauses, or the route changes to a cloud provider's EU endpoint later. And the provider's data
-  processing addendum lists special categories of data as "none", which clashes with health-adjacent notes:
-  get written confirmation, or send no such data (cap and warn on the note field).
-- **Still to do before friends use the coach:** the owner creates the API organisation and key, and the
-  unverified items in that file (subprocessor list, written confirmation of the above) are checked.
+- **Provider and runner: OpenRouter, with its own key.** The coach calls a model through OpenRouter over
+  HTTPS with a JSON schema, using a key separate from every other use. It does not use the owner's
+  subscription or headless Claude Code. Pending the owner's call, and not yet decided: whether the coach
+  may use paid models and the spend cap on its key. Until then the free-only rule stands.
+  Source: `docs/superpowers/research/2026-10-22-openrouter-for-the-coach.md`.
+- **Privacy tier is a setting on the route.** `private` means `zdr: true` and `data_collection: deny`;
+  `standard` means any vetted model, which cannot guarantee that the model provider does not keep the data.
+  Moving between them is configuration only. On `standard` the context is structured data only (plan,
+  sets, weights, bests, pseudonym) and never free-text notes or answers.
+- **Consent text is versioned and plain.** It names OpenRouter and the model provider, says the provider
+  may keep or use the data to improve its models while the route is `standard`, and says the coach sees the
+  user only as a code. It never says "anonymous". Moving to `private` bumps the version, so users consent
+  again.
+- **A model is chosen only after it returns valid JSON on a real coach prompt.** A one-word reply proves
+  nothing.
+- **Processing location.** The consent text says plainly where processing happens once the model provider
+  is chosen; the research file lists what OpenRouter does and does not promise.
 
 **Retention (minimum viable)**
 - One rule: coach text (request notes, answers, proposals, feedback notes) is cleared 30 days after a
@@ -316,7 +322,7 @@ Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.
 
 ## Calls from the discovery session that still need the owner
 
-1. Create the API organisation and key under the commercial terms, and confirm in writing how health-adjacent notes are treated (see the provider research).
+1. Decide whether the coach may use paid models and the spend cap on its OpenRouter key, then create that key (the agent never handles the key value).
 2. Settled: the coach is a separate stripped job, triggered when we do a tick (owner, 2026-10-22).
 3. Settled: in v1 the agent runs from the owner's side during a tick, on the local network (owner, 2026-10-22).
 
