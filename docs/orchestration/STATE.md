@@ -25,6 +25,11 @@
 (none)
 
 ## Needs owner
+- **Coach (#428): read and approve PRs #440 (design) and #441 (hosting, retention, provider research).**
+  Agents do not merge or edit them. #443 (record the decisions) and #444 to #450 wait on this.
+- **Coach: create the API organisation and key** under the provider's commercial terms. The agent never
+  handles the key. Also confirm in writing how health-adjacent notes are treated.
+- **Rank the new coach tickets (#442 to #456) on the board.** Until then ticks take #442 and #456 first.
 - **#389 backup snapshot.** Decided opt-in and anonymous (see `DECISIONS.md`). Next is a plan, then a schema
   v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.
 - **Stray settings commit `9727f63` on `main`.** An agent chain run in the wrong directory committed the owner's `/permissions` edit (removed the `Read(./data/**)` deny from `.claude/settings.json`) and pushed it under a deploy.sh message. Owner chose to leave it. The deny is gone from the tracked file, so agents can read `frontend/src/data/`.
