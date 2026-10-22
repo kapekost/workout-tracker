@@ -118,8 +118,8 @@ releases it; the lease length and retry limit are the builder's call.
 ### Context the worker receives
 
 Built by the backend per item and minimised: the plan, recent sessions, personal bests, the profile facts
-the coach has been given, and the user's notes. No username, email, profile id or any other identity;
-the worker sees an opaque item id. One item per claim, so two users' data never share a context.
+the coach has been given, and the user's notes. No username, email or database id; the worker sees the
+item id and the profile's static pseudonym (see "Calls the author made"). One item per claim, so two users' data never share a context.
 User-typed text is passed in a field marked as data, and the worker instructions say it is never to be
 followed as an instruction.
 
@@ -235,13 +235,15 @@ owner only.
   history. Whether they are also removed with a profile follows the retention answer below.
 - A stale proposal is refused at apply with a plain message, not silently merged.
 - Apply and Not now are stacked full width (see the UI section).
-- Identity sent to the coach (owner, 2026-10-22: the coach needs no name or contact details). The default
-  is an opaque id that is new for every item, so two requests from one person cannot be linked by the
-  coach; the backend already sends the plan, recent sessions, bests and notes with each item, so the
-  coach needs no memory of the person. If continuity is wanted later, use a salted per-profile pseudonym
-  that is not the database id and cannot be joined to a profile outside the app. It is still personal data
-  under GDPR, so the consent text says so. Notes can contain names, so they are length-capped with a
-  pre-send warning, and the stripped runner treats them as data.
+- Identity sent to the coach (owner, 2026-10-22): the coach needs no name or contact details, and it may
+  know a user across requests. Each profile gets a static pseudonym derived from the profile with a secret
+  kept in the backend's configuration (for example an HMAC of the profile id, shortened); it is not the
+  database id and cannot be joined to a profile outside the app. Rotating the secret changes every
+  pseudonym, so it is documented as a deliberate step. The builder chooses derive-on-demand versus stored.
+  This is pseudonymised data, not anonymised, and it is still personal data under GDPR, so the consent text
+  must not say "anonymous" or "anonymised". Wording to use: "Your name and email are never sent. The coach
+  sees you only as a code, together with your plan, workouts, personal bests and notes." Notes can contain
+  names, so they are length-capped with a pre-send warning, and the stripped runner treats them as data.
 
 ## Decisions from the discovery session (author's synthesis, owner approval pending)
 
