@@ -25,9 +25,9 @@
 (none)
 
 ## Needs owner
-- **Coach: decide whether the coach may ever use paid models, and the spend cap on its OpenRouter key.**
-  Free models come first (see `DECISIONS.md`, 2026-10-22). The owner creates the key when the runner work
-  starts; the agent never handles the value.
+- **Coach key.** The owner has set the spend cap. Free models only for the first versions (`DECISIONS.md`,
+  2026-10-22 later). The owner creates and hands over the key when the runner work starts; the agent never
+  handles the value.
 - **Rank the new coach tickets (#444 to #455) on the board** if the default order is not wanted.
 - **#389 backup snapshot.** Decided opt-in and anonymous (see `DECISIONS.md`). Next is a plan, then a schema
   v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.

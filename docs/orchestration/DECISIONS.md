@@ -725,3 +725,10 @@ Design: `docs/superpowers/specs/2026-10-22-coach-protocol-and-queue-design.md`. 
 - **Still open, owner:** whether the coach may use paid models and the cap on its key. The owner creates the
   key when the runner work starts; the agent never handles the value. Nothing in #444 to #450 starts before
   this entry is merged.
+
+## 2026-10-22 (later) — Coach: free models only for the first versions
+
+Owner: no paid models for the first few versions of the coach and the first onboarded users. The spend cap
+on the coach's OpenRouter key is already set by the owner, as a backstop. This closes the open item in the
+entry above: the coach stays free-only, so the free-only rule is not relaxed for now. A paid model returns
+as a new owner call, only if free models cannot return valid JSON on a real coach prompt.
