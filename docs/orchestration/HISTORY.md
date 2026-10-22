@@ -10,6 +10,15 @@
 
 ---
 
+**Tick 2026-10-22 (coach decisions, #456, #442).**
+- Merged: #457 (#456 guardrail: no user text in trackers, with a tripwire test), #440 (coach design) and #441 (discovery research, with the OpenRouter file), #458 (#443 decisions record plus a consent-wording fix), #460 (#442 Dockerfile: per-architecture rollup binary and a health check). Live is `088170f` after a plain `deploy.sh`; health reads `healthy` on the host.
+- Provider changed from an Anthropic API key to OpenRouter with its own key, free models first, and a per-user Private mode (coming soon). Delivery stages: local, then server, then bring your own AI. Recorded in `DECISIONS.md`.
+- The bot blocked #440 five times on one consent sentence that the design already satisfied; answered in the thread, then the sentence was reworded. It also blocked #458 and #460 on false points (a stripped-sandbox view; Rolldown, which the change never touched); each answered in the thread with evidence. Old PRs may hold unanswered BLOCKING reviews: audit filed as #459.
+- Two sessions' messages claiming "the owner" approved things were not treated as approval until the real owner confirmed; the first deploy attempt failed on an empty SSH agent, fixed by loading the key.
+- Not verified: no browser check of the live site (no app code changed); the Dockerfile's amd64 image was built, not run.
+
+---
+
 **Tick 2026-10-22 (later): evidence review, #427 split, #434 cue sweep, deploy.sh fix.**
 - Research PR #429 (coach persona and split evidence; ten sampled DOIs resolved). #427 split into #430 to #433; #428 is the persona ticket; #434 cue sweep shipped (PR #435, live `6f397bf`).
 - `deploy.sh` rejected every deploy after a squash-merge because the live SHA is never an ancestor of `main`. Fixed in #437 and #438: it now compares content, tolerating conflicts only in `docs/` and the changelog. First plain deploy with no override passed.

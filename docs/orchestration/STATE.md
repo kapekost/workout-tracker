@@ -14,8 +14,8 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `6f397bf` (schema v9; same app content as `8f9a6b3` on `main`). It ships the cue sweep (#434, copy only: new plans and plan reset get the dash-free cues, stored plans are untouched). Before it, live was `d463748` (#223 Update with AI, #397). `/api/health`, the served bundle and the closed login gate were checked; nothing behind the login was driven. The owner's standing rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** #428 persona design (brainstorm with the owner first; evidence in `docs/superpowers/research/2026-10-22-coach-persona-and-split-evidence.md`), #430 and #431 (flexible split, ready), #269 (items 3 and 5 only), then the mobile children #410 to #419. Owner calls waiting: #432, #433.
+- **Current focus:** live is `088170f` (schema v9; Dockerfile now builds for amd64 and arm64 and carries a container health check, #442; app behaviour unchanged since `6f397bf`). The host shows the container `healthy`, and `/api/health` reports `088170f`. No browser check of the live site was done; this change touched no app code. The owner's standing rule: deploy once verified and ready to merge, check the live URL, then merge.
+- **Next action:** #430 and #431 (flexible split, ready), then mobile #410 to #412 (S, batch), #269 (items 3 and 5 only), the old-PR review audit (#459), the rest of the mobile children #413 to #419. The coach runner and API tickets #444 to #450 follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
@@ -25,11 +25,10 @@
 (none)
 
 ## Needs owner
-- **Coach (#428): read and approve PRs #440 (design) and #441 (hosting, retention, provider research).**
-  Agents do not merge or edit them. #443 (record the decisions) and #444 to #450 wait on this.
-- **Coach: create the API organisation and key** under the provider's commercial terms. The agent never
-  handles the key. Also confirm in writing how health-adjacent notes are treated.
-- **Rank the new coach tickets (#442 to #456) on the board.** Until then ticks take #442 and #456 first.
+- **Coach: decide whether the coach may ever use paid models, and the spend cap on its OpenRouter key.**
+  Free models come first (see `DECISIONS.md`, 2026-10-22). The owner creates the key when the runner work
+  starts; the agent never handles the value.
+- **Rank the new coach tickets (#444 to #455) on the board** if the default order is not wanted.
 - **#389 backup snapshot.** Decided opt-in and anonymous (see `DECISIONS.md`). Next is a plan, then a schema
   v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.
 - **Stray settings commit `9727f63` on `main`.** An agent chain run in the wrong directory committed the owner's `/permissions` edit (removed the `Read(./data/**)` deny from `.claude/settings.json`) and pushed it under a deploy.sh message. Owner chose to leave it. The deny is gone from the tracked file, so agents can read `frontend/src/data/`.
