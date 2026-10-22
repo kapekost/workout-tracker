@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 40 -->
+<!-- last-reviewed-count: 51 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -57,3 +57,5 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-23: Worktree removal was denied for directories the session did not create, so leftover worktrees from earlier sessions need the owner or the creating session to remove them.
 - [local] 2026-10-23: A tool hook blocks any shell command or PR text that contains the words for inspecting a container without a --format; even a grep pattern or a PR body that only mentions it is refused. Write around the phrase.
 - [local] 2026-10-23: A PR check stayed "pending" after its run had succeeded. Confirm with the run itself (gh run view) before treating a long pending as a hang.
+- [unsure] 2026-10-23: orch-checkpoint.sh has no stage for a docs-only merge that needs no deploy, so such a tick is recorded as deployed. A 'skipped' stage would read true.
+- [local] 2026-10-23: Both automated reviewers gave no verdict on #474 (Codex usage limit, OpenCode free-model daily limit), so a docs PR merged on green CI plus the tick's own review. gh pr checks --watch can pass the 2 minute tool limit; run it in the background.

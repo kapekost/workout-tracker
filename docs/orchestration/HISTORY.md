@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-23 (#466 process gaps).**
+- Merged: #474 (squash `4179ed6`). Adds the peer-approval guardrail, a non-fatal `ssh-add -l` warning in `deploy.sh` with an AGENTS.md note, review-bot and worktree friction entries, and owner items in STATE. Docs and a deploy.sh warning only, so no deploy; live stays `1bc08a8`.
+- No local branch was deleted: 13 do not contain `main`, none made by the session, so they are reported in STATE for the owner. Dependabot #405 was told to rebase and its checks now pass; it still needs review. #406 to #409 were already merged.
+- Neither Codex (usage limit) nor OpenCode (free-model daily limit) gave a verdict on #474. The tick review found the branch list in STATE had a wrong count and names; it now points at the command.
+- Cost (output tokens): reconcile 6304, pick 8832, claim 1001, execute 14557, review 9197, ship 2158, deploy 1902, tail 0.
+
+---
+
 **Tick 2026-10-22 (#269 plan).**
 - Merged: #470, the plan for #269 items 3 and 5 (big diffs, re-review cost), linked in the Issue as **Plan:**. Two PRs: input builder plus poster coverage line first (dormant), then workflow wiring and prompt. No app change, nothing to deploy; live stays `9225cf8`.
 - The plan records a latent bug: after a skipped review the next push is diffed from the skipped commit, so that push's changes go unreviewed. The history job should pick the last bot review that carries the round marker.
