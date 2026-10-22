@@ -808,6 +808,11 @@ def test_partial_coverage_lists_five_names_and_counts_the_rest(tmp_path):
     assert "f4.md" in r.body and "f5.md" not in r.body and "and 4 more" in r.body
 
 
+def test_the_rest_count_comes_from_the_totals_when_the_file_names_only_some(tmp_path):
+    r = covered([], coverage(shown=10, total=2010, omitted=[f"f{i}.md" for i in range(20)]), tmp_path)
+    assert r.event == "COMMENT" and "f4.md" in r.body and "and 1995 more" in r.body
+
+
 def test_partial_coverage_still_requests_changes_for_a_major(tmp_path):
     r = covered([finding("major")], coverage(shown=1), tmp_path)
     assert r.event == "REQUEST_CHANGES"

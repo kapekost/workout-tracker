@@ -203,7 +203,7 @@ def coverage_lines(cov, repo):
     lines = ["", line]
     names = [sanitize(o, repo, 120) for o in cov["omitted"][:MAX_OMITTED]]
     if cov["shown"] < cov["total"] and names:
-        rest = len(cov["omitted"]) - len(names)
+        rest = cov["total"] - cov["shown"] - len(names)
         lines.append("Not shown: " + ", ".join(names) + (f" and {rest} more" if rest else ""))
     return lines
 

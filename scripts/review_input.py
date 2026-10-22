@@ -11,7 +11,8 @@ checkout.
 Binary files and lockfiles are left out. The rest is ordered so shipped and security-relevant
 code comes first and tests and docs last, then filled up to a byte budget. A file that does not
 fit is listed as omitted and the model may read it by path. Coverage is stated here, not by the
-model, so it cannot be overstated.
+model, so it cannot be overstated. The coverage file names only the first few omitted paths so
+the poster can always read it whole; pr.omitted.txt has them all.
 """
 import json
 import os
@@ -21,6 +22,7 @@ import sys
 from pathlib import Path
 
 BUDGET = 60_000
+COVERAGE_NAMES = 20
 LOCKFILES = ("package-lock.json",)
 SHA = re.compile(r"[0-9a-f]{40}")
 TEST_FILE = re.compile(
@@ -131,8 +133,11 @@ def build_input(repo, base, last, out_dir, coverage_path, budget=BUDGET):
                            encoding="utf-8", errors="replace")
         return r.stdout if r.returncode == 0 else None
 
-    full = run(["diff", "--no-color", f"{base}...HEAD"]) or ""
-    head = (run(["rev-parse", "HEAD"]) or "").strip()
+    full = run(["diff", "--no-color", f"{base}...HEAD"])
+    head = run(["rev-parse", "HEAD"])
+    if full is None or head is None:
+        sys.exit(f"review_input: cannot diff {base}...HEAD in {repo}")
+    head = head.strip()
     delta = delta_diff(last, head, len(full), run)
     if delta is None:
         text, mode, since = full, "full", ""
@@ -151,7 +156,7 @@ def build_input(repo, base, last, out_dir, coverage_path, budget=BUDGET):
     (out / "pr.stat").write_text(run(["diff", "--stat=200", *rng]) or "", encoding="utf-8")
     (out / "pr.omitted.txt").write_text("".join(p + "\n" for p in omitted), encoding="utf-8")
     Path(coverage_path).write_text(json.dumps(
-        {"mode": mode, "since": since, "shown": len(shown), "total": total, "omitted": omitted}),
+        {"mode": mode, "since": since, "shown": len(shown), "total": total, "omitted": omitted[:COVERAGE_NAMES]}),
         encoding="utf-8")
 
 

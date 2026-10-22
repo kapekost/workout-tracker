@@ -4,6 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 spec = importlib.util.spec_from_file_location(
     "review_input", Path(__file__).resolve().parent.parent / "scripts" / "review_input.py")
 ri = importlib.util.module_from_spec(spec)
@@ -179,3 +181,25 @@ def test_omitted_files_are_listed_for_the_model(tmp_path):
     data = json.loads(cov.read_text())
     assert data["shown"] == 0 and data["total"] == 1 and data["omitted"] == ["backend/main.py"]
     assert (out / "pr.omitted.txt").read_text() == "backend/main.py\n"
+
+
+def test_a_failed_diff_exits_non_zero_and_writes_nothing(tmp_path):
+    repo = make_repo(tmp_path)
+    out, cov = tmp_path / "out", tmp_path / "coverage.json"
+    with pytest.raises(SystemExit) as exc:
+        ri.build_input(str(repo), "origin/no-such-branch", "", out, cov)
+    assert exc.value.code
+    assert not cov.exists() and not out.exists()
+
+
+def test_the_coverage_file_names_only_the_first_omitted_paths(tmp_path):
+    repo = make_repo(tmp_path)
+    for i in range(ri.COVERAGE_NAMES + 5):
+        (repo / "backend" / f"f{i:02}.py").write_text("x\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "many")
+    out, cov = tmp_path / "out", tmp_path / "coverage.json"
+    ri.build_input(str(repo), "main", "", out, cov, budget=0)
+    data = json.loads(cov.read_text())
+    assert data["total"] == ri.COVERAGE_NAMES + 6 and len(data["omitted"]) == ri.COVERAGE_NAMES
+    assert len((out / "pr.omitted.txt").read_text().splitlines()) == data["total"]
