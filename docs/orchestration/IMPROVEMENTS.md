@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 35 -->
+<!-- last-reviewed-count: 40 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -46,3 +46,5 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-22: A skipped bot review (both free models ended without a JSON verdict) posts a COMMENT and the review job passes, so gh pr checks is all green. Fixed in PLAYBOOK/GUARDRAILS: a skipped review makes a staff-engineer-reviewer pass mandatory. Making the job end neutral is not a plain workflow edit (a job is pass or fail), so left as is.
 - [local] 2026-10-22: The Changelog check needs the exact line 'Changelog: none' alone; 'Changelog: none (backend only)' failed, and gh run rerun reuses the old PR body so it kept failing until the body was edited. Fixed in the PR template and PLAYBOOK step 6: edit the body, do not rerun.
 - [local] 2026-10-22: Workout.test.jsx 'a dead connection...' failed once in CI (run 39853554951; typed 77.5 read back as the prefilled 20). Reproduced 2 in 96 runs of the file under CPU load: the test typed before the card's prefill effect ran. Fixed with the same await act(async () => {}) the next test already used; 0 in 96 after. A user typing in the first frame could hit the same overwrite; not filed, never reported.
+- [local] 2026-10-22: A bot CLEAN verdict on a docs-only plan (#470) was generic and showed no sign it checked the plan against the workflow; it missed a wrong line number the author caught. Treat a clean docs review as weak evidence.
+- [unsure] 2026-10-22: Foreground sleep is blocked, so waiting about 3 minutes for CI needed an until-loop under Monitor, which had to be loaded first. Harness behaviour, not fixable in this repo.

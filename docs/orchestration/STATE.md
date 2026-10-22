@@ -15,7 +15,7 @@
 ## Cursor
 - **Project:** Workout Tracker
 - **Current focus:** live is `9225cf8`, the branch build of #430 (squash-merged as `1d7514c`, same content; schema v9). Plan days can now be added, renamed, removed and reordered through `/api/plan/days` (backend only, no screen uses it yet). `/api/health` reported `9225cf8` at deploy. No browser check and no logged-in call against the live site. The owner's standing rule (2026-10-22): test locally before the merge, merge, then deploy from `main` and check the live URL.
-- **Next action:** #431 (icons and colours for any number of plan days), then mobile #410 to #412 (S, batch), #269 (items 3 and 5 only), the old-PR review audit (#459), the rest of the mobile children #413 to #419. The coach runner and API tickets #444 to #450 follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
+- **Next action:** #269 PR 1 per the merged plan (`docs/superpowers/plans/2026-10-22-review-bot-big-diffs-and-rereview-269.md`: input builder plus poster coverage line, both dormant), then PR 2 (workflow wiring and prompt), each through security-ai-reviewer; item 7 (reviewer privacy order) is its own PR. Then mobile #410 to #412 (S, batch), the old-PR review audit (#459), the mobile children #413 to #419. #431 is owned by another session in worktree `icons-431`; do not pick it. The coach tickets #444 to #450 stay `intake` until triaged. Owner calls waiting: #432, #433.
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
