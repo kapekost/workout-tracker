@@ -14,13 +14,13 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `e35084c` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
+- **Current focus:** live is `d463748` (schema v9; same content as `631907f` on `main`). It ships #223 (Update with AI, `/plan/ai`) and #397 (`prompt_template` on the plan export); `/api/health` verified, nothing behind the login driven. Before it, live was `e35084c` (schema v9). `353a5b8` (2026-10-18, after a host backup, local and
   off-site `ok`) shipped the plan editor (#177 A-C), the plan export (#220), #369 and the Dependabot bumps;
   `a324a1d` and `e460fde` change copy only. `e35084c` adds the Finish confirm tap (#340) and Wave 4 (#350);
   both checked at 390px and 320px with mocked data only.
   Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
   rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** #223 (export and paste-back UI; deploying it also ships #397, merged and not live), #294,
+- **Next action:** #294,
   #269 (items 3 and 5 only, speculative), then the mobile children #410 to #419 (#201 split 2026-10-21, closed).
   The #177 follow-ups are Issues #398 to #403.
 

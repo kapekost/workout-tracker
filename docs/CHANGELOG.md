@@ -3,7 +3,7 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
-## Unreleased — AI plan updates: export and paste-back screen (`#223`)
+## 2026-10-22 — AI plan updates: export and paste-back screen (`#223`; live `d463748`)
 
 - **Update with AI** (`/plan/ai`, linked from Plan): one button copies the prompt and the plan export, a textarea takes the AI's reply, Preview calls `POST /api/plan/update` with `confirm: false` and shows counts plus the change list, Confirm applies it. Editing the reply drops the preview. Ships with `#397` (`prompt_template` on `GET /api/plan/export`).
 
