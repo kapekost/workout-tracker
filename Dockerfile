@@ -10,14 +10,19 @@ ARG APP_COMMIT
 ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /frontend
 COPY frontend/package*.json ./
-# npm ci reports success but silently skips installing the arm64-musl rollup
-# binary here (npm/cli#4828, hit 2026-08-25 for the first time after a
+# npm ci reports success but silently skips installing the musl rollup binary
+# for this architecture (npm/cli#4828, hit 2026-08-25 for the first time after a
 # dependency-changing PR regenerated the lockfile) — install it explicitly,
 # version-matched to what the lockfile already pins, without touching the
-# lockfile itself.
+# lockfile itself. The package name follows the build machine's architecture.
 RUN npm ci && \
     ROLLUP_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/rollup'].version") && \
-    npm install --no-save "@rollup/rollup-linux-arm64-musl@$ROLLUP_VERSION"
+    case "$(uname -m)" in \
+      aarch64) ROLLUP_ARCH=arm64 ;; \
+      x86_64) ROLLUP_ARCH=x64 ;; \
+      *) echo "unsupported architecture $(uname -m)" >&2; exit 1 ;; \
+    esac && \
+    npm install --no-save "@rollup/rollup-linux-$ROLLUP_ARCH-musl@$ROLLUP_VERSION"
 COPY frontend/ .
 RUN npm run build
 
@@ -40,4 +45,7 @@ COPY scripts/bootstrap_owner.py ./scripts/
 COPY --from=builder /frontend/dist ./static
 RUN mkdir -p /app/data
 EXPOSE 8000
+# No curl in the slim image; an uncaught urllib error exits non-zero.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
