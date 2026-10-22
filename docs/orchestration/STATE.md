@@ -37,11 +37,9 @@
   is the owner's call. Not acted on.
 - **Dockerfile `COPY` drift check.** Whether to add a CI step that builds the Dockerfile (see Standing) is the
   owner's call. Not acted on.
-- **Stale local branches.** Twelve local branches do not contain `main` (`backlog-branch`, `chore/theme-token-sweep`,
-  `claim-219`, `claim-266`, `claude/design-review-wave0`, `claude/icons-scale-up`,
-  `claude/workout-tracker-backlog-bu9qnw`, `docs/plan-269-review-bot`, `fix/finish-workout-error`,
-  `progress-pb-redesign-review-fix`, and two `worktree-agent-*`). The session that listed them made none of
-  them, so it deleted none. Their owners or the owner should say which are safe to remove.
+- **Stale local branches.** Several local branches do not contain `main`; list them with
+  `git branch --no-contains main` in the shared checkout. The sessions that found them made none of them,
+  so they deleted none. Their owners or the owner should say which are safe to remove.
 - **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
   If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
 
