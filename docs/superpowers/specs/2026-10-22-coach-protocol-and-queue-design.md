@@ -285,17 +285,17 @@ Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.
 - Consent text names the AI provider and its retention, and notes are capped in length.
 - **Provider and runner: OpenRouter, with its own key.** The coach calls a model through OpenRouter over
   HTTPS with a JSON schema, using a key separate from every other use. It does not use the owner's
-  subscription or headless Claude Code. Pending the owner's call, and not yet decided: whether the coach
-  may use paid models and the spend cap on its key. Until then the free-only rule stands.
-  Source: `docs/superpowers/research/2026-10-22-openrouter-for-the-coach.md`.
-- **Privacy tier is a setting on the route.** `private` means `zdr: true` and `data_collection: deny`;
-  `standard` means any vetted model, which cannot guarantee that the model provider does not keep the data.
-  Moving between them is configuration only. On `standard` the context is structured data only (plan,
-  sets, weights, bests, pseudonym) and never free-text notes or answers.
+  subscription or headless Claude Code. Free models come first. A paid model on a hard spend-capped key is
+  considered only if free models cannot return valid JSON on a real coach prompt, and that is a new owner
+  call. Source: `docs/superpowers/research/2026-10-22-openrouter-for-the-coach.md`.
+- **Privacy is a per-user setting.** Settings gets a "Private mode" switch, shown as "coming soon" until
+  the private route exists. Users who turn it on are routed only to models that support private calls
+  (`zdr: true` and `data_collection: deny`); everyone else uses the standard route, which is any vetted
+  model and cannot guarantee that the model provider does not keep the data. On the standard route the
+  context is structured data only (plan, sets, weights, bests, pseudonym), never free-text notes or answers.
 - **Consent text is versioned and plain.** It names OpenRouter and the model provider, says the provider
-  may keep or use the data to improve its models while the route is `standard`, and says the coach sees the
-  user only as a code. It never says "anonymous". Moving to `private` bumps the version, so users consent
-  again.
+  may keep or use the data to improve its models on the standard route, and says the coach sees the
+  user only as a code. It never says "anonymous". Turning Private mode on or off changes the consent version.
 - **A model is chosen only after it returns valid JSON on a real coach prompt.** A one-word reply proves
   nothing.
 - **Processing location.** The consent text says plainly where processing happens once the model provider
@@ -325,6 +325,16 @@ Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.
 1. Decide whether the coach may use paid models and the spend cap on its OpenRouter key, then create that key (the agent never handles the key value).
 2. Settled: the coach is a separate stripped job, triggered when we do a tick (owner, 2026-10-22).
 3. Settled: in v1 the agent runs from the owner's side during a tick, on the local network (owner, 2026-10-22).
+
+## Delivery stages (owner, 2026-10-22)
+
+1. **Local setup.** The coach runs from the owner's machine during a tick, with copy and paste where needed.
+2. **Deployed on a server** reachable from outside the home network, with the AI calls made directly through
+   the app's OpenRouter key. Reaching it publicly needs a fresh approval (GUARDRAILS).
+3. **Bring your own AI.** A user connects their own AI account so their data goes to the service they chose.
+   Whether a consumer login (for example a chat subscription) can be used by a third-party app is
+   unverified and probably not allowed; an API key the user pastes is the likelier route. Needs research
+   before any ticket is ready.
 
 ## Left to the builder
 
