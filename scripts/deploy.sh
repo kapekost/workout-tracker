@@ -102,7 +102,7 @@ live_in_head() {
   (( rc <= 1 )) || return 1
   merged="${out%%$'\n'*}"
   if (( rc == 1 )); then
-    printf '%s\n' "$out" | sed -n '2,/^$/p' | grep -v '^$' | grep -qvE '^(docs/|frontend/src/lib/changelog.json$)' && return 1
+    printf '%s\n' "$out" | sed -n '2,/^$/p' | grep -v '^$' | grep -qvE '^(docs/|frontend/src/lib/changelog\.json$)' && return 1
   fi
   git -C "$ROOT" diff --quiet "$merged" HEAD -- . ':!docs' ':!frontend/src/lib/changelog.json'
 }
