@@ -273,9 +273,18 @@ Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.
 **Consent and the provider**
 - The backend refuses to build context for a profile without a current consent and checks again at claim
   time, so a withdrawn consent stops queued items. Withdrawal is in v1.
-- Consent text names the AI provider and its retention, and notes are capped in length. **Blocker before
-  friends use the coach:** read and record the terms of the plan the coach session runs on (retention,
-  training use, region), then write the consent text to match.
+- Consent text names the AI provider and its retention, and notes are capped in length.
+- **The coach uses an API key under the provider's commercial terms, not the owner's subscription.** The
+  plan terms bar automated access except through an API key and tell anyone building a service to use one;
+  commercial API data is not used for training and is kept 30 days by default. Safety-flagged content can be
+  kept up to two years on every route. Source: `docs/superpowers/research/2026-10-22-ai-provider-terms-options.md`.
+- **Two hard findings from that research.** The provider's own API cannot pin processing to the EU, so
+  the consent text must say plainly that processing happens outside the EU under standard contractual
+  clauses, or the route changes to a cloud provider's EU endpoint later. And the provider's data
+  processing addendum lists special categories of data as "none", which clashes with health-adjacent notes:
+  get written confirmation, or send no such data (cap and warn on the note field).
+- **Still to do before friends use the coach:** the owner creates the API organisation and key, and the
+  unverified items in that file (subprocessor list, written confirmation of the above) are checked.
 
 **Retention (minimum viable)**
 - One rule: coach text (request notes, answers, proposals, feedback notes) is cleared 30 days after a
@@ -298,10 +307,9 @@ Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.
 
 ## Calls from the discovery session that still need the owner
 
-1. Which plan does the coach session run on, and what are its retention and training-use terms?
-2. Is a separate stripped coach job acceptable as the cost of safety, given the extra setup?
-3. Is a v1 limited to the local network acceptable, given friends get the coach only when they are on the
-   same network as the agent? (It does not limit when they can open the app, only when the coach works.)
+1. Create the API organisation and key under the commercial terms, and confirm in writing how health-adjacent notes are treated (see the provider research).
+2. Settled: the coach is a separate stripped job, triggered when we do a tick (owner, 2026-10-22).
+3. Settled: in v1 the agent runs from the owner's side during a tick, on the local network (owner, 2026-10-22).
 
 ## Left to the builder
 
