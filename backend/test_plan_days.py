@@ -77,6 +77,22 @@ def test_rename_changes_name_tag_icon_but_not_the_key(client):
     assert cycle(client) == DEFAULT_KEYS
 
 
+def test_patch_null_clears_tag_and_icon_but_not_name(client):
+    assert client.patch("/api/plan/days/upper_a", json={"tag": None, "icon": None}).status_code == 200
+    day = client.get("/api/plan").json()["plan"]["upper_a"]
+    assert (day["tag"], day["icon"], day["name"]) == (None, None, "Upper A")
+    assert client.patch("/api/plan/days/upper_a", json={"name": None}).status_code == 400
+
+
+def test_patch_with_nothing_to_change_400(client):
+    assert client.patch("/api/plan/days/upper_a", json={}).status_code == 400
+
+
+def test_starting_a_session_on_a_removed_day_400(mainmod, client):
+    client.delete("/api/plan/days/lower_b")
+    assert client.post("/api/sessions", json={"workout_day": "lower_b"}).status_code == 400
+
+
 def test_rename_unknown_day_404(client):
     assert client.patch("/api/plan/days/nope", json={"name": "x"}).status_code == 404
 

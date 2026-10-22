@@ -1370,14 +1370,15 @@ def add_plan_day(body: PlanDayIn, profile_id: int = Depends(acting_profile_id)):
 @app.patch("/api/plan/days/{day_key}")
 def update_plan_day(day_key: str, body: PlanDayPatch, profile_id: int = Depends(acting_profile_id)):
     """Change a day's name, tag or icon. The key stays, so history keeps pointing at it."""
-    fields = body.model_dump(exclude_unset=True, exclude_none=True)
+    fields = body.model_dump(exclude_unset=True)
+    if not fields or fields.get("name", "") is None:
+        raise HTTPException(400, "send at least one of name, tag, icon; name cannot be null")
     with db() as conn:
         _plan_day_or_404(conn, profile_id, day_key)
-        if fields:
-            conn.execute("UPDATE plan_days SET " + ", ".join(f"{c} = ?" for c in fields) +
-                         ", updated_at = datetime('now') WHERE profile_id = ? AND day_key = ?",
-                         (*fields.values(), profile_id, day_key))
-            conn.commit()
+        conn.execute("UPDATE plan_days SET " + ", ".join(f"{c} = ?" for c in fields) +
+                     ", updated_at = datetime('now') WHERE profile_id = ? AND day_key = ?",
+                     (*fields.values(), profile_id, day_key))
+        conn.commit()
         return {"id": day_key}
 
 @app.delete("/api/plan/days/{day_key}")
@@ -1421,12 +1422,13 @@ def get_plan_catalog(profile_id: int = Depends(acting_profile_id)):
 @app.post("/api/sessions")
 def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
+        # Take the write lock before the checks, or two simultaneous starts both pass the open-session
+        # check and a day removal can slip in between the day check and the insert.
+        conn.execute("BEGIN IMMEDIATE")
         if not conn.execute(
             "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
             (profile_id, s.workout_day)).fetchone():
             raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
-        # Take the write lock before the check, or two simultaneous starts both pass it.
-        conn.execute("BEGIN IMMEDIATE")
         if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
                         (profile_id,)).fetchone():
             raise HTTPException(409, "a workout is already in progress")
