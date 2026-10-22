@@ -89,6 +89,18 @@ if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
   fi
 fi
 
+# True when HEAD already holds everything the live commit shipped. Ancestry is
+# the fast path. A squash-merge leaves the live SHA (a branch commit) outside
+# main's history, so otherwise merge the live commit into HEAD and require that
+# it adds nothing outside docs/, which is not in the image. A conflict outside
+# docs/ leaves markers in the result, so it fails closed.
+live_in_head() {
+  git -C "$ROOT" merge-base --is-ancestor "$1" HEAD && return 0
+  local merged
+  merged="$(git -C "$ROOT" merge-tree --write-tree HEAD "$1" 2>/dev/null | head -n 1)" || true
+  [[ -n "$merged" ]] && git -C "$ROOT" diff --quiet "$merged" HEAD -- . ':!docs'
+}
+
 # HEAD must also contain what is running. Containing main is not enough when the
 # live image came from another branch (the 2026-10-03 deploy was one).
 # Fails closed: an unreachable host, a "dev" stamp or a SHA this clone does not
@@ -113,7 +125,7 @@ if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
     echo "error: live version $live_sha is unknown or ambiguous in this clone. Run 'git fetch --all'." >&2
     exit 1
   fi
-  if ! git -C "$ROOT" merge-base --is-ancestor "$live_full" HEAD; then
+  if ! live_in_head "$live_full"; then
     echo "error: HEAD does not contain the live version $live_sha; deploying would drop its changes." >&2
     git -C "$ROOT" log --oneline HEAD.."$live_sha" | sed 's/^/         missing: /' >&2
     exit 1
