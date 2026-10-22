@@ -14,7 +14,7 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=bench+press+proper+form+jeff+nippard',
         cues: [
           'Retract & depress shoulder blades into bench',
-          'Slight arch — feet flat for a stable base',
+          'Slight arch, feet flat for a stable base',
           'Elbows ~70° from torso (not fully flared)',
           'Bar traces slight diagonal to lower chest',
           '2 sec controlled descent, full ROM'
@@ -27,7 +27,7 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=barbell+bent+over+row+form+tutorial',
         cues: [
           'Hinge to ~45°, neutral spine throughout',
-          'Drive elbows back — not flared wide',
+          'Drive elbows back, not flared wide',
           'Squeeze shoulder blades together at top',
           'Bar stays close to body on the way up',
           'Control the descent, no jerking'
@@ -43,7 +43,7 @@ export const PLAN = {
           'Bar starts at upper chest / clavicle',
           'Head moves back slightly as bar passes face',
           'Full lockout at top, squeeze glutes throughout',
-          'Core braced — no excessive lower back arch'
+          'Core braced, no excessive lower back arch'
         ]
       },
       {
@@ -55,7 +55,7 @@ export const PLAN = {
           'Depress shoulder blades before pulling',
           'Pull elbows down and in to pockets',
           'Slight layback (~10-15°) is fine',
-          'Full stretch at top — don\'t rush it',
+          'Full stretch at top. Don\'t rush it',
           'Bar to upper chest, brief squeeze'
         ]
       },
@@ -68,7 +68,7 @@ export const PLAN = {
           'Elbows pinned tight to sides',
           'Slight forward hinge at hips',
           'Full extension at bottom, squeeze',
-          '2 sec slow return — feel the stretch',
+          '2 sec slow return. Feel the stretch',
           'Don\'t let elbows flare or drift forward'
         ]
       },
@@ -79,10 +79,10 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=dumbbell+bicep+curl+form+tutorial',
         cues: [
           'Start neutral (thumbs up), supinate at top',
-          'Elbows stay at sides — no swinging',
+          'Elbows stay at sides. No swinging',
           'Full extension at bottom every rep',
           'Squeeze bicep hard at the peak',
-          'Slow on the way down — 2-3 sec'
+          'Slow on the way down, 2-3 sec'
         ]
       }
     ]
@@ -99,7 +99,7 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=back+squat+form+tutorial+jeff+nippard',
         cues: [
           'Feet shoulder-width, toes out ~30°',
-          'Knees track over toes — no caving in',
+          'Knees track over toes. No caving in',
           'Chest up, elbows down (high bar) or back (low bar)',
           'Depth: hip crease below top of knee minimum',
           'Drive through mid-foot, not heels or toes'
@@ -111,7 +111,7 @@ export const PLAN = {
         muscles: ['Hamstrings', 'Glutes', 'Lower Back'],
         ytUrl: 'https://www.youtube.com/results?search_query=romanian+deadlift+rdl+proper+form',
         cues: [
-          'Hip hinge — push hips BACK, not down',
+          'Hip hinge: push hips BACK, not down',
           'Soft bend in knees, maintained throughout',
           'Bar drags close down the shins and thighs',
           'Feel deep hamstring stretch at the bottom',
@@ -128,7 +128,7 @@ export const PLAN = {
           'Full ROM: knees deep to chest at bottom',
           'Don\'t lock out knees completely at top',
           'Lower back stays pressed to pad',
-          'Controlled descent — don\'t drop the weight'
+          'Controlled descent. Don\'t drop the weight'
         ]
       },
       {
@@ -150,10 +150,10 @@ export const PLAN = {
         muscles: ['Gastrocnemius', 'Soleus'],
         ytUrl: 'https://www.youtube.com/results?search_query=standing+calf+raise+form+tutorial',
         cues: [
-          'Full stretch at bottom — heels below platform edge',
+          'Full stretch at bottom, heels below platform edge',
           'Rise onto ball of foot, not the toes',
           '1-2 sec hold at the top',
-          'Slow controlled descent — calves grow under stretch',
+          'Slow, controlled descent',
           'Knees soft, not locked'
         ]
       }
@@ -173,7 +173,7 @@ export const PLAN = {
           '30° bench hits more chest than 45°',
           'DB at chest height, neutral or angled grip',
           'Press slightly inward at top for chest squeeze',
-          'Full stretch at bottom — feel it in upper chest',
+          'Full stretch at bottom. Feel it in upper chest',
           '2-3 sec descent, controlled'
         ]
       },
@@ -183,11 +183,11 @@ export const PLAN = {
         muscles: ['Lats', 'Biceps', 'Rear Delt'],
         ytUrl: 'https://www.youtube.com/results?search_query=how+to+pull+ups+proper+form+tutorial',
         cues: [
-          'Dead hang at bottom — full shoulder elevation',
+          'Dead hang at bottom, full shoulder elevation',
           'Initiate: depress shoulder blades first',
           'Pull elbows down to hips, not behind',
-          'Chin clears bar — chest moves toward bar',
-          'Lower fully — no half reps'
+          'Chin clears bar. Chest moves toward bar',
+          'Lower fully. No half reps'
         ]
       },
       {
@@ -197,7 +197,7 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=seated+cable+row+form+tutorial',
         cues: [
           'Sit tall, slight natural lumbar arch',
-          'Drive elbows back — squeeze mid-back at end',
+          'Drive elbows back. Squeeze mid-back at end',
           'Hold the peak contraction briefly',
           'Don\'t lean back excessively with the torso',
           'Full arm extension on the return'
@@ -210,9 +210,9 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=lateral+raise+proper+form+side+delt+tutorial',
         cues: [
           'Slight forward lean, slight elbow bend',
-          'Raise to shoulder height — no higher needed',
+          'Raise to shoulder height, no higher needed',
           'Lead with elbows, pinky slightly higher than thumb',
-          'No momentum — strict and slow',
+          'No momentum. Strict and slow',
           'Feel the side delt, not traps'
         ]
       },
@@ -224,9 +224,9 @@ export const PLAN = {
         cues: [
           'Neutral grip (thumbs up) throughout the entire rep',
           'Elbows stay pinned to sides',
-          'Full ROM — full extension at bottom',
+          'Full ROM, full extension at bottom',
           'Squeeze at peak, no swinging',
-          'Alternating or simultaneous — both effective'
+          'Alternating or simultaneous, both effective'
         ]
       },
       {
@@ -237,7 +237,7 @@ export const PLAN = {
         cues: [
           'Upper arms vertical, elbows pointed at ceiling',
           'Lower toward forehead or just behind the head',
-          'Elbows stay stationary — only forearms move',
+          'Elbows stay stationary. Only forearms move',
           'Full lockout at top, squeeze triceps',
           'Slow controlled descent'
         ]
@@ -256,8 +256,8 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=alan+thrall+how+to+deadlift+tutorial',
         cues: [
           'Bar over mid-foot, hip-width stance',
-          'Grab bar, push shins to bar — don\'t reach down',
-          '"Protect your armpits" — engage lats hard',
+          'Grab bar, push shins to bar. Don\'t reach down',
+          '"Protect your armpits": engage lats hard',
           'Hips and shoulders rise at the same rate',
           'Squeeze glutes at lockout, hinge back down'
         ]
@@ -268,10 +268,10 @@ export const PLAN = {
         muscles: ['Quads', 'Glutes', 'Hip Flexors'],
         ytUrl: 'https://www.youtube.com/results?search_query=bulgarian+split+squat+form+tutorial',
         cues: [
-          'Front foot far enough forward — don\'t tip',
+          'Front foot far enough forward. Don\'t tip',
           'Rear foot on bench, top of foot down',
-          'Slight forward torso lean — engages more glute',
-          'Front knee tracks over toes — no caving',
+          'Slight forward torso lean to engage more glute',
+          'Front knee tracks over toes. No caving',
           '2 sec descent, explosive drive up'
         ]
       },
@@ -284,7 +284,7 @@ export const PLAN = {
           'Shoulders on bench, bar over hip crease (use a pad)',
           'Feet flat, shins vertical at the top position',
           'Drive through heels, squeeze glutes hard at top',
-          'Hips level — no rotation left or right',
+          'Hips level. No rotation left or right',
           'Don\'t hyperextend lower back at top'
         ]
       },
@@ -295,7 +295,7 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=leg+extension+machine+form+tutorial',
         cues: [
           'Adjust seat so knee joint aligns with pivot',
-          'Full extension at top — squeeze quads hard',
+          'Full extension at top. Squeeze quads hard',
           '1-2 sec hold at peak contraction',
           'Controlled slow descent',
           'Toes slightly out targets outer quad'
@@ -308,7 +308,7 @@ export const PLAN = {
         ytUrl: 'https://www.youtube.com/results?search_query=seated+calf+raise+form+soleus+tutorial',
         cues: [
           'Knees at 90°, pad on lower thighs',
-          'Full stretch — heels as low as possible',
+          'Full stretch, heels as low as possible',
           'Rise onto ball of foot, hold 1-2 sec',
           'Slow controlled descent',
           'Seated = more soleus activation than standing'
