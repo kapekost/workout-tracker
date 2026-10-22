@@ -10,6 +10,15 @@
 
 ---
 
+**Tick 2026-10-22 (#430 plan days endpoints).**
+- Merged: #463 (add, rename, remove, reorder plan days; 31 new tests, backend 582 green). Live is `9225cf8` (the branch build; `main` holds the squash `1d7514c`) after a plain `deploy.sh`.
+- Rules as shipped: key is a slug of the name and skips any key in the plan or in session history; cap 7 days; removal 409s with an open session on that day or for the last day; reorder must name each day once; another profile's day is 404.
+- The staff-engineer-reviewer found a real race: `create_session` checked the day before taking the write lock, so a removal could leave an open session on a removed day. Fixed by taking the lock first. Also fixed: PATCH could not clear tag or icon, and an empty PATCH returned 200. Accepted: a removed day that never had a session frees its key.
+- The bot skipped its review (both models ended without a JSON verdict); not an approval. One frontend test (`Workout.test.jsx`, repsInput value) failed once and passed on rerun with no frontend change. The changelog check read the old PR body on a plain rerun; editing the body triggered a fresh run.
+- Not verified: no browser check or logged-in call against the live site; the race fix has no concurrency test.
+
+---
+
 **Tick 2026-10-22 (coach decisions, #456, #442).**
 - Merged: #457 (#456 guardrail: no user text in trackers, with a tripwire test), #440 (coach design) and #441 (discovery research, with the OpenRouter file), #458 (#443 decisions record plus a consent-wording fix), #460 (#442 Dockerfile: per-architecture rollup binary and a health check). Live is `088170f` after a plain `deploy.sh`; health reads `healthy` on the host.
 - Provider changed from an Anthropic API key to OpenRouter with its own key, free models first, and a per-user Private mode (coming soon). Delivery stages: local, then server, then bring your own AI. Recorded in `DECISIONS.md`.

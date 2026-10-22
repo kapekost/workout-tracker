@@ -14,8 +14,8 @@
 
 ## Cursor
 - **Project:** Workout Tracker
-- **Current focus:** live is `088170f` (schema v9; Dockerfile now builds for amd64 and arm64 and carries a container health check, #442; app behaviour unchanged since `6f397bf`). The host shows the container `healthy`, and `/api/health` reports `088170f`. No browser check of the live site was done; this change touched no app code. The owner's standing rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** #430 and #431 (flexible split, ready), then mobile #410 to #412 (S, batch), #269 (items 3 and 5 only), the old-PR review audit (#459), the rest of the mobile children #413 to #419. The coach runner and API tickets #444 to #450 follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
+- **Current focus:** live is `9225cf8`, the branch build of #430 (squash-merged as `1d7514c`, same content; schema v9). Plan days can now be added, renamed, removed and reordered through `/api/plan/days` (backend only, no screen uses it yet). `/api/health` reported `9225cf8` at deploy. No browser check and no logged-in call against the live site. The owner's standing rule: deploy once verified and ready to merge, check the live URL, then merge.
+- **Next action:** #431 (icons and colours for any number of plan days), then mobile #410 to #412 (S, batch), #269 (items 3 and 5 only), the old-PR review audit (#459), the rest of the mobile children #413 to #419. The coach runner and API tickets #444 to #450 follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
