@@ -126,8 +126,10 @@ followed as an instruction.
 ### Consent
 
 Before a user's first request the app records an explicit opt-in saying their training data is sent to
-the coach service. No consent, no request. The text of the consent and its version are recorded with
-the answer. For invited users this is a simple screen; for the public it must be revisited.
+the coach service. No consent, no request: a user who skips or dismisses the consent screen has no consent
+record and cannot create an item, so there is never an item without one. When the user accepts, the
+consent text and its version are stored as the consent record. (This is separate from a coach question and
+its answer.) For invited users this is a simple screen; for the public it must be revisited.
 
 ### Swappable worker
 

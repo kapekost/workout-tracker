@@ -694,3 +694,34 @@ keeps `openrouter/free` first to save Claude tokens (#296), and recurring prompt
   the saved target, "Logged sets count." on the warm-up hint, `color-scheme: dark`. Left as is: `:hover`
   (mobile-first) and the duplicate version stamp (the Home footer one is the runbook check).
 
+
+## 2026-10-22 — The coach (#428): shape, provider, privacy, stages
+
+Design: `docs/superpowers/specs/2026-10-22-coach-protocol-and-queue-design.md`. Research:
+`docs/superpowers/research/2026-10-22-*.md`.
+
+- **Shape.** One shared coach persona with two thin output formats. Typed, stateful items in the app
+  database; the worker is swappable behind a small HTTP contract with a scoped token. The coach runs as its
+  own stripped job, never the orchestrator's session, and the orchestrator never reads item text.
+- **Provider and runner.** OpenRouter with a key used only for the coach, called over HTTPS with a JSON
+  schema. Not the owner's subscription, not an Anthropic API key, not headless Claude Code (the owner wants
+  no further vendor subscription). Free models first. Paid models on a hard spend-capped key are not
+  decided: that is a new owner call, only if free models cannot return valid JSON on a real coach prompt.
+  The free-only rule for the CI reviewer is unchanged.
+- **Privacy is a per-user setting.** Settings gets a "Private mode" switch, "coming soon" until the route
+  exists. Users who turn it on are routed only to models that support private calls; everyone else uses the
+  standard route. The standard route sends structured data only (no free-text notes, a design call recorded
+  in the spec) and its consent text says plainly that the provider may keep or use the data. Consent text
+  names OpenRouter and the model provider, says the coach sees the user as a code, never says "anonymous",
+  and is versioned.
+- **Identity and retention.** The coach sees a static per-profile pseudonym, never name or contact. Clear
+  coach text is removed 30 days after a final state and cascades on profile delete. No user text in GitHub
+  or any tracker (GUARDRAILS, with a test).
+- **Stages.** (1) Local setup during a tick, with copy and paste. (2) Deployed on a server reachable from
+  outside the home, AI calls through the app's OpenRouter key; a public route needs a fresh approval.
+  (3) Users connect their own AI account; feasibility is unverified, so it needs research first.
+- **Who reviews.** The owner does not read these PRs. The agent merges them after green CI and after reading
+  the bot verdict, as for any PR. Invite-only until the mobile app ships; friends then; public later.
+- **Still open, owner:** whether the coach may use paid models and the cap on its key. The owner creates the
+  key when the runner work starts; the agent never handles the value. Nothing in #444 to #450 starts before
+  this entry is merged.
