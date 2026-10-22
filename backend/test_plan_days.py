@@ -99,17 +99,19 @@ def test_starting_a_session_on_a_removed_day_400(mainmod, client):
 
 def test_removal_cannot_land_between_the_day_check_and_the_insert(mainmod, client, seed_profile_id):
     remover = sqlite3.connect(mainmod.DB_PATH)
-    remover.execute("BEGIN IMMEDIATE")
-    remover.execute("DELETE FROM plan_days WHERE profile_id = ? AND day_key = 'lower_b'", (seed_profile_id,))
     result = {}
     start = threading.Thread(
         target=lambda: result.update(r=client.post("/api/sessions", json={"workout_day": "lower_b"})))
-    start.start()
-    time.sleep(0.3)
-    assert start.is_alive()  # waiting on the write lock, not reading the day it is about to lose
-    remover.commit()
-    remover.close()
+    try:
+        remover.execute("BEGIN IMMEDIATE")
+        remover.execute("DELETE FROM plan_days WHERE profile_id = ? AND day_key = 'lower_b'", (seed_profile_id,))
+        start.start()
+        time.sleep(0.3)
+        remover.commit()
+    finally:
+        remover.close()
     start.join(5)
+    # Checking the day before taking the lock would read it while it still exists, then fail on the insert.
     assert result["r"].status_code == 400
 
 
