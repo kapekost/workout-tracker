@@ -316,6 +316,11 @@ only because the owner happened to ask about it, not by anything in this file. H
    duplicate of it. Only re-dispatch clean once you've confirmed there's nothing to recover — this
    is exactly what caught the #131 dead-dispatch (2026-09-08) and the #130 rejected-but-still-ran
    duplicate (2026-09-07) before either cost more than one item's worth of rework.
+   **Delegating a step to a cheaper model.** Only if `AGENTS.local.md` defines a delegate command;
+   without one, never delegate. Delegate a step only when it is purely mechanical and large (about
+   15 or more edits, or 3 or more files). Never delegate auth, deploy, secrets, migrations or
+   workflow permissions. Scope the run to the task's worktree, write the tests first, read the whole
+   diff afterwards, run the verification yourself, and do the step by hand if the delegate fails.
 5. **Gate:** run the task's verification commands; then `superpowers:requesting-code-review` (spec +
    code quality). At a deploy/milestone checkpoint, also run `/security-review`.
    If the change states anything about training science (`recovery.js`, `muscles.js`, `overload.js`,
@@ -367,6 +372,22 @@ only because the owner happened to ask about it, not by anything in this file. H
    Both gates carry the owner's second constraint with them: **efficient, not overengineered.**
    Reuse the existing tokens and CSS classes; a review that comes back recommending a component
    library or a design-system layer for this app has answered the wrong question.
+
+   **Bot and free-model reviews.** One is an extra reviewer, never a merge gate and never a human
+   sign-off. It may approve only a strictly clean, unambiguous review; a skipped review, or a
+   "no findings" from a model that showed no sign of reading the diff, is not an approval.
+   Re-verify its claims against the branch you ship.
+
+   **When the stronger reviewer is unavailable** (credits or tokens ran out), do not merge on a
+   free-model review alone: stop, or queue the work. Delegated agents may keep working on local
+   files only, with no access to labels, the board, merges or deploys. Each delegated run is
+   logged as an unreviewed entry in a per-project catch-up ledger. When the stronger reviewer is
+   back, the next tick reads unreviewed entries first and inspects the real changes. It then plans
+   follow-ups as Issues, or acts at once if urgent (main broken, a deploy blocker, security). Good
+   work goes to a feature branch and PR; bad work is reported, never discarded.
+
+   Local delegation and CI review share one review-model key and one daily free allowance, which
+   is why delegation stays limited to large mechanical steps.
 6. **PR:** if the change is visible to the user, add one `{date, text}` entry in plain language to
    `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. CI fails an app-code PR
    without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body.
@@ -465,7 +486,8 @@ only because the owner happened to ask about it, not by anything in this file. H
    - **What's blocked on them**, if anything, and what it costs to leave it.
 
    Keep the engineering detail (commits, test counts, CI) to a line or two at the end — it's
-   evidence the work is real, not the point of the summary. Issue comments and `STATE.md` are where
+   evidence the work is real, not the point of the summary. Keep every summary and friction entry
+   to one to three short sentences and quote only the decisive command output. Issue comments and `STATE.md` are where
    the full record lives; do not restate them here. If the tick ends with something the owner couldn't already know about without
    checking — a new `intake`/`needs-clarification` question now waiting on them, a hard stop, or
    nothing left to do unattended — call `PushNotification` with a one-line summary. Skip it for routine
