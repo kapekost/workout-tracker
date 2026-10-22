@@ -92,8 +92,8 @@ fi
 # True when HEAD already holds everything the live commit shipped. Ancestry is
 # the fast path. A squash-merge leaves the live SHA (a branch commit) outside
 # main's history, so otherwise merge the live commit into HEAD and require that
-# it adds nothing outside docs/, which is not in the image. A conflict is only
-# tolerated under docs/: a modify/delete conflict keeps the surviving file with
+# it adds nothing outside docs/ and the changelog, which are not code. A conflict
+# is only tolerated there: a modify/delete conflict keeps the surviving file with
 # no markers, so the resulting tree alone would hide it. Needs git 2.38+.
 live_in_head() {
   git -C "$ROOT" merge-base --is-ancestor "$1" HEAD && return 0
@@ -102,9 +102,9 @@ live_in_head() {
   (( rc <= 1 )) || return 1
   merged="${out%%$'\n'*}"
   if (( rc == 1 )); then
-    printf '%s\n' "$out" | sed -n '2,/^$/p' | grep -v '^$' | grep -qv '^docs/' && return 1
+    printf '%s\n' "$out" | sed -n '2,/^$/p' | grep -v '^$' | grep -qvE '^(docs/|frontend/src/lib/changelog\.json$)' && return 1
   fi
-  git -C "$ROOT" diff --quiet "$merged" HEAD -- . ':!docs'
+  git -C "$ROOT" diff --quiet "$merged" HEAD -- . ':!docs' ':!frontend/src/lib/changelog.json'
 }
 
 # HEAD must also contain what is running. Containing main is not enough when the
