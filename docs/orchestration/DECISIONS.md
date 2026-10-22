@@ -667,7 +667,7 @@ open question.
 ## 2026-10-11 — Review models may see private code
 
 Accepted (owner). A reviewer that cannot read the code misses things. Keep `data_collection:
-deny` on every model, never put secrets in a prompt, and keep the repo free of secrets.
+deny` on every model (relaxed for the CI reviewer, 2026-10-22 later), never put secrets in a prompt, and keep the repo free of secrets.
 
 ## 2026-10-11 — Sync rule for shared tooling
 
@@ -740,3 +740,11 @@ check, then merge" (2026-10-11), which left live on a branch SHA that `main` nev
 comes before anything is live, the PR is tested well locally first: run the backend and frontend against a
 throwaway database, drive the changed flow in the browser, and run the full test suites. "Deploy once verified"
 stands: the agent still deploys itself, from `main`, without asking.
+
+## 2026-10-22 (later) — The CI reviewer's model list may prefer private models and fall back to any (#269)
+
+Owner: the CI reviewer works on PRs that hold no personal data, so its list may put private-routing models
+(`data_collection: deny`) first and fall back to any free model, including ones that collect data. This relaxes
+the 2026-10-11 rule that every reviewer model keeps `data_collection: deny`, for the reviewer only; the
+coach is separate (free models, privacy tier, see the coach entries). Tracked as item 7 of #269. The owner
+updates the global rule file; the sync rule applies to kapekost-web.
