@@ -20,8 +20,7 @@
   both checked at 390px and 320px with mocked data only.
   Login page and footer checked in Chrome; nothing behind the login was driven. The owner's standing
   rule: deploy once verified and ready to merge, check the live URL, then merge.
-- **Next action:** #294,
-  #269 (items 3 and 5 only, speculative), then the mobile children #410 to #419 (#201 split 2026-10-21, closed).
+- **Next action:** #269 (items 3 and 5 only, speculative), then the mobile children #410 to #419 (#201 split 2026-10-21, closed). #294 shipped as PR #425 (PLAYBOOK rules, docs only; nothing to deploy).
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
@@ -35,11 +34,6 @@
   v10 change; run `scripts/backup.sh` on the host and take an admin export before that deploy.
 - **Cue copy deny rule.** `frontend/src/data/workoutPlan.js` is denied to agents. Its ~35 cue em dashes and
   the matching `backend/plan_seed.py` wording (#388) need you to allow it or do it.
-- **Close kapekost-web#92.** Superseded by kapekost-web#95; its third model
-  (`inclusionai/ling-3.0-flash-sante:free`) is not listed by OpenRouter.
-- **Create the limited OpenRouter key** for the reviewer. In the OpenRouter dashboard: new key,
-  credit limit set low (or credits that cannot charge extra), free models only, then store it as the
-  repo secret the review workflow reads. The agent never handles the key value.
 - **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
   If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
 

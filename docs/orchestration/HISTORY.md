@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-22: #294 PLAYBOOK delegation, report length, bot review and outage rules (PR #425).**
+- Docs only, so no deploy; live stays `d463748`. Squash-merged as `cb97d83`.
+- The bot review was skipped (both models ended without a JSON verdict), so the diff was read by hand. The review job ran, so the OpenRouter key works.
+- Resolved owner items: the limited OpenRouter key and closing kapekost-web#92 are both done.
+- Open follow-up: the agent-scaffold copy (agent-scaffold#6) needs the cross-repo credential GUARDRAILS names.
+
+---
+
 **Tick 2026-10-21: split #201 (React Native app) into #410 to #419.**
 - #201 was XL with no effort label and a Phase 1 plan that said "Closes #201". Split into ten ready children (effort S or M) via `scripts/create_issue.sh`, all on the board as Todo; #201 commented and closed as split.
 - #413 (auth flow) is flagged for security-ai-reviewer or staff-engineer-reviewer review (2026-10-12 decision); session auth is a cookie, so a backend auth change there needs a fresh approval. #419 (EAS builds) may need the owner's Apple account.
