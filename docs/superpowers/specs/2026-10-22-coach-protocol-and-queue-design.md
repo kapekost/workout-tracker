@@ -180,7 +180,8 @@ component layer. The coach lives on the Plan page and replaces "Update with AI" 
 5. **Question.** Pick-one answers are `Chip` toggles in one wrapped row (44px targets); numbers and
    short text use the existing inputs with a visible Send above the keyboard and a character limit.
    "Skip, let the coach decide" is a low-emphasis text button under the answer.
-6. **Proposal.** A summary card, then at most five changes with "Show all". Each change is a `StatPair`
+6. **Proposal.** A summary card, then every change in the proposal, never a folded list (a proposal is capped at ten
+   changes by the schema, so all of them fit and a harmful change cannot hide). Each change is a `StatPair`
    (exercise name, old value muted, new value) followed by a one-line reason in `muted2`, two lines max.
    A reason needs the user's own data or a short plain-language gloss of the principle; a change with no
    data behind it says "general advice". Reuse the existing preview styling. Buttons: **Apply** and
@@ -235,6 +236,73 @@ owner only.
 - A stale proposal is refused at apply with a plain message, not silently merged.
 - Apply and Not now are stacked full width (see the UI section).
 
+## Decisions from the discovery session (author's synthesis, owner approval pending)
+
+Sources: `docs/superpowers/research/2026-10-22-hosting-and-agent-access-options.md` and
+`2026-10-22-coach-data-retention-advice.md`, challenged by a staff-engineer review and a security review.
+
+**Seam and transport**
+- The seam stays: a small worker contract over HTTP with a scoped token. The same contract serves a
+  server-side worker later.
+- v1 transport is the local network. The agent runs on the same network as the app, so the token is
+  useless off it. A private overlay network is added only if runs get skipped. A public route is a
+  later step and needs a fresh human approval (GUARDRAILS, "making a previously private deployment
+  reachable from the public internet"); record it in DECISIONS.md when decided.
+
+**The coach agent is isolated**
+- The coach runs as its own scheduled job with its own identity and a stripped environment: no GitHub or
+  shell tools, no deploy credentials, no filesystem beyond a scratch directory, no network except the app's
+  worker host. It is never the orchestrator's session. Test it as the CI reviewer was tested: an injected
+  note asking for a command must fail.
+- Output is treated as untrusted too: proposal summary and reasons get length caps, URL, HTML and markdown
+  stripping and a secret-pattern check before the user sees them.
+- The agent's own transcripts and logs hold user data outside the app's retention clock. Persistence is
+  turned off for the coach job, or the transcripts join the retention list.
+
+**Worker token (minimum, not left to the builder)**
+- Stored hashed, shown once, with a recognisable prefix; one documented rotation command with overlap and
+  one revocation command that also ends open leases.
+- Four routes only (claim, context, result, run report), enforced by a dependency that rejects any user
+  session there, and user routes reject the token. A test proves the token gets 401 or 403 everywhere else.
+- A claim returns a lease id. Context, result and run report need the item id and the lease id; context
+  is returned only for a currently claimed item with an unexpired lease. Result posting is idempotent and
+  lease-bound: a late result or a replay is rejected. A retry cap stops a poison item looping.
+- Every call is audited (token id, item id, address) and rate-limited. The owner sees a heartbeat and an
+  alert on silence or on unusual claim volume.
+
+**Consent and the provider**
+- The backend refuses to build context for a profile without a current consent and checks again at claim
+  time, so a withdrawn consent stops queued items. Withdrawal is in v1.
+- Consent text names the AI provider and its retention, and notes are capped in length. **Blocker before
+  friends use the coach:** read and record the terms of the plan the coach session runs on (retention,
+  training use, region), then write the consent text to match.
+
+**Retention (minimum viable)**
+- One rule: coach text (request notes, answers, proposals, feedback notes) is cleared 30 days after a
+  request reaches a final state. Consent records (text version and timestamp) are kept while the account
+  lives. Run records hold no free text. All coach tables cascade from the profile.
+- A daily purge job does the clearing. The container has no scheduler today, so the purge runs as a
+  startup sweep plus a sweep on worker calls (builder's call on the exact trigger).
+- After a restore, re-delete the profiles listed in the deletion notes (a runbook line). An automated
+  deletion log replay is built before the app opens to the public. Hosted copies (backup buckets, replicas)
+  join the retention list when the app leaves the Pi.
+- GitHub or any issue tracker never holds user text. Keep that as a rule in GUARDRAILS with a check.
+
+**Hosting (decided at move time, not now)**
+- Stay on SQLite in one container. When the app leaves the Pi, add continuous replication (Litestream or
+  equivalent) to an EU bucket and test a restore. Choose between a small VPS and a platform host then;
+  expect a few dollars to about six dollars a month, since no host's free tier fits this footprint.
+- Do now, because it is cheap and pays off in any move: make the Dockerfile multi-architecture (it hardcodes
+  an arm64 binary), add a container health check, keep timestamps in UTC, and run a restore drill for v10
+  before friends sign up. Do not add a database abstraction layer or rename `DATABASE_URL`.
+
+## Calls from the discovery session that still need the owner
+
+1. Which plan does the coach session run on, and what are its retention and training-use terms?
+2. Is a separate stripped coach job acceptable as the cost of safety, given the extra setup?
+3. Is a v1 limited to the local network acceptable, given friends get the coach only when they are on the
+   same network as the agent? (It does not limit when they can open the app, only when the coach works.)
+
 ## Left to the builder
 
 Table and column names, lease and retry numbers, expiry periods, the machine credential mechanism
@@ -259,11 +327,6 @@ worker contract really is enough to swap the worker without touching the app.
 
 ## Open questions for the owner
 
-1. How does the agent session reach the app? The app runs on a host that is reachable from the local
-   network, and from outside only for viewing. The worker endpoints either stay on the local network
-   (the agent runs there) or need a protected route out. This decides how the machine credential is
-   protected, so it is the first thing the architecture review checks.
-2. How long are declined proposals, feedback notes and run records kept, and are they deleted when a
-   profile is deleted?
-3. Who besides the owner uses this first? It sets how strict the consent text and handling must be on
-   day one.
+Answered by the discovery session, pending the owner's approval of this document: transport and hosting
+(local network first, host chosen at move time), retention (one 30-day rule), and who uses it (friends,
+when the mobile app ships). The three calls above are what remains.
