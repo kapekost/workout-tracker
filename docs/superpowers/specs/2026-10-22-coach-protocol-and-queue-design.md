@@ -235,6 +235,13 @@ owner only.
   history. Whether they are also removed with a profile follows the retention answer below.
 - A stale proposal is refused at apply with a plain message, not silently merged.
 - Apply and Not now are stacked full width (see the UI section).
+- Identity sent to the coach (owner, 2026-10-22: the coach needs no name or contact details). The default
+  is an opaque id that is new for every item, so two requests from one person cannot be linked by the
+  coach; the backend already sends the plan, recent sessions, bests and notes with each item, so the
+  coach needs no memory of the person. If continuity is wanted later, use a salted per-profile pseudonym
+  that is not the database id and cannot be joined to a profile outside the app. It is still personal data
+  under GDPR, so the consent text says so. Notes can contain names, so they are length-capped with a
+  pre-send warning, and the stripped runner treats them as data.
 
 ## Decisions from the discovery session (author's synthesis, owner approval pending)
 
