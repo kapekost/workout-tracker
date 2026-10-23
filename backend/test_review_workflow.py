@@ -20,18 +20,16 @@ def test_generated_config_denies_data_collection_for_every_listed_model(tmp_path
     out = subprocess.run(["jq", "--rawfile", "m", str(tmp_path / "models.txt"), jq_filter, str(tmp_path / "opencode.json")],
                          capture_output=True, text=True, check=True).stdout
     models = json.loads(out)["provider"]["openrouter"]["models"]
-    assert list(models) == ["stealth/x-alpha", "cohere/north-mini-code:free", "openrouter/free", "any-free"]
-    assert all(m["options"]["provider"]["data_collection"] == "deny" for k, m in models.items() if k != "any-free")
+    ids = ["stealth/x-alpha", "cohere/north-mini-code:free", "openrouter/free"]
+    assert list(models) == ids + ["open/" + i for i in ids]
+    for i in ids:
+        assert models[i]["options"]["provider"]["data_collection"] == "deny"
+        assert models["open/" + i] == {"id": i}
 
 
-def test_the_last_model_is_the_free_router_without_the_privacy_option(tmp_path):
-    jq_filter = re.search(r"jq --rawfile m \"\$RUNNER_TEMP/models.txt\" \\\n\s*'(.*?)' \\\n", TEXT, re.S).group(1)
-    (tmp_path / "models.txt").write_text("openrouter/free\n")
-    out = subprocess.run(["jq", "--rawfile", "m", str(tmp_path / "models.txt"), jq_filter, "-"],
-                         input='{"provider": {"openrouter": {"models": {}}}}', capture_output=True, text=True, check=True).stdout
-    assert json.loads(out)["provider"]["openrouter"]["models"]["any-free"] == {"id": "openrouter/free"}
-    assert 'echo any-free >> "$RUNNER_TEMP/models.txt"' in TEXT
-    assert TEXT.index('echo any-free >> "$RUNNER_TEMP/models.txt"') < TEXT.index('mapfile -t models < "$RUNNER_TEMP/models.txt"')
+def test_the_models_repeat_without_privacy_after_all_private_ones_are_tried():
+    assert TEXT.index("sed 's|^|open/|'") < TEXT.index('mapfile -t models < "$RUNNER_TEMP/models.txt"')
+    assert '>> "$RUNNER_TEMP/models.txt"' in TEXT
 
 
 def test_the_free_router_is_listed_first_and_never_twice():

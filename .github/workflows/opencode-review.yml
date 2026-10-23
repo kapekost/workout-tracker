@@ -205,10 +205,10 @@ jobs:
           # OpenRouter lists any, then the fixed free fallbacks. These are configured with
           # data_collection deny. A model the endpoint no longer lists is dropped, and a run with
           # none left fails here instead of looking like a provider outage. If the endpoint cannot
-          # be read, the list is used as it stands. The last entry retries the free router under
-          # another key, without the privacy option, so a PR still gets a review when no private
-          # model answers. Only owner-authored same-repo PRs reach the models, and the repo holds
-          # no personal data or secrets.
+          # be read, the list is used as it stands. Last come the same models again under an open/
+          # key, without the privacy option, so a PR still gets a review when no private endpoint
+          # answers. Only owner-authored same-repo PRs reach the models, and the repo holds no
+          # personal data or secrets.
           if curl -fsS --retry 2 --max-time 20 https://openrouter.ai/api/v1/models \
                | jq -r '.data[].id' > "$RUNNER_TEMP/listed.txt"; then
             listed=1
@@ -231,12 +231,14 @@ jobs:
             cp "$RUNNER_TEMP/configured.txt" "$RUNNER_TEMP/models.txt"
           fi
           jq --rawfile m "$RUNNER_TEMP/models.txt" \
-            '.provider.openrouter.models = ([$m | split("\n")[] | select(length > 0)
-              | {(.): {options: {provider: {data_collection: "deny"}}}}] | add)
-              | .provider.openrouter.models["any-free"] = {id: "openrouter/free"}' \
+            '[$m | split("\n")[] | select(length > 0)] as $ids
+              | .provider.openrouter.models =
+                ([$ids[] | {(.): {options: {provider: {data_collection: "deny"}}}}] | add)
+                + ([$ids[] | {("open/" + .): {id: .}}] | add)' \
             opencode.json > "$RUNNER_TEMP/opencode.json"
           mv "$RUNNER_TEMP/opencode.json" opencode.json
-          echo any-free >> "$RUNNER_TEMP/models.txt"
+          sed 's|^|open/|' "$RUNNER_TEMP/models.txt" > "$RUNNER_TEMP/open-models.txt"
+          cat "$RUNNER_TEMP/open-models.txt" >> "$RUNNER_TEMP/models.txt"
           # The model's bash denies any command with a / in it, so it cannot `git show` these
           # itself. Copies from the default branch, not the PR's (renamed so opencode does not
           # load AGENTS.md as instructions). Missing files just leave the copy empty.
