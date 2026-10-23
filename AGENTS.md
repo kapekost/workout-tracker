@@ -471,10 +471,10 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-23. Live is `1bc08a8`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
+_Last updated: 2026-10-23. Live is `2ce2216`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
 
-**Running now:** commit `1bc08a8` (the plan-day endpoints from #430 and the React 19.3.1 bump), `/api/health` `{"status":"ok","version":"1bc08a8"}` (verified at deploy, 2026-10-23). The live login page loads with that stamp and no console errors. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the app was driven in a browser against a throwaway database (login, start, log a set, form cues, finish, History, Progress); the Progress trend chart needs two sessions of one exercise and was not exercised. The deploy used `DEPLOY_ALLOW_STALE=1` once, because the live build was a branch build of #430 and its test file conflicts with the squashed copy on `main`.
-**Schema v9** (`sets.client_id`, #339), migrated at the 2026-10-22 deploy (`d463748`) from a backup taken minutes before (local and off-site `ok`). No restore drill or admin export snapshot was run for it. `1bc08a8` changed no schema. `main` may move on with commits that change no app
+**Running now:** commit `2ce2216`, `/api/health` `{"status":"ok","version":"2ce2216"}` (verified at deploy, 2026-10-23). It carries #389 (Personal Bests top 3, schema v10) and the review-bot changes. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the feature was driven against a throwaway server with four profiles.
+**Schema v10** (`profiles.share_bests`, #389), migrated at the 2026-10-23 deploy from a host backup taken minutes before (local and off-site `ok`). No admin export snapshot or restore drill was run for it. Schema v9 (`sets.client_id`, #339) came in at the 2026-10-22 deploy (`d463748`). `main` may move on with commits that change no app
 behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 
 **The login gate is ON** (#86). Verified live on 2026-10-03: an anonymous caller gets `401`

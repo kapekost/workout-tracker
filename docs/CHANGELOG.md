@@ -3,7 +3,7 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
-## 2026-10-23 — Personal Bests: top 3 from other members (`#389`; merged, not yet deployed)
+## 2026-10-23 — Personal Bests: top 3 from other members (`#389`; deployed as `2ce2216`)
 
 - **Schema v10**: `profiles.share_bests INTEGER NOT NULL DEFAULT 0`. Nothing is shared until a member ticks the box. This deploy needs the host backup and an admin export first.
 - `PUT /api/personal-bests/sharing` sets the caller's flag. `GET /api/personal-bests/top` returns `{sharing, top}`: for each exercise the caller has a best in, the three highest est. 1RMs among other opted-in members (`best_single`, so a real single is itself), only when at least 3 members have one. No ids, names or dates. Both answer `no-store`.
