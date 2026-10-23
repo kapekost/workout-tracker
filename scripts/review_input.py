@@ -8,11 +8,14 @@ line says whether it is the whole PR or the changes since the last review), pr.f
 whole PR, for context), pr.stat and pr.omitted.txt. <coverage-file> is written outside the
 checkout.
 
-Binary files and lockfiles are left out. The rest is ordered so shipped and security-relevant
-code comes first and tests and docs last, then filled up to a byte budget. A file that does not
-fit is listed as omitted and the model may read it by path. Coverage is stated here, not by the
-model, so it cannot be overstated. The coverage file names only the first few omitted paths so
-the poster can always read it whole; pr.omitted.txt has them all.
+The frontend lockfile, edited in place, is left out. Binary files are not shown but are counted and listed as omitted, so a
+text file that git takes for binary (a NUL byte) cannot slip by unreviewed. Git reads diff
+attributes from the base branch, never from the PR, so a PR cannot mark its own source files
+binary to hide them from the review. The rest is ordered so shipped and security-relevant code
+comes first and tests and docs last, then filled up to a byte budget. A file that does not fit is
+listed as omitted and the model may read it by path. Coverage is stated here, not by the model,
+so it cannot be overstated. The coverage file names only the first few omitted paths so the
+poster can always read it whole; pr.omitted.txt has them all.
 """
 import json
 import os
@@ -23,7 +26,9 @@ from pathlib import Path
 
 BUDGET = 60_000
 COVERAGE_NAMES = 20
-LOCKFILES = ("package-lock.json",)
+DIFF_FLAGS = ("--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/")
+COVERAGE_NAME_CHARS = 200
+LOCKFILES = ("frontend/package-lock.json",)
 SHA = re.compile(r"[0-9a-f]{40}")
 TEST_FILE = re.compile(
     r"(^|/)(test_[^/]*\.py|[^/]*_test\.py|[^/]*\.(test|spec)\.[jt]sx?|tests?/|__tests__/|e2e/)")
@@ -44,8 +49,9 @@ def classify(path):
     return 4
 
 
-def is_excluded(path, is_binary):
-    return is_binary or os.path.basename(path) in LOCKFILES
+def is_lockfile(path, chunk):
+    """Only the lockfile itself, edited in place. A file renamed onto a lockfile path is code."""
+    return path in LOCKFILES and not re.search(r"(?m)^rename from ", chunk)
 
 
 def unquote(name):
@@ -102,15 +108,16 @@ def pick(chunks, budget):
 
 def ordered(text):
     """The text files of a diff in read order (git's order within a rank), and none of the rest."""
-    files = [(p, c) for p, c in split_diff(text) if not is_excluded(p, is_binary(c))]
+    files = [(p, c) for p, c in split_diff(text) if not is_lockfile(p, c) and not is_binary(c)]
     return sorted(files, key=lambda pc: classify(pc[0]))
 
 
 def select(text, budget):
-    """(shown, total, omitted paths) for a diff."""
+    """(shown, total, omitted paths) for a diff. A binary file is never shown, so it is omitted."""
     files = ordered(text)
     shown, omitted = pick(files, budget)
-    return shown, len(files), omitted
+    binaries = [p for p, c in split_diff(text) if not is_lockfile(p, c) and is_binary(c)]
+    return shown, len(files) + len(binaries), omitted + binaries
 
 
 def delta_diff(last, head, full_len, run):
@@ -121,7 +128,7 @@ def delta_diff(last, head, full_len, run):
         return None
     if run(["merge-base", "--is-ancestor", last, head]) is None:
         return None
-    delta = run(["diff", "--no-color", last, head])
+    delta = run(["diff", *DIFF_FLAGS, last, head, "--"])
     if delta is None or not delta.strip() or len(delta) >= full_len:
         return None
     return delta
@@ -129,11 +136,11 @@ def delta_diff(last, head, full_len, run):
 
 def build_input(repo, base, last, out_dir, coverage_path, budget=BUDGET):
     def run(args):
-        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
+        r = subprocess.run(["git", "-C", str(repo), "--attr-source", base, *args], capture_output=True, text=True,
                            encoding="utf-8", errors="replace")
         return r.stdout if r.returncode == 0 else None
 
-    full = run(["diff", "--no-color", f"{base}...HEAD"])
+    full = run(["diff", *DIFF_FLAGS, f"{base}...HEAD", "--"])
     head = run(["rev-parse", "HEAD"])
     if full is None or head is None:
         sys.exit(f"review_input: cannot diff {base}...HEAD in {repo}")
@@ -153,10 +160,13 @@ def build_input(repo, base, last, out_dir, coverage_path, budget=BUDGET):
     out.mkdir(parents=True, exist_ok=True)
     (out / "pr.diff").write_text(title + "\n" + "".join(c for _, c in shown), encoding="utf-8")
     (out / "pr.full.diff").write_text("".join(c for _, c in ordered(full)), encoding="utf-8")
-    (out / "pr.stat").write_text(run(["diff", "--stat=200", *rng]) or "", encoding="utf-8")
+    stat = run(["diff", "--stat=200", *rng, "--"])
+    if stat is None:
+        sys.exit(f"review_input: cannot stat {base}...HEAD in {repo}")
+    (out / "pr.stat").write_text(stat, encoding="utf-8")
     (out / "pr.omitted.txt").write_text("".join(p + "\n" for p in omitted), encoding="utf-8")
     Path(coverage_path).write_text(json.dumps(
-        {"mode": mode, "since": since, "shown": len(shown), "total": total, "omitted": omitted[:COVERAGE_NAMES]}),
+        {"mode": mode, "since": since, "shown": len(shown), "total": total, "omitted": [o[:COVERAGE_NAME_CHARS] for o in omitted[:COVERAGE_NAMES]]}),
         encoding="utf-8")
 
 

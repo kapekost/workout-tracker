@@ -175,28 +175,48 @@ def count(value):
     return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_FILES
 
 
+MAX_COVERAGE_BYTES = 100_000
+UNKNOWN_COVERAGE = {"unknown": True}
+
+
 def read_coverage(review_path):
-    """What scripts/review_input.py recorded next to the review file, or None when it is missing
-    or not the expected shape. It comes from an artifact, so every value is checked."""
+    """What scripts/review_input.py recorded next to the review file. None when there is no file.
+    UNKNOWN_COVERAGE when there is one that is too large or not the expected shape: it comes from
+    an artifact, so every value is checked, and a record that cannot be trusted never lets a
+    review approve."""
     try:
         with open(os.path.join(os.path.dirname(review_path), "coverage.json"), encoding="utf-8") as fh:
-            data = json.loads(fh.read(100_000))
+            raw = fh.read(MAX_COVERAGE_BYTES + 1)
+    except FileNotFoundError:
+        return None
     except (OSError, ValueError):
-        return None
+        return UNKNOWN_COVERAGE
+    try:
+        data = json.loads(raw) if len(raw) <= MAX_COVERAGE_BYTES else None
+    except ValueError:
+        data = None
     if not isinstance(data, dict) or data.get("mode") not in ("full", "incremental"):
-        return None
+        return UNKNOWN_COVERAGE
     shown, total, omitted = data.get("shown"), data.get("total"), data.get("omitted")
     if not (count(shown) and count(total) and shown <= total):
-        return None
-    if not (isinstance(omitted, list) and all(isinstance(o, str) for o in omitted)):
-        return None
+        return UNKNOWN_COVERAGE
+    if not (isinstance(omitted, list) and all(isinstance(o, str) for o in omitted)
+            and len(omitted) <= total - shown):
+        return UNKNOWN_COVERAGE
     since = data.get("since")
     return {"incremental": data["mode"] == "incremental",
             "since": since if isinstance(since, str) and re.fullmatch(r"[0-9a-f]{7}", since) else "",
             "shown": shown, "total": total, "omitted": omitted}
 
 
+def is_partial(cov):
+    """Whether the reviewer saw less than the whole change, or nobody can say."""
+    return bool(cov) and (cov.get("unknown", False) or cov["shown"] < cov["total"] or cov["total"] == 0)
+
+
 def coverage_lines(cov, repo):
+    if cov.get("unknown"):
+        return ["", "**Coverage** unknown: the coverage record was missing its expected shape."]
     line = f"**Coverage** reviewed {cov['shown']} of {cov['total']} changed files"
     if cov["incremental"] and cov["since"]:
         line += f" since {cov['since']}"
@@ -264,8 +284,7 @@ def build(text, patches, repo, coverage=None):
     limits = data.get("limits")
     clean_limits = ([sanitize(n, repo, MAX_BODY) for n in limits[:5] if isinstance(n, str)]
                     if isinstance(limits, list) else [])
-    partial = bool(coverage) and coverage["shown"] < coverage["total"]
-    event = decide_event(counts, kind, bool(notes) or bool(limits) or partial)
+    event = decide_event(counts, kind, bool(notes) or bool(limits) or is_partial(coverage))
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
     summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
