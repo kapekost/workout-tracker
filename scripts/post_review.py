@@ -180,15 +180,13 @@ UNKNOWN_COVERAGE = {"unknown": True}
 
 
 def read_coverage(review_path):
-    """What scripts/review_input.py recorded next to the review file. None when there is no file.
-    UNKNOWN_COVERAGE when there is one that is too large or not the expected shape: it comes from
-    an artifact, so every value is checked, and a record that cannot be trusted never lets a
-    review approve."""
+    """What scripts/review_input.py recorded next to the review file. The workflow always runs
+    it, so a file that is missing, oversized, malformed or inconsistent is UNKNOWN_COVERAGE:
+    it comes from an artifact, so every value is checked, and a record that cannot be trusted
+    never lets a review approve."""
     try:
         with open(os.path.join(os.path.dirname(review_path), "coverage.json"), encoding="utf-8") as fh:
             raw = fh.read(MAX_COVERAGE_BYTES + 1)
-    except FileNotFoundError:
-        return None
     except (OSError, ValueError):
         return UNKNOWN_COVERAGE
     try:
@@ -216,7 +214,7 @@ def is_partial(cov):
 
 def coverage_lines(cov, repo):
     if cov.get("unknown"):
-        return ["", "**Coverage** unknown: the coverage record was missing its expected shape."]
+        return ["", "**Coverage** unknown: the coverage record was missing or unreadable."]
     line = f"**Coverage** reviewed {cov['shown']} of {cov['total']} changed files"
     if cov["incremental"] and cov["since"]:
         line += f" since {cov['since']}"
@@ -495,7 +493,8 @@ def main(argv):
     patches = pr_patches(repo, pr) if structured else {}
     reviews = pr_reviews(repo, pr) if structured else None
     round_n = review_round(reviews)
-    built = build(text, patches, repo, read_coverage(path))
+    coverage = read_coverage(path)
+    built = build(text, patches, repo, coverage)
     body = built.body
     event = built.event
     if built.kind == "plain":
@@ -509,6 +508,8 @@ def main(argv):
         body = with_note(body, f"_Posted as COMMENT: the bot has already requested changes {BLOCK_CAP} times "
                                "on this PR. The findings are unresolved; no further changes-requested review is posted._")
     if not built.skipped:
+        if is_partial(coverage):
+            body += "\n\n<!-- coverage:partial -->"
         body += f"\n\n<!-- review-round:{round_n} -->"
     r, event = post_review(repo, pr, head_sha, body, built.comments, event)
     print(f"posted review as {event} (round {round_n})" if r.returncode == 0 else r.stderr,

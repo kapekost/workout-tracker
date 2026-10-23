@@ -451,6 +451,7 @@ def run_main(tmp_path, monkeypatch, text, reviews=None, responses=None, model=""
     call is also kept on run_main.calls as (args, payload)."""
     path = tmp_path / "review.txt"
     path.write_text(text, encoding="utf-8")
+    (tmp_path / "coverage.json").write_text(json.dumps(coverage()))
     calls = []
     replies = list(responses or [])
 
@@ -645,6 +646,7 @@ def test_gh_error_text_cannot_start_a_workflow_command():
 def test_dismissal_failure_does_not_fail_the_job(tmp_path, monkeypatch, capsys):
     path = tmp_path / "review.txt"
     path.write_text(review([]), encoding="utf-8")
+    (tmp_path / "coverage.json").write_text(json.dumps(coverage()))
     monkeypatch.setattr(pr, "gh", lambda args, payload=None: Proc(1, stderr="HTTP 403\n::stop-commands::x")
                         if args[0].endswith("/dismissals") else Proc())
     monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
@@ -835,8 +837,13 @@ def test_a_since_that_is_not_a_short_sha_is_dropped(tmp_path):
     assert "evil.example" not in r.body and "since" not in r.body.split("**Coverage**")[1]
 
 
-def test_a_missing_coverage_file_is_none(tmp_path):
-    assert pr.read_coverage(str(tmp_path / "review.txt")) is None
+def test_a_missing_coverage_file_never_approves(tmp_path):
+    assert pr.read_coverage(str(tmp_path / "review.txt")) == pr.UNKNOWN_COVERAGE
+    r = pr.build(review([]), PATCHES, REPO, pr.read_coverage(str(tmp_path / "review.txt")))
+    assert r.event == "COMMENT" and "**Coverage** unknown" in r.body
+
+
+def test_no_coverage_argument_still_approves_a_clean_review():
     r = pr.build(review([]), PATCHES, REPO, None)
     assert r.event == "APPROVE" and "Coverage" not in r.body
 
@@ -877,3 +884,17 @@ def test_a_skipped_notice_prints_no_coverage(tmp_path):
     text = json.dumps({"skipped": True, "summary": "No model.", "findings": []})
     r = pr.build(text, {}, REPO, read_cov(coverage(shown=0), tmp_path))
     assert r.skipped and "Coverage" not in r.body
+
+
+def test_a_partial_review_is_marked_so_the_next_run_reviews_the_whole_pr(tmp_path, monkeypatch):
+    run_main(tmp_path, monkeypatch, review([]))
+    assert "coverage:partial" not in run_main.calls[-1][1]["body"]
+    (tmp_path / "coverage.json").write_text(json.dumps(coverage(shown=1)))
+    path = tmp_path / "review.txt"
+    monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
+    monkeypatch.setattr(pr, "pr_reviews", lambda repo, n: [])
+    posted = []
+    monkeypatch.setattr(pr, "gh", lambda args, payload=None: posted.append(payload) or Proc())
+    assert pr.main(["post_review.py", "1", REPO, "a" * 40, str(path)]) == 0
+    body = posted[-1]["body"]
+    assert body.rstrip().endswith("<!-- review-round:1 -->") and "<!-- coverage:partial -->" in body
