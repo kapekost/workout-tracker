@@ -27,7 +27,7 @@ TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # The head of the migration chain, named so the tests that assert "migrated all
 # the way" have one thing to track. _migrate's last block is what sets it.
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 # #141: a member's merge-mode import has no admin gate on size the way replace
 # always effectively did (only an admin could reach /api/import at all before
 # #87). Deliberately not matched to /api/events's 100-per-batch cap: that cap
@@ -317,6 +317,12 @@ def _migrate(conn):
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sets_client_id "
                      "ON sets(profile_id, client_id) WHERE client_id IS NOT NULL")
         conn.execute("PRAGMA user_version = 9")
+    # --- v9 -> v10: profiles.share_bests, the opt-in for the personal-best comparison ---
+    # Off for every existing profile, so the migration exposes nothing.
+    if v < 10:
+        if not _column_exists(conn, "profiles", "share_bests"):
+            conn.execute("ALTER TABLE profiles ADD COLUMN share_bests INTEGER NOT NULL DEFAULT 0")
+        conn.execute("PRAGMA user_version = 10")
 
 def init():
     with db() as conn:

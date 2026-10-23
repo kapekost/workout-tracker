@@ -63,7 +63,7 @@ def test_a_v8_database_gains_the_column_and_index_and_keeps_its_rows(client, mai
     mainmod.init()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
         assert "client_id" in {r[1] for r in conn.execute("PRAGMA table_info(sets)")}
         assert conn.execute("SELECT COUNT(*) FROM sets").fetchone()[0] == 1
     assert _set(client, sid).status_code == 200
