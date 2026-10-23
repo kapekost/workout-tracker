@@ -31,20 +31,23 @@ type Deps = {
   clearSession(): Promise<void>;
 };
 
+const TRY_AGAIN = 'Something went wrong. Check your connection and try again.';
+
 export function createAuthStore({ api, clearSession }: Deps) {
   return createStore<AuthState>()((set) => ({
     status: 'loading',
     profile: null,
     error: null,
 
-    // Asks the server who the stored session belongs to. If it cannot answer, the user sees Login
-    // with the reason; the stored session is kept, so the next launch tries again.
+    // Asks the server who the stored session belongs to. A 401 means the session is over: plain
+    // Login. Any other failure (server error, no network, an unreadable store) shows Login with a
+    // reason, and the stored session is kept, so the next launch tries again.
     async restore() {
       try {
         set({ status: 'signedIn', profile: await api.get<Profile>('/auth/me'), error: null });
       } catch (err) {
-        const unreachable = !(err instanceof ApiError);
-        set({ status: 'signedOut', profile: null, error: unreachable ? 'Cannot reach the server' : null });
+        const over = err instanceof ApiError && err.status === 401;
+        set({ status: 'signedOut', profile: null, error: over ? null : TRY_AGAIN });
       }
     },
 
@@ -54,21 +57,24 @@ export function createAuthStore({ api, clearSession }: Deps) {
         set({ status: 'signedIn', profile: await api.post<Profile>('/auth/login', { username, password }) });
       } catch (err) {
         // The auth endpoints answer with deliberately generic messages, shown as they are.
-        const message = err instanceof ApiError ? err.detail ?? 'Could not log in' : 'Cannot reach the server';
-        set({ error: message });
+        set({ error: err instanceof ApiError ? err.detail ?? 'Could not log in' : TRY_AGAIN });
       }
     },
 
-    // The credential is dropped here even when the request fails, so a dead network cannot leave
-    // someone logged in on a device they meant to log out of.
+    // The local credential is dropped even when the request fails, so a dead network cannot leave
+    // someone logged in on a device they meant to log out of. The server session is then only ended
+    // if the request got through; otherwise it expires on its own.
     async logout() {
       try {
         await api.post('/auth/logout');
       } catch {
         // offline: the local logout below still happens
       }
-      await clearSession();
-      set({ status: 'signedOut', profile: null, error: null });
+      try {
+        await clearSession();
+      } finally {
+        set({ status: 'signedOut', profile: null, error: null });
+      }
     },
 
     signedOut() {

@@ -25,6 +25,8 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
+    // The keyboard's go key gets here too, past the button's disabled state.
+    if (submitting || !username.trim() || !password) return;
     setSubmitting(true);
     try {
       await login(username.trim(), password);

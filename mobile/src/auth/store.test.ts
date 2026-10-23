@@ -51,8 +51,19 @@ test('restore without a network shows Login with the reason and does not clear t
   await store.getState().restore();
 
   assert.equal(store.getState().status, 'signedOut');
-  assert.equal(store.getState().error, 'Cannot reach the server');
+  assert.match(store.getState().error ?? '', /Check your connection/);
   assert.equal(cleared(), 0);
+});
+
+test('restore on a server error or rate limit shows Login with the reason and keeps the session', async () => {
+  for (const status of [429, 500, 503]) {
+    const { store, cleared } = setup({ get: async () => Promise.reject(new ApiError('x', status, null)) });
+    await store.getState().restore();
+
+    assert.equal(store.getState().status, 'signedOut');
+    assert.match(store.getState().error ?? '', /Check your connection/);
+    assert.equal(cleared(), 0);
+  }
 });
 
 test('login posts the credentials and signs in', async () => {
@@ -83,7 +94,7 @@ test('a login with no readable message says so, and a dead network says that', a
 
   const offline = setup({ post: async () => Promise.reject(new TypeError('Network request failed')) });
   await offline.store.getState().login('a', 'b');
-  assert.equal(offline.store.getState().error, 'Cannot reach the server');
+  assert.match(offline.store.getState().error ?? '', /Check your connection/);
 });
 
 test('a new login attempt clears the previous error', async () => {
@@ -119,6 +130,17 @@ test('logout still clears the credential and signs out when the request fails', 
   await store.getState().logout();
 
   assert.equal(cleared(), 1);
+  assert.equal(store.getState().status, 'signedOut');
+});
+
+test('logout still signs out when clearing the stored credential throws', async () => {
+  const store = createAuthStore({
+    api: { get: (async () => me) as never, post: (async () => undefined) as never },
+    clearSession: async () => Promise.reject(new Error('keychain unavailable')),
+  });
+  await store.getState().restore();
+  await assert.rejects(store.getState().logout());
+
   assert.equal(store.getState().status, 'signedOut');
 });
 
