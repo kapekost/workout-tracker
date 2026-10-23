@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 51 -->
+<!-- last-reviewed-count: 56 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -59,3 +59,8 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-23: A PR check stayed "pending" after its run had succeeded. Confirm with the run itself (gh run view) before treating a long pending as a hang.
 - [unsure] 2026-10-23: orch-checkpoint.sh has no stage for a docs-only merge that needs no deploy, so such a tick is recorded as deployed. A 'skipped' stage would read true.
 - [local] 2026-10-23: Both automated reviewers gave no verdict on #474 (Codex usage limit, OpenCode free-model daily limit), so a docs PR merged on green CI plus the tick's own review. gh pr checks --watch can pass the 2 minute tool limit; run it in the background.
+- [local] 2026-10-23: The task names security-ai-reviewer but a tick subagent has no tool to launch it, so that gate cannot be run from the tick.
+- [local] 2026-10-23: The review workflow skips draft PRs, so the bot review only completes after gh pr ready, adding about 4 minutes before merge.
+- [local] 2026-10-23: timeout is not installed on macOS, so watching checks needs sleep and poll loops inside the 2-minute command limit.
+- [unsure] 2026-10-23: deploy.sh reads AGENTS.local.md from its own checkout and copying it into a worktree is denied, so a deploy needed a ff-only merge in the shared checkout.
+- [local] 2026-10-23: The harness has no wait-for-background-task primitive, so slow deploys need several Monitor poll loops.
