@@ -12,7 +12,7 @@ vi.mock('../lib/planContext', () => ({
 }))
 
 vi.mock('../api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 import { api } from '../api'
 
@@ -297,5 +297,82 @@ describe('PersonalBests when the read fails', () => {
     api.get.mockRejectedValue(new Error('offline'))
     renderPage()
     expect(await screen.findByText(/Nothing was lost/i)).toBeInTheDocument()
+  })
+})
+
+describe('PersonalBests top-3 comparison', () => {
+  const bench = { id: 1, exercise_id: 'bench_press', exercise_name: 'Bench Press',
+    weight_kg: 100, reps: 1, single_kg: 100, single_estimated: false, achieved_year: 2023, achieved_note: null }
+
+  // Route by path: the page makes two GETs and a single mockResolvedValue
+  // would hand the bests array to both.
+  function mockGets(bests, top) {
+    api.get.mockImplementation(async path => {
+      if (path === '/personal-bests/top') {
+        if (top instanceof Error) throw top
+        return top
+      }
+      return bests
+    })
+  }
+
+  it('shows the top-3 line under a best', async () => {
+    mockGets([bench], { sharing: false, top: { bench_press: [120, 110, 105] } })
+    renderPage()
+    expect(await screen.findByText('Top 3 here: 120, 110, 105 kg est. 1RM')).toBeInTheDocument()
+  })
+
+  it('hides the line when the exercise is absent', async () => {
+    mockGets([bench], { sharing: false, top: {} })
+    renderPage()
+    await screen.findByText('Bench Press')
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/personal-bests/top'))
+    expect(screen.queryByText(/Top 3 here/)).not.toBeInTheDocument()
+  })
+
+  it('shows one line per exercise when it has several bests', async () => {
+    mockGets([bench, { ...bench, id: 2, weight_kg: 90, single_kg: 90, achieved_year: 2020 }],
+      { sharing: false, top: { bench_press: [120, 110, 105] } })
+    renderPage()
+    await screen.findByText(/Top 3 here/)
+    expect(screen.getAllByText(/Top 3 here/)).toHaveLength(1)
+  })
+
+  it('reflects the saved state in the toggle and sends PUT when it changes', async () => {
+    mockGets([bench], { sharing: false, top: {} })
+    api.put.mockResolvedValue({ sharing: true, top: {} })
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: /Include my bests in others' top 3/ })
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/personal-bests/top'))
+    expect(box).not.toBeChecked()
+    fireEvent.click(box)
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/personal-bests/sharing', { sharing: true }))
+    expect(box).toBeChecked()
+  })
+
+  it('starts checked when the member already shares', async () => {
+    mockGets([bench], { sharing: true, top: {} })
+    renderPage()
+    const box = await screen.findByRole('checkbox')
+    await waitFor(() => expect(box).toBeChecked())
+  })
+
+  it('reverts the toggle and shows an error when the save fails', async () => {
+    mockGets([bench], { sharing: false, top: {} })
+    api.put.mockRejectedValue(new Error('500'))
+    renderPage()
+    const box = await screen.findByRole('checkbox')
+    fireEvent.click(box)
+    expect(await screen.findByText('Failed to update sharing')).toBeInTheDocument()
+    expect(box).not.toBeChecked()
+  })
+
+  it('leaves the page usable when the top load fails', async () => {
+    mockGets([bench], new Error('500'))
+    renderPage()
+    expect(await screen.findByText('Bench Press')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox')).not.toBeChecked()
+    expect(screen.queryByText(/Top 3 here/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Failed/)).not.toBeInTheDocument()
   })
 })
