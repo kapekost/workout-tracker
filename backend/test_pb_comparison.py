@@ -44,3 +44,52 @@ def test_export_round_trip_keeps_sharing_flag(client, mainmod, seed_profile_id):
     assert r.status_code == 200
     with mainmod.db() as conn:
         assert conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()[0] == 1
+
+
+from fastapi.testclient import TestClient
+
+
+def _member(mainmod, username, sharing=False):
+    """A logged-in member with their own profile and session cookie."""
+    with mainmod.db() as conn:
+        pid = conn.execute("INSERT INTO profiles (username, role, share_bests) VALUES (?, 'member', ?)",
+                           (username, int(sharing))).lastrowid
+        cookie = mainmod.issue_session(conn, pid)
+        conn.commit()
+    c = TestClient(mainmod.app)
+    c.cookies.set("wt_session", cookie)
+    return c, pid
+
+
+def _sharing_of(mainmod, pid):
+    with mainmod.db() as conn:
+        return conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (pid,)).fetchone()[0]
+
+
+def test_sharing_defaults_off(client):
+    assert client.put("/api/personal-bests/sharing", json={"sharing": False}).json() == {"sharing": False}
+
+
+def test_sharing_toggle_persists(client, mainmod, seed_profile_id):
+    assert client.put("/api/personal-bests/sharing", json={"sharing": True}).json() == {"sharing": True}
+    assert _sharing_of(mainmod, seed_profile_id) == 1
+    assert client.put("/api/personal-bests/sharing", json={"sharing": False}).json() == {"sharing": False}
+    assert _sharing_of(mainmod, seed_profile_id) == 0
+
+
+def test_sharing_rejects_non_bool(client):
+    for bad in ("yes", 1, None):
+        assert client.put("/api/personal-bests/sharing", json={"sharing": bad}).status_code == 422
+    assert client.put("/api/personal-bests/sharing", json={}).status_code == 422
+    assert client.put("/api/personal-bests/sharing", json={"sharing": True, "profile_id": 1}).status_code == 422
+
+
+def test_sharing_requires_session(anon_client):
+    assert anon_client.put("/api/personal-bests/sharing", json={"sharing": True}).status_code == 401
+
+
+def test_toggle_changes_only_the_callers_profile(client, mainmod, seed_profile_id):
+    _, other = _member(mainmod, "other")
+    client.put("/api/personal-bests/sharing", json={"sharing": True})
+    assert _sharing_of(mainmod, seed_profile_id) == 1
+    assert _sharing_of(mainmod, other) == 0

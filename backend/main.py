@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Response, Request, Depends, BackgroundTasks, Query
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError, field_validator, model_validator
 from typing import Annotated, Literal, Optional
 from contextlib import contextmanager
 import re, sqlite3, logging, os, json, glob, secrets, hashlib, time, math, threading, urllib.request, urllib.error
@@ -1558,6 +1558,17 @@ def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_pr
         conn.commit()
         row = conn.execute("SELECT * FROM personal_bests WHERE id = ?", (cur.lastrowid,)).fetchone()
         return _pb_with_single(row)
+
+class SharingIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sharing: StrictBool
+
+@app.put("/api/personal-bests/sharing")
+def set_bests_sharing(body: SharingIn, profile_id: int = Depends(acting_profile_id)):
+    with db() as conn:
+        conn.execute("UPDATE profiles SET share_bests = ? WHERE id = ?", (int(body.sharing), profile_id))
+        conn.commit()
+    return {"sharing": body.sharing}
 
 @app.get("/api/personal-bests")
 def list_personal_bests(profile_id: int = Depends(acting_profile_id)):

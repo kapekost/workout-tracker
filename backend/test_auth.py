@@ -497,6 +497,7 @@ GATED = [
     ("POST",   "/api/personal-bests", {"exercise_id": "bench_press", "exercise_name": "Bench Press",
                                        "weight_kg": 100, "reps": 3, "achieved_year": 2024}),
     ("GET",    "/api/personal-bests", None),
+    ("PUT",    "/api/personal-bests/sharing", {"sharing": True}),
     ("DELETE", "/api/personal-bests/{pb_id}", None),
     ("GET",    "/api/progress/{exercise_id}", None),
     ("GET",    "/api/progress", None),
