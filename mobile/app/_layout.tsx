@@ -1,21 +1,17 @@
-import { useFonts } from 'expo-font';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
+import { authStore, useAuth } from '@/src/auth';
+import { routeGroup } from '@/src/auth/guard';
 import { colors } from '@/src/theme/tokens';
 
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
-
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  anchor: '(tabs)',
-};
 
 const queryClient = new QueryClient();
 
@@ -33,39 +29,32 @@ const navTheme = {
   },
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Held until the stored session has been checked, so Login never flashes for a logged-in user.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+  const group = useAuth((s) => routeGroup(s.status));
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    authStore.getState().restore();
+  }, []);
 
-  if (!loaded) {
-    return null;
-  }
+  useEffect(() => {
+    if (group !== 'loading') SplashScreen.hideAsync();
+  }, [group]);
 
-  return <RootLayoutNav />;
-}
+  if (group === 'loading') return null;
 
-function RootLayoutNav() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={navTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={group === 'app'}>
+            <Stack.Screen name="(app)" />
+          </Stack.Protected>
+          <Stack.Protected guard={group === 'auth'}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
         </Stack>
       </ThemeProvider>
     </QueryClientProvider>
