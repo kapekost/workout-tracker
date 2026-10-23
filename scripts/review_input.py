@@ -8,7 +8,7 @@ line says whether it is the whole PR or the changes since the last review), pr.f
 whole PR, for context), pr.stat and pr.omitted.txt. <coverage-file> is written outside the
 checkout.
 
-Lockfiles are left out. Binary files are not shown but are counted and listed as omitted, so a
+The frontend lockfile, edited in place, is left out. Binary files are not shown but are counted and listed as omitted, so a
 text file that git takes for binary (a NUL byte) cannot slip by unreviewed. Git reads diff
 attributes from the base branch, never from the PR, so a PR cannot mark its own source files
 binary to hide them from the review. The rest is ordered so shipped and security-relevant code
@@ -26,9 +26,9 @@ from pathlib import Path
 
 BUDGET = 60_000
 COVERAGE_NAMES = 20
-DIFF_FLAGS = ("--no-color", "--no-ext-diff", "--no-textconv")
+DIFF_FLAGS = ("--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/")
 COVERAGE_NAME_CHARS = 200
-LOCKFILES = ("package-lock.json",)
+LOCKFILES = ("frontend/package-lock.json",)
 SHA = re.compile(r"[0-9a-f]{40}")
 TEST_FILE = re.compile(
     r"(^|/)(test_[^/]*\.py|[^/]*_test\.py|[^/]*\.(test|spec)\.[jt]sx?|tests?/|__tests__/|e2e/)")
@@ -49,8 +49,9 @@ def classify(path):
     return 4
 
 
-def is_lockfile(path):
-    return os.path.basename(path) in LOCKFILES
+def is_lockfile(path, chunk):
+    """Only the lockfile itself, edited in place. A file renamed onto a lockfile path is code."""
+    return path in LOCKFILES and not re.search(r"(?m)^rename from ", chunk)
 
 
 def unquote(name):
@@ -107,7 +108,7 @@ def pick(chunks, budget):
 
 def ordered(text):
     """The text files of a diff in read order (git's order within a rank), and none of the rest."""
-    files = [(p, c) for p, c in split_diff(text) if not is_lockfile(p) and not is_binary(c)]
+    files = [(p, c) for p, c in split_diff(text) if not is_lockfile(p, c) and not is_binary(c)]
     return sorted(files, key=lambda pc: classify(pc[0]))
 
 
@@ -115,7 +116,7 @@ def select(text, budget):
     """(shown, total, omitted paths) for a diff. A binary file is never shown, so it is omitted."""
     files = ordered(text)
     shown, omitted = pick(files, budget)
-    binaries = [p for p, c in split_diff(text) if not is_lockfile(p) and is_binary(c)]
+    binaries = [p for p, c in split_diff(text) if not is_lockfile(p, c) and is_binary(c)]
     return shown, len(files) + len(binaries), omitted + binaries
 
 

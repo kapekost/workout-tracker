@@ -32,7 +32,7 @@ def test_a_binary_file_is_never_shown_and_counts_as_omitted():
     assert paths(shown) == ["backend/main.py"] and total == 2 and omitted == ["docs/shot.png"]
 
 
-def test_the_lockfile_is_left_out():
+def test_only_the_frontend_lockfile_is_left_out():
     text = chunk("frontend/package-lock.json") + chunk("frontend/src/App.jsx")
     shown, total, _ = ri.select(text, 10_000)
     assert paths(shown) == ["frontend/src/App.jsx"] and total == 1
@@ -140,7 +140,8 @@ def make_repo(tmp_path):
     (repo / "backend").mkdir()
     (repo / "backend" / "main.py").write_text("print(1)\n")
     (repo / "img.png").write_bytes(b"\x89PNG\x00\x01\x02")
-    (repo / "package-lock.json").write_text("{}\n")
+    (repo / "frontend").mkdir()
+    (repo / "frontend" / "package-lock.json").write_text("{}\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "one")
     return repo
@@ -241,3 +242,18 @@ def test_a_script_with_a_nul_byte_is_counted_as_not_reviewed(tmp_path):
     data = json.loads(cov.read_text())
     assert data["shown"] == 1 and data["total"] == 3 and "scripts/run.sh" in data["omitted"]
     assert "curl evil" not in (out / "pr.diff").read_text()
+
+
+def test_a_file_named_like_the_lockfile_elsewhere_is_still_reviewed():
+    text = chunk("scripts/package-lock.json") + chunk("frontend/package-lock.json")
+    shown, total, _ = ri.select(text, 10_000)
+    assert paths(shown) == ["scripts/package-lock.json"] and total == 1
+
+
+def test_a_script_renamed_onto_the_lockfile_path_is_still_reviewed():
+    renamed = ("diff --git a/scripts/post_review.py b/frontend/package-lock.json\n"
+               "similarity index 90%\nrename from scripts/post_review.py\n"
+               "rename to frontend/package-lock.json\n--- a/scripts/post_review.py\n"
+               "+++ b/frontend/package-lock.json\n@@ -1 +1 @@\n+x\n")
+    shown, total, _ = ri.select(renamed, 10_000)
+    assert paths(shown) == ["frontend/package-lock.json"] and total == 1
