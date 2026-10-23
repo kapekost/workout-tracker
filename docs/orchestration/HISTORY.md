@@ -18,6 +18,15 @@
 
 ---
 
+**Tick 2026-10-23 (#269 item 7, mobile #410 to #412).**
+- Merged: #486 (symlinks removed before the input builder writes, with a workflow-text test), #487 (reviewer model order, item 7 of #269) and kapekost-web #115 (the same order, sync rule). Order, free models only: private endpoints first (`data_collection: deny`), then the same models again under `open/<id>` keys with no privacy option. security-ai-reviewer found no Critical or High; its two wording findings were fixed. The `open/` tier ran on #487 (exit 0, no verdict), so the `id` override works with opencode. Resolves the owner item "CI reviewer model fallback policy".
+- Merged: #489 (#410 Expo bootstrap in `mobile/`, lint clean, dev server serves), #491 (#411 tokens, `ThemedText`, root providers; computed color and size read in Chrome on the web build), #492 (#412 API client with the `wt_session` cookie in SecureStore). #492 is auth-adjacent and client only; staff-engineer-reviewer found no Critical or High, and its fixes landed before merge (Max-Age clear with a comma in `expires`, a stale 401 racing a new login, timeout until the body is read, redirects refused, https required outside dev builds). 14 unit tests run with `npm test` in `mobile/`.
+- Not verified: the mobile app on a device or simulator (Set-Cookie read and hand-set Cookie header with `credentials: 'omit'` on React Native, especially Android); `mobile/` has no CI job, so `npm test` runs by hand; `tsc` shows two errors in the template's `components/Themed.tsx`. The live health check at the Tailscale address timed out four times from this session, so live `2ce2216` was not re-confirmed this tick.
+- The bot review was skipped on #487 and #489 (no verdict from any model) and cited lines that do not exist on #492; none of these gated a merge. Free-model verdicts stay unreliable.
+- Nothing deployed: docs, CI and `mobile/` only.
+
+---
+
 **Tick 2026-10-23 (#269 PR 1).**
 - Merged and deployed: #477 (squash `f0c4cd5`), PR 1 of the #269 plan. Adds `scripts/review_input.py` (input builder with a size budget and `coverage.json`) and a Coverage line in `scripts/post_review.py`; partial coverage now posts a comment instead of approving. Dormant until PR 2 wires it into the workflow. Live `/api/health` is `f0c4cd5`; no app change, no schema change, no extra backup.
 - Review caught two real defects, both fixed before merge: a failed `git diff` exited 0 with an empty 0-of-0 coverage, and `read_coverage` truncated large files and lost the partial flag. security-ai-reviewer could not be launched from the tick; the tick review stood in as the staff-engineer pass. Hand run on the #267 range: 59,683 bytes, 33 text files plus 17 binaries match `git diff --stat`.

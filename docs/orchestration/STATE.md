@@ -15,7 +15,7 @@
 ## Cursor
 - **Project:** Workout Tracker
 - **Current focus:** none claimed. #389 (personal best comparison, schema v10) is merged (`bcd32bb`) and deployed 2026-10-23: live is `2ce2216` (`main`; schema v10, `share_bests` 0 for the one profile). Verified: `/api/health` reports `2ce2216`, the migration ran, container logs clean. Not driven behind the login, no restart-twice check, no admin export (the host backup of 19:10 UTC, local and off-site `ok`, was the snapshot). Plan days can be added, renamed, removed and reordered through `/api/plan/days` (backend only, no screen uses it yet). Frontend tests need Node 22.22.2 or newer (jsdom 30); see AGENTS.md. The owner's standing rule (2026-10-22): test locally before the merge, merge, then deploy from `main` and check the live URL.
-- **Next action:** item 7 (reviewer privacy order) is its own PR, here and in kapekost-web. Also here, from the #114 security review: move `find . -type l -delete` above the builder call in `opencode-review.yml`. In kapekost-web, check whether "Allow GitHub Actions to create and approve pull requests" is on; if so its "approvals are off" poster comment is stale. Then mobile #410 to #412 (S, batch), the old-PR review audit (#459), the mobile children #413 to #419. #431 is owned by another session in worktree `icons-431`; do not pick it. The coach tickets #444 to #450 stay `intake` until triaged and follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
+- **Next action:** in kapekost-web, check whether "Allow GitHub Actions to create and approve pull requests" is on; if so its "approvals are off" poster comment is stale. Then the old-PR review audit (#459) and the mobile children #413 to #419 (#410 to #412 are merged; `mobile/` has no CI job yet). #431 is owned by another session in worktree `icons-431`; do not pick it. The coach tickets #444 to #450 stay `intake` until triaged and follow the decisions in `DECISIONS.md` (2026-10-22); #448 and #446 need the runner provider detail first. Owner calls waiting: #432, #433.
   The #177 follow-ups are Issues #398 to #403.
 
 ## Stop-condition
@@ -31,9 +31,6 @@
 - **Rank the coach tickets (#444 to #455) on the board** if the default order is not wanted. They are on the board as Todo and stay `intake` until triaged.
 - **#389 opt-in.** Deployed. The owner ticks the box on Personal Bests; the line stays hidden until 3 other members have opted in, which is correct, not a failed deploy.
 - **Stray settings commit `9727f63` on `main`.** An agent chain run in the wrong directory committed the owner's `/permissions` edit (removed the `Read(./data/**)` deny from `.claude/settings.json`) and pushed it under a deploy.sh message. Owner chose to leave it. The deny is gone from the tracked file, so agents can read `frontend/src/data/`.
-- **CI reviewer model fallback policy (#269 item 7).** `DECISIONS.md` (2026-10-22 later) lets the list prefer
-  private models and fall back to any free model. How far the fallback may go (which models, for which PRs)
-  is the owner's call. Not acted on.
 - **Dockerfile `COPY` drift check.** Whether to add a CI step that builds the Dockerfile (see Standing) is the
   owner's call. Not acted on.
 - **Stale local branches.** Several local branches do not contain `main`; list them with
