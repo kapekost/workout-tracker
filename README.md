@@ -62,6 +62,19 @@ cd backend && .venv/bin/python -m pytest
 cd frontend && npm test
 ```
 
+## Mobile app (in progress)
+
+`mobile/` is an Expo (React Native) app with Expo Router. It is separate from the PWA and the
+backend, and nothing in the deployed image uses it. Add packages with `npx expo install`, so
+versions match the SDK.
+
+```bash
+cd mobile
+npm install
+npx expo start    # dev server
+npx expo lint
+```
+
 ## Deploy
 
 Shape of it: build elsewhere (arm64), stream the image to the deploy target
