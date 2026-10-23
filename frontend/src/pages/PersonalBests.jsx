@@ -151,13 +151,13 @@ export default function PersonalBests() {
         Historical PBs from before you started logging here
       </p>
 
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: space.sm, marginBottom: 20, cursor: 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: space.sm, marginBottom: 20, minHeight: 44, cursor: 'pointer' }}>
         <input type="checkbox" checked={sharing} onChange={e => toggleSharing(e.target.checked)}
-          style={{ marginTop: 3, accentColor: colors.accent }} />
+          style={{ width: 20, height: 20, marginTop: 0, flexShrink: 0, accentColor: colors.accent }} />
         <span>
           <span style={{ display: 'block', fontSize: type.size.body }}>Include my bests in others' top 3</span>
           <span style={{ display: 'block', color: colors.muted, fontSize: type.size.base }}>
-            Others see only your est. 1RM, with no name.
+            Your est. 1RM can appear in others' top 3, with no name. Untick any time.
           </span>
         </span>
       </label>
@@ -175,7 +175,7 @@ export default function PersonalBests() {
           <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body, marginBottom: 8 }}>{name}</p>
           {top[rows[0].exercise_id] && (
             <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 8 }}>
-              Top 3 here: {top[rows[0].exercise_id].join(', ')} kg est. 1RM
+              Other members' top 3: {top[rows[0].exercise_id].join(', ')} kg est. 1RM
             </p>
           )}
           {rows.map(r => {

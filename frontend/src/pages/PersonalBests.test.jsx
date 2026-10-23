@@ -319,7 +319,7 @@ describe('PersonalBests top-3 comparison', () => {
   it('shows the top-3 line under a best', async () => {
     mockGets([bench], { sharing: false, top: { bench_press: [120, 110, 105] } })
     renderPage()
-    expect(await screen.findByText('Top 3 here: 120, 110, 105 kg est. 1RM')).toBeInTheDocument()
+    expect(await screen.findByText("Other members' top 3: 120, 110, 105 kg est. 1RM")).toBeInTheDocument()
   })
 
   it('hides the line when the exercise is absent', async () => {
@@ -327,15 +327,15 @@ describe('PersonalBests top-3 comparison', () => {
     renderPage()
     await screen.findByText('Bench Press')
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/personal-bests/top'))
-    expect(screen.queryByText(/Top 3 here/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Other members' top 3/)).not.toBeInTheDocument()
   })
 
   it('shows one line per exercise when it has several bests', async () => {
     mockGets([bench, { ...bench, id: 2, weight_kg: 90, single_kg: 90, achieved_year: 2020 }],
       { sharing: false, top: { bench_press: [120, 110, 105] } })
     renderPage()
-    await screen.findByText(/Top 3 here/)
-    expect(screen.getAllByText(/Top 3 here/)).toHaveLength(1)
+    await screen.findByText(/Other members' top 3/)
+    expect(screen.getAllByText(/Other members' top 3/)).toHaveLength(1)
   })
 
   it('reflects the saved state in the toggle and sends PUT when it changes', async () => {
@@ -372,7 +372,7 @@ describe('PersonalBests top-3 comparison', () => {
     renderPage()
     expect(await screen.findByText('Bench Press')).toBeInTheDocument()
     expect(screen.getByRole('checkbox')).not.toBeChecked()
-    expect(screen.queryByText(/Top 3 here/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Other members' top 3/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Failed/)).not.toBeInTheDocument()
   })
 })
