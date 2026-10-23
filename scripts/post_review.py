@@ -32,6 +32,8 @@ MAX_SUMMARY = 200
 MAX_PLAIN = 3000
 MAX_INPUT = 50_000
 MAX_DEFERRED = 3
+MAX_OMITTED = 5
+MAX_FILES = 100_000
 BLOCK_CAP = 2
 BOT_LOGIN = "github-actions[bot]"
 SEVERITIES = ("critical", "major", "minor")
@@ -169,8 +171,46 @@ def plain_result(body):
                  {"critical": 0, "major": 0, "minor": 0, "dropped": 0}, False)
 
 
-def build(text, patches, repo):
-    """Turns the reviewer's output into a Built."""
+def count(value):
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_FILES
+
+
+def read_coverage(review_path):
+    """What scripts/review_input.py recorded next to the review file, or None when it is missing
+    or not the expected shape. It comes from an artifact, so every value is checked."""
+    try:
+        with open(os.path.join(os.path.dirname(review_path), "coverage.json"), encoding="utf-8") as fh:
+            data = json.loads(fh.read(100_000))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("mode") not in ("full", "incremental"):
+        return None
+    shown, total, omitted = data.get("shown"), data.get("total"), data.get("omitted")
+    if not (count(shown) and count(total) and shown <= total):
+        return None
+    if not (isinstance(omitted, list) and all(isinstance(o, str) for o in omitted)):
+        return None
+    since = data.get("since")
+    return {"incremental": data["mode"] == "incremental",
+            "since": since if isinstance(since, str) and re.fullmatch(r"[0-9a-f]{7}", since) else "",
+            "shown": shown, "total": total, "omitted": omitted}
+
+
+def coverage_lines(cov, repo):
+    line = f"**Coverage** reviewed {cov['shown']} of {cov['total']} changed files"
+    if cov["incremental"] and cov["since"]:
+        line += f" since {cov['since']}"
+    lines = ["", line]
+    names = [sanitize(o, repo, 120) for o in cov["omitted"][:MAX_OMITTED]]
+    if cov["shown"] < cov["total"] and names:
+        rest = cov["total"] - cov["shown"] - len(names)
+        lines.append("Not shown: " + ", ".join(names) + (f" and {rest} more" if rest else ""))
+    return lines
+
+
+def build(text, patches, repo, coverage=None):
+    """Turns the reviewer's output into a Built. coverage is read_coverage's result: a review that
+    was shown only part of the diff never approves."""
     if leaks(text):
         return plain_result(WITHHELD)
     data = extract_json(text)
@@ -224,7 +264,8 @@ def build(text, patches, repo):
     limits = data.get("limits")
     clean_limits = ([sanitize(n, repo, MAX_BODY) for n in limits[:5] if isinstance(n, str)]
                     if isinstance(limits, list) else [])
-    event = decide_event(counts, kind, bool(notes) or bool(limits))
+    partial = bool(coverage) and coverage["shown"] < coverage["total"]
+    event = decide_event(counts, kind, bool(notes) or bool(limits) or partial)
 
     summary = sanitize(data.get("summary", ""), repo, MAX_SUMMARY)
     summary = re.sub(r"^(CLEAN|BLOCKING)\b[\s:.\-]*", "", summary)
@@ -244,6 +285,8 @@ def build(text, patches, repo):
             parts.append(f"- and {counts['minor'] - len(shown_lines)} more not shown")
     if clean_notes:
         parts += ["", "**Notes**"] + [f"- {n}" for n in clean_notes]
+    if coverage and not skipped:
+        parts += coverage_lines(coverage, repo)
     if clean_limits:
         parts += ["", "<details><summary>Review limits (sandbox, not the PR)</summary>", ""]
         parts += [f"- {n}" for n in clean_limits] + ["", "</details>"]
@@ -433,7 +476,7 @@ def main(argv):
     patches = pr_patches(repo, pr) if structured else {}
     reviews = pr_reviews(repo, pr) if structured else None
     round_n = review_round(reviews)
-    built = build(text, patches, repo)
+    built = build(text, patches, repo, read_coverage(path))
     body = built.body
     event = built.event
     if built.kind == "plain":
