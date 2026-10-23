@@ -1591,7 +1591,8 @@ def _bests_comparison(conn, profile_id):
     return {"sharing": bool(sharing), "top": top}
 
 @app.get("/api/personal-bests/top")
-def get_bests_comparison(profile_id: int = Depends(acting_profile_id)):
+def get_bests_comparison(response: Response, profile_id: int = Depends(acting_profile_id)):
+    response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         return _bests_comparison(conn, profile_id)
 
@@ -1600,7 +1601,8 @@ class SharingIn(BaseModel):
     sharing: StrictBool
 
 @app.put("/api/personal-bests/sharing")
-def set_bests_sharing(body: SharingIn, profile_id: int = Depends(acting_profile_id)):
+def set_bests_sharing(body: SharingIn, response: Response, profile_id: int = Depends(acting_profile_id)):
+    response.headers["Cache-Control"] = "no-store"
     with db() as conn:
         conn.execute("UPDATE profiles SET share_bests = ? WHERE id = ?", (int(body.sharing), profile_id))
         conn.commit()
@@ -2035,6 +2037,9 @@ def _import_replace(conn, env, admin, cur_version, env_version) -> dict:
                 placeholders = ",".join("?" * len(cols))
                 conn.execute(f"INSERT INTO {t} ({','.join(cols)}) VALUES ({placeholders})",
                              [row[c] for c in cols])
+        # A restore never opts anyone in: a stale or edited envelope must not
+        # republish a member's bests after they opted out.
+        conn.execute("UPDATE profiles SET share_bests = 0")
         # A plan is not optional data: create_session validates workout_day
         # against the acting profile's own plan_days, so a profile left with
         # none cannot start any workout at all. An envelope predating v7 (or

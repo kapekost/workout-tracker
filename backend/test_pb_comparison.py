@@ -34,7 +34,7 @@ def test_old_v9_envelope_restores_with_sharing_off(client, mainmod, seed_profile
         assert conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()[0] == 0
 
 
-def test_export_round_trip_keeps_sharing_flag(client, mainmod, seed_profile_id):
+def test_restore_never_opts_anyone_in(client, mainmod, seed_profile_id):
     with mainmod.db() as conn:
         conn.execute("UPDATE profiles SET share_bests = 1 WHERE id = ?", (seed_profile_id,))
         conn.commit()
@@ -43,7 +43,7 @@ def test_export_round_trip_keeps_sharing_flag(client, mainmod, seed_profile_id):
     r = client.post("/api/import", json={"mode": "replace", "confirm": True, "envelope": env})
     assert r.status_code == 200
     with mainmod.db() as conn:
-        assert conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()[0] == 1
+        assert conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()[0] == 0
 
 
 from fastapi.testclient import TestClient
@@ -87,13 +87,6 @@ def test_sharing_rejects_non_bool(client):
 
 def test_sharing_requires_session(anon_client):
     assert anon_client.put("/api/personal-bests/sharing", json={"sharing": True}).status_code == 401
-
-
-def test_toggle_changes_only_the_callers_profile(client, mainmod, seed_profile_id):
-    _, other = _member(mainmod, "other")
-    client.put("/api/personal-bests/sharing", json={"sharing": True})
-    assert _sharing_of(mainmod, seed_profile_id) == 1
-    assert _sharing_of(mainmod, other) == 0
 
 
 def _best(mainmod, pid, exercise_id, weight_kg, reps=1):
@@ -205,12 +198,26 @@ def test_best_is_est_1rm_not_raw_weight(client, mainmod, seed_profile_id):
 
 def test_response_has_no_ids_names_or_dates(client, mainmod, seed_profile_id):
     _best(mainmod, seed_profile_id, "bench_press", 90)
-    _sharers(mainmod, [100, 110, 120])
-    body = _top(client)
-    assert set(body) == {"sharing", "top"}
-    assert set(body["top"]) == {"bench_press"}
-    assert all(type(v) in (int, float) for v in body["top"]["bench_press"])
-    assert "sharer" not in client.get("/api/personal-bests/top").text and "kapekost" not in client.get("/api/personal-bests/top").text
+    for i, w in enumerate([100, 110, 120]):
+        _, pid = _member(mainmod, f"zorgon{i}", sharing=True)
+        with mainmod.db() as conn:
+            conn.execute(
+                "INSERT INTO personal_bests (profile_id, exercise_id, exercise_name, weight_kg, reps, "
+                "achieved_year, achieved_note) VALUES (?, 'bench_press', 'Bench Press', ?, 1, 1987, 'quuxnote')",
+                (pid, w))
+            conn.commit()
+        _logged(mainmod, pid, "bench_press", 50, 1)
+    r = client.get("/api/personal-bests/top")
+    assert set(r.json()) == {"sharing", "top"}
+    assert set(r.json()["top"]) == {"bench_press"}
+    assert all(type(v) in (int, float) for v in r.json()["top"]["bench_press"])
+    for leak in ("zorgon", "quuxnote", "1987", "2026-10-01", "upper_a"):
+        assert leak not in r.text
+
+
+def test_comparison_responses_are_not_cached(client):
+    assert client.get("/api/personal-bests/top").headers["cache-control"] == "no-store"
+    assert client.put("/api/personal-bests/sharing", json={"sharing": True}).headers["cache-control"] == "no-store"
 
 
 def test_only_callers_exercises_are_returned(client, mainmod, seed_profile_id):
