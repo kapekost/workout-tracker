@@ -232,6 +232,21 @@ def test_branch_is_read_from_the_worktree():
         assert "implement/task-cleanup" not in run_git("branch", cwd=repo)
 
 
+def test_worktree_named_by_directory_is_cleaned_up():
+    """A name that is not a bare number is the directory under .claude/worktrees."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = make_test_repo(Path(tmp_dir))
+        worktree_path = repo / ".claude" / "worktrees" / "fix-thing"
+        worktree_path.parent.mkdir(parents=True)
+        run_git("worktree", "add", str(worktree_path), "-b", "fix/thing", cwd=repo)
+
+        output, returncode = run_cleanup(repo, "fix-thing")
+
+        assert returncode == 0, output
+        assert not worktree_path.exists()
+        assert "fix/thing" not in run_git("branch", cwd=repo)
+
+
 def test_run_from_inside_the_worktree_is_refused():
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo = make_test_repo(Path(tmp_dir))

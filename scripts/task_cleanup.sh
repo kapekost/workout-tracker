@@ -2,16 +2,19 @@
 set -euo pipefail
 
 # task_cleanup.sh: idempotent per-task cleanup
-# Usage: task_cleanup.sh <issue-number> [branch]
+# Usage: task_cleanup.sh <issue-number|worktree-name> [branch]
+#
+# A bare number names the worktree issue-<n>; anything else is the directory name under
+# .claude/worktrees.
 #
 # Removes what a task created, prints one line per action:
 # - its venv and node_modules inside the worktree
-# - the worktree at .claude/worktrees/issue-<n>
+# - the worktree at .claude/worktrees/<name>
 # - its local branch, once the branch is shown to be merged
 #
 # The branch is read from the worktree. Once the worktree is gone it cannot be read,
 # so pass it as the second argument; without one the script tries implement/issue-<n>
-# and says when it has no branch to report on.
+# (for a bare number) and says when it has no branch to report on.
 #
 # Exits 0 when nothing is left to do. Exits 1, before deleting anything, when the
 # worktree has uncommitted changes or is not a registered worktree, the branch is not
@@ -22,18 +25,21 @@ set -euo pipefail
 # an ancestor of main or every file it changed already matches origin/main.
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-  echo "Usage: task_cleanup.sh <issue-number> [branch]" >&2
+  echo "Usage: task_cleanup.sh <issue-number|worktree-name> [branch]" >&2
   exit 1
 fi
 
-issue_num=$1
+case "$1" in
+  *[!0-9]*) wt_name=$1 ;;
+  *) wt_name="issue-$1" ;;
+esac
 branch_arg=${2:-}
 
 # The common dir is the main checkout's .git even when run from a linked worktree,
 # where --show-toplevel would name the worktree itself.
 git_common=$(git rev-parse --path-format=absolute --git-common-dir)
 repo_root=$(dirname "$git_common")
-worktree_path="$repo_root/.claude/worktrees/issue-$issue_num"
+worktree_path="$repo_root/.claude/worktrees/$wt_name"
 start_dir=$(pwd -P)
 cd "$repo_root"
 
@@ -74,8 +80,8 @@ if [ ! -e "$worktree_path" ]; then
   echo "worktree already gone: $worktree_path"
   if [ -n "$branch_arg" ]; then
     branch_name=$branch_arg
-  elif git rev-parse --verify --quiet "implement/issue-$issue_num" > /dev/null; then
-    branch_name="implement/issue-$issue_num"
+  elif git rev-parse --verify --quiet "implement/$wt_name" > /dev/null; then
+    branch_name="implement/$wt_name"
   else
     branch_name=""
     echo "branch unknown: no worktree to read it from; pass it as the second argument"
