@@ -143,11 +143,11 @@ jobs:
           # outside the checkout like post_review.py, and a failure fails the job. Its coverage
           # record is written outside the checkout too, so neither the model nor the PR can edit it.
           git show "origin/$DEFAULT_BRANCH:scripts/review_input.py" > "$RUNNER_TEMP/review_input.py"
+          find . -type l -delete
           last=$(sed -n '3s/^Last commit this bot reviewed: \([0-9a-f]\{40\}\)$/\1/p' \
             .review-input/prior-reviews.md)
           python3 -I "$RUNNER_TEMP/review_input.py" "origin/$BASE_REF" "$last" .review-input \
             "$RUNNER_TEMP/coverage.json"
-          find . -type l -delete
           find . \( -name .opencode -o -name .claude -o -name .agents -o -name 'opencode.json*' \
                     -o -name AGENTS.md -o -name CLAUDE.md \) -prune -exec rm -rf {} +
           cat > opencode.json <<'JSON'

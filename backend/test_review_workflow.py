@@ -79,6 +79,10 @@ def test_only_owner_prs_run_in_every_job():
     assert TEXT.count("github.event.pull_request.user.login == github.repository_owner") == TEXT.count("github.actor != 'dependabot[bot]'") == 3
 
 
+def test_symlinks_are_removed_before_the_builder_writes():
+    assert TEXT.index("find . -type l -delete") < TEXT.index('"$RUNNER_TEMP/review_input.py" "origin/$BASE_REF"')
+
+
 def test_the_pr_diff_is_captured_before_the_checkout_is_stripped():
     assert TEXT.index('"$RUNNER_TEMP/review_input.py" "origin/$BASE_REF"') < TEXT.index("-o -name AGENTS.md")
 
