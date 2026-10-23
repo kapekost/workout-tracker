@@ -78,9 +78,31 @@ export default function PersonalBests() {
     }
   }, [])
 
+  // The comparison is a side note: a failed load hides it and never blocks the page.
+  const [sharing, setSharing] = useState(false)
+  const [top, setTop] = useState({})
+  const loadTop = useCallback(async () => {
+    try {
+      const res = await api.get('/personal-bests/top')
+      setSharing(res?.sharing === true)
+      setTop(res?.top && typeof res.top === 'object' ? res.top : {})
+    } catch { /* leave the toggle off and the lines hidden */ }
+  }, [])
+
   useEffect(() => {
     load()
+    loadTop()
   }, [])
+
+  async function toggleSharing(next) {
+    setSharing(next)
+    try {
+      await api.put('/personal-bests/sharing', { sharing: next })
+    } catch {
+      setSharing(!next)
+      showToast('Failed to update sharing', 'error')
+    }
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -129,6 +151,17 @@ export default function PersonalBests() {
         Historical PBs from before you started logging here
       </p>
 
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: space.sm, marginBottom: 20, minHeight: 44, cursor: 'pointer' }}>
+        <input type="checkbox" checked={sharing} onChange={e => toggleSharing(e.target.checked)}
+          style={{ width: 20, height: 20, marginTop: 0, flexShrink: 0, accentColor: colors.accent }} />
+        <span>
+          <span style={{ display: 'block', fontSize: type.size.body }}>Include my bests in others' top 3</span>
+          <span style={{ display: 'block', color: colors.muted, fontSize: type.size.base }}>
+            Your est. 1RM can appear in others' top 3, with no name. Untick any time.
+          </span>
+        </span>
+      </label>
+
       {/* List first: this page is visited to read PBs far more often than to
           add one, so the list -- not a 5-field form -- gets the eye on load
           (2026-09-06 UI review, item 19). The add form moved into the
@@ -140,6 +173,11 @@ export default function PersonalBests() {
       ) : Object.entries(grouped).map(([name, rows]) => (
         <div key={name} className="card" style={{ padding: space.xl, marginBottom: 10 }}>
           <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body, marginBottom: 8 }}>{name}</p>
+          {top[rows[0].exercise_id] && (
+            <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 8 }}>
+              Other members' top 3: {top[rows[0].exercise_id].join(', ')} kg est. 1RM
+            </p>
+          )}
           {rows.map(r => {
             const armed = confirmId === r.id
             return (

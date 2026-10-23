@@ -3,6 +3,14 @@
 Reverse-chronological record of what shipped and when. The **current** state,
 runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
+## 2026-10-23 — Personal Bests: top 3 from other members (`#389`; merged, not yet deployed)
+
+- **Schema v10**: `profiles.share_bests INTEGER NOT NULL DEFAULT 0`. Nothing is shared until a member ticks the box. This deploy needs the host backup and an admin export first.
+- `PUT /api/personal-bests/sharing` sets the caller's flag. `GET /api/personal-bests/top` returns `{sharing, top}`: for each exercise the caller has a best in, the three highest est. 1RMs among other opted-in members (`best_single`, so a real single is itself), only when at least 3 members have one. No ids, names or dates. Both answer `no-store`.
+- Personal Bests shows a checkbox and one muted line per exercise, "Other members' top 3: ... kg est. 1RM". A member who has not opted in still sees the line.
+- A whole-database restore resets every `share_bests` to 0 so an old or edited backup cannot opt anyone back in.
+- With few members the line is absent in production; that is correct, not a failed deploy.
+
 ## 2026-10-22 — AI plan updates: export and paste-back screen (`#223`; live `d463748`)
 
 - **Update with AI** (`/plan/ai`, linked from Plan): one button copies the prompt and the plan export, a textarea takes the AI's reply, Preview calls `POST /api/plan/update` with `confirm: false` and shows counts plus the change list, Confirm applies it. Editing the reply drops the preview. Ships with `#397` (`prompt_template` on `GET /api/plan/export`).

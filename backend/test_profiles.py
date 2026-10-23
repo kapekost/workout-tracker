@@ -29,7 +29,7 @@ def test_migration_creates_profiles_table_with_seeded_admin(mainmod):
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
         # "icon" (#69, schema v5) and "email" (#84, schema v6) were both added
         # after this test was originally written for v4.
-        assert cols == {"id", "username", "password_hash", "role", "created_at", "icon", "email"}
+        assert cols == {"id", "username", "password_hash", "role", "created_at", "icon", "email", "share_bests"}
         rows = conn.execute("SELECT username, role, password_hash FROM profiles").fetchall()
         assert len(rows) == 1
         assert rows[0]["username"] == "kapekost"

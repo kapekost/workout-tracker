@@ -46,7 +46,7 @@ def test_migration_v6_adds_email_column_and_auth_tables(mainmod):
         # asserted below is unaffected by whatever came after it.
         assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
         cols = {r[1] for r in conn.execute("PRAGMA table_info(profiles)").fetchall()}
-        assert cols == {"id", "username", "password_hash", "role", "created_at", "icon", "email"}
+        assert cols == {"id", "username", "password_hash", "role", "created_at", "icon", "email", "share_bests"}
         tok = {r[1] for r in conn.execute("PRAGMA table_info(auth_tokens)").fetchall()}
         assert tok == {"id", "profile_id", "token_hash", "kind", "expires_at", "used_at", "created_at"}
         sess = {r[1] for r in conn.execute("PRAGMA table_info(auth_sessions)").fetchall()}
@@ -497,6 +497,8 @@ GATED = [
     ("POST",   "/api/personal-bests", {"exercise_id": "bench_press", "exercise_name": "Bench Press",
                                        "weight_kg": 100, "reps": 3, "achieved_year": 2024}),
     ("GET",    "/api/personal-bests", None),
+    ("GET",    "/api/personal-bests/top", None),
+    ("PUT",    "/api/personal-bests/sharing", {"sharing": True}),
     ("DELETE", "/api/personal-bests/{pb_id}", None),
     ("GET",    "/api/progress/{exercise_id}", None),
     ("GET",    "/api/progress", None),
