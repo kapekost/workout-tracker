@@ -180,15 +180,13 @@ UNKNOWN_COVERAGE = {"unknown": True}
 
 
 def read_coverage(review_path):
-    """What scripts/review_input.py recorded next to the review file. None when there is no file.
-    UNKNOWN_COVERAGE when there is one that is too large or not the expected shape: it comes from
-    an artifact, so every value is checked, and a record that cannot be trusted never lets a
-    review approve."""
+    """What scripts/review_input.py recorded next to the review file. The workflow always runs
+    it, so a file that is missing, oversized, malformed or inconsistent is UNKNOWN_COVERAGE:
+    it comes from an artifact, so every value is checked, and a record that cannot be trusted
+    never lets a review approve."""
     try:
         with open(os.path.join(os.path.dirname(review_path), "coverage.json"), encoding="utf-8") as fh:
             raw = fh.read(MAX_COVERAGE_BYTES + 1)
-    except FileNotFoundError:
-        return None
     except (OSError, ValueError):
         return UNKNOWN_COVERAGE
     try:
@@ -216,7 +214,7 @@ def is_partial(cov):
 
 def coverage_lines(cov, repo):
     if cov.get("unknown"):
-        return ["", "**Coverage** unknown: the coverage record was missing its expected shape."]
+        return ["", "**Coverage** unknown: the coverage record was missing or unreadable."]
     line = f"**Coverage** reviewed {cov['shown']} of {cov['total']} changed files"
     if cov["incremental"] and cov["since"]:
         line += f" since {cov['since']}"

@@ -54,6 +54,15 @@ It posts **one review**. The model prints JSON with a severity per finding (`cri
   and also prevent `APPROVE`, so a review that could not read the diff never approves.
 - Minor findings are never inline. They sit in one `Deferred` list of at most three lines plus a
   count of the rest.
+- The model reads `pr.diff`, built by the default branch's `scripts/review_input.py` outside the
+  checkout. Binary files and the frontend lockfile are never shown. The rest is ordered (workflows,
+  scripts and Dockerfiles, then backend, frontend source, tests, docs) and filled to 60,000 bytes;
+  a file that does not fit, and every binary, is listed in `pr.omitted.txt` and counted as not
+  reviewed. Diff attributes come from the base branch, so a PR cannot hide its own files. From the
+  second push on, `pr.diff` is the delta since the bot's last real review (the one with a round
+  marker) when that commit is an ancestor and the delta is smaller; otherwise it is the whole PR.
+  The poster prints `Coverage reviewed N of M changed files` from a record the builder writes
+  outside the model's reach. A partial, unreadable or missing record can never `APPROVE`.
 - Majors block in every round. After the bot has posted two `REQUEST_CHANGES` reviews on one PR
   (dismissed ones count; criticals are capped too), later blocking reviews post as `COMMENT` with the findings intact. The poster
   counts from a hidden marker in its own earlier reviews.

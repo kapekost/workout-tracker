@@ -80,8 +80,56 @@ def test_only_owner_prs_run_in_every_job():
 
 
 def test_the_pr_diff_is_captured_before_the_checkout_is_stripped():
-    assert TEXT.index('> .review-input/pr.diff') < TEXT.index("-o -name AGENTS.md")
-    assert "read `.review-input/pr.diff` in full" in TEXT
+    assert TEXT.index('"$RUNNER_TEMP/review_input.py" "origin/$BASE_REF"') < TEXT.index("-o -name AGENTS.md")
+
+
+def test_last_reviewed_commit_ignores_reviews_without_a_round_marker():
+    jq = re.search(r"--jq '\.\[\] \| select\(\.user\.login == \"github-actions\[bot\]\" and\n\s*(.*?)\) \| \.commit_id'", TEXT, re.S).group(1)
+    reviews = [
+        {"user": {"login": "github-actions[bot]"}, "body": "skipped notice", "commit_id": "a" * 40},
+        {"user": {"login": "github-actions[bot]"}, "body": "ok\n<!-- review-round:1 -->", "commit_id": "b" * 40},
+        {"user": {"login": "someone"}, "body": "<!-- review-round:1 -->", "commit_id": "c" * 40},
+        {"user": {"login": "github-actions[bot]"}, "body": "plain", "commit_id": "d" * 40},
+    ]
+    flt = '.[] | select(.user.login == "github-actions[bot]" and ' + jq + ") | .commit_id"
+    out = subprocess.run(["jq", "-r", flt], input=json.dumps(reviews), capture_output=True, text=True, check=True).stdout
+    assert out.split() == ["b" * 40]
+
+
+def test_the_input_builder_is_read_from_the_default_branch_not_the_checkout():
+    assert 'git show "origin/$DEFAULT_BRANCH:scripts/review_input.py" > "$RUNNER_TEMP/review_input.py"' in TEXT
+    assert 'python3 -I "$RUNNER_TEMP/review_input.py"' in TEXT
+    assert "python3 scripts/review_input.py" not in TEXT
+
+
+def test_a_missing_input_builder_fails_the_step_instead_of_falling_back():
+    block = TEXT[TEXT.index("Install the trusted read-only config"):TEXT.index("find . -type l -delete")]
+    assert "set -euo pipefail" in block
+    assert "review_input.py\" > \"$RUNNER_TEMP/review_input.py\" 2>/dev/null" not in block
+    assert "|| rm -f \"$RUNNER_TEMP/review_input.py\"" not in block
+
+
+def test_only_a_40_hex_last_commit_reaches_the_builder(tmp_path):
+    sed = re.search(r"last=\$\(sed -n '(.*?)' \\\n", TEXT, re.S).group(1)
+    for line, want in [("Last commit this bot reviewed: " + "a" * 40, "a" * 40),
+                       ("Last commit this bot reviewed: " + "a" * 39, ""),
+                       ("Last commit this bot reviewed: none (first review)", ""),
+                       ("Last commit this bot reviewed: " + "A" * 40, ""),
+                       ("Last commit this bot reviewed: " + "a" * 40 + "; rm -rf x", "")]:
+        out = subprocess.run(["sed", "-n", sed], input=line + "\n", capture_output=True, text=True, check=True).stdout.strip()
+        assert out == want, line
+
+
+def test_the_review_artifact_includes_the_coverage_file():
+    upload = TEXT[TEXT.index("          name: review\n"):TEXT.index("retention-days", TEXT.index("          name: review\n"))]
+    assert "${{ runner.temp }}/review.txt" in upload and "${{ runner.temp }}/coverage.json" in upload
+
+
+def test_the_prompt_points_at_stat_diff_full_diff_and_omitted_files():
+    for needle in (".review-input/pr.stat", ".review-input/pr.diff", ".review-input/pr.full.diff",
+                   ".review-input/pr.omitted.txt", "Judge only what `pr.diff` shows"):
+        assert needle in TEXT, needle
+    assert "analyse `git diff <commit>...HEAD`" not in TEXT
 
 
 def test_the_prompt_tells_the_reviewer_it_cannot_run_tests_or_claim_their_result():
