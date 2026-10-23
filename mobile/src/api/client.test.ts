@@ -129,3 +129,49 @@ test('a non-string detail (a 422 list) is not passed on as a message', async () 
     (err: unknown) => err instanceof ApiError && err.status === 422 && err.detail === null,
   );
 });
+
+test('a non-empty value with Max-Age=0 and a comma in expires clears the session', async () => {
+  const store = memoryStore('old');
+  const { fetchImpl } = fakeFetch(200, {}, 'wt_session=zombie; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/');
+  await createClient({ baseUrl, store, fetchImpl }).post('/auth/logout');
+
+  assert.equal(store.value, null);
+});
+
+test('wt_session as the first of several cookies is stored', async () => {
+  const store = memoryStore();
+  const { fetchImpl } = fakeFetch(200, {}, 'wt_session=first; Path=/; Max-Age=60, other=2; Path=/');
+  await createClient({ baseUrl, store, fetchImpl }).post('/auth/login', {});
+
+  assert.equal(store.value, 'first');
+});
+
+test('cookies that only look like wt_session are ignored', async () => {
+  const store = memoryStore('keep');
+  const { fetchImpl } = fakeFetch(200, {}, 'wt_session_x=1; Path=/, xwt_session=2; Path=/; Comment=wt_session=3');
+  await createClient({ baseUrl, store, fetchImpl }).get('/plan');
+
+  assert.equal(store.value, 'keep');
+});
+
+test('a 401 for an old session does not clear a session that replaced it meanwhile', async () => {
+  const store = memoryStore('old');
+  const fetchImpl = (async () => {
+    store.value = 'new';
+    return new Response('{}', { status: 401 });
+  }) as unknown as typeof fetch;
+  let called = 0;
+  const api = createClient({ baseUrl, store, fetchImpl, onUnauthorized: () => called++ });
+
+  await assert.rejects(api.get('/sessions'));
+  assert.equal(store.value, 'new');
+  assert.equal(called, 0);
+});
+
+test('a trailing slash on the base URL does not double the slash, and redirects are refused', async () => {
+  const { calls, fetchImpl } = fakeFetch(200, {});
+  await createClient({ baseUrl: 'https://api.test/', store: memoryStore(), fetchImpl }).get('/plan');
+
+  assert.equal(calls[0].url, 'https://api.test/api/plan');
+  assert.equal(calls[0].init.redirect, 'error');
+});

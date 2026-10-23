@@ -13,6 +13,8 @@ const secureSession: SessionStore = {
 // The host is set per build with EXPO_PUBLIC_API_URL (see the README).
 const baseUrl = process.env.EXPO_PUBLIC_API_URL;
 if (!baseUrl) throw new Error('EXPO_PUBLIC_API_URL is not set');
+// The session cookie travels with every request, so a release build needs TLS.
+if (!__DEV__ && !baseUrl.startsWith('https://')) throw new Error('EXPO_PUBLIC_API_URL must be https');
 
 export const api = createClient({ baseUrl, store: secureSession });
 export { ApiError } from './client';
