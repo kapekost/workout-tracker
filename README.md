@@ -73,7 +73,11 @@ cd mobile
 npm install
 npx expo start    # dev server
 npx expo lint
+npm test          # API client unit tests (Node 22.6+)
 ```
+
+The app reads the backend origin from `EXPO_PUBLIC_API_URL` (no trailing slash), set in a
+git-ignored local env file or in the shell. The session cookie is kept in SecureStore.
 
 ## Deploy
 
