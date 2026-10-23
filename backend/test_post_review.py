@@ -835,22 +835,42 @@ def test_a_since_that_is_not_a_short_sha_is_dropped(tmp_path):
     assert "evil.example" not in r.body and "since" not in r.body.split("**Coverage**")[1]
 
 
-def test_a_malformed_coverage_file_is_ignored_not_fatal(tmp_path):
+def test_a_missing_coverage_file_is_none(tmp_path):
+    assert pr.read_coverage(str(tmp_path / "review.txt")) is None
+    r = pr.build(review([]), PATCHES, REPO, None)
+    assert r.event == "APPROVE" and "Coverage" not in r.body
+
+
+def test_a_malformed_coverage_file_never_approves(tmp_path):
     review_file = tmp_path / "review.txt"
     review_file.write_text("x")
     cov = tmp_path / "coverage.json"
-    assert pr.read_coverage(str(review_file)) is None
     for bad in ["not json", "[]", '{"mode": "full"}', json.dumps(coverage(shown="3")),
                 json.dumps(coverage(shown=True)), json.dumps(coverage(shown=4, total=3)),
                 json.dumps(coverage(shown=-1)), json.dumps(coverage(omitted="a.md")),
                 json.dumps(coverage(omitted=[3])), json.dumps(coverage(mode="other")),
-                json.dumps(coverage(total=10**9, shown=1))]:
+                json.dumps(coverage(total=10**9, shown=1)),
+                json.dumps(coverage(shown=2, total=3, omitted=["a.md", "b.md"]))]:
         cov.write_text(bad)
-        assert pr.read_coverage(str(review_file)) is None, bad
+        assert pr.read_coverage(str(review_file)) == pr.UNKNOWN_COVERAGE, bad
+        r = pr.build(review([]), PATCHES, REPO, pr.read_coverage(str(review_file)))
+        assert r.event == "COMMENT" and "**Coverage** unknown" in r.body, bad
     cov.write_text(json.dumps(coverage()))
     assert pr.read_coverage(str(review_file))["total"] == 3
-    r = pr.build(review([]), PATCHES, REPO, None)
-    assert r.event == "APPROVE" and "Coverage" not in r.body
+
+
+def test_an_oversized_coverage_file_never_approves(tmp_path):
+    review_file = tmp_path / "review.txt"
+    review_file.write_text("x")
+    (tmp_path / "coverage.json").write_text(
+        json.dumps(coverage(shown=0, total=2010, omitted=["a" * 6000] * 20)))
+    assert (tmp_path / "coverage.json").stat().st_size > pr.MAX_COVERAGE_BYTES
+    assert pr.read_coverage(str(review_file)) == pr.UNKNOWN_COVERAGE
+
+
+def test_a_review_of_zero_files_does_not_approve(tmp_path):
+    r = covered([], coverage(shown=0, total=0), tmp_path)
+    assert r.event == "COMMENT"
 
 
 def test_a_skipped_notice_prints_no_coverage(tmp_path):

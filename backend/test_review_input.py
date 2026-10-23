@@ -203,3 +203,28 @@ def test_the_coverage_file_names_only_the_first_omitted_paths(tmp_path):
     data = json.loads(cov.read_text())
     assert data["total"] == ri.COVERAGE_NAMES + 6 and len(data["omitted"]) == ri.COVERAGE_NAMES
     assert len((out / "pr.omitted.txt").read_text().splitlines()) == data["total"]
+
+
+def test_a_pr_cannot_hide_its_files_with_its_own_gitattributes(tmp_path):
+    repo = make_repo(tmp_path)
+    (repo / ".gitattributes").write_text("* -diff\n*.py binary\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "hide")
+    out, cov = tmp_path / "out", tmp_path / "coverage.json"
+    ri.build_input(str(repo), "main", "", out, cov, budget=10_000)
+    assert json.loads(cov.read_text())["total"] == 2
+    assert "backend/main.py" in (out / "pr.diff").read_text()
+    assert "Binary files" not in (out / "pr.diff").read_text()
+
+
+def test_a_long_omitted_path_is_cut_in_the_coverage_file_only(tmp_path):
+    repo = make_repo(tmp_path)
+    long_name = "backend/" + "/".join(c * 100 for c in "abc") + ".py"
+    (repo / long_name).parent.mkdir(parents=True)
+    (repo / long_name).write_text("x\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "long")
+    out, cov = tmp_path / "out", tmp_path / "coverage.json"
+    ri.build_input(str(repo), "main", "", out, cov, budget=0)
+    assert all(len(o) <= ri.COVERAGE_NAME_CHARS for o in json.loads(cov.read_text())["omitted"])
+    assert long_name in (out / "pr.omitted.txt").read_text()

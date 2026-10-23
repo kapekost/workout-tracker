@@ -8,7 +8,8 @@ line says whether it is the whole PR or the changes since the last review), pr.f
 whole PR, for context), pr.stat and pr.omitted.txt. <coverage-file> is written outside the
 checkout.
 
-Binary files and lockfiles are left out. The rest is ordered so shipped and security-relevant
+Binary files and lockfiles are left out. Git reads diff attributes from the base branch, never from
+the PR, so a PR cannot mark its own source files binary to hide them from the review. The rest is ordered so shipped and security-relevant
 code comes first and tests and docs last, then filled up to a byte budget. A file that does not
 fit is listed as omitted and the model may read it by path. Coverage is stated here, not by the
 model, so it cannot be overstated. The coverage file names only the first few omitted paths so
@@ -23,6 +24,7 @@ from pathlib import Path
 
 BUDGET = 60_000
 COVERAGE_NAMES = 20
+COVERAGE_NAME_CHARS = 200
 LOCKFILES = ("package-lock.json",)
 SHA = re.compile(r"[0-9a-f]{40}")
 TEST_FILE = re.compile(
@@ -129,7 +131,7 @@ def delta_diff(last, head, full_len, run):
 
 def build_input(repo, base, last, out_dir, coverage_path, budget=BUDGET):
     def run(args):
-        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
+        r = subprocess.run(["git", "-C", str(repo), "--attr-source", base, *args], capture_output=True, text=True,
                            encoding="utf-8", errors="replace")
         return r.stdout if r.returncode == 0 else None
 
@@ -153,10 +155,13 @@ def build_input(repo, base, last, out_dir, coverage_path, budget=BUDGET):
     out.mkdir(parents=True, exist_ok=True)
     (out / "pr.diff").write_text(title + "\n" + "".join(c for _, c in shown), encoding="utf-8")
     (out / "pr.full.diff").write_text("".join(c for _, c in ordered(full)), encoding="utf-8")
-    (out / "pr.stat").write_text(run(["diff", "--stat=200", *rng]) or "", encoding="utf-8")
+    stat = run(["diff", "--stat=200", *rng])
+    if stat is None:
+        sys.exit(f"review_input: cannot stat {base}...HEAD in {repo}")
+    (out / "pr.stat").write_text(stat, encoding="utf-8")
     (out / "pr.omitted.txt").write_text("".join(p + "\n" for p in omitted), encoding="utf-8")
     Path(coverage_path).write_text(json.dumps(
-        {"mode": mode, "since": since, "shown": len(shown), "total": total, "omitted": omitted[:COVERAGE_NAMES]}),
+        {"mode": mode, "since": since, "shown": len(shown), "total": total, "omitted": [o[:COVERAGE_NAME_CHARS] for o in omitted[:COVERAGE_NAMES]]}),
         encoding="utf-8")
 
 
