@@ -493,7 +493,8 @@ def main(argv):
     patches = pr_patches(repo, pr) if structured else {}
     reviews = pr_reviews(repo, pr) if structured else None
     round_n = review_round(reviews)
-    built = build(text, patches, repo, read_coverage(path))
+    coverage = read_coverage(path)
+    built = build(text, patches, repo, coverage)
     body = built.body
     event = built.event
     if built.kind == "plain":
@@ -507,6 +508,8 @@ def main(argv):
         body = with_note(body, f"_Posted as COMMENT: the bot has already requested changes {BLOCK_CAP} times "
                                "on this PR. The findings are unresolved; no further changes-requested review is posted._")
     if not built.skipped:
+        if is_partial(coverage):
+            body += "\n\n<!-- coverage:partial -->"
         body += f"\n\n<!-- review-round:{round_n} -->"
     r, event = post_review(repo, pr, head_sha, body, built.comments, event)
     print(f"posted review as {event} (round {round_n})" if r.returncode == 0 else r.stderr,

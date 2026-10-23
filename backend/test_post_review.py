@@ -884,3 +884,17 @@ def test_a_skipped_notice_prints_no_coverage(tmp_path):
     text = json.dumps({"skipped": True, "summary": "No model.", "findings": []})
     r = pr.build(text, {}, REPO, read_cov(coverage(shown=0), tmp_path))
     assert r.skipped and "Coverage" not in r.body
+
+
+def test_a_partial_review_is_marked_so_the_next_run_reviews_the_whole_pr(tmp_path, monkeypatch):
+    run_main(tmp_path, monkeypatch, review([]))
+    assert "coverage:partial" not in run_main.calls[-1][1]["body"]
+    (tmp_path / "coverage.json").write_text(json.dumps(coverage(shown=1)))
+    path = tmp_path / "review.txt"
+    monkeypatch.setattr(pr, "pr_patches", lambda repo, n: PATCHES)
+    monkeypatch.setattr(pr, "pr_reviews", lambda repo, n: [])
+    posted = []
+    monkeypatch.setattr(pr, "gh", lambda args, payload=None: posted.append(payload) or Proc())
+    assert pr.main(["post_review.py", "1", REPO, "a" * 40, str(path)]) == 0
+    body = posted[-1]["body"]
+    assert body.rstrip().endswith("<!-- review-round:1 -->") and "<!-- coverage:partial -->" in body

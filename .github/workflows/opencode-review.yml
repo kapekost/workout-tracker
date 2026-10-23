@@ -43,11 +43,21 @@ jobs:
             # Taken from the API's commit_id field, not from any review text, so a "commit:" line
             # that model output or a comment smuggles into a body cannot redirect the re-review.
             # Only a real review carries the round marker; a skipped or plain notice does not, and
-            # diffing from one would leave that push's changes unreviewed.
-            last=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" \
+            # diffing from one would leave that push's changes unreviewed. A real review that did not
+            # cover the whole diff carries the partial marker; the next run then reviews the whole PR,
+            # since a delta would hide the files that review left out. (jq runs per page, so the
+            # last line of the output is the newest review.)
+            line=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" \
               --jq '.[] | select(.user.login == "github-actions[bot]" and
-                                 (.body | contains("<!-- review-round:"))) | .commit_id' | tail -1 || true)
-            echo "Last commit this bot reviewed: ${last:-none (first review)}"
+                                 (.body | contains("<!-- review-round:"))) |
+                    "\(.commit_id) \(.body | contains("<!-- coverage:partial -->"))"' | tail -1 || true)
+            last=""
+            note="none (first review)"
+            case "$line" in
+              *" false") last="${line% *}" ;;
+              *" true") note="none (the last review did not cover the whole diff: review the whole PR)" ;;
+            esac
+            echo "Last commit this bot reviewed: ${last:-$note}"
             echo
             echo "## This bot's earlier reviews on this PR"
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" \
@@ -133,8 +143,8 @@ jobs:
           # outside the checkout like post_review.py, and a failure fails the job. Its coverage
           # record is written outside the checkout too, so neither the model nor the PR can edit it.
           git show "origin/$DEFAULT_BRANCH:scripts/review_input.py" > "$RUNNER_TEMP/review_input.py"
-          last=$(sed -n 's/^Last commit this bot reviewed: \([0-9a-f]\{40\}\)$/\1/p' \
-            .review-input/prior-reviews.md | head -1)
+          last=$(sed -n '3s/^Last commit this bot reviewed: \([0-9a-f]\{40\}\)$/\1/p' \
+            .review-input/prior-reviews.md)
           python3 -I "$RUNNER_TEMP/review_input.py" "origin/$BASE_REF" "$last" .review-input \
             "$RUNNER_TEMP/coverage.json"
           find . -type l -delete
@@ -447,6 +457,8 @@ jobs:
           path: |
             ${{ runner.temp }}/review.txt
             ${{ runner.temp }}/coverage.json
+          # Errors only when neither file exists; a missing coverage.json alone reads as unknown
+          # coverage in the poster, which never approves.
           if-no-files-found: error
           retention-days: 1
 
