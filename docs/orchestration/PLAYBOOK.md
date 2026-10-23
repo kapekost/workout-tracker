@@ -424,7 +424,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    pushing the merge commit.
    After the merge, confirm it with `gh pr view <PR> --json state` rather than the exit code of
    `gh pr merge`, which can print a misleading "main is already used by worktree" error from inside a
-   worktree although the merge succeeded. Then run `bash scripts/task_cleanup.sh <issue-number> [branch]` from
+   worktree although the merge succeeded. Then run `bash scripts/task_cleanup.sh <issue-number|worktree-name> [branch]` from
    the main checkout to remove the task's worktree, branch, venv and node_modules. It prints one line
    per action and is safe to re-run. If the worktree is already gone it cannot read the branch, so
    pass the PR's head branch as `[branch]`; otherwise it prints `branch unknown` and leaves it. If it exits non-zero it refused on purpose (dirty worktree, or a
