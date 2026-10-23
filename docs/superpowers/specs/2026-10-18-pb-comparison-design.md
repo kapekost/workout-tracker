@@ -1,6 +1,8 @@
 # Personal best comparison (#389)
 
-Status: proposal. The privacy choice below is the owner's; nothing is implemented.
+Status: shipped to `main` 2026-10-23 (#389), not yet deployed. Owner chose opt-in and anonymous (`DECISIONS.md`, 2026-10-19). The shipped code and `docs/superpowers/plans/2026-10-19-pb-comparison.md` are authoritative where they differ from this proposal: one `GET /api/personal-bests/top` for all of the caller's exercises, `PUT /api/personal-bests/sharing`, the line reads "Other members' top 3", and a restore resets every flag to off.
+
+Known limit: three values cannot be traced to a person by one account, but someone who controls several opted-in accounts, or watches the list while a friend toggles sharing, can difference a value out. Accounts need an admin invite, so this is accepted.
 
 ## What
 
