@@ -205,9 +205,10 @@ jobs:
           # OpenRouter lists any, then the fixed free fallbacks. These are configured with
           # data_collection deny. A model the endpoint no longer lists is dropped, and a run with
           # none left fails here instead of looking like a provider outage. If the endpoint cannot
-          # be read, the list is used as it stands. The last entry is the free router again under
+          # be read, the list is used as it stands. The last entry retries the free router under
           # another key, without the privacy option, so a PR still gets a review when no private
-          # model answers. PRs reach the models only if they hold no personal data.
+          # model answers. Only owner-authored same-repo PRs reach the models, and the repo holds
+          # no personal data or secrets.
           if curl -fsS --retry 2 --max-time 20 https://openrouter.ai/api/v1/models \
                | jq -r '.data[].id' > "$RUNNER_TEMP/listed.txt"; then
             listed=1
