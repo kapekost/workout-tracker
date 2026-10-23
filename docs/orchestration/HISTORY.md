@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-23 (#269 sync to kapekost-web).**
+- Merged in kapekost-web: #114 (squash `91b6e12`). Its reviewer was a copy from before severity states, the diff builder and the poster-owned verdict check, so the port was a resync, not a patch: `post_review.py` as is, `review_input.py` adapted to its layout, the workflow re-based on this repo's with its own differences kept (private-repo checkout, Dependabot gate instead of the owner gate, Next.js prompt note, its action pins), 157 tests run in its `ci.yml`. A plain three-way merge of the three #269 PRs gave a hybrid (new poster, old prompt schema); it was caught by diffing the result against this repo's workflow, and it also silently dropped the `BASE_REF` env line.
+- Behaviour change there: the reviewer can now post `APPROVE` (strictly clean) and `REQUEST_CHANGES`; it posted only `COMMENT` before. Stated in the PR and its `AGENTS.md`.
+- security-ai-reviewer: no critical or high findings. Applied there: symlinks deleted before the builder writes into `.review-input`, `package.json` and `next.config.*` ranked with source. Both items below apply here too and are not done.
+- Live check: `/api/health` read `2ce2216` through the Tailscale address. `AGENTS.local.md` stays denied to agents; the host was reachable from the allow list without it.
+
+---
+
 **Tick 2026-10-23 (#269 PR 1).**
 - Merged and deployed: #477 (squash `f0c4cd5`), PR 1 of the #269 plan. Adds `scripts/review_input.py` (input builder with a size budget and `coverage.json`) and a Coverage line in `scripts/post_review.py`; partial coverage now posts a comment instead of approving. Dormant until PR 2 wires it into the workflow. Live `/api/health` is `f0c4cd5`; no app change, no schema change, no extra backup.
 - Review caught two real defects, both fixed before merge: a failed `git diff` exited 0 with an empty 0-of-0 coverage, and `read_coverage` truncated large files and lost the partial flag. security-ai-reviewer could not be launched from the tick; the tick review stood in as the staff-engineer pass. Hand run on the #267 range: 59,683 bytes, 33 text files plus 17 binaries match `git diff --stat`.
