@@ -1559,6 +1559,42 @@ def create_personal_best(pb: PersonalBestIn, profile_id: int = Depends(acting_pr
         row = conn.execute("SELECT * FROM personal_bests WHERE id = ?", (cur.lastrowid,)).fetchone()
         return _pb_with_single(row)
 
+# Other members' bests are shown only as the top values for an exercise, and only once this
+# many different opted-in members have one, so a value cannot be traced to a person.
+MIN_COMPARISON_MEMBERS = 3
+
+def _bests_comparison(conn, profile_id):
+    """{"sharing", "top"} for the caller. The select list is the privacy contract: only
+    exercise_id, weight, reps and the owning profile_id leave the database, and only to be
+    reduced to numbers here. Reads share_bests at call time, so opting out is immediate."""
+    sharing = conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (profile_id,)).fetchone()[0]
+    rows = conn.execute(
+        "SELECT pb.profile_id, pb.exercise_id, pb.weight_kg, pb.reps FROM personal_bests pb "
+        "JOIN profiles p ON p.id = pb.profile_id "
+        "WHERE p.share_bests = 1 AND pb.profile_id != ? "
+        "AND pb.exercise_id IN (SELECT exercise_id FROM personal_bests WHERE profile_id = ?) "
+        "UNION ALL "
+        "SELECT s.profile_id, st.exercise_id, st.weight_kg, st.reps FROM sets st "
+        "JOIN sessions s ON s.id = st.session_id JOIN profiles p ON p.id = s.profile_id "
+        "WHERE s.completed = 1 AND p.share_bests = 1 AND s.profile_id != ? "
+        "AND st.exercise_id IN (SELECT exercise_id FROM personal_bests WHERE profile_id = ?)",
+        (profile_id, profile_id, profile_id, profile_id)).fetchall()
+    best = {}
+    for r in rows:
+        key = (r["exercise_id"], r["profile_id"])
+        best[key] = max(best.get(key, 0), best_single(r["weight_kg"], r["reps"])[0])
+    by_exercise = {}
+    for (exercise_id, _), value in best.items():
+        by_exercise.setdefault(exercise_id, []).append(value)
+    top = {ex: sorted(vals, reverse=True)[:3] for ex, vals in by_exercise.items()
+           if len(vals) >= MIN_COMPARISON_MEMBERS}
+    return {"sharing": bool(sharing), "top": top}
+
+@app.get("/api/personal-bests/top")
+def get_bests_comparison(profile_id: int = Depends(acting_profile_id)):
+    with db() as conn:
+        return _bests_comparison(conn, profile_id)
+
 class SharingIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sharing: StrictBool
@@ -1568,7 +1604,7 @@ def set_bests_sharing(body: SharingIn, profile_id: int = Depends(acting_profile_
     with db() as conn:
         conn.execute("UPDATE profiles SET share_bests = ? WHERE id = ?", (int(body.sharing), profile_id))
         conn.commit()
-    return {"sharing": body.sharing}
+        return _bests_comparison(conn, profile_id)
 
 @app.get("/api/personal-bests")
 def list_personal_bests(profile_id: int = Depends(acting_profile_id)):
