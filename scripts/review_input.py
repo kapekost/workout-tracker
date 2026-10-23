@@ -8,13 +8,14 @@ line says whether it is the whole PR or the changes since the last review), pr.f
 whole PR, for context), pr.stat and pr.omitted.txt. <coverage-file> is written outside the
 checkout.
 
-Lockfiles are left out. Binary files are not shown but they are counted and listed as omitted, so a
-text file that git takes for binary (a NUL byte) cannot slip by unreviewed. Git reads diff attributes from the base branch, never from
-the PR, so a PR cannot mark its own source files binary to hide them from the review. The rest is ordered so shipped and security-relevant
-code comes first and tests and docs last, then filled up to a byte budget. A file that does not
-fit is listed as omitted and the model may read it by path. Coverage is stated here, not by the
-model, so it cannot be overstated. The coverage file names only the first few omitted paths so
-the poster can always read it whole; pr.omitted.txt has them all.
+Lockfiles are left out. Binary files are not shown but are counted and listed as omitted, so a
+text file that git takes for binary (a NUL byte) cannot slip by unreviewed. Git reads diff
+attributes from the base branch, never from the PR, so a PR cannot mark its own source files
+binary to hide them from the review. The rest is ordered so shipped and security-relevant code
+comes first and tests and docs last, then filled up to a byte budget. A file that does not fit is
+listed as omitted and the model may read it by path. Coverage is stated here, not by the model,
+so it cannot be overstated. The coverage file names only the first few omitted paths so the
+poster can always read it whole; pr.omitted.txt has them all.
 """
 import json
 import os
