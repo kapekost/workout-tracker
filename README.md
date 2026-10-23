@@ -73,7 +73,7 @@ cd mobile
 npm install
 npx expo start    # dev server
 npx expo lint
-npm test          # API client unit tests (Node 22.6+)
+npm test          # unit tests for the API client and auth store (Node 22.6+)
 ```
 
 The app reads the backend origin from `EXPO_PUBLIC_API_URL` (no trailing slash), set in a

@@ -16,5 +16,11 @@ if (!baseUrl) throw new Error('EXPO_PUBLIC_API_URL is not set');
 // The session cookie travels with every request, so a release build needs TLS.
 if (!__DEV__ && !baseUrl.startsWith('https://')) throw new Error('EXPO_PUBLIC_API_URL must be https');
 
-export const api = createClient({ baseUrl, store: secureSession });
+let unauthorized: () => void = () => {};
+export const setUnauthorizedHandler = (handler: () => void) => {
+  unauthorized = handler;
+};
+
+export const api = createClient({ baseUrl, store: secureSession, onUnauthorized: () => unauthorized() });
+export const clearSession = secureSession.clear;
 export { ApiError } from './client';
