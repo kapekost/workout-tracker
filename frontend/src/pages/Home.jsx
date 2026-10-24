@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../api'
 import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { usePlan } from '../lib/planContext'
@@ -7,7 +7,7 @@ import { exerciseById } from '../lib/muscles'
 import { useActiveSession } from '../lib/activeSession'
 import { track } from '../lib/analytics'
 import { downloadExport } from '../lib/exportData'
-import { groupRecovery, lastWorkoutLabel } from '../lib/recovery'
+import { groupRecovery, lastWorkoutLabel, localToday, daysBetweenDates } from '../lib/recovery'
 import MuscleGroupPicker from '../components/MuscleGroupPicker'
 import Eyebrow from '../components/Eyebrow'
 import Toast from '../components/Toast'
@@ -45,6 +45,16 @@ export function nextWorkoutId(sessions, cycle) {
 
 // Build commit injected by Vite at build time — answers "which version is the
 // phone actually running?" without digging into image IDs.
+// Completed sessions in the last 7 days. PR counts live behind a per-session
+// request, so they are not part of this line.
+export function weekSessionCount(sessions, todayIso) {
+  return (sessions || []).filter(s => {
+    if (!s.completed) return false
+    const d = daysBetweenDates(s.date, todayIso)
+    return d >= 0 && d < 7
+  }).length
+}
+
 export function VersionStamp() {
   return (
     <p className="font-mono" style={{ marginTop: 8, textAlign: 'center',
@@ -128,6 +138,7 @@ export default function Home() {
   const lastPlan = lastSession ? PLAN[lastSession.workout_day] : null
 
   const groups = groupRecovery(recency, Date.now(), exerciseById(PLAN))
+  const weekN = weekSessionCount(sessions, localToday())
   const trainedByDay = lastTrainedByDay(sessions, CYCLE)
 
   async function startDay(dayId) {
@@ -197,6 +208,11 @@ export default function Home() {
           <p style={{ color: colors.muted, marginTop: 6, fontSize: type.size.md }}>
             {lastWorkoutLabel(sessions)}
           </p>
+          {sessions.length > 0 && (
+            <p style={{ color: colors.muted, marginTop: 4, fontSize: type.size.md }}>
+              This week: {weekN} {weekN === 1 ? 'session' : 'sessions'}
+            </p>
+          )}
         </div>
         <button className="tap-target" onClick={() => nav('/plan')}
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color: colors.accent,
@@ -205,9 +221,19 @@ export default function Home() {
         </button>
       </div>
 
+      {/* Start button */}
+      <StartOrResumeButton
+        active={active}
+        plan={next}
+        color={color}
+        starting={starting}
+        onStart={startWorkout}
+        onResume={() => active && nav(`/workout/${active.id}`)}
+      />
+
       {/* Exercise preview */}
       {next.exercises.length > 0 && (
-        <div className="card" style={{ padding: space.xxl, marginBottom: space.xxl }}>
+        <div className="card" style={{ padding: space.xxl, marginBottom: 32 }}>
           <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
             {next.exercises.length} exercises
           </Eyebrow>
@@ -229,16 +255,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Start button */}
-      <StartOrResumeButton
-        active={active}
-        plan={next}
-        color={color}
-        starting={starting}
-        onStart={startWorkout}
-        onResume={() => active && nav(`/workout/${active.id}`)}
-      />
-
       {/* Muscle groups */}
       {!recencyError && (
         <MuscleGroupPicker
@@ -248,6 +264,15 @@ export default function Home() {
           starting={starting}
           onStart={startDay}
         />
+      )}
+
+      {sessions.length === 0 && (
+        <div className="card" style={{ padding: space.xl, marginBottom: 32 }}>
+          <p style={{ fontSize: type.size.md }}>
+            Your plan has {CYCLE.length} days: {CYCLE.map(id => PLAN[id]?.name ?? id).join(', ')}.{' '}
+            <Link to="/plan" style={{ color: colors.accent }}>Edit plan</Link> to change it.
+          </p>
+        </div>
       )}
 
       {/* Last session */}
@@ -280,7 +305,7 @@ export default function Home() {
       )}
 
       {sessions.length === 0 && (
-        <EmptyState title="No sessions logged yet." subtitle="Start your first workout above 💪" />
+        <EmptyState title="No sessions yet." />
       )}
 
       {/* Nothing to export on a first-run install — reuses the same
@@ -296,9 +321,12 @@ export default function Home() {
           style={{ marginTop: 24, background: 'none', border: 'none', color: colors.muted2,
                    fontSize: type.size.md, textDecoration: 'underline', cursor: 'pointer' }}
         >
-          Export my data
+          Export my data (JSON file)
         </button>
       )}
+      <p style={{ color: colors.muted, fontSize: type.size.sm, marginTop: 8 }}>
+        The app records which screens you open and what you tap, including rest timings, to improve it. Nothing is shared outside the app.
+      </p>
       <VersionStamp />
     </div>
   )

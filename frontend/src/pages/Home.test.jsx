@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
-import { StartOrResumeButton, planForDay, VersionStamp, lastTrainedByDay, nextWorkoutId } from './Home'
+import { weekSessionCount, StartOrResumeButton, planForDay, VersionStamp, lastTrainedByDay, nextWorkoutId } from './Home'
 import { PLAN, CYCLE, getNextWorkoutId } from '../data/workoutPlan'
 
 vi.mock('../lib/planContext', () => ({ usePlan: () => ({ plan: PLAN, cycle: CYCLE, ready: true }) }))
@@ -55,7 +55,25 @@ describe('Home (full page)', () => {
     renderHome()
     await screen.findByRole('button', { name: /^Start/ })
     expect(screen.queryByText('Muscle groups')).not.toBeInTheDocument()
-    expect(screen.queryByText('Export my data')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Export my data/)).not.toBeInTheDocument()
+    expect(screen.getByText('No sessions yet.')).toBeInTheDocument()
+    expect(screen.getByText(/Your plan has \d+ days:/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit plan' })).toHaveAttribute('href', '/plan')
+  })
+
+  it('puts Start above the exercise list and keeps muscle groups collapsed', async () => {
+    mockHomeApi({
+      sessions: [{ id: 1, workout_day: 'upper_a', date: '2026-09-01', completed: 1 }],
+      recency: [{ exercise_id: ex1.id, sets: 3, last_at: '2026-09-01 10:00:00', last_date: '2026-09-01' }],
+    })
+    renderHome()
+    const start = await screen.findByRole('button', { name: /^Start/ })
+    const list = screen.getByText(/^\d+ exercises$/)
+    expect(start.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /Muscle groups/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(/Estimated from your logged training only/)).not.toBeInTheDocument()
+    expect(screen.getByText(/This week: \d+ sessions?$/)).toBeInTheDocument()
+    expect(screen.getByText(/Nothing is shared outside the app/)).toBeInTheDocument()
   })
 
   it('once at least one exercise has been trained, shows the picker and the export link', async () => {
@@ -66,7 +84,7 @@ describe('Home (full page)', () => {
     renderHome()
     await screen.findByRole('button', { name: /^Start/ })
     expect(await screen.findByText('Muscle groups')).toBeInTheDocument()
-    expect(screen.getByText('Export my data')).toBeInTheDocument()
+    expect(screen.getByText('Export my data (JSON file)')).toBeInTheDocument()
   })
 
   it('the "Last session" card is a real button, not an inert div (same defect class as DisclosureRow)', async () => {
@@ -107,6 +125,14 @@ describe('Home (full page)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Start/ }))
     expect(await screen.findByText('A workout is already in progress')).toBeInTheDocument()
     expect(refresh).toHaveBeenCalled()
+  })
+})
+
+describe('weekSessionCount', () => {
+  const s = (date, completed = 1) => ({ date, completed })
+  it('counts completed sessions in the last 7 days only', () => {
+    expect(weekSessionCount([s('2026-10-23'), s('2026-10-17'), s('2026-10-16'), s('2026-10-22', 0)], '2026-10-23')).toBe(2)
+    expect(weekSessionCount(null, '2026-10-23')).toBe(0)
   })
 })
 
@@ -231,7 +257,7 @@ describe('Home when a read fails', () => {
     mockHomeApi({ sessionsFail: true })
     renderHome()
     await screen.findByRole('button', { name: /Try again/ })
-    expect(screen.queryByText(/No sessions logged yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No sessions yet/i)).not.toBeInTheDocument()
   })
 
   it('offers neither Start nor Resume, because neither is knowable', async () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '../api'
 import { DAY_COLORS } from '../data/workoutPlan'
 import { usePlan } from '../lib/planContext'
@@ -25,7 +25,7 @@ import DayIcon from '../components/DayIcon'
 import DisclosureRow from '../components/DisclosureRow'
 import Toast from '../components/Toast'
 import { useToast } from '../lib/useToast'
-import { colors, type, space, icon, font } from '../lib/theme'
+import { colors, type, space, icon, font, radius } from '../lib/theme'
 import { IconCheck, IconTrash, IconMinus, IconPlus, IconSparkles, IconTrophy, IconClipboardDocumentList, IconPencil } from '../icons'
 
 function Stat({ label, value }) {
@@ -212,6 +212,32 @@ function prLabel(p) {
   return 'New record'
 }
 
+// The plan exercise as it is being done today: the alternative's id, name and
+// cues when the user switched to it, the plan's own targets either way.
+// `planId` stays the plan exercise's id so the card keeps its place and key.
+export function effectiveExercise(ex, variant) {
+  const alt = variant === 'alt' ? ex.altExercise : null
+  if (!alt) return { ...ex, planId: ex.id, base: ex }
+  return { ...ex, id: alt.id, name: alt.name, alt: null, bodyweight: alt.bodyweight,
+    muscles: alt.muscles, ytUrl: alt.ytUrl, cues: alt.cues, planId: ex.id, base: ex }
+}
+
+// A session that already has sets on an alternative reopens on it.
+export function variantsFromSets(exercises, sets) {
+  const logged = new Set(sets.map(s => s.exercise_id))
+  return Object.fromEntries(exercises
+    .filter(ex => ex.altExercise && logged.has(ex.altExercise.id) && !logged.has(ex.id))
+    .map(ex => [ex.id, 'alt']))
+}
+
+const variantKey = sid => `wt-variants-${sid}`
+function loadVariants(sid) {
+  try { return JSON.parse(localStorage.getItem(variantKey(sid))) || {} } catch { return {} }
+}
+function saveVariants(sid, v) {
+  try { localStorage.setItem(variantKey(sid), JSON.stringify(v)) } catch { /* private mode: the choice lasts this visit */ }
+}
+
 export default function Workout() {
   const { sessionId } = useParams()
   const nav = useNavigate()
@@ -224,6 +250,7 @@ export default function Workout() {
   const prsAtStart = useRef({})
   const { toast, showToast } = useToast()
   const [expanded, setExpanded] = useState(null)
+  const [variants, setVariants] = useState(() => loadVariants(sessionId)) // plan exercise id -> 'alt'
   const [weight, setWeight] = useState(20)
   const [reps, setReps] = useState(8)
   const [logging, setLogging] = useState(false)
@@ -253,6 +280,7 @@ export default function Workout() {
   // reads on mount).
   const [noteEditing, setNoteEditing] = useState(null) // { exId, text } | null
   const [noteFailed, setNoteFailed] = useState({})    // exId -> true
+  const [setFailed, setSetFailed] = useState({})      // exId -> true while a set is unsaved
   const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
   // Same tap-again-to-confirm shape as History.jsx's confirmId and
@@ -299,7 +327,10 @@ export default function Workout() {
       // would swallow it and bounce to Home, making the "Couldn't find this
       // workout." fallback below unreachable. No exercises means no first
       // ID — the fallback then renders as intended.
-      const exercises = PLAN[s.workout_day]?.exercises || []
+      const baseExercises = PLAN[s.workout_day]?.exercises || []
+      const v = { ...loadVariants(sessionId), ...variantsFromSets(baseExercises, s.sets || []) }
+      setVariants(v)
+      const exercises = baseExercises.map(ex => effectiveExercise(ex, v[ex.id]))
       const firstId = nextIncompleteExerciseId(exercises, s.sets || [])
       const firstEx = exercises.find(e => e.id === firstId)
       // The session is set only after the prefill is known: once it is set the
@@ -378,11 +409,24 @@ export default function Workout() {
     </div>
   )
 
-  const plan = PLAN[session.workout_day]
+  const basePlan = PLAN[session.workout_day]
+  const plan = basePlan && { ...basePlan, exercises: basePlan.exercises.map(ex => effectiveExercise(ex, variants[ex.id])) }
   if (!plan) return <div style={{ padding: 24, color: colors.danger }}>Couldn't find this workout.</div>
   const color = DAY_COLORS[session.workout_day]
 
   const setsForExercise = (id) => sets.filter(s => s.exercise_id === id)
+
+  async function switchVariant(baseEx, choice) {
+    const next = { ...variants, [baseEx.id]: choice === 'alt' ? 'alt' : undefined }
+    if (!next[baseEx.id]) delete next[baseEx.id]
+    setVariants(next)
+    saveVariants(sessionId, next)
+    const nowEx = effectiveExercise(baseEx, next[baseEx.id])
+    setExpanded(nowEx.id)
+    const data = await ensureLastPerf(nowEx)
+    const pf = prefillFor(nowEx.id, sets, prs, data, { repsHigh: nowEx.repsHigh, bodyweight: nowEx.bodyweight })
+    setWeight(pf.weight); setReps(pf.reps)
+  }
 
   async function logSet(ex) {
     if (logging || logInFlight.current) return
@@ -408,6 +452,7 @@ export default function Workout() {
         client_id: pendingLog.current.key
       })
       pendingLog.current = null
+      setSetFailed(prev => ({ ...prev, [ex.id]: false }))
       setAnnouncement(`Set ${setNumber} logged: ${weight} kg, ${reps} reps`)
       track('set_logged', { exercise_id: ex.id })
       const newSets = [...sets, newSet]
@@ -460,6 +505,9 @@ export default function Workout() {
       // A server answer means the write did not happen; only a missing status
       // leaves it open, and that is the one case that keeps the key.
       if (e?.status) pendingLog.current = null
+      // Only an unanswered request can succeed on retry; it stays on screen
+      // after the toast is gone.
+      setSetFailed(prev => ({ ...prev, [ex.id]: !e?.status || e.status >= 500 }))
       if (e?.status === 401) {
         // api.js is already routing this to the logout handler and the screen
         // is being torn down; a toast racing the redirect is noise. Falls
@@ -552,7 +600,9 @@ export default function Workout() {
     : Date.now()
 
   return (
-    <div style={{ paddingTop: 16, paddingBottom: EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR }}>
+    // NavBar is hidden on this route; zeroing --navbar-height drops TimerBar
+    // and the toast to the bottom edge, above the safe-area inset.
+    <div style={{ paddingTop: 16, paddingBottom: EXTRA_BOTTOM_CLEARANCE_FOR_TIMER_BAR, '--navbar-height': '0px' }}>
       <Toast toast={toast} />
       <div role="status" aria-live="polite" style={VISUALLY_HIDDEN}>{announcement}</div>
       <TimerBar
@@ -583,6 +633,12 @@ export default function Workout() {
               (2026-09-06 UI review, item 18c). */}
           <p style={{ color: colors.muted2, fontSize: type.size.lg, marginTop: 2 }}>{session.date}</p>
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: space.sm, flexShrink: 0 }}>
+        <Link to="/" className="tap-target" style={{ color: colors.muted, fontSize: type.size.base,
+          fontWeight: type.weight.semibold, textDecoration: 'none', display: 'inline-flex', alignItems: 'center',
+          minHeight: 44 }}>
+          ← Home
+        </Link>
         <button className="tap-target" onClick={() => { if (confirmFinish('finish')) finishWorkout() }} disabled={finishing}
           style={{ background: 'none', border: `1px solid ${colors.border}`, borderRadius: 100, color,
             fontSize: type.size.base, fontWeight: type.weight.semibold, cursor: 'pointer',
@@ -590,6 +646,7 @@ export default function Workout() {
             display: 'flex', alignItems: 'center', gap: 4 }}>
           {finishing ? 'Saving…' : finishArmed ? 'Tap again to finish' : <><IconCheck size={icon.body} /> Finish Workout</>}
         </button>
+        </div>
       </div>
 
       {/* Exercises */}
@@ -601,7 +658,7 @@ export default function Workout() {
         const complete = done >= target
 
         return (
-          <DisclosureRow key={ex.id} ref={el => { cardRefs.current[ex.id] = el }}
+          <DisclosureRow key={ex.planId} ref={el => { cardRefs.current[ex.id] = el }}
             // Auto-advance's scrollIntoView({ block: 'start' }) aligns this card to the
             // top of the *viewport*, but the header is position: fixed and would cover
             // it. --header-height is already published on .page-shell (App.jsx) and
@@ -638,16 +695,22 @@ export default function Workout() {
                     {complete && <IconCheck size={icon.heading} color={color} />}
                   </div>
                   <p style={{ color: colors.muted2, fontSize: type.size.base, marginTop: 2 }}>
-                    {ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
+                    {ex.base.altExercise ? (ex.id === ex.planId ? `or ${ex.base.altExercise.name}` : `instead of ${ex.base.name}`) : ex.alt} · {ex.sets}×{ex.repsLow}–{ex.repsHigh}
                   </p>
                 </div>
                 {/* Set dots */}
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {Array.from({ length: target }).map((_, i) => (
-                    i < done
-                      ? <DayAccent key={i} day={session.workout_day} />
-                      : <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2a2a3e' }} />
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={VISUALLY_HIDDEN}>{Math.min(done, target)} of {target} sets</span>
+                  <span aria-hidden="true" style={{ display: 'flex', gap: 4, marginRight: 4 }}>
+                    {Array.from({ length: target }).map((_, i) => (
+                      i < done
+                        ? <DayAccent key={i} day={session.workout_day} />
+                        : <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', boxSizing: 'border-box', border: `1.5px solid ${colors.muted3}` }} />
+                    ))}
+                  </span>
+                  <span aria-hidden="true" style={{ fontFamily: font.mono, fontSize: type.size.sm, color: colors.muted }}>
+                    {Math.min(done, target)} of {target}
+                  </span>
                 </div>
               </>
             }
@@ -655,6 +718,30 @@ export default function Workout() {
             {/* Info link: opens a bottom sheet in place, not a page nav, so
                 checking a cue mid-set doesn't collapse this card or lose
                 whatever weight/reps you've already dialed in. */}
+            {ex.base.altExercise && (() => {
+              const locked = setsForExercise(ex.base.id).length + setsForExercise(ex.base.altExercise.id).length > 0
+              return (
+                <div role="group" aria-label="Exercise for this session"
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, padding: 3, marginBottom: 6,
+                    background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: radius.sm }}>
+                  {[ex.base, ex.base.altExercise].map((opt, i) => {
+                    const on = ex.id === opt.id
+                    return (
+                      <button key={opt.id} type="button" aria-pressed={on} disabled={locked && !on}
+                        onClick={() => !on && switchVariant(ex.base, i === 1 ? 'alt' : 'main')}
+                        style={{ minHeight: 44, border: 'none', borderRadius: 6, cursor: on || locked ? 'default' : 'pointer',
+                          background: on ? colors.border : 'transparent', color: on ? colors.text : colors.muted,
+                          fontSize: type.size.md, fontWeight: type.weight.semibold }}>
+                        {opt.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+            {ex.base.altExercise && setsForExercise(ex.base.id).length + setsForExercise(ex.base.altExercise.id).length > 0 && (
+              <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 10 }}>Sets are logged, so this is fixed for today.</p>
+            )}
             <button
               className="tap-target"
               onClick={() => setCuesEx(ex)}
@@ -714,8 +801,8 @@ export default function Workout() {
                   <Eyebrow color={colors.muted} style={{ marginBottom: 4 }}>Up next</Eyebrow>
                 )}
                 {lastPerf[ex.id].suggestion?.warmup && (
-                  <p style={{ color: colors.muted, fontSize: type.size.lg, fontWeight: type.weight.semibold, marginBottom: 4 }}>
-                    Warm-up: <strong>{lastPerf[ex.id].suggestion.warmup.weight_kg}kg</strong> × {lastPerf[ex.id].suggestion.warmup.reps}. Logged sets count.
+                  <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 4 }}>
+                    Warm-up {lastPerf[ex.id].suggestion.warmup.weight_kg}kg × {lastPerf[ex.id].suggestion.warmup.reps}. Logged sets count.
                   </p>
                 )}
                 {(() => {
@@ -769,8 +856,13 @@ export default function Workout() {
               </div>
               <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
                 style={{ background: color, fontSize: type.size.body, padding: '12px' }}>
-                {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
+                {logging ? 'Logging…' : `${setFailed[ex.id] ? 'Retry Log Set' : 'Log Set'} ${nextSetNumber(exSets)}`}
               </button>
+              {setFailed[ex.id] && !logging && (
+                <p style={{ color: colors.danger, fontSize: type.size.base, textAlign: 'center', marginTop: 8 }}>
+                  Not saved — retry
+                </p>
+              )}
             </div>
 
             {/* Logged sets — below the logger, so logging a set confirms

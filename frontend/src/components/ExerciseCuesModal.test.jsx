@@ -179,3 +179,12 @@ describe('ExerciseCuesModal', () => {
     outside.remove()
   })
 })
+
+describe('ExerciseCuesModal history', () => {
+  it('closes on popstate', () => {
+    const onClose = vi.fn()
+    render(<ExerciseCuesModal ex={ex} color="#fff" onClose={onClose} />)
+    act(() => { history.replaceState(null, ''); window.dispatchEvent(new PopStateEvent('popstate')) })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})

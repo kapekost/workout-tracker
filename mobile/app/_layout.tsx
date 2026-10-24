@@ -1,56 +1,75 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { authStore, useAuth } from '@/src/auth';
+import { routeGroup } from '@/src/auth/guard';
+import { fontAssets } from '@/src/theme/fonts';
+import { colors } from '@/src/theme/tokens';
 
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  anchor: '(tabs)',
+const queryClient = new QueryClient();
+
+// The app is dark only. The navigation theme paints every screen and header, so its background is
+// the token background.
+const navTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: colors.bg,
+    card: colors.card,
+    border: colors.border,
+    text: colors.text,
+    primary: colors.accent,
+  },
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Held until the stored session has been checked and the fonts are in, so Login never flashes for
+// a logged-in user and no text renders in the system font first.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+  const group = useAuth((s) => routeGroup(s.status));
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
+  // A font that fails to load falls back to the system font rather than holding the splash forever.
+  const fontsReady = fontsLoaded || fontError !== null;
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    authStore.getState().restore();
+  }, []);
 
-  if (!loaded) {
-    return null;
-  }
+  // The cache is keyed without the profile, so the next member must not see the last one's data.
+  useEffect(() => {
+    if (group !== 'app') queryClient.clear();
+  }, [group]);
 
-  return <RootLayoutNav />;
-}
+  useEffect(() => {
+    if (group !== 'loading' && fontsReady) SplashScreen.hideAsync();
+  }, [group, fontsReady]);
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  if (group === 'loading' || !fontsReady) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider value={navTheme}>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Protected guard={group === 'app'}>
+            <Stack.Screen name="(app)" />
+          </Stack.Protected>
+          <Stack.Protected guard={group === 'auth'}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
+        </Stack>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

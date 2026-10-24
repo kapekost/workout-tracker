@@ -18,7 +18,7 @@ def test_a_v9_database_gains_the_column_and_migration_is_idempotent(mainmod, see
     mainmod.init()
     mainmod.init()
     with mainmod.db() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
         assert conn.execute("SELECT share_bests FROM profiles WHERE id = ?", (seed_profile_id,)).fetchone()[0] == 0
     assert len(_share_bests_column(mainmod)) == 1
 

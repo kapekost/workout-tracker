@@ -221,10 +221,14 @@ describe('TopBar page label — item 15', () => {
     }
   )
 
-  it('keeps the page label on /workout, which has no nav tab', async () => {
-    signedOut()
+  it('shows no page label, identity or Log out on /workout', async () => {
+    signedInAs({ username: 'sam', icon: '🏋️' })
     renderTopBarAt('/workout/1')
-    expect(await screen.findByText('Workout')).toBeInTheDocument()
+    await screen.findByText('Gym Tracker')
+    await waitFor(() => expect(auth.me).toHaveBeenCalled())
+    expect(screen.queryByText('Workout')).not.toBeInTheDocument()
+    expect(screen.queryByText('sam')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
   })
 })
 

@@ -100,8 +100,10 @@ function Shell() {
   useLayoutEffect(() => {
     const el = headerRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(([entry]) => setHeaderHeight(entry.contentRect.height))
-    ro.observe(el)
+    // Border box, not entry.contentRect: the header's safe-area padding is
+    // part of the space it covers, and contentRect leaves it out.
+    const ro = new ResizeObserver(() => setHeaderHeight(el.getBoundingClientRect().height))
+    ro.observe(el, { box: 'border-box' })
     return () => ro.disconnect()
   }, [ready])
 
@@ -117,7 +119,7 @@ function Shell() {
           booting, which is what it is. */}
       {ready && (
         <>
-          <div ref={headerRef} style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 45 }}>
+          <div ref={headerRef} style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 45, paddingTop: 'env(safe-area-inset-top)', background: 'var(--bg)' }}>
             <TopBar />
             {/* A workout in progress is a statement about your session. Left
                 mounted, it would sit above the login screen after a logout

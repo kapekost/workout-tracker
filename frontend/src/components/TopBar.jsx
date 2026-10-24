@@ -1,18 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import Eyebrow from './Eyebrow'
 import VersionBadge from './VersionBadge'
 import { colors, type, icon, space } from '../lib/theme'
 import { useSession } from '../lib/session'
 import { IconBarbell, IconUser } from '../icons'
 
-// Home/Progress/History are reachable from NavBar's own tabs, which already
-// render a mint label for the active one at the bottom of the same screen
-// (2026-09-06 UI review, item 15) -- printing it again up here just
-// duplicated it. Workout has no nav tab, so this is the only
-// place it names the screen you're on.
-function pageLabel(pathname) {
-  if (pathname.startsWith('/workout')) return 'Workout'
-  return ''
+// The workout screen is chrome-free like the auth screens: no identity, no
+// log out, no page label. Its own header carries the way back home.
+function isWorkoutScreen(pathname) {
+  return pathname.startsWith('/workout')
 }
 
 // The auth screens carry their own <h1> and exactly one action, so the bar
@@ -38,7 +33,7 @@ const actionStyle = {
 export default function TopBar() {
   const { pathname } = useLocation()
   const authScreen = isAuthScreen(pathname)
-  const label = pageLabel(pathname)
+  const workoutScreen = isWorkoutScreen(pathname)
   // Only a real session names anyone here. This used to fall back to
   // /profile/me -- the acting profile anonymous writes were attributed to
   // before #86 closed the gate -- which was accurate but unreadable: the bar
@@ -65,7 +60,7 @@ export default function TopBar() {
           <VersionBadge />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: space.smd, minWidth: 0 }}>
-          {authScreen ? (
+          {workoutScreen ? null : authScreen ? (
             // With NavBar gone from these screens, this is the only way back
             // into the app for someone who tapped "Log in" and changed their
             // mind -- an installed PWA offers no browser back button. Offered
@@ -101,7 +96,6 @@ export default function TopBar() {
                     Log in
                   </Link>
                 )}
-              {label && <Eyebrow color={colors.accent} size={type.size.sm}>{label}</Eyebrow>}
             </>
           )}
         </div>

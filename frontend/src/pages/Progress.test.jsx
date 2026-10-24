@@ -56,6 +56,16 @@ describe('Progress page', () => {
     expect(await screen.findByText('Bench Press', { selector: 'p' })).toBeInTheDocument()
   })
 
+  it('auto-selects the most recently trained exercise, not the first in API order', async () => {
+    mockExercises([
+      { exercise_id: 'bench_press', exercise_name: 'Bench Press', last_date: '2026-07-01' },
+      { exercise_id: 'back_squat', exercise_name: 'Back Squat', last_date: '2026-07-08' },
+    ])
+    renderProgress()
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/back_squat'))
+    expect(api.get).not.toHaveBeenCalledWith('/progress/bench_press')
+  })
+
   it('a user tap still switches the selected exercise normally', async () => {
     mockExercises()
     renderProgress()
@@ -83,7 +93,29 @@ describe('Progress page', () => {
     expect(row.style.gap).toBe('10px')
   })
 
-  it('renders the Personal Record value larger than the Sessions value next to it', async () => {
+  it('shows the picker as one scrolling row, and "All N exercises" expands it to a wrapping list', async () => {
+    mockExercises()
+    renderProgress()
+    const chip = await screen.findByRole('button', { name: 'Bench Press' })
+    expect(chip.parentElement.style.overflowX).toBe('auto')
+    fireEvent.click(screen.getByRole('button', { name: 'All 2 exercises' }))
+    expect(chip.parentElement.style.flexWrap).toBe('wrap')
+    expect(screen.getByRole('button', { name: 'Show fewer' })).toBeInTheDocument()
+  })
+
+  it('puts the stat card and chart before the exercise picker', async () => {
+    mockExercises(exercises, [
+      { date: '2026-07-01', max_weight: 60 },
+      { date: '2026-07-08', max_weight: 70 },
+    ])
+    renderProgress()
+    const chip = await screen.findByRole('button', { name: 'Bench Press' })
+    const stat = await screen.findByText('Est. 1RM')
+    expect(stat.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(await screen.findByRole('img', { name: /Bench Press: 60 kg on 07-01, 70 kg on 07-08/ })).toBeInTheDocument()
+  })
+
+  it('renders the Est. 1RM value larger than the Sessions value next to it', async () => {
     mockExercises(exercises, [
       { date: '2026-07-01', max_weight: 60 },
       { date: '2026-07-08', max_weight: 70 },
@@ -92,7 +124,7 @@ describe('Progress page', () => {
     await screen.findByRole('button', { name: 'Bench Press' })
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
 
-    const prValue = screen.getByText('Personal Record').nextElementSibling
+    const prValue = screen.getByText('Est. 1RM').nextElementSibling
     const sessionsValue = screen.getByText('Sessions').nextElementSibling
     expect(prValue.style.fontSize).toBe(type.size.display)
     expect(sessionsValue.style.fontSize).toBe(type.size.title)
@@ -113,7 +145,7 @@ describe('Progress page', () => {
       renderProgress()
       await screen.findByRole('button', { name: 'Bench Press' })
       await waitFor(() => expect(api.get).toHaveBeenCalledWith('/progress/bench_press'))
-      return (await screen.findByText('Personal Record')).nextElementSibling
+      return (await screen.findByText('Est. 1RM')).nextElementSibling
     }
 
     it('shows the estimated single, "est." and the source set when the best set had reps > 1', async () => {

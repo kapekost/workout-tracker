@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react'
 import { api } from '../api'
 import { usePlan } from '../lib/planContext'
 import Skeleton from '../components/Skeleton'
@@ -12,7 +12,12 @@ import { useToast } from '../lib/useToast'
 import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { track } from '../lib/analytics'
 import { colors, type, space, icon, font } from '../lib/theme'
-import { IconClock, IconCheck } from '../icons'
+import { IconClock } from '../icons'
+
+function monthLabel(date) {
+  const [y, m] = date.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
 
 function sessionDuration(s) {
   if (!s.completed || !s.ended_at || !s.created_at) return null
@@ -68,7 +73,7 @@ export function SessionDetail({ detail, confirmId, sessionId, onDelete }) {
         style={{ background: 'none', border: `1px solid ${colors.dangerBg}`, borderRadius: 8,
           color: colors.danger, cursor: 'pointer', padding: '8px 16px', fontSize: type.size.base,
           fontWeight: type.weight.semibold, marginTop: 8 }}>
-        {confirmId === sessionId ? 'Tap again to confirm' : 'Delete session'}
+        {confirmId === sessionId ? 'Delete session and its sets? Tap again' : 'Delete session'}
       </button>
     </>
   )
@@ -152,13 +157,19 @@ export default function History() {
 
       {sessions.length === 0 ? (
         <EmptyState title="No sessions yet." subtitle="Your workout history will appear here." />
-      ) : sessions.map(s => {
+      ) : sessions.map((s, i) => {
+        const month = monthLabel(s.date)
+        const newMonth = i === 0 || month !== monthLabel(sessions[i - 1].date)
         const plan = PLAN[s.workout_day]
         const isOpen = expanded === s.id
         const detail = details[s.id]
 
         return (
-          <DisclosureRow key={s.id} style={{ marginBottom: space.smd }}
+          <Fragment key={s.id}>
+          {newMonth && (
+            <h2 style={{ color: colors.muted, fontSize: type.size.md, fontWeight: type.weight.semibold, margin: `${i === 0 ? 0 : space.xl}px 0 ${space.sm}px` }}>{month}</h2>
+          )}
+          <DisclosureRow style={{ marginBottom: space.smd }}
             isOpen={isOpen} onToggle={() => toggle(s.id)}
             header={
               <>
@@ -168,7 +179,8 @@ export default function History() {
                     {plan && <DayIcon day={s.workout_day} />} {plan?.name ?? s.workout_day}
                   </p>
                   <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: 2 }}>
-                    {s.date} · {s.completed ? <><IconCheck size={icon.caption} /> completed</> : 'in progress'}
+                    {s.date}{s.completed ? '' : ' · in progress'}
+                    {s.set_count ? ` · ${s.set_count} ${s.set_count === 1 ? 'set' : 'sets'}` : ''}
                     {sessionDuration(s) ? <> · <span style={{ whiteSpace: 'nowrap' }}><IconClock size={icon.caption} /> {sessionDuration(s)}</span></> : ''}
                   </p>
                 </div>
@@ -177,6 +189,7 @@ export default function History() {
           >
             <SessionDetail detail={detail} confirmId={confirmId} sessionId={s.id} onDelete={deleteSession} />
           </DisclosureRow>
+          </Fragment>
         )
       })}
     </div>

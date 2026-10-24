@@ -98,6 +98,7 @@ export default function PersonalBests() {
     setSharing(next)
     try {
       await api.put('/personal-bests/sharing', { sharing: next })
+      showToast('Saved')
     } catch {
       setSharing(!next)
       showToast('Failed to update sharing', 'error')
@@ -151,17 +152,6 @@ export default function PersonalBests() {
         Historical PBs from before you started logging here
       </p>
 
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: space.sm, marginBottom: 20, minHeight: 44, cursor: 'pointer' }}>
-        <input type="checkbox" checked={sharing} onChange={e => toggleSharing(e.target.checked)}
-          style={{ width: 20, height: 20, marginTop: 0, flexShrink: 0, accentColor: colors.accent }} />
-        <span>
-          <span style={{ display: 'block', fontSize: type.size.body }}>Include my bests in others' top 3</span>
-          <span style={{ display: 'block', color: colors.muted, fontSize: type.size.base }}>
-            Your est. 1RM can appear in others' top 3, with no name. Untick any time.
-          </span>
-        </span>
-      </label>
-
       {/* List first: this page is visited to read PBs far more often than to
           add one, so the list -- not a 5-field form -- gets the eye on load
           (2026-09-06 UI review, item 19). The add form moved into the
@@ -169,7 +159,12 @@ export default function PersonalBests() {
       {loadError ? (
         <LoadError what="your personal bests" onRetry={() => { setLoading(true); load() }} />
       ) : loading ? <Skeleton height={72} /> : Object.keys(grouped).length === 0 ? (
-        <EmptyState title="No historical PBs logged yet." />
+        <>
+          <EmptyState title="No historical PBs logged yet."
+            subtitle="Add a best from before you started logging here, so Progress has a baseline." />
+          <button type="button" className="btn-primary" style={{ marginTop: space.md }}
+            onClick={() => setAddOpen(true)}>Add a personal best</button>
+        </>
       ) : Object.entries(grouped).map(([name, rows]) => (
         <div key={name} className="card" style={{ padding: space.xl, marginBottom: 10 }}>
           <p style={{ fontWeight: type.weight.semibold, fontSize: type.size.body, marginBottom: 8 }}>{name}</p>
@@ -200,7 +195,7 @@ export default function PersonalBests() {
                 </span>
                 <span style={{ color: colors.muted2, fontSize: type.size.base }}>{r.achieved_year}{r.achieved_note ? ` · ${r.achieved_note}` : ''}</span>
                 <button className="tap-target" onClick={() => remove(r.id)}
-                  aria-label={armed ? `confirm delete personal best ${r.id}` : `delete personal best ${r.id}`}
+                  aria-label={armed ? `confirm delete personal best ${name}` : `delete personal best ${name}`}
                   style={{ background: 'none', border: 'none', color: armed ? colors.danger : colors.muted, cursor: 'pointer', fontSize: armed ? type.size.base : '1rem', fontWeight: armed ? type.weight.bold : type.weight.regular }}>
                   {armed ? <IconCheck size={icon.control} /> : <IconTrash size={icon.control} />}
                 </button>
@@ -210,6 +205,19 @@ export default function PersonalBests() {
         </div>
       ))}
 
+      {(entries.length > 0 || sharing) && (
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: space.sm, marginTop: 20, minHeight: 44, cursor: 'pointer' }}>
+        <input type="checkbox" checked={sharing} onChange={e => toggleSharing(e.target.checked)}
+          style={{ width: 20, height: 20, marginTop: 0, flexShrink: 0, accentColor: 'var(--accent)' }} />
+        <span>
+          <span style={{ display: 'block', fontSize: type.size.body }}>Share my lifts with other members</span>
+          <span style={{ display: 'block', color: colors.muted, fontSize: type.size.base }}>
+            Your best est. 1RM per exercise, from these PBs and your logged workouts, can appear in other members' top 3, never with your name. Only members of this app see it. Untick any time.
+          </span>
+        </span>
+      </label>
+      )}
+
       <DisclosureRow
         isOpen={addOpen}
         onToggle={() => setAddOpen(o => !o)}
@@ -217,38 +225,38 @@ export default function PersonalBests() {
         header={<Eyebrow color={colors.accent}><IconPlus size={icon.caption} /> Add</Eyebrow>}
       >
         <form onSubmit={submit} className="personal-bests-form">
-          <label style={labelStyle}>Exercise</label>
-          <select value={exerciseId} onChange={e => setExerciseId(e.target.value)}
+          <label htmlFor="pb-exercise" style={labelStyle}>Exercise</label>
+          <select id="pb-exercise" value={exerciseId} onChange={e => setExerciseId(e.target.value)}
             style={{ ...fieldStyle, marginBottom: 14 }}>
             {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
           </select>
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Weight (kg)</label>
-              <input type="number" inputMode="decimal" value={weightText}
+              <label htmlFor="pb-weight" style={labelStyle}>Weight (kg)</label>
+              <input id="pb-weight" type="number" inputMode="decimal" value={weightText}
                 onChange={e => { const t = e.target.value; setWeightText(t); const v = parseFloat(t); if (!Number.isNaN(v)) setWeight(v) }}
                 onBlur={() => { if (weightText.trim() === '') setWeightText(String(weight)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Reps</label>
-              <input type="number" inputMode="numeric" value={repsText}
+              <label htmlFor="pb-reps" style={labelStyle}>Reps</label>
+              <input id="pb-reps" type="number" inputMode="numeric" value={repsText}
                 onChange={e => { const t = e.target.value; setRepsText(t); const v = parseInt(t, 10); if (!Number.isNaN(v)) setReps(v) }}
                 onBlur={() => { if (repsText.trim() === '') setRepsText(String(reps)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Year</label>
-              <input type="number" inputMode="numeric" value={yearText}
+              <label htmlFor="pb-year" style={labelStyle}>Year</label>
+              <input id="pb-year" type="number" inputMode="numeric" value={yearText}
                 onChange={e => { const t = e.target.value; setYearText(t); const v = parseInt(t, 10); if (!Number.isNaN(v)) setYear(v) }}
                 onBlur={() => { if (yearText.trim() === '') setYearText(String(year)) }}
                 style={{ ...fieldStyle, width: '100%' }} />
             </div>
           </div>
 
-          <label style={labelStyle}>Note (optional)</label>
-          <input type="text" value={note} onChange={e => setNote(e.target.value)}
+          <label htmlFor="pb-note" style={labelStyle}>Note (optional)</label>
+          <input id="pb-note" type="text" value={note} onChange={e => setNote(e.target.value)}
             placeholder="e.g. Fall, gym PR meet" style={{ ...fieldStyle, marginBottom: 16 }} />
           <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? 'Saving…' : <><IconPlus size={icon.body} /> Add Personal Best</>}

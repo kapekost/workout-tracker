@@ -320,3 +320,27 @@ def test_add_duplicate_check_is_per_profile(client, mainmod, anon_client):
     assert post(client, envelope(day("upper_a", NEW_EX)), confirm=True).status_code == 200
     other, _ = second_profile_client(mainmod, anon_client)
     assert post(other, envelope(day("upper_a", NEW_EX)), confirm=True).status_code == 200
+
+
+def _bench(client):
+    return client.get("/api/plan").json()["plan"]["upper_a"]["exercises"][0]
+
+
+def test_modify_sets_and_clears_the_alternative(client):
+    r = post(client, envelope(day("upper_a", {"op": "modify", "exercise_id": "bench_press",
+                                              "alt_id": "cable_fly"})), confirm=True)
+    assert r.status_code == 200, r.text
+    assert _bench(client)["altExercise"]["name"] == "Cable Fly"
+    r = post(client, envelope(day("upper_a", {"op": "modify", "exercise_id": "bench_press",
+                                              "alt_id": None})), confirm=True)
+    assert r.status_code == 200, r.text
+    assert _bench(client)["altExercise"] is None
+
+
+def test_alt_id_must_be_a_known_exercise_and_not_itself(client):
+    r = post(client, envelope(day("upper_a", {"op": "modify", "exercise_id": "bench_press",
+                                              "alt_id": "no_such_lift"})), confirm=True)
+    assert r.status_code == 400 and "not a known exercise" in r.text
+    r = post(client, envelope(day("upper_a", {"op": "modify", "exercise_id": "bench_press",
+                                              "alt_id": "bench_press"})), confirm=True)
+    assert r.status_code in (400, 422)
