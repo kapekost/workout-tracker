@@ -1,5 +1,5 @@
-"""Daily backup (#422): the skip-when-unchanged rule, keeping the newest 2
-snapshots, and how /api/admin/backup-status reports a skipped run.
+"""Manual backup (#422): the skip-when-unchanged rule, keeping the newest 2
+local snapshots and the newest off-site object, and how /api/admin/backup-status reports a skipped run.
 
 scripts/backup.sh is run for real against a throwaway database. `docker` and
 `rclone` are replaced by two tiny shims that do the same work locally, so the
@@ -41,7 +41,11 @@ os.execvp(cmd[0], cmd)
 
 RCLONE_SHIM = """#!/bin/sh
 [ -n "$RCLONE_FAIL" ] && exit 1
-mkdir -p "$3" && cp "$2" "$3/"
+case "$1" in
+  lsf) [ -n "$RCLONE_LSF_EMPTY" ] || ls -1 "$5" ;;  # lsf --files-only --include PAT REMOTE
+  deletefile) rm -f "$2" ;;
+  *) mkdir -p "$3" && cp "$2" "$3/" ;;
+esac
 """
 
 
@@ -82,6 +86,9 @@ def host(tmp_path):
             return subprocess.run(["bash", str(SCRIPT)], env=env,
                                   capture_output=True, text=True)
 
+        def remote_files(self):
+            return sorted(p.name for p in self.remote.glob("workout-*.db"))
+
         def snapshots(self):
             return sorted(p.name for p in self.stage.glob("workout-*.db"))
 
@@ -98,6 +105,22 @@ def test_first_run_snapshots_and_records_ok(host):
     s = host.status()
     assert s["local"]["status"] == "ok" and s["remote"]["status"] == "ok"
     assert (host.remote / host.snapshots()[0]).exists()
+
+
+def test_off_site_keeps_only_the_newest_upload(host):
+    host.remote.mkdir()
+    (host.remote / "workout-20260904-120000.db").write_bytes(b"old")
+    for _ in range(2):
+        host.change_db()
+        assert host.run().returncode == 0
+    assert host.remote_files() == host.snapshots()[-1:]
+
+
+def test_off_site_prune_never_runs_when_the_upload_is_not_listed(host):
+    host.remote.mkdir()
+    (host.remote / "workout-20260904-120000.db").write_bytes(b"old")
+    assert host.run(RCLONE_LSF_EMPTY="1").returncode == 0
+    assert len(host.remote_files()) == 2
 
 
 def test_unchanged_database_is_skipped_not_snapshotted(host):
@@ -186,12 +209,20 @@ def test_skipped_unchanged_is_reported_distinctly_from_failed(client, write_back
     assert _report(client)["last_backup_status"] == "failed"
 
 
-def test_stale_after_about_two_days(client, write_backup_status):
+def test_stale_after_about_eight_days_without_a_schedule(client, write_backup_status):
     for status in ("ok", "skipped (unchanged)"):
-        write_backup_status({"local": {"status": status, "at": _at(hours=30)}})
+        write_backup_status({"local": {"status": status, "at": _at(days=7)}})
         assert _report(client)["last_backup_status"] == status
-        write_backup_status({"local": {"status": status, "at": _at(days=3)}})
+        write_backup_status({"local": {"status": status, "at": _at(days=9)}})
         assert _report(client)["last_backup_status"] == "stale"
+
+
+def test_a_scheduled_deployment_can_tighten_stale_to_two_days(client, mainmod, monkeypatch, write_backup_status):
+    monkeypatch.setattr(mainmod, "BACKUP_STALE_AFTER_S", 2 * 24 * 3600)
+    write_backup_status({"local": {"status": "ok", "at": _at(hours=30)}})
+    assert _report(client)["last_backup_status"] == "ok"
+    write_backup_status({"local": {"status": "ok", "at": _at(days=3)}})
+    assert _report(client)["last_backup_status"] == "stale"
 
 
 def test_failed_never_ages_into_stale(client, write_backup_status):
