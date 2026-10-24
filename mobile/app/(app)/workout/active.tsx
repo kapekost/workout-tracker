@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
+import { RestTimer } from '@/src/components/RestTimer';
 import { ThemedText } from '@/src/components/ThemedText';
 import { colors, radius, space } from '@/src/theme/tokens';
 import { useWorkout } from '@/src/workout';
@@ -22,7 +23,7 @@ const input = {
 };
 
 export default function ActiveWorkoutScreen() {
-  const { active, busy, error, logSet, nextExercise, finish } = useWorkout((s) => s);
+  const { active, busy, error, rest, logSet, nextExercise, skipRest, adjustRest, finish } = useWorkout((s) => s);
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export default function ActiveWorkoutScreen() {
             style={input}
           />
         </View>
+        {rest ? <RestTimer key={rest.endsAtMs} rest={rest} onAdjust={adjustRest} onSkip={skipRest} /> : null}
         {inputError || error ? (
           <ThemedText color="danger" accessibilityRole="alert">
             {inputError ?? error}
