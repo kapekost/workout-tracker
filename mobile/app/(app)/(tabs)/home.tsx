@@ -223,15 +223,28 @@ export default function HomeScreen() {
 
         {rows.length === 0 ? <EmptyState title="No sessions yet." /> : null}
 
-        {/* No web equivalent. The exercise library is reachable from nowhere else yet. */}
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => router.push('/exercises')}
-          style={{ minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' }}>
-          <ThemedText size="md" style={{ color: colors.muted2, textDecorationLine: 'underline' }}>
-            Exercises
-          </ThemedText>
-        </Pressable>
+        {/* No web equivalent. The web Home has no day list, so these two links keep the day list
+            (/workout) and the exercise library reachable on mobile. */}
+        <View style={{ flexDirection: 'row', gap: space.xxxl }}>
+          {open ? null : (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push('/workout')}
+              style={{ minHeight: 44, justifyContent: 'center' }}>
+              <ThemedText size="md" style={{ color: colors.muted2, textDecorationLine: 'underline' }}>
+                Choose another day
+              </ThemedText>
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.push('/exercises')}
+            style={{ minHeight: 44, justifyContent: 'center' }}>
+            <ThemedText size="md" style={{ color: colors.muted2, textDecorationLine: 'underline' }}>
+              Exercises
+            </ThemedText>
+          </Pressable>
+        </View>
       </ScrollView>
       <Toast toast={toast} bottom={NAV_BAR_HEIGHT + space.md} />
     </View>
