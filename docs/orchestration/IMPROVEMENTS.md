@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 56 -->
+<!-- last-reviewed-count: 60 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -64,3 +64,7 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-23: timeout is not installed on macOS, so watching checks needs sleep and poll loops inside the 2-minute command limit.
 - [unsure] 2026-10-23: deploy.sh reads AGENTS.local.md from its own checkout and copying it into a worktree is denied, so a deploy needed a ff-only merge in the shared checkout.
 - [local] 2026-10-23: The harness has no wait-for-background-task primitive, so slow deploys need several Monitor poll loops.
+- [unsure] 2026-10-24: orch-checkpoint.sh with a home branch still pushes to the retired home branch; callers should pass 'none' (DECISIONS 2026-10-11) or the script should refuse.
+- [local] 2026-10-24: The changelog check reads the PR body from the event payload; a body edit and a push seconds apart leave a red check a re-run cannot clear. Put 'Changelog: none' in the PR body before the first push, or re-save the description.
+- [unsure] 2026-10-24: Auto mode classifier denied scripts/deploy.sh (2026-10-24, #422) with no reason, against the 'deploy once verified' decision. An autoMode.allow rule for it may be missing.
+- [local] 2026-10-24: When opencode review jobs are skipped (free limit), a staff-engineer-reviewer pass is due but a tick subagent cannot spawn one; the code-review skill was the substitute. Say whether that is acceptable.
