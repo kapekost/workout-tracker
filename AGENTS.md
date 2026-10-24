@@ -482,10 +482,10 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-23. Live is `2ce2216`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
+_Last updated: 2026-10-24. Live is `d00803d`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
 
-**Running now:** commit `2ce2216`, `/api/health` `{"status":"ok","version":"2ce2216"}` (verified at deploy, 2026-10-23). It carries #389 (Personal Bests top 3, schema v10) and the review-bot changes. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the feature was driven against a throwaway server with four profiles.
-**Schema v10** (`profiles.share_bests`, #389), migrated at the 2026-10-23 deploy from a host backup taken minutes before (local and off-site `ok`). No admin export snapshot or restore drill was run for it. Schema v9 (`sets.client_id`, #339) came in at the 2026-10-22 deploy (`d463748`). `main` may move on with commits that change no app
+**Running now:** commit `d00803d`, `/api/health` `{"status":"ok","version":"d00803d"}` (verified at deploy, 2026-10-24). It carries the 2026-10-23 UX review work (#513: workout chrome, Progress chart first, rest timer a11y, safe area, Home, History, Personal Bests disclosure, Update with AI Clear button, the alternative exercise as a real catalog exercise, a failed set kept on screen with retry) and schema v11. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed, the v10 to v11 migration ran against a fresh v10 database, and Workout and Progress were driven in a browser on a throwaway server.
+**Schema v11** (`plan_exercises.alt_id`, nullable, backfilled from the seed text for the three seed exercises that have a catalog alternative), migrated at the 2026-10-24 deploy from a host backup taken minutes before (local and off-site `ok`). No admin export snapshot or restore drill was run for it. Schema v10 (`profiles.share_bests`, #389) came in on 2026-10-23, v9 (`sets.client_id`, #339) on 2026-10-22. `main` may move on with commits that change no app
 behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 
 **The login gate is ON** (#86). Verified live on 2026-10-03: an anonymous caller gets `401`
