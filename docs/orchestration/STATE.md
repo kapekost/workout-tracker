@@ -25,7 +25,7 @@
 (none)
 
 ## Needs owner
-- **#422 host steps.** Merged, not deployed. Allow the agent to run `scripts/deploy.sh` (the classifier denied it on 2026-10-24) or run it yourself. Until then the host runs the old script and no daily schedule exists, so backups stay manual.
+- **#422 host steps.** Merged, not deployed. Run `scripts/deploy.sh` from the main checkout, where the allow rule applies (the classifier denied it on 2026-10-24), or run it yourself. Until then the host runs the old script and no daily schedule exists, so backups stay manual.
 - **#422 backup strategy.** A review is on the Issue (2026-10-24 16:15Z): A keep the daily cron and prune the remote, B stay manual with three small changes, C cloud snapshots if the app moves. The Issue stays open until the owner chooses. Gaps found either way: the off-site copy is not pruned, and the 2-day `stale` threshold assumes a schedule.
 - **Coach key.** The owner has set the spend cap. Free models only for the first versions (`DECISIONS.md`,
   2026-10-22 later). The owner creates and hands over the key when the runner work starts; the agent never
@@ -38,7 +38,7 @@
 - **Stale local branches.** Several local branches do not contain `main`; list them with
   `git branch --no-contains main` in the shared checkout. The sessions that found them made none of them,
   so they deleted none. Their owners or the owner should say which are safe to remove.
-- **One `[unsure]` improvement (2026-10-24).** The auto mode classifier denied `scripts/deploy.sh`; the repo has no deploy allow rule. It is in `IMPROVEMENTS.md`.
+- **One `[unsure]` improvement (2026-10-24).** The auto mode classifier denied `scripts/deploy.sh` although the exact-command allow rule exists in the main checkout's gitignored `.claude/settings.local.json`. Worktrees and sandboxes do not get that file; cause not confirmed. See `IMPROVEMENTS.md`.
 - **#27 (public access)** may be ready to leave its P3 hold; "used for real" is the owner's call.
   If yes, it needs a spec pass (Cloudflare Tunnel, Home Assistant network-safety review).
 

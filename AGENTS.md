@@ -349,6 +349,7 @@ to one deployment. What's true for any deployment of this project:
   An agent that cannot read `AGENTS.local.md` (the project settings deny it, on purpose, since it can hold
   keys) runs `bash scripts/backup_remote.sh` instead; it does the same over SSH. Allow it and
   `bash scripts/deploy.sh` by exact command in `.claude/settings.local.json`; neither needs the file opened.
+  That file is gitignored, so it exists only in the main checkout: run both from there, not from a worktree or sandbox.
 
   Run from your laptop it fails with `compose file .../docker-compose.yml: no such
   file or directory`, then `no workout-tracker container to write ... into` —
