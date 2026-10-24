@@ -8,12 +8,12 @@ TEXT = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "open
 
 
 def test_the_config_has_no_hardcoded_models_so_nothing_can_skip_data_collection_deny():
-    heredoc = re.search(r"cat > opencode\.json <<'JSON'\n(.*?)\n\s*JSON\n", TEXT, re.S).group(1)
+    heredoc = re.search(r"cat > \"\$RUNNER_TEMP/opencode\.json\" <<'JSON'\n(.*?)\n\s*JSON\n", TEXT, re.S).group(1)
     assert json.loads(heredoc)["provider"]["openrouter"]["models"] == {}
 
 
 def test_generated_config_denies_data_collection_for_every_listed_model(tmp_path):
-    heredoc = re.search(r"cat > opencode\.json <<'JSON'\n(.*?)\n\s*JSON\n", TEXT, re.S).group(1)
+    heredoc = re.search(r"cat > \"\$RUNNER_TEMP/opencode\.json\" <<'JSON'\n(.*?)\n\s*JSON\n", TEXT, re.S).group(1)
     jq_filter = re.search(r"jq --rawfile m \"\$RUNNER_TEMP/models.txt\" \\\n\s*'(.*?)' \\\n", TEXT, re.S).group(1)
     (tmp_path / "opencode.json").write_text(heredoc)
     (tmp_path / "models.txt").write_text("stealth/x-alpha\ncohere/north-mini-code:free\nopenrouter/free\n")
@@ -91,8 +91,15 @@ def test_symlinks_are_removed_before_the_builder_writes():
     assert TEXT.index("find . -type l -delete") < TEXT.index('"$RUNNER_TEMP/review_input.py" "origin/$BASE_REF"')
 
 
-def test_the_pr_diff_is_captured_before_the_checkout_is_stripped():
-    assert TEXT.index('"$RUNNER_TEMP/review_input.py" "origin/$BASE_REF"') < TEXT.index("-o -name AGENTS.md")
+def test_the_checkouts_agent_config_is_disabled_not_deleted():
+    assert 'OPENCODE_DISABLE_PROJECT_CONFIG: "1"' in TEXT
+    assert "OPENCODE_CONFIG: ${{ runner.temp }}/opencode.json" in TEXT
+    assert "rm -rf {} +" not in TEXT
+
+
+def test_the_trusted_config_is_written_outside_the_checkout():
+    assert 'cat > "$RUNNER_TEMP/opencode.json"' in TEXT
+    assert "cat > opencode.json" not in TEXT
 
 
 def _last_reviewed_line(tmp_path, reviews):
