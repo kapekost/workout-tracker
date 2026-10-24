@@ -25,7 +25,7 @@ Before declaring any task done, run the same gate CI runs, from `mobile/`:
 
 ```bash
 npx expo install --check && npx expo-doctor && npx tsc --noEmit && npx expo lint && npm test \
-  && npx expo export --platform ios --platform android --output-dir /tmp/mobile-export
+  && npx expo export --platform ios --platform android --output-dir "$(mktemp -d)"
 ```
 
 ## Tests
