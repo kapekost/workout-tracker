@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-TEXT = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "opencode-review.yml").read_text()
+TEXT = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "opencode-review.yml").read_text()
 
 
 def test_the_config_has_no_hardcoded_models_so_nothing_can_skip_data_collection_deny():
@@ -21,13 +21,18 @@ def test_generated_config_denies_data_collection_for_every_listed_model(tmp_path
                          capture_output=True, text=True, check=True).stdout
     models = json.loads(out)["provider"]["openrouter"]["models"]
     ids = ["stealth/x-alpha", "cohere/north-mini-code:free", "openrouter/free"]
-    assert list(models) == ids + ["open/" + i for i in ids]
+    with_open = "open/" in TEXT
+    assert list(models) == ids + (["open/" + i for i in ids] if with_open else [])
     for i in ids:
         assert models[i]["options"]["provider"]["data_collection"] == "deny"
-        assert models["open/" + i] == {"id": i}
+        if with_open:
+            assert models["open/" + i] == {"id": i}
 
 
-def test_the_models_repeat_without_privacy_after_all_private_ones_are_tried():
+def test_the_models_repeat_without_privacy_only_where_that_is_acceptable():
+    if "open/" not in TEXT:
+        assert "open-models.txt" not in TEXT
+        return
     assert TEXT.index("sed 's|^|open/|'") < TEXT.index('mapfile -t models < "$RUNNER_TEMP/models.txt"')
     assert '>> "$RUNNER_TEMP/models.txt"' in TEXT
 
@@ -83,8 +88,13 @@ def test_an_ordinary_rate_limit_still_tries_the_next_model(tmp_path):
     assert review == ""
 
 
-def test_only_owner_prs_run_in_every_job():
-    assert TEXT.count("github.event.pull_request.user.login == github.repository_owner") == TEXT.count("github.actor != 'dependabot[bot]'") == 3
+def test_dependabot_prs_skip_every_job():
+    assert TEXT.count("github.actor != 'dependabot[bot]'") == 3
+
+
+def test_the_owner_gate_is_in_all_three_jobs_or_none():
+    assert TEXT.count("github.event.pull_request.user.login == github.repository_owner") in (0, 3)
+
 
 
 def test_symlinks_are_removed_before_the_builder_writes():

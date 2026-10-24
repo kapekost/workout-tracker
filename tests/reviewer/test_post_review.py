@@ -5,11 +5,11 @@ import time
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
-    "post_review", Path(__file__).resolve().parent.parent / "scripts" / "post_review.py")
+    "post_review", Path(__file__).resolve().parents[2] / "scripts" / "post_review.py")
 pr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pr)
 
-REPO = "kapekost/workout-tracker"
+REPO = "owner/repo"
 PATCH = "@@ -1,3 +10,4 @@\n ctx\n-old\n+new\n+added\n ctx2"
 PATCHES = {"a.py": PATCH}
 
