@@ -52,8 +52,9 @@ it cannot do damage:
 It posts **one review**. The model prints JSON with a severity per finding (`critical`,
 `major`, `minor`); `post_review.py` parses it and chooses the state, never the model:
 
-- Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each changed line
-  and a short body list for the rest. `APPROVE` needs a strictly clean review: no finding of any
+- Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each, but only when
+  the finding's `line` is on the diff and its `snippet` is found in that file's patch; any other
+  critical or major finding is listed as deferred and counts as minor. `APPROVE` needs a strictly clean review: no finding of any
   severity and no notes. A skipped notice, plain output, a withheld secret, a malformed finding,
   or a minor finding posts `COMMENT`.
 - `notes` hold what the reviewer could not verify about the code and prevent `APPROVE`. `limits`
