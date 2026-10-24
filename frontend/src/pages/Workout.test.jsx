@@ -748,6 +748,20 @@ describe('Workout: Log Set failure messages match what can actually happen', () 
     expect(await screen.findByText(/check the sets above/i)).toBeInTheDocument()
   })
 
+  it('a network failure leaves "Not saved — retry" on screen and relabels the button', async () => {
+    rejectPost(Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' }))
+    await logFirstSet()
+    expect(await screen.findByText('Not saved — retry')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /retry log set 1/i })).toBeInTheDocument()
+  })
+
+  it('a 4xx rejection shows no retry line, since retrying cannot succeed', async () => {
+    rejectPost(Object.assign(new Error('API POST → 400'), { status: 400 }))
+    await logFirstSet()
+    await screen.findByText(/server rejected it/i)
+    expect(screen.queryByText(/Not saved — retry/)).not.toBeInTheDocument()
+  })
+
   it('a 401 stays silent — the logout handler is already tearing the screen down', async () => {
     rejectPost(Object.assign(new Error('API POST → 401'), { status: 401 }))
     await logFirstSet()

@@ -280,6 +280,7 @@ export default function Workout() {
   // reads on mount).
   const [noteEditing, setNoteEditing] = useState(null) // { exId, text } | null
   const [noteFailed, setNoteFailed] = useState({})    // exId -> true
+  const [setFailed, setSetFailed] = useState({})      // exId -> true while a set is unsaved
   const [cuesEx, setCuesEx] = useState(null) // exercise object shown in the cues bottom sheet, or null
   const cardRefs = useRef({}) // exercise_id -> card element, for auto-advance scroll
   // Same tap-again-to-confirm shape as History.jsx's confirmId and
@@ -451,6 +452,7 @@ export default function Workout() {
         client_id: pendingLog.current.key
       })
       pendingLog.current = null
+      setSetFailed(prev => ({ ...prev, [ex.id]: false }))
       setAnnouncement(`Set ${setNumber} logged: ${weight} kg, ${reps} reps`)
       track('set_logged', { exercise_id: ex.id })
       const newSets = [...sets, newSet]
@@ -503,6 +505,9 @@ export default function Workout() {
       // A server answer means the write did not happen; only a missing status
       // leaves it open, and that is the one case that keeps the key.
       if (e?.status) pendingLog.current = null
+      // Only an unanswered request can succeed on retry; it stays on screen
+      // after the toast is gone.
+      setSetFailed(prev => ({ ...prev, [ex.id]: !e?.status || e.status >= 500 }))
       if (e?.status === 401) {
         // api.js is already routing this to the logout handler and the screen
         // is being torn down; a toast racing the redirect is noise. Falls
@@ -851,8 +856,13 @@ export default function Workout() {
               </div>
               <button className="btn-primary" onClick={() => logSet(ex)} disabled={logging}
                 style={{ background: color, fontSize: type.size.body, padding: '12px' }}>
-                {logging ? 'Logging…' : `Log Set ${nextSetNumber(exSets)}`}
+                {logging ? 'Logging…' : `${setFailed[ex.id] ? 'Retry Log Set' : 'Log Set'} ${nextSetNumber(exSets)}`}
               </button>
+              {setFailed[ex.id] && !logging && (
+                <p style={{ color: colors.danger, fontSize: type.size.base, textAlign: 'center', marginTop: 8 }}>
+                  Not saved — retry
+                </p>
+              )}
             </div>
 
             {/* Logged sets — below the logger, so logging a set confirms
