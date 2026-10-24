@@ -18,6 +18,15 @@
 
 ---
 
+**Tick 2026-10-24 (second part: first phone test, parity decision, #530 deploy).**
+- The owner ran the app on an iPhone in Expo Go. First finding: a logged-out launch opened on "This screen doesn't exist" (`/` was Home inside the hidden `(app)` group). Fixed in #518 (a root route that redirects). Then the running preview crashed: the preview worktree was gone after the merge of #518 (every merge from a worktree this session left it gone; the mechanism was not traced), under the running Metro. Nothing was wrong in the app code. The preview now runs from a detached checkout.
+- Owner: too minimal, nothing like the web app. Chose full parity. Issues #521 to #529 created with `create_issue.sh` (`ready`, on the board), #521 claimed with PR #531 open. See `DECISIONS.md` 2026-10-24 for the order and the verification rule. The app renders in Chrome with `web.output: single` (a web-only session store is needed to get past Login); this was verified on a probe only and is part of the #521 work.
+- Free disk went from 4.3 GB to 34 GB (Docker build cache and unused images, npm, Playwright, uv and Homebrew caches, two installers). The Claude desktop app's 11 GB of VM images were left. No iOS simulator: only the Command Line Tools are installed.
+- Deployed `a85361f` (#530, the sticky-bars fix by another session) on the owner's go-ahead, from the shared checkout: backup `ok` locally and off-site, `/api/health` reports `a85361f`, no schema change. The checkout was switched back to its docs branch afterwards. Not verified on a real iPhone; laptop-side health at the Tailscale address still times out.
+- Reviewer prompt change (what is out of scope, `limits` only for the unexpected) merged as #514 and kapekost-web #116 by another session; whether the `.review-input` read failures stop was still unverified (the #518 review still reported them).
+
+---
+
 **Tick 2026-10-24 (#459 audit, mobile #413 to #416 and #418).**
 - #459 closed. 38 merged PRs had a bot CHANGES_REQUESTED since 2026-09-23 (the 11 named plus 27): 29 fixed or answered in-thread, 3 had no reply and now do (#312, #391, #238), five small gaps are in #495. The audit agent's claim that #300 had no reply was wrong (the thread has replies and a fix) and nothing was posted there. No PR contradicts DECISIONS.md. Not verified: #238's `opencode.json` and `.gitignore` points, the #391 deferred note, whether the workout-science review confirmed the #435 cue.
 - Merged in `mobile/`: #494 (#413 auth flow and Login to Home, `Stack.Protected`, store reset on logout; staff-engineer-reviewer found no Critical or High, its fixes landed), #496 (#414 exercise list and detail), #497 (#415 active workout, zustand store, idempotent set client ids, resume on a 409), #498 (#416 rest timer from an end time), #499 (#418 haptics after a saved set, keep-awake for the life of a workout session). The template tabs, modal and components are gone, which cleared the two `tsc` errors. 64 tests run with `npm test`; `expo lint` and `tsc` are clean.

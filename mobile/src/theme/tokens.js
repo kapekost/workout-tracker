@@ -49,3 +49,60 @@ export const fontSize = {
   title: rem(1.75),
   display: rem(2),
 }
+
+// Role-based icon sizes, from the PWA's `icon` scale.
+export const icon = {
+  caption: 16,
+  body: 20,
+  control: 22,
+  heading: 24,
+  nav: 26,
+  header: 28,
+}
+
+export const weight = {
+  regular: 400,
+  semibold: 600,
+  bold: 700,
+}
+
+// React Native has one font file per weight, so a weight is part of the family name. These are the
+// names the @expo-google-fonts packages register (see fonts.ts).
+const FAMILY = {
+  sans: { regular: 'Inter_400Regular', semibold: 'Inter_600SemiBold', bold: 'Inter_700Bold' },
+  mono: {
+    regular: 'JetBrainsMono_400Regular',
+    semibold: 'JetBrainsMono_600SemiBold',
+    bold: 'JetBrainsMono_700Bold',
+  },
+}
+
+export function fontFamily(w = 'regular', mono = false) {
+  return FAMILY[mono ? 'mono' : 'sans'][w]
+}
+
+// The PWA tracks uppercase labels at 0.08em; React Native takes pixels.
+export function labelSpacing(size) {
+  return size * 0.08
+}
+
+// Mixes a hex colour toward white by `amount` (0-1).
+export function tint(hex, amount) {
+  const n = parseInt(hex.slice(1), 16)
+  const channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) =>
+    Math.round(c + (255 - c) * amount)
+  )
+  return '#' + channels.map((c) => c.toString(16).padStart(2, '0')).join('')
+}
+
+export const DAY_COLORS = {
+  upper_a: colors.accent,
+  lower_a: '#60a5fa',
+  upper_b: '#f472b6',
+  lower_b: '#fb923c',
+}
+
+// A day that is not one of the four seed days gets the neutral grey.
+export function dayColor(day) {
+  return DAY_COLORS[day] ?? colors.muted
+}

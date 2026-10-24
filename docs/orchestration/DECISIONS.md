@@ -758,3 +758,19 @@ agents (flow, visual, accessibility, health-data trust, product, mobile) and a s
 inside the current tokens and classes. Only `/ux-review full` may return Redesign, and only with two
 experts agreeing on a structural cause and the cost stated. Experts run on `sonnet`; the controller
 verifies and decides.
+
+## 2026-10-24 — The mobile app goes to full parity with the PWA; UI is verified by seeing it
+
+Owner, after running #410 to #418 on a real iPhone in Expo Go: the app was a skeleton, "way too minimal and
+nothing like the app we have on the web". Full parity, not a shell-only pass: Issues #521 (foundations:
+fonts, TopBar, bottom nav, shared components, icons), then #522 Home, #523 Workout, #524 History, #525 Progress,
+#526 Personal Bests, #527 Plan, #528 AI plan update, #529 Account screens. Same API calls as the PWA, no
+backend change, no new tokens.
+
+Verification rule for `mobile/` UI (and any screen work): green CI and unit tests do not show that a screen
+works. #494 shipped a not-found screen on a logged-out launch that only the phone revealed. A UI PR is not
+merged until the screens have been seen rendering: in Chrome (`expo.web.output` is `single`, so the app serves
+its client script) next to the PWA, reviewed by the UX agents from screenshots, and on the owner's phone in
+Expo Go. The PR says what was and was not seen. Never merge from a worktree a preview server is running in:
+after every `gh pr merge --delete-branch` run from a worktree, that worktree was gone (the mechanism was not traced), and it crashed the owner's running app. CI for
+`mobile/` is the owner's, with another agent.

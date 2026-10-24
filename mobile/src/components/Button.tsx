@@ -3,28 +3,34 @@ import { Pressable, type PressableProps } from 'react-native';
 import { colors, radius, space } from '../theme/tokens';
 import { ThemedText } from './ThemedText';
 
-type Props = Omit<PressableProps, 'children'> & { label: string };
+type Props = Omit<PressableProps, 'children'> & { label: string; variant?: 'primary' | 'secondary' };
 
-// 48 high, the primary action's size for a thumb.
-export function Button({ label, disabled, style, ...rest }: Props) {
+// 48 high, the primary action's size for a thumb. The secondary form is the PWA's `.btn-secondary`.
+export function Button({ label, variant = 'primary', disabled, style, ...rest }: Props) {
+  const primary = variant === 'primary';
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       style={(state) => [
         {
-          minHeight: 48,
+          minHeight: primary ? 48 : 44,
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: radius.md,
-          paddingHorizontal: space.xxl,
-          backgroundColor: colors.accent,
-          opacity: disabled ? 0.5 : state.pressed ? 0.8 : 1,
+          borderRadius: primary ? radius.md : 10,
+          paddingHorizontal: primary ? space.xxl : 18,
+          backgroundColor: primary ? colors.accent : colors.border,
+          opacity: disabled ? 0.55 : state.pressed ? 0.7 : 1,
         },
         typeof style === 'function' ? style(state) : style,
       ]}
       {...rest}>
-      <ThemedText size="body" style={{ color: colors.bg, fontWeight: '700' }}>
+      <ThemedText
+        size="body"
+        // The PWA's primary button is 1rem, an off-scale size.
+        style={primary ? { fontSize: 16 } : undefined}
+        color={primary ? 'bg' : 'textSecondary'}
+        weight={primary ? 'bold' : 'semibold'}>
         {label}
       </ThemedText>
     </Pressable>

@@ -41,10 +41,11 @@ it cannot do damage:
   key (an earlier version that used one failed validation with zero jobs), which is why the
   split is by job. The limit: the workflow file itself still runs from the PR's merge ref, so
   this defends against injected content, not a malicious committer with write access.
-- It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
-  runs (project config outranks global, so the PR's own copy would otherwise win), any
-  `.opencode/` directory is deleted (plugins there load in-process before any permission
-  check), the repository is made read-only, and `bash` is a default-deny allowlist of read
+- It **cannot write.** `OPENCODE_DISABLE_PROJECT_CONFIG` makes opencode ignore the checkout's
+  `opencode.json`, `.opencode/` (plugins there load in-process before any permission check) and
+  `AGENTS.md`/`CLAUDE.md`, and `OPENCODE_CONFIG` points it at a trusted config outside the checkout.
+  Nothing is deleted, so the PR's own files never read as removed. Without the flag a hostile
+  `opencode.json` wins even over `OPENCODE_CONFIG`. The repository is made read-only, and `bash` is a default-deny allowlist of read
   commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
   and `bash scripts/deploy.sh` were each denied with the repo unchanged.
 
