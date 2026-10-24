@@ -176,3 +176,13 @@ def test_the_prompt_points_at_stat_diff_full_diff_and_omitted_files():
 
 def test_the_prompt_tells_the_reviewer_it_cannot_run_tests_or_claim_their_result():
     assert "never claim that a test fails or passes" in TEXT
+
+
+def test_the_prompt_names_what_is_out_of_scope_and_keeps_it_out_of_limits():
+    for needle in ("## Out of scope: do not try these, and do not list them as limits",
+                   "CI already runs the test suites",
+                   "skip those steps and",
+                   "Read the `.review-input/` files with the read tool",
+                   "An empty `limits` is"):
+        assert needle in TEXT, needle
+    assert "A denied command is a `limits` entry" not in TEXT
