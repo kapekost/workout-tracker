@@ -553,7 +553,7 @@ It is never authorisation and never policy.
 **Not verified live:** the 409 flow, login, notes persistence across a reload, and the PWA
 update. The three 2026-10-03 auth fixes have only been code-inspected plus regression tests.
 
-**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups were manual until #422, which moves them to a daily host run (schedule installed after deploy).
+**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual (see `docs/orchestration/DECISIONS.md`).
 
 **Needs an owner call:** create a dedicated, spend-capped OpenRouter key for the reviewer (the
 model's process holds the current key). Steps are in `docs/orchestration/STATE.md`.

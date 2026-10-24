@@ -104,8 +104,11 @@ backup_age_h="$(python3 - "$backup_json" <<'PY'
 import json, sys
 from datetime import datetime, timezone
 try:
-    at = datetime.fromisoformat(json.loads(sys.argv[1])["local"]["at"])
-    print(int((datetime.now(timezone.utc) - at).total_seconds() // 3600))
+    local = json.loads(sys.argv[1])["local"]
+    # A failed run records its own time too; only a run that made a snapshot counts.
+    if local["status"] in ("ok", "skipped (unchanged)"):
+        at = datetime.strptime(local["at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        print(int((datetime.now(timezone.utc) - at).total_seconds() // 3600))
 except (ValueError, KeyError, TypeError):
     pass
 PY
@@ -165,8 +168,12 @@ if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
   fi
   # A schema bump is the deploy that re-running an old image cannot undo, so it needs a
   # snapshot from the last day. Backups are manual, so nothing else takes one first.
+  # DEPLOY_ALLOW_STALE=1 (rollback, hotfix) skips this whole block, guard included.
   schema_of() { git -C "$ROOT" show "$1:backend/main.py" | sed -n 's/^SCHEMA_VERSION = \([0-9]*\).*/\1/p'; }
-  if [[ "$(schema_of "$live_full")" != "$(schema_of HEAD)" ]] \
+  live_schema="$(schema_of "$live_full")"
+  head_schema="$(schema_of HEAD)"
+  # An unreadable version on either side counts as a change: fail closed.
+  if [[ -z "$live_schema" || -z "$head_schema" || "$live_schema" != "$head_schema" ]] \
      && [[ -z "$backup_age_h" || "$backup_age_h" -gt 24 ]] \
      && [[ "${DEPLOY_ALLOW_OLD_BACKUP:-0}" != "1" ]]; then
     echo "error: this deploy changes the schema version and the last backup is not from the last 24h." >&2

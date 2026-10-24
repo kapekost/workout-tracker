@@ -166,13 +166,15 @@ status, which is read as the local leg). Unknown is not the same as failed.
 
 A run (`ok` or `skipped (unchanged)`) older than 8 days reports `stale`: nobody has run a
 backup for over a week. `failed` is the other one worth chasing: it means the chain ran and
-broke. Neither fails a deploy.
+broke. Neither fails a deploy, with one exception: a deploy that changes the schema version is
+refused unless the last good backup is under 24 hours old or `DEPLOY_ALLOW_OLD_BACKUP=1` is set.
+`DEPLOY_ALLOW_STALE=1` (the rollback path) skips that check along with the others.
 
 The endpoint is admin-only since #86, when `/api/health` was trimmed to `{status,
 version}`: `/api/health` is reachable without a session (it is the deploy smoke check)
 and how long the database has gone without leaving the box is nobody else's business.
 `scripts/deploy.sh` has no session and cannot get one, so it prints
-`data/backup-status.json` off the host verbatim instead, plus how old the last run is, so the
+`data/backup-status.json` off the host verbatim instead, plus how old the last good run is, so the
 stale rule stays in one place (`BACKUP_STALE_AFTER_S` in `backend/main.py`).
 
 The threshold follows the schedule: 8 days with none (the default), and the deployment sets

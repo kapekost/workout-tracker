@@ -58,10 +58,10 @@ def deploy(tmp_path):
             git(repo, "commit", "-q", "-m", f"schema {schema}")
             return git(repo, "rev-parse", "--short", "HEAD")
 
-        def backup(self, hours_ago):
+        def backup(self, hours_ago, status="ok"):
             at = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
             self.status_file.write_text(json.dumps(
-                {"local": {"status": "ok", "at": at.strftime("%Y-%m-%dT%H:%M:%SZ")}}))
+                {"local": {"status": status, "at": at.strftime("%Y-%m-%dT%H:%M:%SZ")}}))
 
         def run(self, live_sha, **env):
             return subprocess.run(
@@ -81,6 +81,22 @@ def test_schema_bump_with_an_old_backup_is_refused(deploy):
     assert r.returncode == 1
     assert "last backup: 30h ago" in r.stdout
     assert "schema version" in r.stderr and "building" not in r.stdout
+
+
+def test_a_failed_backup_does_not_count_as_a_recent_one(deploy):
+    live = deploy.commit(11)
+    deploy.commit(12)
+    deploy.backup(hours_ago=1, status="failed")
+    r = deploy.run(live)
+    assert r.returncode == 1 and "last backup: unknown" in r.stdout
+
+
+def test_an_unreadable_schema_version_is_treated_as_a_change(deploy):
+    live = deploy.commit(11)
+    (deploy.repo_dir / "backend" / "main.py").write_text("SCHEMA_VERSION: int = 11\n")
+    git(deploy.repo_dir, "add", "-A")
+    git(deploy.repo_dir, "commit", "-q", "-m", "reformat")
+    assert deploy.run(live).returncode == 1
 
 
 def test_schema_bump_without_a_status_file_is_refused(deploy):
