@@ -375,7 +375,7 @@ jobs:
                 {"summary": "<one line, max 150 chars>",
                  "findings": [
                    {"file": "path/from/repo/root", "line": 42, "severity": "critical|major|minor",
-                    "blocking": true,
+                    "snippet": "<code quoted from the diff at that line>", "blocking": true,
                     "body": "<one line: what breaks and the failure it causes, max 300 chars>"}
                  ],
                  "notes": ["<what you could not verify about the code, one line each>"],
@@ -386,6 +386,9 @@ jobs:
             - `line` is a line number in the **new** version of the file, on a line the diff
               added or kept as context. Never invent one; if you cannot give a real line,
               leave `line` out.
+            - `snippet` is a short piece of code copied exactly from the diff at that
+              `line`, on one line. A `critical` or `major` finding whose `line` is not on the
+              diff, or whose `snippet` is not in that file's patch, is posted as `minor`.
             - At most 20 findings. Drop the weakest rather than compressing them.
             - Nothing found: `"findings": []` and a `summary` such as `3 files, no findings`.
             - A denied command is not a reason to stop; read the file with the read tool instead.
