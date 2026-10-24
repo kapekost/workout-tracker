@@ -214,6 +214,8 @@ python3.14 -m venv .venv                        # Homebrew: brew install python@
 .venv/bin/python -m uvicorn main:app --reload   # DATABASE_URL defaults to /app/data — override locally
 ```
 
+The reviewer scripts have their own tests: `backend/.venv/bin/python -m pytest tests/reviewer -q` from the repo root (CI installs pytest on its own).
+
 Both `.venv/` and `node_modules/` are gitignored, so each git worktree needs its own —
 they are not shared with the main checkout.
 
