@@ -10,6 +10,13 @@
 
 ---
 
+**Tick 2026-10-24 (#535 review poster, kapekost-web half).**
+- Merged kapekost-web PR #119 (`ed24caa`): the same change as #547. A critical or major finding blocks only when its line is on the diff and its snippet is in that file's patch; the review prompt gained the snippet field and AGENTS.md says so. Reviewer tests 164 passed (160 before, 6 new or changed failed first). Application CI on main for that SHA is green and kapekost.co.uk returns 200. There is no host deploy for the script, so merge on green is the end state.
+- The bot review was skipped (free-model daily limit), so the staff-engineer pass on the head commit stood in. #535 is now done in both repos.
+- Cost (output tokens per stage): reconcile 5701, pick 11765, claim 278, execute 5347, review 6643, ship 2402, deploy 3164, tail 0.
+
+---
+
 **Tick 2026-10-24 (#535 review poster, workout-tracker half).**
 - Merged PR #547 (`957655c`) and deployed it (`/api/health` reports `957655c`; no schema change, no backup taken). A critical or major finding now blocks only when its line is on the diff and its snippet is a substring of that file's patch; otherwise it is listed under Deferred with its original severity and counted as minor. With no PR file list nothing blocks. The review prompt gained the snippet field only. 163 reviewer tests passed, actionlint clean.
 - The bot review was skipped (free-model daily limit), so the controller read the full diff. Its two follow-ups were already answered: the snippet has a minimum length and the PR body says Refs #535. The kapekost-web port is still to do, so #535 was reopened after the checkpoint closed it.
