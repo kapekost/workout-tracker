@@ -57,6 +57,7 @@ export default function ActiveWorkoutScreen() {
         </ThemedText>
         <View style={{ flexDirection: 'row', gap: space.md }}>
           <TextInput
+            testID="workout-reps"
             accessibilityLabel="Reps"
             placeholder={`Reps (${exercise.repsHigh})`}
             placeholderTextColor={colors.muted}
@@ -66,6 +67,7 @@ export default function ActiveWorkoutScreen() {
             style={input}
           />
           <TextInput
+            testID="workout-weight"
             accessibilityLabel="Weight in kilograms"
             placeholder="kg"
             placeholderTextColor={colors.muted}
@@ -92,11 +94,11 @@ export default function ActiveWorkoutScreen() {
         ) : null}
       </ScrollView>
       <View style={{ padding: space.xl, gap: space.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-        <Button label="Log set" onPress={log} disabled={busy} />
+        <Button testID="workout-log-set" label="Log set" onPress={log} disabled={busy} />
         {isLast ? (
-          <Button label="Finish workout" onPress={finish} disabled={busy} />
+          <Button testID="workout-finish" label="Finish workout" onPress={finish} disabled={busy} />
         ) : (
-          <Button label="Next exercise" onPress={nextExercise} disabled={busy} />
+          <Button testID="workout-next-exercise" label="Next exercise" onPress={nextExercise} disabled={busy} />
         )}
       </View>
     </View>
