@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-24 (#422 daily backup, skip when unchanged, keep newest 2).**
+- Merged PR #542 (`72c04df`). `backup.sh` puts a content fingerprint in each snapshot name, skips when the newest matches (`local: skipped (unchanged)`), keeps the newest 2, and the stale threshold is 2 days. Backend 517 passed; new `test_backup_status.py` 11 passed, run against the real script with docker and rclone shims. A manual host snapshot was taken with the old script.
+- Review caught a real bug: a failed `docker cp` could leave a truncated file carrying the current fingerprint, so later runs reported a healthy skip. Fixed by copying to a `.part` file and removing it on failure. The changelog check went red twice on a stale PR body; fixed by re-saving the description.
+- Not done: deploy was denied by the auto mode classifier, so the schedule is not installed and no scheduled run was confirmed. Non-blocking review items left: orphaned `.part` after a kill, local-time snapshot names, no lock, stale `REMOTE_KEEP_DAYS` comment. Issue #422 was auto-closed by the PR and reopened for the host steps. Housekeeping: #537 closed as a duplicate of #538. Skipped: #417, #419 (device, Apple account), #431 (other session), #522 (possible live session, needs phone check).
+- Cost (output tokens per stage): reconcile 4783, pick 15224, claim 2324, execute 26235, review 34027, ship 13736, deploy 2850, tail 0.
+
+---
+
 **Tick 2026-10-23 (#269 sync to kapekost-web).**
 - Merged in kapekost-web: #114 (squash `91b6e12`). Its reviewer was a copy from before severity states, the diff builder and the poster-owned verdict check, so the port was a resync, not a patch: `post_review.py` as is, `review_input.py` adapted to its layout, the workflow re-based on this repo's with its own differences kept (private-repo checkout, Dependabot gate instead of the owner gate, Next.js prompt note, its action pins), 157 tests run in its `ci.yml`. A plain three-way merge of the three #269 PRs gave a hybrid (new poster, old prompt schema); it was caught by diffing the result against this repo's workflow, and it also silently dropped the `BASE_REF` env line.
 - Behaviour change there: the reviewer can now post `APPROVE` (strictly clean) and `REQUEST_CHANGES`; it posted only `COMMENT` before. Stated in the PR and its `AGENTS.md`.
