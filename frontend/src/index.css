@@ -83,7 +83,7 @@ button:active { opacity: 0.7; }
 .page-shell {
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: 0 var(--page-gutter) 6rem;
+  padding: 0 var(--page-gutter) calc(6rem + env(safe-area-inset-bottom));
 }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
