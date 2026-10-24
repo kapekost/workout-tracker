@@ -356,7 +356,7 @@ jobs:
 
             ## Out of scope: do not try these, and do not list them as limits
 
-            CI already runs the tests, linters and type checks, and you have no GitHub token and no
+            CI already runs the test suites, and you have no GitHub token and no
             history beyond this checkout. So do not try to run tests, builds, linters, `gh` or
             `git fetch`, and never claim that a test fails or passes. You may say what a test does
             or does not assert; anything about runtime behaviour you could not check goes in `notes`.
