@@ -252,15 +252,15 @@ PY
 # So read the file the app reads, straight off the host, and print it as it
 # stands. Never fatal: a chronically broken off-site leg was always a warning
 # here, never a reason to refuse a deploy, and forcing a backup before every
-# deploy once a week had passed would be worse than the problem. Printed raw
-# rather than interpreted, because "ok older than 8 days is stale" is a rule
-# that has already had to move once (#89) and a second copy of it living here
+# deploy would be worse than the problem. Printed raw
+# rather than interpreted, because "a run older than about 2 days is stale" is a
+# rule that has already had to move twice (#89, #422) and a second copy here
 # would be the copy nobody remembers to update.
 echo "==> last backup, as recorded on the host"
 # shellcheck disable=SC2086
 if ! ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
      "cat '$DEPLOY_APP_DIR/data/backup-status.json'" 2>/dev/null | sed 's/^/    /'; then
-  echo "    (no status file yet — backups are manual; see docs/BACKUPS.md)"
+  echo "    (no status file yet; see docs/BACKUPS.md)"
 fi
 echo "    for the interpreted view: GET /api/admin/backup-status, as an admin"
 

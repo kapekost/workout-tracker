@@ -102,8 +102,8 @@ too — see `AGENTS.local.md` for the actual address.
 ## Data & backups
 
 SQLite in a bind-mounted volume on the deploy target (survives container
-updates). Backups are manual: `scripts/backup.sh` snapshots the DB and
-uploads to Google Drive; `GET /api/admin/backup-status` (admin only) shows
+updates). Backups run daily on the host: `scripts/backup.sh` snapshots the DB (skipped
+when unchanged, newest 2 kept) and uploads to Google Drive; `GET /api/admin/backup-status` (admin only) shows
 the result. Restore options are described in `AGENTS.md`'s Runbook section; the
 drill log and this deployment's exact paths are in `AGENTS.local.md`.
 
