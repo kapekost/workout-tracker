@@ -70,3 +70,4 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-24: When opencode review jobs are skipped (free limit), a staff-engineer-reviewer pass is due but a tick subagent cannot spawn one; the code-review skill was the substitute. Say whether that is acceptable.
 - [local] 2026-10-24: Tick subagents have no Agent tool, so a skipped bot review (staff-engineer-reviewer pass) and /ux-review feature cannot be dispatched; the PLAYBOOK should say who runs them or allow the planner to self-check docs-only PRs.
 - [local] 2026-10-24: The Issue template for mobile parity lists features from memory (day cards, personal-best entry) that the web Home lacks; say 'match <web file>' once instead.
+- [local] 2026-10-24: A plan-only tick (#522, PR #544) ended with the checkpoint stage done, which closed the Issue although the screen was not built. Reopened by hand; a plan-only tick should end at a stage that leaves the Issue open.
