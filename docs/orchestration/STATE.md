@@ -22,7 +22,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-(none)
+- **#522** — claimed 2026-10-24T20:35Z, scheduled routine.
 
 ## Needs owner
 - **#422 host steps.** Merged, not deployed. Allow the agent to run `scripts/deploy.sh` (the classifier denied it on 2026-10-24) or run it yourself. Until then the host runs the old script and no daily schedule exists, so backups stay manual.
