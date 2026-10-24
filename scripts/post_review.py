@@ -15,7 +15,8 @@ Output that is not the expected JSON is posted inside a code block, truncated.
 
 The script, not the model, chooses the review state. Critical and major findings request
 changes, and only a review with no findings, notes or set-aside items approves; anything else
-comments. GitHub may refuse a state, in which case the body is posted as a comment with a
+comments. A critical or major finding blocks only when its line is on the diff and its snippet is
+found in that file's patch; otherwise it is listed as deferred and counted as minor. GitHub may refuse a state, in which case the body is posted as a comment with a
 line saying so.
 """
 import json
@@ -132,6 +133,17 @@ def commentable_lines(patch):
 
 def is_line(value):
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def confirmed(patch, line, snippet):
+    """Whether a finding's claim can be checked against the diff: its line is a changed or
+    context line of the new file and its snippet, whitespace folded, is in the file's patch.
+    A snippet shorter than 3 characters or without a word character (such as "+" or "@@")
+    would match any patch, so it confirms nothing."""
+    if not is_line(line) or line not in commentable_lines(patch) or not isinstance(snippet, str):
+        return False
+    snippet = " ".join(snippet.split())
+    return len(snippet) >= 3 and re.search(r"\w", snippet) is not None and snippet in " ".join(patch.split())
 
 
 class Built(NamedTuple):
@@ -255,24 +267,27 @@ def build(text, patches, repo, coverage=None):
         if not body or not isinstance(path, str) or (patches and path not in patches):
             dropped += 1
             continue
-        valid.append((SEVERITIES.index(severity_of(f)), path, f.get("line"), body))
-    # Sorted before the cap, so a pile of minor findings cannot push a critical one out.
-    valid.sort(key=lambda row: row[0])
+        sev = severity_of(f)
+        demoted = sev != "minor" and not confirmed(patches.get(path), f.get("line"), f.get("snippet"))
+        if demoted:
+            body = f"({sev}, not confirmed on the diff) {body}"
+        valid.append((SEVERITIES.index("minor" if demoted else sev), path, f.get("line"), body, demoted))
+    # Sorted before the cap, so a pile of minor findings cannot push a critical one out, and a
+    # demoted one is listed before the ordinary minors.
+    valid.sort(key=lambda row: (row[0], not row[4]))
 
     counts = {"critical": 0, "major": 0, "minor": 0, "dropped": dropped}
     for rank, *_ in valid:
         counts[SEVERITIES[rank]] += 1
-    blocking_lines, minor_lines, comments = [], [], []
-    for rank, path, line, body in valid[:MAX_FINDINGS]:
+    minor_lines, comments = [], []
+    for rank, path, line, body, _ in valid[:MAX_FINDINGS]:
         sev = SEVERITIES[rank]
         shown = sanitize(path, repo, 120)
         where = f"{shown}:{line}" if is_line(line) else shown
         if sev == "minor":
             minor_lines.append(f"- {where} {body}")
-        elif is_line(line) and path in patches and line in commentable_lines(patches[path]):
-            comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
         else:
-            blocking_lines.append(f"- {where} {body}")
+            comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
 
     skipped = data.get("skipped") is True and not findings
     kind = "skipped" if skipped else "review"
@@ -293,8 +308,6 @@ def build(text, patches, repo, coverage=None):
     else:
         head = f"**CLEAN** {summary}".strip()
     parts = [head]
-    if blocking_lines:
-        parts += ["", "**Blocking (not on a changed line)**"] + blocking_lines
     if minor_lines:
         shown_lines = minor_lines[:MAX_DEFERRED]
         parts += ["", "**Deferred**"] + shown_lines

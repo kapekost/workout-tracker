@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 56 -->
+<!-- last-reviewed-count: 69 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -64,3 +64,16 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-23: timeout is not installed on macOS, so watching checks needs sleep and poll loops inside the 2-minute command limit.
 - [unsure] 2026-10-23: deploy.sh reads AGENTS.local.md from its own checkout and copying it into a worktree is denied, so a deploy needed a ff-only merge in the shared checkout.
 - [local] 2026-10-23: The harness has no wait-for-background-task primitive, so slow deploys need several Monitor poll loops.
+- [local] 2026-10-24: orch-checkpoint.sh accepts a home-branch argument and pushes to it; callers must pass 'none'. PLAYBOOK step 7 now says so; no script change needed.
+- [local] 2026-10-24: The changelog check reads the PR body from the event payload; a body edit and a push seconds apart leave a red check a re-run cannot clear. Put 'Changelog: none' in the PR body before the first push, or re-save the description.
+- [unsure] 2026-10-24: Auto mode classifier denied scripts/deploy.sh (2026-10-24, #422) with no reason, against the 'deploy once verified' decision. The exact-command allow rule exists, but only in the gitignored `.claude/settings.local.json` of the main checkout; a worktree or sandbox has no copy, and the auto mode classifier is a separate check from allow rules. Next time: deploy from the main checkout and record whether it passes; if it still denies, add an autoMode allow rule.
+- [local] 2026-10-24: When opencode review jobs are skipped (free limit), a staff-engineer-reviewer pass is due but a tick subagent cannot spawn one; the code-review skill was the substitute. Say whether that is acceptable.
+- [local] 2026-10-24: Tick subagents have no Agent tool, so a skipped bot review (staff-engineer-reviewer pass) and /ux-review feature cannot be dispatched; the PLAYBOOK should say who runs them or allow the planner to self-check docs-only PRs.
+- [local] 2026-10-24: The Issue template for mobile parity lists features from memory (day cards, personal-best entry) that the web Home lacks; say 'match <web file>' once instead.
+- [local] 2026-10-24: A plan-only tick (#522, PR #544) ended with the checkpoint stage done, which closed the Issue although the screen was not built. Reopened by hand; a plan-only tick should end at a stage that leaves the Issue open.
+- [local] 2026-10-24: AGENTS.md documents a root .venv for tests but none exists; in a task worktree pytest is missing, and the only working interpreter was backend/.venv/bin/python (tests/reviewer needs it too). Say which one to use.
+- [local] 2026-10-24: orch-checkpoint stage done closes the Issue even when work remains (#535 still needs its kapekost-web PR); reopened by hand. Same cause as the plan-only #522 entry.
+- [unsure] 2026-10-24: macOS has no timeout command, so the documented short-watch pattern for gh pr checks --watch fails; and the secret-guard hook blocks any command naming the SSH key, so a tick cannot read the live version over SSH (the LAN health URL worked).
+- [local] 2026-10-24: A cross-repo port Issue (#535 kapekost-web half) gets task text naming the workout-tracker repo for the worktree, PR and 'Closes #N'; plain gh pr view 119 there hits an unrelated merged PR. Name the target repo in the execute, ship and deploy tasks.
+- [local] 2026-10-24: The execute task said both 'merge and close the issue' and 'draft only, do not merge'; the executor followed draft only and ship merged later. Drop the merge line from the execute task.
+- [local] 2026-10-24: A worktree of kapekost-web has no pytest in python3; tests/reviewer needs the workout-tracker backend/.venv interpreter (same as the 2026-10-24 .venv entry).

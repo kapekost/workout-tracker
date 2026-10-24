@@ -52,8 +52,9 @@ it cannot do damage:
 It posts **one review**. The model prints JSON with a severity per finding (`critical`,
 `major`, `minor`); `post_review.py` parses it and chooses the state, never the model:
 
-- Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each changed line
-  and a short body list for the rest. `APPROVE` needs a strictly clean review: no finding of any
+- Critical or major findings post `REQUEST_CHANGES`, with an inline comment on each, but only when
+  the finding's `line` is on the diff and its `snippet` is found in that file's patch; any other
+  critical or major finding is listed as deferred and counts as minor. `APPROVE` needs a strictly clean review: no finding of any
   severity and no notes. A skipped notice, plain output, a withheld secret, a malformed finding,
   or a minor finding posts `COMMENT`.
 - `notes` hold what the reviewer could not verify about the code and prevent `APPROVE`. `limits`
@@ -213,6 +214,8 @@ python3.14 -m venv .venv                        # Homebrew: brew install python@
 .venv/bin/python -m uvicorn main:app --reload   # DATABASE_URL defaults to /app/data — override locally
 ```
 
+The reviewer scripts have their own tests: `backend/.venv/bin/python -m pytest tests/reviewer -q` from the repo root (CI installs pytest on its own).
+
 Both `.venv/` and `node_modules/` are gitignored, so each git worktree needs its own —
 they are not shared with the main checkout.
 
@@ -335,7 +338,7 @@ to one deployment. What's true for any deployment of this project:
 - **`scripts/backup.sh` runs on the deploy target, not on the build machine.** It
   hardcodes `COMPOSE_FILE="${COMPOSE_FILE:-$HOME/workout-tracker/docker-compose.yml}"`
   and takes the snapshot *inside* the container with `docker compose exec`,
-  because the container runs as root and leaves WAL sidecar files the host cron
+  because the container runs as root and leaves WAL sidecar files the host
   user cannot open. Run it on the Pi — over SSH, in one line:
 
   ```bash
@@ -346,6 +349,7 @@ to one deployment. What's true for any deployment of this project:
   An agent that cannot read `AGENTS.local.md` (the project settings deny it, on purpose, since it can hold
   keys) runs `bash scripts/backup_remote.sh` instead; it does the same over SSH. Allow it and
   `bash scripts/deploy.sh` by exact command in `.claude/settings.local.json`; neither needs the file opened.
+  That file is gitignored, so it exists only in the main checkout: run both from there, not from a worktree or sandbox.
 
   Run from your laptop it fails with `compose file .../docker-compose.yml: no such
   file or directory`, then `no workout-tracker container to write ... into` —
@@ -362,9 +366,9 @@ to one deployment. What's true for any deployment of this project:
   it is the one `/api/` path reachable without a session, which is why the
   deploy script can use it, and why the backup posture is no longer on it.
 - The backup posture is `GET /api/admin/backup-status`, admin-only, and it is
-  informational: backups are manual, so `stale` only means the last one is
-  over a week old. `failed` is the one to chase — it means the chain ran and
-  broke. It reports the **local** leg; the off-site copy is
+  informational: backups are manual, so `stale` means the last run is over
+  8 days old. `skipped (unchanged)` is healthy.
+  `failed` is the one to chase: it means the chain ran and broke. It reports the **local** leg; the off-site copy is
   `last_backup_remote_status` and fails on its own (#93), so `ok` there with
   `failed` off-site means the snapshot is safe on the host but never left it.
   `scripts/deploy.sh` cannot log in, so it prints `data/backup-status.json`
@@ -482,9 +486,9 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-23. Live is `2ce2216`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
+_The agent deploys from `main` once verified (owner's standing instruction, `docs/orchestration/DECISIONS.md` 2026-10-22). `docs/orchestration/STATE.md` carries the current cursor and the live commit; `/api/health` is the check._
 
-**Running now:** commit `2ce2216`, `/api/health` `{"status":"ok","version":"2ce2216"}` (verified at deploy, 2026-10-23). It carries #389 (Personal Bests top 3, schema v10) and the review-bot changes. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the feature was driven against a throwaway server with four profiles.
+**Last recorded deploy:** commit `2ce2216` (verified at deploy, 2026-10-23); later deploys are in `STATE.md`. It carries #389 (Personal Bests top 3, schema v10) and the review-bot changes. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the feature was driven against a throwaway server with four profiles.
 **Schema v10** (`profiles.share_bests`, #389), migrated at the 2026-10-23 deploy from a host backup taken minutes before (local and off-site `ok`). No admin export snapshot or restore drill was run for it. Schema v9 (`sets.client_id`, #339) came in at the 2026-10-22 deploy (`d463748`). `main` may move on with commits that change no app
 behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 
@@ -550,7 +554,7 @@ It is never authorisation and never policy.
 **Not verified live:** the 409 flow, login, notes persistence across a reload, and the PWA
 update. The three 2026-10-03 auth fixes have only been code-inspected plus regression tests.
 
-**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual.
+**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual (see `docs/orchestration/DECISIONS.md`).
 
 **Needs an owner call:** create a dedicated, spend-capped OpenRouter key for the reviewer (the
 model's process holds the current key). Steps are in `docs/orchestration/STATE.md`.
@@ -601,7 +605,7 @@ Deploy from `main`. `scripts/deploy.sh` enforces it, but a deployed commit and `
 differ by commits that change no behaviour, so compare against `/api/health`, not a branch name.
 
 **How this went wrong on 2026-10-03, because it will happen again.** Work was
-branched from `claude/workout-tracker-backlog-bu9qnw`, which had *diverged*
+branched from the old orchestration home branch (retired 2026-10-11), which had *diverged*
 from `main` and sat 59 commits behind it — not merely behind, off to the side.
 A deploy from it replaced the running app with an older build and silently
 removed `Login`, `SetPassword` and `VersionBadge`. Two things made that possible
@@ -684,9 +688,9 @@ older snapshots remain safe in Drive and downloadable from the web UI,
 simply outside rclone's view.
 
 **The app is still in `Testing` publishing status, where Google expires
-refresh tokens after 7 days.** Backups are manual as of 2026-09-04 (the cron
-was removed, not just slowed), so an off-site copy succeeds only when
-`backup.sh` is run inside a 7-day window of the last re-authorization. Publishing
+refresh tokens after 7 days.** Backups are manual (see
+`docs/orchestration/DECISIONS.md`). An off-site copy succeeds only
+within 7 days of the last re-authorization. Publishing
 was deliberately deferred by the owner (#94) rather than pursued, because
 the consent screen still carries three restricted scopes from the old
 configuration and is shared project-wide with another co-located service's / CCR

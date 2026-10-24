@@ -37,5 +37,7 @@ services:
       # early breaks login silently: the browser takes the cookie and never
       # sends it back.
       - APP_COOKIE_SECURE=${APP_COOKIE_SECURE:-0}
+      # Days before an ok backup reads stale; empty means the app default.
+      - BACKUP_STALE_AFTER_DAYS=${BACKUP_STALE_AFTER_DAYS:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - MAIL_FROM=${MAIL_FROM:-}

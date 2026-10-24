@@ -52,14 +52,15 @@ MERGE_MAX_ROWS = 100_000
 # inside the database being backed up (a restore used to drag stale heartbeats
 # back in with it), and there is no unauthenticated write endpoint to fence.
 BACKUP_STATUS_PATH = os.path.join(os.path.dirname(DB_PATH), "backup-status.json")
-# Backups are manual (the cron was removed 2026-09-04), so this is a "it has
-# been a while" nudge rather than a missed-schedule alarm: an ok older than 8
-# days reads stale, and scripts/deploy.sh warns rather than failing on it. The
-# reason to keep the window generous is 2026-09-01..03, when three nights of
-# failed off-site backups went unnoticed — the lesson being that a signal which
-# is always red stops being read. If a schedule ever comes back, this threshold
-# moves with it rather than staying put.
-BACKUP_STALE_AFTER_S = 8 * 24 * 3600
+# Backups are manual, so an ok or skipped run older than 8 days is stale. A deployment
+# that installs a schedule sets BACKUP_STALE_AFTER_DAYS to about 2 (one missed run plus a
+# day of slack). The window is deliberately not tighter than the schedule: a signal that
+# is always red stops being read, which is how three nights of failed off-site backups
+# went unnoticed in 2026-09. scripts/deploy.sh only prints the file and never fails on it.
+BACKUP_STALE_AFTER_S = int(os.environ.get("BACKUP_STALE_AFTER_DAYS") or 8) * 24 * 3600
+# The local leg's status when the database was unchanged since the newest
+# snapshot, so no new file was written. Healthy, and not the same as "ok".
+BACKUP_SKIPPED_UNCHANGED = "skipped (unchanged)"
 # Git short SHA baked in at image build (--build-arg APP_COMMIT=...); "dev"
 # outside Docker. Surfaced in /api/health so a deploy is verifiable at a glance.
 APP_VERSION = os.environ.get("APP_COMMIT", "dev")
@@ -560,10 +561,11 @@ def _leg(raw, allowed):
     at, status = raw.get("at"), raw.get("status")
     if not isinstance(at, str) or status not in allowed:
         return None, None
-    if status == "ok":
-        # Only an "ok" ages into "stale". A "failed" is already red, and a
-        # "skipped" leg never ran; relabelling either would drop the one
-        # detail that separates them from a backup that simply got old.
+    if status in ("ok", BACKUP_SKIPPED_UNCHANGED):
+        # Only a run that went fine ages into "stale" (the last run is old).
+        # A "failed" is already red, and an off-site "skipped" leg never ran;
+        # relabelling either would drop the one detail that separates them
+        # from a backup that simply got old.
         try:
             # fromisoformat handles the trailing Z on 3.11+ (this runs on 3.14),
             # but a hand-edited or naive timestamp still has to not 500 us.
@@ -598,7 +600,7 @@ def _last_backup():
     except (OSError, ValueError):
         return None, "none", None, None
     if "local" in data:
-        local = _leg(data.get("local"), ("ok", "failed"))
+        local = _leg(data.get("local"), ("ok", "failed", BACKUP_SKIPPED_UNCHANGED))
         remote = _leg(data.get("remote"), ("ok", "failed", "skipped"))
     else:
         # A pre-#93 file, still on the Pi until the next backup runs there.

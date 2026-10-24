@@ -113,21 +113,16 @@ new stored state:
 - **READY** — `gh project item-list`, ranked (the Project's manual drag order — the same source
   step 2/3 use to pick the next Issue; deliberately not `gh issue list`, which cannot sort by
   that rank at all).
-- **IN PROGRESS** / **NEEDS OWNER** — the orchestration home branch's own `STATE.md`
-  `## In-flight` / `## Needs owner` sections, read via `git show origin/<home-branch>:...`, never
-  the working tree's copy (which is deliberately not kept current — see that file's own header).
-  A repo with no distinct home branch (`STATE.md`'s "Home branch" field left at its default)
-  reads the working tree directly instead.
+- **IN PROGRESS** / **NEEDS OWNER** — `STATE.md`'s `## In-flight` / `## Needs owner` sections, read
+  via `git show origin/main:docs/orchestration/STATE.md` (the working tree's copy may lag).
 - **BLOCKED** / **INTAKE** — `gh issue list --label blocked`/`--label intake`, open only.
-- **IMPROVEMENTS** — parsed from the home branch's `IMPROVEMENTS.md`: total entries, how many
-  are `[unsure]`, and the oldest `[unsure]` entry's age in days.
+- **IMPROVEMENTS** — parsed from `IMPROVEMENTS.md`: total entries, how many are `[unsure]`, and the
+  oldest `[unsure]` entry's age in days.
 
-Requires `STATE.md`'s "Home branch"/"Project number" header fields to be filled in for the
-READY/IN PROGRESS/NEEDS OWNER/IMPROVEMENTS lines to resolve against the home branch — a fresh
-scaffold with neither set still runs, reporting `READY (unknown — no Project number set in
-STATE.md)` and reading the working tree for the rest (IMPROVEMENTS included — it follows the same
-home-branch switch as IN PROGRESS/NEEDS OWNER). A third field, `**Project owner:**`, defaults to
-`@me` (the authenticated `gh` user) if left at its placeholder — set it explicitly only when the
+Requires `STATE.md`'s "Project number" header field to be filled in for the READY line to resolve — a
+fresh scaffold without it still runs, reporting `READY (unknown — no Project number set in
+STATE.md)`. A second field, `**Project owner:**`, defaults to `@me` (the authenticated `gh` user) if
+left at its placeholder — set it explicitly only when the
 Project belongs to a different login or an org.
 
 ## Triage / INVEST gate
@@ -165,39 +160,35 @@ sees nothing. This happened for real on 2026-08-30 (see `STATE.md`'s #34 tick lo
 only because the owner happened to ask about it, not by anything in this file. Hence this section.
 
 - **Before picking any work** (step 2/3 below), read `docs/orchestration/STATE.md`'s In-flight
-  section from the **live `claude/workout-tracker-backlog-bu9qnw` branch**, not `main` — a claim
-  may not have reached a merged PR yet. A claim naming an Issue with a timestamp less than 2 hours
+  section from `origin/main` (fetch first) — a claim lands there before any work starts. A claim naming an Issue with a timestamp less than 2 hours
   old means another driver is already active on it: do not pick any new work this tick; log it in
   the tick log and stop (step 9). A claim 2+ hours old is almost certainly an abandoned/crashed
   tick, not an active one — clear it in the same commit as the new claim below, noting the cleanup
   in the tick log.
 - **The instant an Issue is picked** — before the plan/split/destructive-check branches below,
-  before dispatching a subagent, before touching any source file — commit and push a claim
-  *directly* to `claude/workout-tracker-backlog-bu9qnw` (no PR for the claim itself; the full
-  `STATE.md` write-back with narrative still goes through the normal PR flow at step 7):
+  before dispatching a subagent, before touching any source file — put a claim on `main` through a
+  short-lived branch and a docs-only PR merged at once (the full `STATE.md` write-back with narrative
+  goes through the normal PR flow at step 7):
   ```
   ## In-flight
   - **#NN** — claimed <ISO 8601 UTC timestamp>, <"live session" | "scheduled routine">.
   ```
-  This push is what actually prevents the collision, not the read in the bullet above: if it's
-  rejected as non-fast-forward, another tick claimed first — fetch, see which Issue won, back off
-  per the previous bullet. Never force-push to resolve this. Claim first, work second, always in
+  The merged claim is what actually prevents the collision, not the read in the bullet above: if
+  `origin/main` already carries a fresh claim when yours is about to merge, another tick claimed
+  first — back off per the previous bullet. A merged PR has no atomic reject the way a push did, so
+  two ticks can still claim together: after your claim merges, fetch `origin/main` again and back off
+  if `## In-flight` holds a second fresh claim, the earlier timestamp winning. Never force-push to
+  resolve this. Claim first, work second, always in
   that order — a tick that starts executing before its claim has landed is exactly the bug this
   section exists to close.
 - **On completion** (shipped, or any stop condition), clear the claim as part of step 7's normal
   write-back — `## In-flight` returns to `(no branches in flight)`.
 
 ## The tick (for `/orchestrate` with no arg)
-1. **Read** `STATE.md`, `GUARDRAILS.md`, `DECISIONS.md` — **from the live
-   `claude/workout-tracker-backlog-bu9qnw` branch, not the working tree and not `main`.** The home
-   branch never merges to the default branch (`DECISIONS.md` 2026-09-04), so `main`'s copies of
-   these files are a partial, hand-cherry-picked subset that silently lags. This is not a
-   hypothetical: on 2026-09-05 two consecutive ticks read `main`'s `DECISIONS.md`, found no standing
-   approval in it, and reported the accounts chain as blocked on an owner approval that had in fact
-   been recorded on the home branch hours earlier — the second tick only caught it because a merge
-   conflict exposed 28 commits `main` had never seen. Read them with
-   `git show origin/claude/workout-tracker-backlog-bu9qnw:docs/orchestration/<file>`, or from a
-   worktree checked out on that branch. Do not read source files yet.
+1. **Read** `STATE.md`, `GUARDRAILS.md`, `DECISIONS.md` from `origin/main` (fetch first), not from a
+   stale working tree or side branch. The old orchestration home branch is retired
+   (`DECISIONS.md` 2026-10-11); the incident that led to it is in `HISTORY.md`. Do not read source
+   files yet.
 2. **Reconcile reality:** `git status`, `gh pr list`, and `gh project item-list 3 --owner "@me"
    --query "status:Todo label:ready"` for the ranked `ready` queue — **not** `gh issue list`, which
    has no notion of the Project's manual rank at all (no such sort exists in its flags) and was
@@ -226,40 +217,15 @@ only because the owner happened to ask about it, not by anything in this file. H
    A comment sitting unanswered across a tick boundary is a bug in the loop, not something to defer.
    **Also check the live In-flight claim per "Claiming work" above** — this is a separate check from
    `gh pr list` and catches what that can't (work in progress that hasn't reached a PR yet).
-   **Also check that `PLAYBOOK.md` and `GUARDRAILS.md` haven't diverged from `main`** —
-   `diff <(git show origin/main:docs/orchestration/PLAYBOOK.md) docs/orchestration/PLAYBOOK.md`
-   (and the same for `GUARDRAILS.md`). Unlike `STATE.md`/`DECISIONS.md`, which only the orchestrator
-   edits, these two are general policy docs an ordinary feature PR or a `copier update` can
-   legitimately touch directly on `main` — so the usual "home branch is ahead, `main` lags"
-   direction can invert for just these two files, with nothing else here to catch it. Real case,
-   2026-09-13: PR #175 (the `create_issue.sh` mandate) and two `copier update`s added real policy —
-   the Project board setup section, the Status report section, the `create_issue.sh` mandate itself
-   — to `main`'s copies that never reached the home branch, so a tick reading these files as
-   canonical per step 1 was quietly working from the stale copy, in the direction step 1's own
-   rationale doesn't cover.
-   **If they've diverged, reconcile hunk by hunk — never adopt one side's file wholesale.** A file
-   can be ahead of the other in most hunks and behind it in others *at the same time*, and neither
-   side is reliably "the newer one" for this pair of files the way it is for `STATE.md`/
-   `DECISIONS.md`. For every differing hunk, determine which side has the greater substance (a
-   real citation, a concrete rule, a worked example) and keep that side's wording for that hunk —
-   do not default to preferring `main` (or the home branch) as a whole-file verdict just because it
-   won most of the hunks. Real case, same day: the first attempt at this exact reconciliation
-   adopted `main`'s file wholesale on exactly that reasoning ("`main` is ahead in every hunk I
-   skimmed") and silently reverted three home-branch-only refinements in the process — a
-   `GUARDRAILS.md` safety-rule wording (the force-push hard-stop's "or a standing approval"
-   qualifier, which actually changed what the rule covered, not just its phrasing) and two
-   `PLAYBOOK.md` citations — because only two of the reverted hunks were checked before declaring
-   the reconciliation complete. A verification step that stops after confirming the first issue it
-   already suspected is not a verification step. When resolving a diff this way, diff the *final*
-   reconciled file back against **both** starting versions (not just the one you copied from) and
-   confirm every line that changed is accounted for as a deliberate, examined choice — not "it
-   matched the file I started from."
+   **Also check that your working copy is current:** `git fetch` and confirm `docs/orchestration/` matches
+   `origin/main` (`git diff origin/main -- docs/orchestration`). `main` is the only source, so a
+   difference means your checkout is behind or you are on a side branch.
 3. **Pick the next action.** Intake triage and `ready`-issue execution are independent, non-blocking
    tracks — an untriaged `intake` Issue does not block picking a `ready` Issue this tick
    (`DECISIONS.md` 2026-08-30 "Sequencing"). Pick the highest-ranked open Issue with the `ready`
    label, not carrying the `blocked` label; if none exists but `intake` Issues are waiting,
    resolve the highest-ranked one via the Feature intake flow above instead. **The moment an Issue
-   is picked, push its claim per "Claiming work" above — before any of the branches below, before
+   is picked, make its claim per "Claiming work" above — before any of the branches below, before
    any execution.** Then:
    - **Spot-check that the Issue's premise still holds against current `main`** — a cheap grep for
      the file/behavior its own reproduction names, not a full re-investigation. An Issue can be
@@ -306,13 +272,13 @@ only because the owner happened to ask about it, not by anything in this file. H
    **Friction goes in the subagent's final report, not into `IMPROVEMENTS.md` directly** (this
    overrides the template default of having the subagent run
    `scripts/append_improvement.sh` inline — deliberately, not an oversight: see below). The
-   improvements log and its `last-reviewed-count` cursor belong to the home branch — that is where
-   every tick appends and where step 8 reads from. A subagent on a feature branch running
+   improvements log and its `last-reviewed-count` cursor live on `main`, where every tick appends and
+   step 8 reads from. A subagent on a feature branch running
    `scripts/append_improvement.sh` writes the note somewhere it will sit unmerged until that PR
-   lands, and conflicts with the home branch when it does. So ask for friction (a wrong guardrail, a
+   lands, and conflicts on `main` when it does. So ask for friction (a wrong guardrail, a
    missing tool, an outdated doc) as a named section of the subagent's result, and have the
-   controller log it with `scripts/append_improvement.sh <local|template|unsure> "<note>"` from the
-   home branch at step 8.
+   controller log it with `scripts/append_improvement.sh <local|template|unsure> "<note>"` on the
+   tick's docs branch at step 8.
    **If a dispatched subagent dies mid-task** (an infra error, a dropped connection, a rejected call
    that may have started anyway) **before re-dispatching, check for salvageable work first** —
    `git worktree list` for a worktree it may have created, and inspect it for uncommitted or
@@ -400,7 +366,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    is why delegation stays limited to large mechanical steps.
    **Order: test, merge, deploy.** Merge comes first, so test well before it: run the full suites and
    the app locally against a throwaway database (see AGENTS.md "Running the whole app locally"), and
-   drive the changed flow in the browser. Deploy from `main` after the merge, then check the live URL.
+   drive the changed flow in the browser. Deploy from `main` after the merge if the permission allow rule covers the deploy command, then check the live URL; otherwise report and stop (`DECISIONS.md` 2026-10-22, 2026-10-24).
 6. **PR:** if the change is visible to the user, add one `{date, text}` entry in plain language to
    `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. CI fails an app-code PR
    without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body, with
@@ -452,7 +418,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    Verify each finding against source the same way a UI/UX subagent's finding gets verified (step 5
    above) before deciding whether it blocks the merge or can ship as a tracked follow-up.
 7. **Write state back:** comment progress on the Issue; update `STATE.md`'s cursor/next-action only
-   when on the orchestration home branch, never on a feature branch; append to `DECISIONS.md` if a
+   on a short-lived docs branch and PR, never on a feature branch; append to `DECISIONS.md` if a
    decision was made. **Clear this tick's In-flight claim** (per "Claiming work" above) as part of
    this same write-back — a shipped or stopped tick must never leave a stale claim behind.
    **Any direct edit to `PLAYBOOK.md` or `GUARDRAILS.md` made mid-tick to correct something
@@ -471,15 +437,9 @@ only because the owner happened to ask about it, not by anything in this file. H
    **Before committing, re-check `STATE.md`'s line budget stated at its own top** — Cursor and
    Needs-owner are the only sections that can grow it, so if either has, tighten it in the same
    commit rather than letting it ride.
-   **Do not open a PR from the orchestration home branch to `main`.** If the repo has
-   GitHub's "Automatically delete head branches" enabled — and it is worth enabling, it is the fix for
-   stray merged branches piling up — then merging that PR *deletes the home branch*, even when merged
-   deliberately without `--delete-branch`. Where that branch is also the tick claim mechanism, losing
-   it silently disables collision protection for every later tick, and nothing fails loudly to tell
-   you. Push orchestration doc commits **directly** to the home branch and leave it permanently
-   unmerged; when `main` should carry them, cherry-pick those commits onto a
-   short-lived branch and PR that instead. The home branch then never merges, so auto-delete can never
-   reach it.
+   Orchestration docs reach `main` through a short-lived branch and PR like any docs change
+   (`DECISIONS.md` 2026-10-11). `orch-checkpoint.sh` (in the owner's `~/.claude/workflows/`, not this repo) takes a home-branch argument; always pass `none`,
+   or it pushes to the retired branch.
 8. **Feedback review:** if this tick appended any `IMPROVEMENTS.md` entries, run
    `scripts/improvements_since_cursor.sh`, classify each (`[local]` → PR in this repo; `[template]` →
    PR against the template repo per GUARDRAILS "Cross-repo writes"; `[unsure]` → `STATE.md` → Needs

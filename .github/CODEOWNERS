@@ -2,6 +2,10 @@
 /.github/ @kapekost
 /.claude/ @kapekost
 /.mcp.json* @kapekost
+/scripts/post_review.py @kapekost
+/scripts/review_input.py @kapekost
+/scripts/resolve_review_threads.sh @kapekost
+/tests/reviewer/ @kapekost
 
 # Add project-specific paths below, e.g.:
 # /src/auth/ @kapekost

@@ -1,9 +1,17 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: 104fb62
+_commit: 28a2db6
 _src_path: gh:kapekost/agent-scaffold
 default_branch: main
 description: 'Mobile-first gym tracker: FastAPI + SQLite backend, React frontend,
     deployed to a home Raspberry Pi.'
 github_owner: kapekost
+include_reviewer: true
 project_name: Workout Tracker
 project_slug: workout-tracker
+repo_visibility: public
+reviewer_lockfiles:
+- frontend/package-lock.json
+reviewer_open_model_fallback: true
+reviewer_source_prefixes:
+- backend/
+- frontend/src/

@@ -10,11 +10,56 @@
 
 ---
 
+**Docs reconcile 2026-10-24 (home-branch wording removed from PLAYBOOK).**
+- PLAYBOOK steps 1 and 2 and the "Claiming work" section had told a tick to read STATE, GUARDRAILS and DECISIONS from the home branch, `claude/workout-tracker-backlog-bu9qnw`, and to push claims straight to it. The branch was retired on 2026-10-11 (`DECISIONS.md`), so they now read from `origin/main` and claim through a short-lived branch and PR.
+- Incidents the removed text cited: on 2026-09-05 two ticks read `main`'s `DECISIONS.md`, found no standing approval and reported the accounts chain blocked, although the approval sat on the home branch (a merge conflict exposed 28 commits `main` had not seen). On 2026-09-13 PR #175 and two `copier update`s put policy into `main`'s PLAYBOOK and GUARDRAILS that never reached the home branch, and a first reconciliation that adopted `main`'s files wholesale reverted three home-branch refinements. Both were symptoms of two diverging sources, which one source on `main` removes.
+- The PLAYBOOK also said never to open a PR from the home branch, because merging it with auto-delete on would delete the branch that carried the claims. With no home branch that risk is gone.
+
+**Tick 2026-10-24 (#535 review poster, kapekost-web half).**
+- Merged kapekost-web PR #119 (`ed24caa`): the same change as #547. A critical or major finding blocks only when its line is on the diff and its snippet is in that file's patch; the review prompt gained the snippet field and AGENTS.md says so. Reviewer tests 164 passed (160 before, 6 new or changed failed first). Application CI on main for that SHA is green and kapekost.co.uk returns 200. There is no host deploy for the script, so merge on green is the end state.
+- The bot review was skipped (free-model daily limit), so the staff-engineer pass on the head commit stood in. #535 is now done in both repos.
+- Cost (output tokens per stage): reconcile 5701, pick 11765, claim 278, execute 5347, review 6643, ship 2402, deploy 3164, tail 0.
+
+---
+
+**Tick 2026-10-24 (#535 review poster, workout-tracker half).**
+- Merged PR #547 (`957655c`) and deployed it (`/api/health` reports `957655c`; no schema change, no backup taken). A critical or major finding now blocks only when its line is on the diff and its snippet is a substring of that file's patch; otherwise it is listed under Deferred with its original severity and counted as minor. With no PR file list nothing blocks. The review prompt gained the snippet field only. 163 reviewer tests passed, actionlint clean.
+- The bot review was skipped (free-model daily limit), so the controller read the full diff. Its two follow-ups were already answered: the snippet has a minimum length and the PR body says Refs #535. The kapekost-web port is still to do, so #535 was reopened after the checkpoint closed it.
+- Housekeeping: reopened #522 (closed by the plan-only tick), commented on #422 that the backup strategy review is a decision request, merged PR #546 (STATE and IMPROVEMENTS only). Open PRs #520 and #541 claim a live SHA of `d00803d` that STATE did not carry; left to their owners.
+- Cost (output tokens per stage): reconcile 7114, pick 16988, claim 298, execute 9840, review 10643, ship 2724, deploy 2802, tail 0.
+
+---
+
+**Tick 2026-10-24 (#522 mobile Home, plan only).**
+- Merged PR #544 (`cce0a66`): plan `docs/superpowers/plans/2026-10-24-mobile-home-parity-522.md` (197 lines), linked from the Issue body, UI recommendation on the Issue. #422 not resumed: another session's review says the skip-when-unchanged flow works on the host and the daily-cron-or-manual choice is the owner's, so no manual backup this tick. #522 is mobile-only.
+- The plan reads "day cards" as the web Home behaviour (the web Home has no day-card list). It leaves out the Edit plan pill (route is #527) and the Export link (needs a file-share module and its own Issue). Both flagged on the Issue for the owner to overrule.
+- The bot review was skipped on #544 (free-model daily limit); the plan's claims were checked against source by the planner and the docs-only PR merged on green. `/ux-review feature 522` was not run (no Agent tool in the subagent); the owner can rerun it before execution.
+- Cost (output tokens per stage): reconcile 4766, pick 11024, claim 300, execute 19859, tail 0.
+
+---
+
+**Tick 2026-10-24 (#422 daily backup, skip when unchanged, keep newest 2).**
+- Merged PR #542 (`72c04df`). `backup.sh` puts a content fingerprint in each snapshot name, skips when the newest matches (`local: skipped (unchanged)`), keeps the newest 2, and the stale threshold is 2 days. Backend 517 passed; new `test_backup_status.py` 11 passed, run against the real script with docker and rclone shims. A manual host snapshot was taken with the old script.
+- Review caught a real bug: a failed `docker cp` could leave a truncated file carrying the current fingerprint, so later runs reported a healthy skip. Fixed by copying to a `.part` file and removing it on failure. The changelog check went red twice on a stale PR body; fixed by re-saving the description.
+- Not done: deploy was denied by the auto mode classifier, so the schedule is not installed and no scheduled run was confirmed. Non-blocking review items left: orphaned `.part` after a kill, local-time snapshot names, no lock, stale `REMOTE_KEEP_DAYS` comment. Issue #422 was auto-closed by the PR and reopened for the host steps. Housekeeping: #537 closed as a duplicate of #538. Skipped: #417, #419 (device, Apple account), #431 (other session), #522 (possible live session, needs phone check).
+- Cost (output tokens per stage): reconcile 4783, pick 15224, claim 2324, execute 26235, review 34027, ship 13736, deploy 2850, tail 0.
+
+---
+
 **Tick 2026-10-23 (#269 sync to kapekost-web).**
 - Merged in kapekost-web: #114 (squash `91b6e12`). Its reviewer was a copy from before severity states, the diff builder and the poster-owned verdict check, so the port was a resync, not a patch: `post_review.py` as is, `review_input.py` adapted to its layout, the workflow re-based on this repo's with its own differences kept (private-repo checkout, Dependabot gate instead of the owner gate, Next.js prompt note, its action pins), 157 tests run in its `ci.yml`. A plain three-way merge of the three #269 PRs gave a hybrid (new poster, old prompt schema); it was caught by diffing the result against this repo's workflow, and it also silently dropped the `BASE_REF` env line.
 - Behaviour change there: the reviewer can now post `APPROVE` (strictly clean) and `REQUEST_CHANGES`; it posted only `COMMENT` before. Stated in the PR and its `AGENTS.md`.
 - security-ai-reviewer: no critical or high findings. Applied there: symlinks deleted before the builder writes into `.review-input`, `package.json` and `next.config.*` ranked with source. Of these, only the symlink order applies to this repo's workflow and is not done here; `package.json` ranking was specific to kapekost-web's `classify()`. The poster's "approvals are off" comment is accurate here (the Actions approve setting is off per `AGENTS.md`) and may be stale only in kapekost-web's copy, where the setting was not checked.
 - Live check: `/api/health` read `2ce2216` through the Tailscale address. `AGENTS.local.md` stays denied to agents; the host was reachable from the allow list without it.
+
+---
+
+**Tick 2026-10-24 (second part: first phone test, parity decision, #530 deploy).**
+- The owner ran the app on an iPhone in Expo Go. First finding: a logged-out launch opened on "This screen doesn't exist" (`/` was Home inside the hidden `(app)` group). Fixed in #518 (a root route that redirects). Then the running preview crashed: the preview worktree was gone after the merge of #518 (every merge from a worktree this session left it gone; the mechanism was not traced), under the running Metro. Nothing was wrong in the app code. The preview now runs from a detached checkout.
+- Owner: too minimal, nothing like the web app. Chose full parity. Issues #521 to #529 created with `create_issue.sh` (`ready`, on the board), #521 claimed with PR #531 open. See `DECISIONS.md` 2026-10-24 for the order and the verification rule. The app renders in Chrome with `web.output: single` (a web-only session store is needed to get past Login); this was verified on a probe only and is part of the #521 work.
+- Free disk went from 4.3 GB to 34 GB (Docker build cache and unused images, npm, Playwright, uv and Homebrew caches, two installers). The Claude desktop app's 11 GB of VM images were left. No iOS simulator: only the Command Line Tools are installed.
+- Deployed `a85361f` (#530, the sticky-bars fix by another session) on the owner's go-ahead, from the shared checkout: backup `ok` locally and off-site, `/api/health` reports `a85361f`, no schema change. The checkout was switched back to its docs branch afterwards. Not verified on a real iPhone; laptop-side health at the Tailscale address still times out.
+- Reviewer prompt change (what is out of scope, `limits` only for the unexpected) merged as #514 and kapekost-web #116 by another session; whether the `.review-input` read failures stop was still unverified (the #518 review still reported them).
 
 ---
 

@@ -5,11 +5,11 @@ import time
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
-    "post_review", Path(__file__).resolve().parent.parent / "scripts" / "post_review.py")
+    "post_review", Path(__file__).resolve().parents[2] / "scripts" / "post_review.py")
 pr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pr)
 
-REPO = "kapekost/workout-tracker"
+REPO = "owner/repo"
 PATCH = "@@ -1,3 +10,4 @@\n ctx\n-old\n+new\n+added\n ctx2"
 PATCHES = {"a.py": PATCH}
 
@@ -26,22 +26,15 @@ def test_commentable_lines_are_new_side_only():
 
 def test_blocking_finding_on_a_changed_line_becomes_an_inline_comment():
     kind, body, comments, *_ = pr.build(
-        review([{"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]), PATCHES, REPO)
+        review([{"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": "breaks"}]), PATCHES, REPO)
     assert kind == "review"
     assert comments == [{"path": "a.py", "line": 11, "side": "RIGHT", "body": "breaks"}]
     assert body.startswith("**BLOCKING**")
 
 
-def test_line_outside_the_diff_falls_back_to_the_body_not_an_inline_comment():
-    kind, body, comments, *_ = pr.build(
-        review([{"file": "a.py", "line": 99, "blocking": True, "body": "breaks"}]), PATCHES, REPO)
-    assert comments == []
-    assert "a.py:99 breaks" in body
-
-
 def test_file_not_in_the_pr_is_never_anchored():
     _, _, comments, *_ = pr.build(
-        review([{"file": "other.py", "line": 11, "blocking": True, "body": "x"}]), PATCHES, REPO)
+        review([{"file": "other.py", "line": 11, "snippet": "added", "blocking": True, "body": "x"}]), PATCHES, REPO)
     assert comments == []
 
 
@@ -54,7 +47,7 @@ def test_optional_findings_never_get_inline_comments_and_are_capped_at_three():
 
 
 def test_findings_are_capped():
-    findings = [{"file": "a.py", "line": 11, "blocking": True, "body": f"f{i}"} for i in range(50)]
+    findings = [{"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": f"f{i}"} for i in range(50)]
     _, _, comments, *_ = pr.build(review(findings), PATCHES, REPO)
     assert len(comments) == pr.MAX_FINDINGS
 
@@ -77,19 +70,19 @@ def test_link_and_reference_punctuation_is_escaped():
 
 def test_body_length_is_capped():
     _, _, comments, *_ = pr.build(
-        review([{"file": "a.py", "line": 11, "blocking": True, "body": "x" * 5000}]), PATCHES, REPO)
+        review([{"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": "x" * 5000}]), PATCHES, REPO)
     assert len(comments[0]["body"]) == pr.MAX_BODY
 
 
 def test_malformed_findings_are_skipped_not_fatal():
     findings = ["str", None, {"file": 3, "body": "x"}, {"file": "a.py", "line": True, "blocking": True, "body": "y"},
-                {"file": "a.py", "line": 11, "blocking": True, "body": ""}]
+                {"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": ""}]
     kind, body, comments, *_ = pr.build(review(findings), PATCHES, REPO)
     assert kind == "review" and comments == []
 
 
 def test_one_object_is_found_bare_or_in_one_fence_with_or_without_prose_around_it():
-    payload = review([{"file": "a.py", "line": 10, "blocking": True, "body": "b"}])
+    payload = review([{"file": "a.py", "line": 10, "snippet": "ctx", "blocking": True, "body": "b"}])
     for text in (payload, f"```json\n{payload}\n```", f"```\n{payload}\n```\n",
                  f"Here you go:\n```json\n{payload}\n```\nthanks"):
         _, _, comments, *_ = pr.build(text, PATCHES, REPO)
@@ -122,7 +115,7 @@ def test_plain_output_cannot_close_its_own_code_block():
 
 
 def test_a_secret_hidden_behind_json_escapes_is_still_withheld():
-    leak = json.dumps({"summary": "s", "findings": [{"file": "a.py", "line": 11, "blocking": True,
+    leak = json.dumps({"summary": "s", "findings": [{"file": "a.py", "line": 11, "snippet": "added", "blocking": True,
                                                     "body": "sk-or-v1-abcdefgh1234"}]}).replace("sk-or-", "\\u0073k-or-")
     assert "sk-or-" not in leak
     kind, body, _, *_ = pr.build(leak, PATCHES, REPO)
@@ -150,7 +143,7 @@ def test_skipped_notice_is_marked_skipped_not_clean():
 
 def test_secret_in_output_is_withheld_whole():
     for leak in ("sk-or-v1-abcdefgh1234", "ghp_" + "a" * 25, "Bearer " + "a" * 30):
-        kind, body, comments, *_ = pr.build(review([{"file": "a.py", "line": 11, "blocking": True, "body": leak}]),
+        kind, body, comments, *_ = pr.build(review([{"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": leak}]),
                                         PATCHES, REPO)
         assert kind == "plain" and body == pr.WITHHELD and comments == []
 
@@ -202,7 +195,7 @@ def test_bidi_controls_are_stripped():
 
 def test_a_model_cannot_hide_findings_behind_the_skipped_flag():
     payload = json.dumps({"skipped": True, "summary": "s", "findings": [
-        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]})
+        {"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": "breaks"}]})
     _, body, comments, *_ = pr.build(payload, PATCHES, REPO)
     assert len(comments) == 1
     assert body.startswith("**BLOCKING**")
@@ -221,7 +214,7 @@ def test_a_body_cannot_open_a_code_block():
 
 def real_verdict(summary="real answer"):
     return json.dumps({"summary": summary, "findings": [
-        {"file": "a.py", "line": 11, "blocking": True, "body": "breaks"}]})
+        {"file": "a.py", "line": 11, "snippet": "added", "blocking": True, "body": "breaks"}]})
 
 
 def test_a_fence_followed_by_lots_of_whitespace_is_not_slow():
@@ -285,7 +278,7 @@ def test_other_argument_counts_still_print_usage_and_return_2(tmp_path):
 def test_check_verdict_agrees_with_extract_json_on_a_corpus(tmp_path):
     corpus = [
         review([]),
-        review([{"file": "a.py", "line": 10, "blocking": True, "body": "b"}]),
+        review([{"file": "a.py", "line": 10, "snippet": "ctx", "blocking": True, "body": "b"}]),
         f"Here you go:\n```json\n{review([])}\n```\nthanks",
         f"prefix {review([])} suffix",
         "**Automated review skipped.** nothing ran. " + "x" * 9000,
@@ -319,7 +312,7 @@ def test_a_skipped_run_has_no_signature_and_the_model_name_is_sanitized():
 
 
 def finding(sev=None, line=11, body="breaks", **extra):
-    f = {"file": "a.py", "line": line, "body": body, **extra}
+    f = {"file": "a.py", "line": line, "snippet": "added", "body": body, **extra}
     if sev:
         f["severity"] = sev
     return f
@@ -352,7 +345,7 @@ def test_critical_or_major_requests_changes():
     for sev in ("critical", "major"):
         r = built([finding(sev)])
         assert r.event == "REQUEST_CHANGES" and r.body.startswith("**BLOCKING**"), sev
-    assert built([finding("minor"), finding("major", line=99)]).event == "REQUEST_CHANGES"
+    assert built([finding("minor"), finding("major", line=12)]).event == "REQUEST_CHANGES"
 
 
 def test_minor_findings_comment_instead_of_approving():
@@ -415,11 +408,48 @@ def test_minor_findings_are_deferred_never_inline_and_capped_at_three_with_a_cou
     assert "more not shown" not in exact.body
 
 
-def test_major_inline_when_on_a_changed_line_and_in_the_body_when_not():
-    r = built([finding("major", line=11, body="inline"), finding("critical", line=99, body="elsewhere")])
-    assert [c["body"] for c in r.comments] == ["inline"]
-    assert "**Blocking (not on a changed line)**" in r.body and "a.py:99 elsewhere" in r.body
-    assert "inline" not in r.body
+def test_a_blocker_whose_line_is_not_on_the_diff_cannot_request_changes():
+    for sev in ("critical", "major"):
+        for line in (99, None, "11", True):
+            r = built([finding(sev, line=line, body="elsewhere")])
+            assert r.event == "COMMENT" and r.comments == [], (sev, line)
+            assert r.counts[sev] == 0 and r.counts["minor"] == 1
+            assert "**Deferred**" in r.body and "elsewhere" in r.body and sev in r.body
+
+
+def test_a_blocker_whose_snippet_is_not_in_that_files_patch_cannot_request_changes():
+    for snippet in ("not in the patch", "", "   ", None, 3):
+        r = built([finding("critical", snippet=snippet, body="claim")])
+        assert r.event == "COMMENT" and r.comments == [], snippet
+        assert r.counts["critical"] == 0 and r.counts["minor"] == 1
+    gone = {k: v for k, v in finding("critical").items() if k != "snippet"}
+    assert built([gone]).event == "COMMENT"
+
+
+def test_a_snippet_too_short_or_without_a_word_character_confirms_nothing():
+    for snippet in ("+", "e", "@@", "+ +", "++"):
+        r = built([finding("critical", snippet=snippet, body="claim")])
+        assert r.event == "COMMENT" and r.comments == [], snippet
+
+
+def test_a_snippet_found_in_another_files_patch_does_not_count():
+    patches = {"a.py": PATCH, "b.py": "@@ -1 +1 @@\n+other text"}
+    r = pr.build(review([finding("critical", snippet="other text")]), patches, REPO)
+    assert r.event == "COMMENT"
+
+
+def test_a_blocker_with_its_line_on_the_diff_and_its_snippet_in_the_patch_still_blocks():
+    r = built([finding("critical", line=12, snippet="  +added ", body="real")])
+    assert r.event == "REQUEST_CHANGES" and r.counts["critical"] == 1
+    assert [c["body"] for c in r.comments] == ["real"]
+    r = built([finding("major", line=11, snippet="new")])
+    assert r.event == "REQUEST_CHANGES" and len(r.comments) == 1
+
+
+def test_a_demoted_blocker_is_listed_before_ordinary_minors():
+    findings = [finding("minor", body=f"nit {i}") for i in range(5)] + [finding("critical", line=99, body="moved")]
+    r = built(findings)
+    assert r.event == "COMMENT" and "a.py:99 (critical, not confirmed on the diff) moved" in r.body
 
 
 def test_critical_findings_survive_the_cap_when_there_are_many_minors():
@@ -673,9 +703,9 @@ def test_a_finding_on_a_file_the_pr_did_not_change_is_dropped_and_blocks_nothing
     assert r.event == "COMMENT" and r.counts["dropped"] == 1 and r.counts["major"] == 0
 
 
-def test_without_a_pr_file_list_findings_on_any_file_are_kept():
+def test_without_a_pr_file_list_a_blocker_cannot_be_checked_and_does_not_block():
     r = pr.build(review([finding("major")]), {}, REPO)
-    assert r.event == "REQUEST_CHANGES" and r.counts["dropped"] == 0
+    assert r.event == "COMMENT" and r.counts["dropped"] == 0 and r.counts["minor"] == 1
 
 
 def test_a_path_with_a_dot_slash_or_whitespace_still_matches_a_changed_file():
