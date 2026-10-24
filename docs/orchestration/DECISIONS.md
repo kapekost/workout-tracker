@@ -748,3 +748,13 @@ Owner: the CI reviewer works on PRs that hold no personal data, so its list may 
 the 2026-10-11 rule that every reviewer model keeps `data_collection: deny`, for the reviewer only; the
 coach is separate (free models, privacy tier, see the coach entries). Tracked as item 7 of #269. The owner
 updates the global rule file; the sync rule applies to kapekost-web.
+
+## 2026-10-23 — UX review is a registered workflow; a full review may recommend a redesign
+
+Owner: make UI/UX review part of the workflow, both as a recommendation on new features and as a full
+review that considers a redesign, with expert agents on different angles. Now `/ux-review` with six
+agents (flow, visual, accessibility, health-data trust, product, mobile) and a shared contract in
+`docs/ux/REVIEW-CONTRACT.md`. The 2026-09-06 lean rule still governs per-change reviews: they fix
+inside the current tokens and classes. Only `/ux-review full` may return Redesign, and only with two
+experts agreeing on a structural cause and the cost stated. Experts run on `sonnet`; the controller
+verifies and decides.

@@ -117,7 +117,7 @@ function Shell() {
           booting, which is what it is. */}
       {ready && (
         <>
-          <div ref={headerRef} style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 45 }}>
+          <div ref={headerRef} style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 45, paddingTop: 'env(safe-area-inset-top)', background: 'var(--bg)' }}>
             <TopBar />
             {/* A workout in progress is a statement about your session. Left
                 mounted, it would sit above the login screen after a logout

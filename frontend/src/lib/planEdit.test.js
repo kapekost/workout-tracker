@@ -68,3 +68,12 @@ describe('rankSwapCandidates', () => {
       .toEqual(['db_bench_press'])
   })
 })
+
+describe('modifyOp alt_id', () => {
+  const ex = { id: 'bench_press', sets: 3, repsLow: 6, repsHigh: 10, altExercise: { id: 'db_bench_press' } }
+  it('sends alt_id only when the alternative changed, null to clear it', () => {
+    expect(modifyOp(ex, { sets: 3, repsLow: 6, repsHigh: 10, altId: 'db_bench_press' })).toBeNull()
+    expect(modifyOp(ex, { sets: 3, repsLow: 6, repsHigh: 10, altId: 'cable_fly' }).alt_id).toBe('cable_fly')
+    expect(modifyOp(ex, { sets: 3, repsLow: 6, repsHigh: 10, altId: null }).alt_id).toBeNull()
+  })
+})

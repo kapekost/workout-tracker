@@ -128,3 +128,20 @@ def test_an_unknown_api_path_still_404s_as_json(built_client):
 def test_real_files_are_still_served(built_client):
     res = built_client.get("/assets/index-abc123.js")
     assert res.status_code == 200 and "console.log" in res.text
+
+
+def test_session_list_carries_set_count(client):
+    sid = _log_session(client, "upper_a", [("bench_press", "Bench Press", 8, 60), ("bench_press", "Bench Press", 8, 60)])
+    row = next(s for s in client.get("/api/sessions").json() if s["id"] == sid)
+    assert row["set_count"] == 2
+
+
+def test_progress_list_carries_latest_date(client, mainmod):
+    old = _log_session(client, "upper_a", [("bench_press", "Bench Press", 8, 60)])
+    new = _log_session(client, "upper_a", [("bench_press", "Bench Press", 8, 62.5)])
+    with mainmod.db() as conn:
+        conn.execute("UPDATE sessions SET date = '2026-01-01' WHERE id = ?", (old,))
+        conn.execute("UPDATE sessions SET date = '2026-02-01' WHERE id = ?", (new,))
+        conn.commit()
+    row = next(r for r in client.get("/api/progress").json() if r["exercise_id"] == "bench_press")
+    assert row["last_date"] == "2026-02-01"

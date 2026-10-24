@@ -48,14 +48,6 @@ describe('NavBar', () => {
     expect(labelColor('History')).toBe(hexToRgb(colors.muted))
   })
 
-  it('lights no tab on /workout/1, which has none, and marks none current', () => {
-    renderAt('/workout/1')
-    for (const name of ['Home', 'Progress', 'History']) {
-      expect(labelColor(name)).toBe(hexToRgb(colors.muted))
-      expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-current')
-    }
-  })
-
   it('highlights Progress, not Home, on /progress', () => {
     renderAt('/progress')
     expect(labelColor('Progress')).toBe(hexToRgb(colors.accent))
@@ -109,5 +101,10 @@ describe('NavBar', () => {
         expect(el.hasAttribute('opacity'), `${name}'s ${el.tagName} has an opacity attribute`).toBe(false)
       }
     }
+  })
+
+  it('renders nothing on /workout', () => {
+    const { container } = renderAt('/workout/1')
+    expect(container).toBeEmptyDOMElement()
   })
 })

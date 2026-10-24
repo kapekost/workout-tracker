@@ -14,6 +14,12 @@ Task planning lives in `docs/orchestration/`:
 - `DECISIONS.md` — owner decisions already made; don't relitigate.
 - `IMPROVEMENTS.md` — friction log, reviewed automatically per tick.
 
+UX review has its own entry point, `/ux-review feature <issue> | change <PR> | full`
+(`.claude/commands/ux-review.md`). Six read-only expert agents (`.claude/agents/ux-*.md`) share one
+contract, `docs/ux/REVIEW-CONTRACT.md`. `scripts/ux_capture.sh` screenshots every screen on a
+seeded throwaway DB into `frontend/ux-shots/` (gitignored). `full` reviews end in
+`docs/superpowers/audits/<date>-ux-full-review.md`.
+
 Tasks live as GitHub Issues (`type`/`priority`/`effort` labels), ranked in the
 repo's Project board. `/orchestrate` reads and writes them via `gh`.
 

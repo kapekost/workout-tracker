@@ -27,7 +27,8 @@ TABLE_INTRODUCED_AT = {"sessions": 0, "sets": 0, "exercise_notes": 0, "events": 
 PRE_IMPORT_SNAPSHOTS_KEPT = 3
 # The head of the migration chain, named so the tests that assert "migrated all
 # the way" have one thing to track. _migrate's last block is what sets it.
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
+_CATALOG_BY_ID = {e["exercise_id"]: e for e in plan_seed.EXERCISE_CATALOG}
 # #141: a member's merge-mode import has no admin gate on size the way replace
 # always effectively did (only an admin could reach /api/import at all before
 # #87). Deliberately not matched to /api/events's 100-per-batch cap: that cap
@@ -99,6 +100,8 @@ def _seed_plan_for_profile(conn, profile_id):
     profile created from here on) — one insert loop, not two copies of it
     (spec §1.3 / plan Task 1a Step 3).
     """
+    # The v6->v7 backfill runs before v11 adds alt_id; the v11 migration fills it in.
+    has_alt_id = _column_exists(conn, "plan_exercises", "alt_id")
     for day_pos, day in enumerate(plan_seed.DEFAULT_PLAN):
         day_id = conn.execute(
             "INSERT INTO plan_days (profile_id, day_key, name, tag, icon, sort_order) "
@@ -106,14 +109,15 @@ def _seed_plan_for_profile(conn, profile_id):
             (profile_id, day["day_key"], day["name"], day["tag"], day["icon"], day_pos)
         ).lastrowid
         for ex_pos, ex in enumerate(day["exercises"]):
-            conn.execute(
-                "INSERT INTO plan_exercises (plan_day_id, exercise_id, name, alt, sets, "
-                "reps_low, reps_high, bodyweight, muscles_json, yt_url, cues_json, sort_order) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (day_id, ex["exercise_id"], ex["name"], ex["alt"], ex["sets"],
-                 ex["reps_low"], ex["reps_high"], int(ex["bodyweight"]),
-                 json.dumps(ex["muscles"]), ex["yt_url"], json.dumps(ex["cues"]), ex_pos)
-            )
+            row = {"plan_day_id": day_id, "exercise_id": ex["exercise_id"], "name": ex["name"],
+                   "alt": ex["alt"], "sets": ex["sets"], "reps_low": ex["reps_low"],
+                   "reps_high": ex["reps_high"], "bodyweight": int(ex["bodyweight"]),
+                   "muscles_json": json.dumps(ex["muscles"]), "yt_url": ex["yt_url"],
+                   "cues_json": json.dumps(ex["cues"]), "sort_order": ex_pos}
+            if has_alt_id:
+                row["alt_id"] = ex.get("alt_id")
+            conn.execute(f"INSERT INTO plan_exercises ({', '.join(row)}) "
+                         f"VALUES ({', '.join('?' * len(row))})", tuple(row.values()))
 
 def _migrate(conn):
     v = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -323,6 +327,20 @@ def _migrate(conn):
         if not _column_exists(conn, "profiles", "share_bests"):
             conn.execute("ALTER TABLE profiles ADD COLUMN share_bests INTEGER NOT NULL DEFAULT 0")
         conn.execute("PRAGMA user_version = 10")
+    # --- v10 -> v11: plan_exercises.alt_id, the alternative as a real catalog exercise ---
+    # Sets done on the alternative are logged under alt_id, so they get their own
+    # history, suggestions and PRs instead of landing on the main lift. Backfill
+    # only rows still carrying the seed's own "or X" text for that exercise.
+    if v < 11:
+        if not _column_exists(conn, "plan_exercises", "alt_id"):
+            conn.execute("ALTER TABLE plan_exercises ADD COLUMN alt_id TEXT")
+        for day in plan_seed.DEFAULT_PLAN:
+            for ex in day["exercises"]:
+                if ex.get("alt_id"):
+                    conn.execute("UPDATE plan_exercises SET alt_id = ? "
+                                 "WHERE exercise_id = ? AND alt = ? AND alt_id IS NULL",
+                                 (ex["alt_id"], ex["exercise_id"], ex["alt"]))
+        conn.execute("PRAGMA user_version = 11")
 
 def init():
     with db() as conn:
@@ -470,6 +488,7 @@ class PlanExerciseOp(BaseModel):
     exercise_id: str = Field(pattern=_SLUG)
     name: Optional[str] = Field(default=None, min_length=1, max_length=128)
     alt: Optional[str] = Field(default=None, max_length=128)
+    alt_id: Optional[str] = Field(default=None, pattern=_SLUG)
     sets: Optional[int] = Field(default=None, ge=1, le=10, strict=True)
     reps_low: Optional[int] = Field(default=None, ge=1, le=50, strict=True)
     reps_high: Optional[int] = Field(default=None, ge=1, le=50, strict=True)
@@ -481,7 +500,7 @@ class PlanExerciseOp(BaseModel):
     @model_validator(mode="after")
     def _op_rules(self):
         given = {f for f in self.model_fields_set if f not in ("op", "exercise_id")}
-        nulled = sorted(f for f in given - {"alt", "yt_url"} if getattr(self, f) is None)
+        nulled = sorted(f for f in given - {"alt", "alt_id", "yt_url"} if getattr(self, f) is None)
         if nulled:
             raise ValueError(f"{', '.join(nulled)} cannot be null")
         if self.op == "remove" and given:
@@ -494,6 +513,8 @@ class PlanExerciseOp(BaseModel):
                 raise ValueError(f"add requires {', '.join(missing)}")
         if self.reps_low is not None and self.reps_high is not None and self.reps_high < self.reps_low:
             raise ValueError("reps_high must be at least reps_low")
+        if self.alt_id is not None and self.alt_id == self.exercise_id:
+            raise ValueError("alt_id cannot be the exercise itself")
         return self
 
 class PlanDayUpdate(BaseModel):
@@ -1093,16 +1114,30 @@ def get_current_profile(profile: dict = Depends(current_profile)):
     # of them is a frontend change first.
     return {k: profile[k] for k in ("id", "username", "role", "icon")}
 
+def _alt_exercise(alt_id, own):
+    """The alternative's display fields: the profile's own plan entry for that id
+    if it has one, else the catalog's. None when the id resolves to neither."""
+    src = own.get(alt_id) or _CATALOG_BY_ID.get(alt_id)
+    if not src:
+        return None
+    return {"id": alt_id, "name": src["name"], "bodyweight": bool(src["bodyweight"]),
+            "muscles": src["muscles"], "ytUrl": src["yt_url"], "cues": src["cues"]}
+
 def _load_plan(conn, profile_id: int) -> dict:
     days = conn.execute(
         "SELECT * FROM plan_days WHERE profile_id = ? ORDER BY sort_order",
         (profile_id,)).fetchall()
     plan = {}
     cycle = []
+    rows = {day["id"]: conn.execute(
+        "SELECT * FROM plan_exercises WHERE plan_day_id = ? ORDER BY sort_order",
+        (day["id"],)).fetchall() for day in days}
+    own = {ex["exercise_id"]: {"name": ex["name"], "bodyweight": ex["bodyweight"],
+                               "muscles": json.loads(ex["muscles_json"]), "yt_url": ex["yt_url"],
+                               "cues": json.loads(ex["cues_json"])}
+           for exs in rows.values() for ex in exs}
     for day in days:
-        exercises = conn.execute(
-            "SELECT * FROM plan_exercises WHERE plan_day_id = ? ORDER BY sort_order",
-            (day["id"],)).fetchall()
+        exercises = rows[day["id"]]
         plan[day["day_key"]] = {
             "id": day["day_key"],
             "name": day["name"],
@@ -1113,6 +1148,7 @@ def _load_plan(conn, profile_id: int) -> dict:
                     "id": ex["exercise_id"],
                     "name": ex["name"],
                     "alt": ex["alt"],
+                    "altExercise": _alt_exercise(ex["alt_id"], own) if ex["alt_id"] else None,
                     "sets": ex["sets"],
                     "repsLow": ex["reps_low"],
                     "repsHigh": ex["reps_high"],
@@ -1210,6 +1246,10 @@ def _apply_plan_update(conn, profile_id, update: PlanUpdateEnvelope):
         label = day_row["name"]
         for op in du.exercise_updates:
             tag = f"day '{du.day_key}' ({op.op} {op.exercise_id})"
+            if op.alt_id and op.alt_id not in _CATALOG_BY_ID and not conn.execute(
+                    "SELECT 1 FROM plan_exercises e JOIN plan_days d ON d.id = e.plan_day_id "
+                    "WHERE d.profile_id = ? AND e.exercise_id = ?", (profile_id, op.alt_id)).fetchone():
+                raise HTTPException(400, f"{tag}: alt_id '{op.alt_id}' is not a known exercise")
             cur = conn.execute("SELECT * FROM plan_exercises WHERE plan_day_id = ? AND exercise_id = ?",
                                (day_row["id"], op.exercise_id)).fetchone()
             if op.op == "add":
@@ -1221,10 +1261,10 @@ def _apply_plan_update(conn, profile_id, update: PlanUpdateEnvelope):
                 pos = conn.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM plan_exercises "
                                    "WHERE plan_day_id = ?", (day_row["id"],)).fetchone()[0]
                 conn.execute(
-                    "INSERT INTO plan_exercises (plan_day_id, exercise_id, name, alt, sets, reps_low, "
-                    "reps_high, bodyweight, muscles_json, yt_url, cues_json, sort_order) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (day_row["id"], op.exercise_id, op.name, op.alt, op.sets, op.reps_low,
+                    "INSERT INTO plan_exercises (plan_day_id, exercise_id, name, alt, alt_id, sets, "
+                    "reps_low, reps_high, bodyweight, muscles_json, yt_url, cues_json, sort_order) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (day_row["id"], op.exercise_id, op.name, op.alt, op.alt_id, op.sets, op.reps_low,
                      op.reps_high, int(bool(op.bodyweight)), json.dumps(op.muscles or []),
                      op.yt_url, json.dumps(op.cues or []), pos))
                 details.append(f"{label}: added {op.name} ({op.sets}x{op.reps_low}-{op.reps_high})")
@@ -1243,10 +1283,10 @@ def _apply_plan_update(conn, profile_id, update: PlanUpdateEnvelope):
                     changes.append(f"{cur['sets']}\u2192{op.sets} sets")
                 if (new_low, new_high) != (cur["reps_low"], cur["reps_high"]):
                     changes.append(f"reps {cur['reps_low']}-{cur['reps_high']}\u2192{new_low}-{new_high}")
-                other = [f for f in ("name", "alt", "bodyweight", "muscles", "yt_url", "cues")
+                other = [f for f in ("name", "alt", "alt_id", "bodyweight", "muscles", "yt_url", "cues")
                          if f in op.model_fields_set]
                 changes += [f"{f} updated" for f in other]
-                cols = {"name": op.name, "alt": op.alt, "sets": op.sets, "reps_low": new_low,
+                cols = {"name": op.name, "alt": op.alt, "alt_id": op.alt_id, "sets": op.sets, "reps_low": new_low,
                         "reps_high": new_high,
                         "bodyweight": None if op.bodyweight is None else int(op.bodyweight),
                         "muscles_json": None if op.muscles is None else json.dumps(op.muscles),
@@ -1448,7 +1488,8 @@ def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
 def list_sessions(profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         rows = conn.execute(
-            "SELECT * FROM sessions WHERE profile_id = ? ORDER BY created_at DESC LIMIT 60",
+            "SELECT s.*, (SELECT COUNT(*) FROM sets st WHERE st.session_id = s.id) AS set_count "
+            "FROM sessions s WHERE s.profile_id = ? ORDER BY s.created_at DESC LIMIT 60",
             (profile_id,)).fetchall()
         return [dict(r) for r in rows]
 
@@ -1666,7 +1707,8 @@ def all_progress(profile_id: int = Depends(acting_profile_id)):
     # of one request per exercise.
     with db() as conn:
         rows = conn.execute("""
-            SELECT st.exercise_id, st.exercise_name, MAX(st.weight_kg) as max_weight
+            SELECT st.exercise_id, st.exercise_name, MAX(st.weight_kg) as max_weight,
+                   MAX(s.date) as last_date
             FROM sets st JOIN sessions s ON st.session_id = s.id
             WHERE s.completed = 1 AND s.profile_id = ?
             GROUP BY st.exercise_id, st.exercise_name ORDER BY st.exercise_name

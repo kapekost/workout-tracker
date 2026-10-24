@@ -29,7 +29,7 @@ describe('SessionDetail delete button', () => {
 
   it('shows the confirm label when confirmId matches', () => {
     render(<SessionDetail detail={{ sets: [] }} confirmId={15} sessionId={15} onDelete={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'Tap again to confirm' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete session and its sets? Tap again' })).toBeInTheDocument()
   })
 })
 
@@ -64,5 +64,19 @@ describe('History when the read fails', () => {
     api.get.mockResolvedValueOnce([{ id: 5, workout_day: 'upper_a', date: '2026-09-01', completed: 1, sets: [] }])
     fireEvent.click(screen.getByRole('button', { name: /Try again/i }))
     expect(await screen.findByText(/1 session logged/i)).toBeInTheDocument()
+  })
+})
+
+describe('History list', () => {
+  it('groups by month and marks only unfinished sessions', async () => {
+    api.get.mockResolvedValue([
+      { id: 2, workout_day: 'upper_a', date: '2026-10-02', completed: 0 },
+      { id: 1, workout_day: 'upper_a', date: '2026-09-28', completed: 1 },
+    ])
+    renderHistory()
+    expect(await screen.findByRole('heading', { name: 'October 2026' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'September 2026' })).toBeInTheDocument()
+    expect(screen.getByText(/in progress/)).toBeInTheDocument()
+    expect(screen.queryByText(/completed/)).not.toBeInTheDocument()
   })
 })

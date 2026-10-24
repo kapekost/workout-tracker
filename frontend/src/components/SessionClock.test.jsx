@@ -14,16 +14,17 @@ describe('SessionClock', () => {
   it('shows the elapsed time and ticks', () => {
     const startMs = Date.now() - 5000
     render(<SessionClock startMs={startMs} color="#fff" />)
-    expect(screen.getByText('ACTIVE SESSION · 0:05')).toBeInTheDocument()
+    expect(screen.getByText('ACTIVE · 0:05')).toBeInTheDocument()
     act(() => { vi.advanceTimersByTime(3000) })
-    expect(screen.getByText('ACTIVE SESSION · 0:08')).toBeInTheDocument()
+    expect(screen.getByText('ACTIVE · 0:08')).toBeInTheDocument()
   })
 
   it('shows SCREEN ON only when the wake lock is held', () => {
     const startMs = Date.now()
     const { rerender } = render(<SessionClock startMs={startMs} wakeLockHeld={false} color="#fff" />)
-    expect(screen.queryByText('SCREEN ON')).not.toBeInTheDocument()
+    expect(screen.queryByText(/SCREEN ON/)).not.toBeInTheDocument()
     rerender(<SessionClock startMs={startMs} wakeLockHeld={true} color="#fff" />)
-    expect(screen.getByText('SCREEN ON')).toBeInTheDocument()
+    expect(screen.getByText(/SCREEN ON/)).toBeInTheDocument()
+    expect(document.querySelector('p').textContent.replace(/\s+/g, ' ').trim()).toBe('ACTIVE · 0:00 · SCREEN ON')
   })
 })

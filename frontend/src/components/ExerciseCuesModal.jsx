@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import ExerciseDetails from './ExerciseDetails'
 import { colors, type, icon } from '../lib/theme'
 import { IconXMark } from '../icons'
+import useBackToClose from '../lib/useBackToClose'
 
 const MODAL_EXIT_MS = 250
 
@@ -33,6 +34,7 @@ export default function ExerciseCuesModal({ ex, color, onClose }) {
   const [phase, setPhase] = useState('entering') // 'entering' | 'open' | 'closing'
   const exitTimer = useRef(null)
   const sheetRef = useRef(null)
+  useBackToClose(onClose)
 
   useEffect(() => {
     // setTimeout(fn, 0) is not a paint boundary -- the browser can resolve

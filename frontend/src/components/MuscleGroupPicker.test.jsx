@@ -13,6 +13,13 @@ function hexToRgb(hex) {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 
+// The section is collapsed by default; most tests need its body.
+function renderOpen(ui) {
+  const r = render(ui)
+  fireEvent.click(screen.getByRole('button', { name: /Muscle groups/ }))
+  return r
+}
+
 const group = (over = {}) => ({
   id: 'quads', label: 'Quads', freshness: 0.63,
   band: 'Partly recovered (est.)', hoursSince: 31, daysSince: 1,
@@ -105,15 +112,22 @@ describe('RecoveryRing', () => {
 describe('MuscleGroupPicker', () => {
   const groups = [group(), untrained]
 
-  it('renders a chip per group with its band label', () => {
+  it('is collapsed by default, hiding chips and the disclosure', () => {
     render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /Muscle groups/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Quads')).not.toBeInTheDocument()
+    expect(screen.queryByText(DISCLOSURE)).not.toBeInTheDocument()
+  })
+
+  it('renders a chip per group with its band label', () => {
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(screen.getByText('Quads')).toBeInTheDocument()
     expect(screen.getByText('Partly recovered (est.)')).toBeInTheDocument()
     expect(screen.getByText('Not trained yet')).toBeInTheDocument()
   })
 
   it('shows the disclosure at the point of display', () => {
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(screen.getByText(DISCLOSURE)).toBeInTheDocument()
     expect(DISCLOSURE).toContain('Trust how you feel over this estimate.')
   })
@@ -122,13 +136,13 @@ describe('MuscleGroupPicker', () => {
     // The one paragraph the recovery research doc insists must always be
     // visible used to render at a raw #4b5563 (2.61:1 on --bg — see
     // theme.test.js's contrast measurements). 2026-09-06 UI review item 11.
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     const disclosure = screen.getByText(DISCLOSURE)
     expect(disclosure.style.color).toBe(hexToRgb(colors.muted2))
   })
 
   it('renders no percentage anywhere', () => {
-    const { container } = render(
+    const { container } = renderOpen(
       <MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(container.textContent).not.toMatch(/%/)
     expect(container.textContent).not.toMatch(/percent/i)
@@ -136,7 +150,7 @@ describe('MuscleGroupPicker', () => {
 
   it('does not start a workout on the first tap — it expands', () => {
     const onStart = vi.fn()
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={onStart} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={onStart} />)
     fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
     expect(onStart).not.toHaveBeenCalled()
     expect(screen.getByText(/last trained 31h ago, 6 fractional sets/i)).toBeInTheDocument()
@@ -144,14 +158,14 @@ describe('MuscleGroupPicker', () => {
 
   it('starts the best day from the expanded chip', () => {
     const onStart = vi.fn()
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={onStart} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={onStart} />)
     fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Start Lower A' }))
     expect(onStart).toHaveBeenCalledWith('lower_a')
   })
 
   it('collapses a chip when tapped again', () => {
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     const chip = screen.getByRole('button', { name: /Quads/ })
     fireEvent.click(chip)
     expect(screen.getByRole('button', { name: 'Start Lower A' })).toBeInTheDocument()
@@ -160,7 +174,7 @@ describe('MuscleGroupPicker', () => {
   })
 
   it('replaces Start with a note while a session is active', () => {
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}}
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}}
       activeSession={{ id: 4 }} onStart={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
     expect(screen.queryByRole('button', { name: /^Start / })).not.toBeInTheDocument()
@@ -168,13 +182,13 @@ describe('MuscleGroupPicker', () => {
   })
 
   it('shows a neutral fact, not a nudge, for a never-trained group', () => {
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /Chest/ }))
     expect(screen.getByText(/Chest: not trained yet/i)).toBeInTheDocument()
   })
 
   it('uses none of the banned words in the collapsed grid', () => {
-    const { container } = render(
+    const { container } = renderOpen(
       <MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     const text = scanForBannedWords(container)
     for (const word of BANNED_WORDS) {
@@ -183,7 +197,7 @@ describe('MuscleGroupPicker', () => {
   })
 
   it('uses none of the banned words in an expanded chip', () => {
-    const { container } = render(
+    const { container } = renderOpen(
       <MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
     const text = scanForBannedWords(container)
@@ -193,7 +207,7 @@ describe('MuscleGroupPicker', () => {
   })
 
   it('uses none of the banned words with an active session', () => {
-    const { container } = render(
+    const { container } = renderOpen(
       <MuscleGroupPicker groups={groups} lastTrainedByDay={{}}
         activeSession={{ id: 4 }} onStart={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /Quads/ }))
@@ -204,7 +218,7 @@ describe('MuscleGroupPicker', () => {
   })
 
   it('gives every chip a >=44px tap target', () => {
-    render(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    renderOpen(<MuscleGroupPicker groups={groups} lastTrainedByDay={{}} onStart={vi.fn()} />)
     const chip = screen.getByRole('button', { name: /Quads/ })
     expect(chip.className).toContain('tap-target')
     expect(parseInt(chip.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
@@ -230,7 +244,7 @@ describe('MuscleGroupPicker', () => {
   })
 
   it('still renders once at least one group has been trained', () => {
-    render(<MuscleGroupPicker groups={[group(), untrained]} lastTrainedByDay={{}} onStart={vi.fn()} />)
+    renderOpen(<MuscleGroupPicker groups={[group(), untrained]} lastTrainedByDay={{}} onStart={vi.fn()} />)
     expect(screen.getByText('Quads')).toBeInTheDocument()
   })
 })

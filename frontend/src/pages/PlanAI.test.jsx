@@ -42,6 +42,18 @@ beforeEach(() => {
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 
+describe('reply controls', () => {
+  it('explains the disabled Preview and clears the reply', () => {
+    renderPage()
+    expect(screen.getByText('Paste a reply to enable.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
+    paste('{}')
+    expect(screen.queryByText('Paste a reply to enable.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(screen.getByLabelText('Reply from your AI').value).toBe('')
+  })
+})
+
 describe('export', () => {
   it('copies the prompt and the data as one block', async () => {
     renderPage()

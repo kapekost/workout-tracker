@@ -74,6 +74,9 @@ go straight to code, and does not get invented scope on their behalf.
    1–3 without the owner (the clarifying questions have no answer yet) treats it exactly like a
    failed INVEST gate: relabel `needs-clarification`, stop, flag for the owner. Never guess and never
    invent an answer to keep moving.
+5. **A feature that adds or changes a screen gets `/ux-review feature <issue>`** once it is `ready`
+   and before its plan is written. The recommendation lands as a comment on the Issue and its UI
+   acceptance criteria go into the plan. Advice only: it never adds or removes the `approved` label.
 
 ## Command variants (dispatch on the argument)
 - `/orchestrate` (no arg) — run the next tick.
@@ -353,6 +356,10 @@ only because the owner happened to ask about it, not by anything in this file. H
        does it look considered, not generic-default.
      - **UX (usability):** affordance, flow, copy clarity, accessibility, one-handed phone use —
        does it work, not just look right.
+     Run both with **`/ux-review change <PR>`** (`.claude/commands/ux-review.md`): it captures the
+     screens with `scripts/ux_capture.sh`, dispatches `ux-visual` (UI) and `ux-flow` (UX) as separate
+     passes, adds `ux-a11y`, `ux-trust` or `ux-mobile` when the change calls for them, and ledgers
+     the adjudication below.
 
    **A UI/UX reviewer's severity verdict is itself a claim to verify, not a finding to act on
    directly** — the same "a claim of clean needs spot-checking" principle step 5 already applies to

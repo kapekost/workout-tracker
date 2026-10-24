@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { colors, type, icon } from '../lib/theme'
 import { IconXMark } from '../icons'
+import useBackToClose from '../lib/useBackToClose'
 
 export const MAX_ENTRIES = 10
 
 export default function ChangelogDialog({ entries, onClose }) {
   const closeRef = useRef(null)
+  useBackToClose(onClose)
   const shown = [...entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, MAX_ENTRIES)
 
   useEffect(() => {

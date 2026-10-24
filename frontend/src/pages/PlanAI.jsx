@@ -136,8 +136,11 @@ export default function PlanAI() {
         <IconArrowLeft size={icon.body} /> Your plan
       </button>
       <h1 style={{ fontSize: type.size.title, fontWeight: type.weight.bold, letterSpacing: type.letterSpacing.tight, marginBottom: 4 }}>Update with AI</h1>
-      <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 20 }}>
+      <p style={{ color: colors.muted2, fontSize: type.size.lg, marginBottom: 6 }}>
         Paste your data into ChatGPT, Claude or Gemini, then bring the reply back here.
+      </p>
+      <p style={{ color: colors.muted, fontSize: type.size.base, marginBottom: 20 }}>
+        Copies your plan, last 20 workouts, personal bests and exercise notes. It goes to whichever chatbot you paste it into, under that service's terms. Check your notes first.
       </p>
 
       <div className="card" style={{ padding: space.xl, marginBottom: 14 }}>
@@ -156,8 +159,14 @@ export default function PlanAI() {
       <div className="card" style={{ padding: space.xl }}>
         <Eyebrow style={{ marginBottom: space.md }}>2. Paste the reply</Eyebrow>
         <textarea aria-label="Reply from your AI" value={reply} onChange={e => edit(e.target.value)} style={{ ...textArea }} />
+        <button type="button" onClick={() => edit('')} disabled={!reply}
+          style={{ background: 'none', border: 'none', color: reply ? colors.accent : colors.muted, cursor: reply ? 'pointer' : 'default',
+            fontSize: type.size.md, padding: `${space.sm}px 0` }}>Clear</button>
         <button type="button" className="btn-secondary" onClick={check} disabled={busy || !reply.trim()}
           style={{ width: '100%', marginTop: space.md }}>Preview</button>
+        {!reply.trim() && (
+          <p style={{ color: colors.muted, fontSize: type.size.base, marginTop: space.sm }}>Paste a reply to enable.</p>
+        )}
 
         {error && (
           <p role="alert" style={{ color: colors.danger, fontSize: type.size.md, marginTop: space.md }}>{error}</p>
