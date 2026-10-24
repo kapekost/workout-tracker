@@ -485,9 +485,9 @@ history is in `docs/CHANGELOG.md`.
 
 ## Status
 
-_Last updated: 2026-10-23. Live is `2ce2216`, deployed from `main` by the agent (owner's standing instruction: deploy once verified). `docs/orchestration/STATE.md` carries the current cursor._
+_The agent deploys from `main` once verified (owner's standing instruction, `docs/orchestration/DECISIONS.md` 2026-10-22). `docs/orchestration/STATE.md` carries the current cursor and the live commit; `/api/health` is the check._
 
-**Running now:** commit `2ce2216`, `/api/health` `{"status":"ok","version":"2ce2216"}` (verified at deploy, 2026-10-23). It carries #389 (Personal Bests top 3, schema v10) and the review-bot changes. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the feature was driven against a throwaway server with four profiles.
+**Last recorded deploy:** commit `2ce2216` (verified at deploy, 2026-10-23); later deploys are in `STATE.md`. It carries #389 (Personal Bests top 3, schema v10) and the review-bot changes. Nothing behind the login was driven on the live site. Before the deploy the full test suites passed and the feature was driven against a throwaway server with four profiles.
 **Schema v10** (`profiles.share_bests`, #389), migrated at the 2026-10-23 deploy from a host backup taken minutes before (local and off-site `ok`). No admin export snapshot or restore drill was run for it. Schema v9 (`sets.client_id`, #339) came in at the 2026-10-22 deploy (`d463748`). `main` may move on with commits that change no app
 behaviour (CI, docs, review tooling); check `/api/health` rather than assuming.
 
@@ -604,7 +604,7 @@ Deploy from `main`. `scripts/deploy.sh` enforces it, but a deployed commit and `
 differ by commits that change no behaviour, so compare against `/api/health`, not a branch name.
 
 **How this went wrong on 2026-10-03, because it will happen again.** Work was
-branched from `claude/workout-tracker-backlog-bu9qnw`, which had *diverged*
+branched from the old orchestration home branch (retired 2026-10-11), which had *diverged*
 from `main` and sat 59 commits behind it — not merely behind, off to the side.
 A deploy from it replaced the running app with an older build and silently
 removed `Login`, `SetPassword` and `VersionBadge`. Two things made that possible
