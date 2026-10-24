@@ -8,7 +8,7 @@ line says whether it is the whole PR or the changes since the last review), pr.f
 whole PR, for context), pr.stat and pr.omitted.txt. <coverage-file> is written outside the
 checkout.
 
-The frontend lockfile, edited in place, is left out. Binary files are not shown but are counted and listed as omitted, so a
+A lockfile, edited in place, is left out. Binary files are not shown but are counted and listed as omitted, so a
 text file that git takes for binary (a NUL byte) cannot slip by unreviewed. Git reads diff
 attributes from the base branch, never from the PR, so a PR cannot mark its own source files
 binary to hide them from the review. The rest is ordered so shipped and security-relevant code
@@ -28,7 +28,8 @@ BUDGET = 60_000
 COVERAGE_NAMES = 20
 DIFF_FLAGS = ("--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/")
 COVERAGE_NAME_CHARS = 200
-LOCKFILES = ("frontend/package-lock.json",)
+LOCKFILES = ["frontend/package-lock.json"]
+SOURCE_PREFIXES = tuple(["backend/", "frontend/src/"])
 SHA = re.compile(r"[0-9a-f]{40}")
 TEST_FILE = re.compile(
     r"(^|/)(test_[^/]*\.py|[^/]*_test\.py|[^/]*\.(test|spec)\.[jt]sx?|tests?/|__tests__/|e2e/)")
@@ -36,16 +37,13 @@ ESCAPES = {b"t": b"\t", b"n": b"\n", b'"': b'"', b"\\": b"\\"}
 
 
 def classify(path):
-    """Read order: 0 workflows, scripts and Dockerfiles, 1 backend, 2 frontend source, 3 tests,
-    4 the rest."""
+    """Read order: 0 workflows, scripts and Dockerfiles, 1 source, 3 tests, 4 the rest."""
     if path.startswith((".github/", "scripts/")) or os.path.basename(path).startswith("Dockerfile"):
         return 0
     if TEST_FILE.search(path):
         return 3
-    if path.startswith("backend/"):
+    if path.startswith(SOURCE_PREFIXES):
         return 1
-    if path.startswith("frontend/src/"):
-        return 2
     return 4
 
 

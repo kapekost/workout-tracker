@@ -7,9 +7,11 @@ from pathlib import Path
 import pytest
 
 spec = importlib.util.spec_from_file_location(
-    "review_input", Path(__file__).resolve().parent.parent / "scripts" / "review_input.py")
+    "review_input", Path(__file__).resolve().parents[2] / "scripts" / "review_input.py")
 ri = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ri)
+ri.SOURCE_PREFIXES = ("src/",)
+ri.LOCKFILES = ("package-lock.json",)
 
 SHA = "a" * 40
 
@@ -27,52 +29,52 @@ def paths(pairs):
 
 
 def test_a_binary_file_is_never_shown_and_counts_as_omitted():
-    text = chunk("backend/main.py") + binary("docs/shot.png")
+    text = chunk("src/main.py") + binary("docs/shot.png")
     shown, total, omitted = ri.select(text, 10_000)
-    assert paths(shown) == ["backend/main.py"] and total == 2 and omitted == ["docs/shot.png"]
+    assert paths(shown) == ["src/main.py"] and total == 2 and omitted == ["docs/shot.png"]
 
 
-def test_only_the_frontend_lockfile_is_left_out():
-    text = chunk("frontend/package-lock.json") + chunk("frontend/src/App.jsx")
+def test_only_the_lockfile_is_left_out():
+    text = chunk("package-lock.json") + chunk("src/App.jsx")
     shown, total, _ = ri.select(text, 10_000)
-    assert paths(shown) == ["frontend/src/App.jsx"] and total == 1
+    assert paths(shown) == ["src/App.jsx"] and total == 1
 
 
 def test_code_is_ordered_before_tests_and_tests_before_docs():
     text = "".join(chunk(p) for p in [
-        "docs/a.md", "backend/test_main.py", "frontend/src/App.test.jsx", "frontend/src/App.jsx",
-        "backend/main.py"])
+        "docs/a.md", "src/test_main.py", "src/App.test.jsx", "src/App.jsx",
+        "src/main.py"])
     shown, _, _ = ri.select(text, 10_000)
-    assert paths(shown) == ["backend/main.py", "frontend/src/App.jsx",
-                            "backend/test_main.py", "frontend/src/App.test.jsx", "docs/a.md"]
+    assert paths(shown) == ["src/App.jsx", "src/main.py",
+                            "src/test_main.py", "src/App.test.jsx", "docs/a.md"]
 
 
 def test_workflow_and_script_changes_come_first():
-    text = "".join(chunk(p) for p in ["backend/main.py", "Dockerfile.sandbox", "scripts/x.sh",
+    text = "".join(chunk(p) for p in ["src/main.py", "Dockerfile.sandbox", "scripts/x.sh",
                                       ".github/workflows/a.yml"])
     shown, _, _ = ri.select(text, 10_000)
     assert paths(shown) == ["Dockerfile.sandbox", "scripts/x.sh", ".github/workflows/a.yml",
-                            "backend/main.py"]
+                            "src/main.py"]
 
 
 def test_a_file_that_fits_is_kept_after_one_that_does_not():
-    big = chunk("backend/big.py", "+" + "y" * 500 + "\n")
+    big = chunk("src/big.py", "+" + "y" * 500 + "\n")
     small = chunk("docs/small.md")
     shown, total, omitted = ri.select(big + small, 300)
-    assert paths(shown) == ["docs/small.md"] and omitted == ["backend/big.py"] and total == 2
+    assert paths(shown) == ["docs/small.md"] and omitted == ["src/big.py"] and total == 2
 
 
 def test_a_single_file_over_budget_is_omitted_not_truncated():
-    big = chunk("backend/big.py", "+" + "y" * 500 + "\n")
+    big = chunk("src/big.py", "+" + "y" * 500 + "\n")
     shown, total, omitted = ri.select(big, 100)
-    assert shown == [] and omitted == ["backend/big.py"] and total == 1
+    assert shown == [] and omitted == ["src/big.py"] and total == 1
 
 
 def test_a_renamed_file_is_filed_under_its_new_path():
-    text = ("diff --git a/old/name.py b/backend/new.py\nsimilarity index 90%\n"
-            "rename from old/name.py\nrename to backend/new.py\n--- a/old/name.py\n"
-            "+++ b/backend/new.py\n@@ -1 +1 @@\n+x\n")
-    assert paths(ri.split_diff(text)) == ["backend/new.py"]
+    text = ("diff --git a/old/name.py b/src/new.py\nsimilarity index 90%\n"
+            "rename from old/name.py\nrename to src/new.py\n--- a/old/name.py\n"
+            "+++ b/src/new.py\n@@ -1 +1 @@\n+x\n")
+    assert paths(ri.split_diff(text)) == ["src/new.py"]
 
 
 def test_a_quoted_path_is_decoded():
@@ -137,11 +139,10 @@ def make_repo(tmp_path):
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "base")
     git(repo, "checkout", "-qb", "feat")
-    (repo / "backend").mkdir()
-    (repo / "backend" / "main.py").write_text("print(1)\n")
+    (repo / "src").mkdir()
+    (repo / "src" / "main.py").write_text("print(1)\n")
     (repo / "img.png").write_bytes(b"\x89PNG\x00\x01\x02")
-    (repo / "frontend").mkdir()
-    (repo / "frontend" / "package-lock.json").write_text("{}\n")
+    (repo / "package-lock.json").write_text("{}\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "one")
     return repo
@@ -153,7 +154,7 @@ def test_coverage_json_counts_shown_and_total(tmp_path):
     ri.build_input(str(repo), "main", "", out, cov, budget=10_000)
     data = json.loads(cov.read_text())
     assert data == {"mode": "full", "since": "", "shown": 1, "total": 2, "omitted": ["img.png"]}
-    assert "backend/main.py" in (out / "pr.diff").read_text()
+    assert "src/main.py" in (out / "pr.diff").read_text()
     assert "img.png" not in (out / "pr.diff").read_text()
     assert (out / "pr.diff").read_text().startswith("# Whole PR")
     assert "img.png" in (out / "pr.stat").read_text()
@@ -163,7 +164,7 @@ def test_coverage_json_counts_shown_and_total(tmp_path):
 def test_a_second_push_is_reviewed_from_the_last_review(tmp_path):
     repo = make_repo(tmp_path)
     last = git(repo, "rev-parse", "HEAD").strip()
-    (repo / "backend" / "second.py").write_text("print(2)\n" * 40)
+    (repo / "src" / "second.py").write_text("print(2)\n" * 40)
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "two")
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
@@ -172,7 +173,7 @@ def test_a_second_push_is_reviewed_from_the_last_review(tmp_path):
     assert data["mode"] == "incremental" and data["since"] == last[:7] and data["total"] == 1
     diff = (out / "pr.diff").read_text()
     assert diff.startswith(f"# Changes since {last[:7]}") and "second.py" in diff
-    assert "main.py" not in diff and "backend/main.py" in (out / "pr.full.diff").read_text()
+    assert "main.py" not in diff and "src/main.py" in (out / "pr.full.diff").read_text()
 
 
 def test_omitted_files_are_listed_for_the_model(tmp_path):
@@ -180,8 +181,8 @@ def test_omitted_files_are_listed_for_the_model(tmp_path):
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
     ri.build_input(str(repo), "main", "", out, cov, budget=10)
     data = json.loads(cov.read_text())
-    assert data["shown"] == 0 and data["total"] == 2 and data["omitted"] == ["backend/main.py", "img.png"]
-    assert (out / "pr.omitted.txt").read_text() == "backend/main.py\nimg.png\n"
+    assert data["shown"] == 0 and data["total"] == 2 and data["omitted"] == ["src/main.py", "img.png"]
+    assert (out / "pr.omitted.txt").read_text() == "src/main.py\nimg.png\n"
 
 
 def test_a_failed_diff_exits_non_zero_and_writes_nothing(tmp_path):
@@ -196,7 +197,7 @@ def test_a_failed_diff_exits_non_zero_and_writes_nothing(tmp_path):
 def test_the_coverage_file_names_only_the_first_omitted_paths(tmp_path):
     repo = make_repo(tmp_path)
     for i in range(ri.COVERAGE_NAMES + 5):
-        (repo / "backend" / f"f{i:02}.py").write_text("x\n")
+        (repo / "src" / f"f{i:02}.py").write_text("x\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "many")
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
@@ -214,13 +215,13 @@ def test_a_pr_cannot_hide_its_files_with_its_own_gitattributes(tmp_path):
     out, cov = tmp_path / "out", tmp_path / "coverage.json"
     ri.build_input(str(repo), "main", "", out, cov, budget=10_000)
     assert json.loads(cov.read_text())["total"] == 3
-    assert "backend/main.py" in (out / "pr.diff").read_text()
+    assert "src/main.py" in (out / "pr.diff").read_text()
     assert "Binary files" not in (out / "pr.diff").read_text()
 
 
 def test_a_long_omitted_path_is_cut_in_the_coverage_file_only(tmp_path):
     repo = make_repo(tmp_path)
-    long_name = "backend/" + "/".join(c * 100 for c in "abc") + ".py"
+    long_name = "src/" + "/".join(c * 100 for c in "abc") + ".py"
     (repo / long_name).parent.mkdir(parents=True)
     (repo / long_name).write_text("x\n")
     git(repo, "add", "-A")
@@ -245,15 +246,15 @@ def test_a_script_with_a_nul_byte_is_counted_as_not_reviewed(tmp_path):
 
 
 def test_a_file_named_like_the_lockfile_elsewhere_is_still_reviewed():
-    text = chunk("scripts/package-lock.json") + chunk("frontend/package-lock.json")
+    text = chunk("scripts/package-lock.json") + chunk("package-lock.json")
     shown, total, _ = ri.select(text, 10_000)
     assert paths(shown) == ["scripts/package-lock.json"] and total == 1
 
 
 def test_a_script_renamed_onto_the_lockfile_path_is_still_reviewed():
-    renamed = ("diff --git a/scripts/post_review.py b/frontend/package-lock.json\n"
+    renamed = ("diff --git a/scripts/post_review.py b/package-lock.json\n"
                "similarity index 90%\nrename from scripts/post_review.py\n"
-               "rename to frontend/package-lock.json\n--- a/scripts/post_review.py\n"
-               "+++ b/frontend/package-lock.json\n@@ -1 +1 @@\n+x\n")
+               "rename to package-lock.json\n--- a/scripts/post_review.py\n"
+               "+++ b/package-lock.json\n@@ -1 +1 @@\n+x\n")
     shown, total, _ = ri.select(renamed, 10_000)
-    assert paths(shown) == ["frontend/package-lock.json"] and total == 1
+    assert paths(shown) == ["package-lock.json"] and total == 1
