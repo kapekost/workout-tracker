@@ -748,3 +748,29 @@ Owner: the CI reviewer works on PRs that hold no personal data, so its list may 
 the 2026-10-11 rule that every reviewer model keeps `data_collection: deny`, for the reviewer only; the
 coach is separate (free models, privacy tier, see the coach entries). Tracked as item 7 of #269. The owner
 updates the global rule file; the sync rule applies to kapekost-web.
+
+## 2026-10-23 — UX review is a registered workflow; a full review may recommend a redesign
+
+Owner: make UI/UX review part of the workflow, both as a recommendation on new features and as a full
+review that considers a redesign, with expert agents on different angles. Now `/ux-review` with six
+agents (flow, visual, accessibility, health-data trust, product, mobile) and a shared contract in
+`docs/ux/REVIEW-CONTRACT.md`. The 2026-09-06 lean rule still governs per-change reviews: they fix
+inside the current tokens and classes. Only `/ux-review full` may return Redesign, and only with two
+experts agreeing on a structural cause and the cost stated. Experts run on `sonnet`; the controller
+verifies and decides.
+
+## 2026-10-24 — The mobile app goes to full parity with the PWA; UI is verified by seeing it
+
+Owner, after running #410 to #418 on a real iPhone in Expo Go: the app was a skeleton, "way too minimal and
+nothing like the app we have on the web". Full parity, not a shell-only pass: Issues #521 (foundations:
+fonts, TopBar, bottom nav, shared components, icons), then #522 Home, #523 Workout, #524 History, #525 Progress,
+#526 Personal Bests, #527 Plan, #528 AI plan update, #529 Account screens. Same API calls as the PWA, no
+backend change, no new tokens.
+
+Verification rule for `mobile/` UI (and any screen work): green CI and unit tests do not show that a screen
+works. #494 shipped a not-found screen on a logged-out launch that only the phone revealed. A UI PR is not
+merged until the screens have been seen rendering: in Chrome (`expo.web.output` is `single`, so the app serves
+its client script) next to the PWA, reviewed by the UX agents from screenshots, and on the owner's phone in
+Expo Go. The PR says what was and was not seen. Never merge from a worktree a preview server is running in:
+after every `gh pr merge --delete-branch` run from a worktree, that worktree was gone (the mechanism was not traced), and it crashed the owner's running app. CI for
+`mobile/` is the owner's, with another agent.

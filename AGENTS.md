@@ -14,6 +14,12 @@ Task planning lives in `docs/orchestration/`:
 - `DECISIONS.md` — owner decisions already made; don't relitigate.
 - `IMPROVEMENTS.md` — friction log, reviewed automatically per tick.
 
+UX review has its own entry point, `/ux-review feature <issue> | change <PR> | full`
+(`.claude/commands/ux-review.md`). Six read-only expert agents (`.claude/agents/ux-*.md`) share one
+contract, `docs/ux/REVIEW-CONTRACT.md`. `scripts/ux_capture.sh` screenshots every screen on a
+seeded throwaway DB into `frontend/ux-shots/` (gitignored). `full` reviews end in
+`docs/superpowers/audits/<date>-ux-full-review.md`.
+
 Tasks live as GitHub Issues (`type`/`priority`/`effort` labels), ranked in the
 repo's Project board. `/orchestrate` reads and writes them via `gh`.
 
@@ -35,10 +41,11 @@ it cannot do damage:
   key (an earlier version that used one failed validation with zero jobs), which is why the
   split is by job. The limit: the workflow file itself still runs from the PR's merge ref, so
   this defends against injected content, not a malicious committer with write access.
-- It **cannot write.** Its project `opencode.json` is replaced with a trusted one before it
-  runs (project config outranks global, so the PR's own copy would otherwise win), any
-  `.opencode/` directory is deleted (plugins there load in-process before any permission
-  check), the repository is made read-only, and `bash` is a default-deny allowlist of read
+- It **cannot write.** `OPENCODE_DISABLE_PROJECT_CONFIG` makes opencode ignore the checkout's
+  `opencode.json`, `.opencode/` (plugins there load in-process before any permission check) and
+  `AGENTS.md`/`CLAUDE.md`, and `OPENCODE_CONFIG` points it at a trusted config outside the checkout.
+  Nothing is deleted, so the PR's own files never read as removed. Without the flag a hostile
+  `opencode.json` wins even over `OPENCODE_CONFIG`. The repository is made read-only, and `bash` is a default-deny allowlist of read
   commands only. Verified by making the agent try: a `>` redirect, `git commit`, `git push`
   and `bash scripts/deploy.sh` were each denied with the repo unchanged.
 
@@ -335,6 +342,10 @@ to one deployment. What's true for any deployment of this project:
   eval "$(sed -n '/^## Scripted deploy configuration$/,/^## /p' AGENTS.local.md | sed -n '/^DEPLOY_HOST=/p; /^DEPLOY_APP_DIR=/p; /^DEPLOY_SSH_OPTS=/p')"
   ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" "cd '$DEPLOY_APP_DIR' && bash scripts/backup.sh"
   ```
+
+  An agent that cannot read `AGENTS.local.md` (the project settings deny it, on purpose, since it can hold
+  keys) runs `bash scripts/backup_remote.sh` instead; it does the same over SSH. Allow it and
+  `bash scripts/deploy.sh` by exact command in `.claude/settings.local.json`; neither needs the file opened.
 
   Run from your laptop it fails with `compose file .../docker-compose.yml: no such
   file or directory`, then `no workout-tracker container to write ... into` —

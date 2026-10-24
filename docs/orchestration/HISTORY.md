@@ -18,6 +18,33 @@
 
 ---
 
+**Tick 2026-10-24 (second part: first phone test, parity decision, #530 deploy).**
+- The owner ran the app on an iPhone in Expo Go. First finding: a logged-out launch opened on "This screen doesn't exist" (`/` was Home inside the hidden `(app)` group). Fixed in #518 (a root route that redirects). Then the running preview crashed: the preview worktree was gone after the merge of #518 (every merge from a worktree this session left it gone; the mechanism was not traced), under the running Metro. Nothing was wrong in the app code. The preview now runs from a detached checkout.
+- Owner: too minimal, nothing like the web app. Chose full parity. Issues #521 to #529 created with `create_issue.sh` (`ready`, on the board), #521 claimed with PR #531 open. See `DECISIONS.md` 2026-10-24 for the order and the verification rule. The app renders in Chrome with `web.output: single` (a web-only session store is needed to get past Login); this was verified on a probe only and is part of the #521 work.
+- Free disk went from 4.3 GB to 34 GB (Docker build cache and unused images, npm, Playwright, uv and Homebrew caches, two installers). The Claude desktop app's 11 GB of VM images were left. No iOS simulator: only the Command Line Tools are installed.
+- Deployed `a85361f` (#530, the sticky-bars fix by another session) on the owner's go-ahead, from the shared checkout: backup `ok` locally and off-site, `/api/health` reports `a85361f`, no schema change. The checkout was switched back to its docs branch afterwards. Not verified on a real iPhone; laptop-side health at the Tailscale address still times out.
+- Reviewer prompt change (what is out of scope, `limits` only for the unexpected) merged as #514 and kapekost-web #116 by another session; whether the `.review-input` read failures stop was still unverified (the #518 review still reported them).
+
+---
+
+**Tick 2026-10-24 (#459 audit, mobile #413 to #416 and #418).**
+- #459 closed. 38 merged PRs had a bot CHANGES_REQUESTED since 2026-09-23 (the 11 named plus 27): 29 fixed or answered in-thread, 3 had no reply and now do (#312, #391, #238), five small gaps are in #495. The audit agent's claim that #300 had no reply was wrong (the thread has replies and a fix) and nothing was posted there. No PR contradicts DECISIONS.md. Not verified: #238's `opencode.json` and `.gitignore` points, the #391 deferred note, whether the workout-science review confirmed the #435 cue.
+- Merged in `mobile/`: #494 (#413 auth flow and Login to Home, `Stack.Protected`, store reset on logout; staff-engineer-reviewer found no Critical or High, its fixes landed), #496 (#414 exercise list and detail), #497 (#415 active workout, zustand store, idempotent set client ids, resume on a 409), #498 (#416 rest timer from an end time), #499 (#418 haptics after a saved set, keep-awake for the life of a workout session). The template tabs, modal and components are gone, which cleared the two `tsc` errors. 64 tests run with `npm test`; `expo lint` and `tsc` are clean.
+- Verified against a real throwaway backend with the real client and stores: login, restore, logout and a replayed old credential (#413); the plan fetch (#414); start, the 409, resume, a repeated set post and finish (#415).
+- Not verified: any `mobile/` screen on a device or simulator (the web dev server in this setup serves no client script), haptics and keep-awake on a device, Android's cookie jar with `credentials: 'omit'`. `mobile/` has no CI job. The bot review was wrong or empty on most of these PRs (false BLOCKING on #494, #497, #498; nonsense CLEAN on #496, #499); each block was answered in the thread against the branch.
+- Still open: #417 (notifications, needs a device or simulator) and #419 (EAS config, iOS needs the owner's Apple account). Nothing deployed; the live health check timed out again, so live was not re-confirmed.
+
+---
+
+**Tick 2026-10-23 (#269 item 7, mobile #410 to #412).**
+- Merged: #486 (symlinks removed before the input builder writes, with a workflow-text test), #487 (reviewer model order, item 7 of #269) and kapekost-web #115 (the same order, sync rule). Order, free models only: private endpoints first (`data_collection: deny`), then the same models again under `open/<id>` keys with no privacy option. security-ai-reviewer found no Critical or High; its two wording findings were fixed. The `open/` tier ran on #487 (exit 0, no verdict), so the `id` override works with opencode. Resolves the owner item "CI reviewer model fallback policy".
+- Merged: #489 (#410 Expo bootstrap in `mobile/`, lint clean, dev server serves), #491 (#411 tokens, `ThemedText`, root providers; computed color and size read in Chrome on the web build), #492 (#412 API client with the `wt_session` cookie in SecureStore). #492 is auth-adjacent and client only; staff-engineer-reviewer found no Critical or High, and its fixes landed before merge (Max-Age clear with a comma in `expires`, a stale 401 racing a new login, timeout until the body is read, redirects refused, https required outside dev builds). 14 unit tests run with `npm test` in `mobile/`.
+- Not verified: the mobile app on a device or simulator (Set-Cookie read and hand-set Cookie header with `credentials: 'omit'` on React Native, especially Android); `mobile/` has no CI job, so `npm test` runs by hand; `tsc` shows two errors in the template's `components/Themed.tsx`. The live health check at the Tailscale address timed out four times from this session, so live `2ce2216` was not re-confirmed this tick.
+- The bot review was skipped on #487 and #489 (no verdict from any model) and cited lines that do not exist on #492; none of these gated a merge. Free-model verdicts stay unreliable.
+- Nothing deployed: docs, CI and `mobile/` only.
+
+---
+
 **Tick 2026-10-23 (#269 PR 1).**
 - Merged and deployed: #477 (squash `f0c4cd5`), PR 1 of the #269 plan. Adds `scripts/review_input.py` (input builder with a size budget and `coverage.json`) and a Coverage line in `scripts/post_review.py`; partial coverage now posts a comment instead of approving. Dormant until PR 2 wires it into the workflow. Live `/api/health` is `f0c4cd5`; no app change, no schema change, no extra backup.
 - Review caught two real defects, both fixed before merge: a failed `git diff` exited 0 with an empty 0-of-0 coverage, and `read_coverage` truncated large files and lost the partial flag. security-ai-reviewer could not be launched from the tick; the tick review stood in as the staff-engineer pass. Hand run on the #267 range: 59,683 bytes, 33 text files plus 17 binaries match `git diff --stat`.

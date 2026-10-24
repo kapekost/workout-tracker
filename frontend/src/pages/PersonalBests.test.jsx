@@ -27,7 +27,7 @@ describe('PersonalBests exercise picker', () => {
     api.get.mockResolvedValue([])
     const view = renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }))
     return view
   }
 
@@ -83,7 +83,7 @@ describe('PersonalBests page', () => {
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
     // The form lives behind the "Add" disclosure (item 19) — open it first.
-    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     // Verify the full six-field form-to-payload mapping, not just "was called" —
     // the default form state (first exercise alphabetically, 20kg, 1 rep,
@@ -144,10 +144,10 @@ describe('PersonalBests page', () => {
     api.delete.mockResolvedValue({ deleted: true })
     renderPage()
     await screen.findByText('from 100 kg × 3')
-    fireEvent.click(screen.getByRole('button', { name: 'delete personal best 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'delete personal best Bench Press' }))
     expect(api.delete).not.toHaveBeenCalled()
     expect(screen.getByText('from 100 kg × 3')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'confirm delete personal best 1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'confirm delete personal best Bench Press' })).toBeInTheDocument()
   })
 
   it('a second tap on the armed button deletes the entry', async () => {
@@ -158,8 +158,8 @@ describe('PersonalBests page', () => {
     api.delete.mockResolvedValue({ deleted: true })
     renderPage()
     await screen.findByText('from 100 kg × 3')
-    fireEvent.click(screen.getByRole('button', { name: 'delete personal best 1' }))
-    fireEvent.click(screen.getByRole('button', { name: 'confirm delete personal best 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'delete personal best Bench Press' }))
+    fireEvent.click(screen.getByRole('button', { name: 'confirm delete personal best Bench Press' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/personal-bests/1'))
     await waitFor(() => expect(screen.queryByText('from 100 kg × 3')).not.toBeInTheDocument())
   })
@@ -169,7 +169,7 @@ describe('PersonalBests page', () => {
     api.post.mockRejectedValue(new Error('API POST /personal-bests → 409'))
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     await screen.findByText(/already logged this exact PB/i)
   })
@@ -179,7 +179,7 @@ describe('PersonalBests page', () => {
     api.post.mockRejectedValue(new Error('API POST /personal-bests → 500'))
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     await screen.findByText(/failed to save\. check the values/i)
   })
@@ -197,7 +197,7 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     ])
     renderPage()
     await screen.findByText('Bench Press')
-    const toggle = screen.getByRole('button', { name: /^Add(?! Personal)/ })
+    const toggle = screen.getByRole('button', { name: /^Add$/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     // The body (including the "Exercise" field label) only renders while open.
     expect(screen.queryByText('Exercise')).not.toBeInTheDocument()
@@ -210,8 +210,8 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     ])
     renderPage()
     await screen.findByText('Bench Press')
-    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
-    expect(screen.getByRole('button', { name: /^Add(?! Personal)/ })).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }))
+    expect(screen.getByRole('button', { name: /^Add$/ })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: /add personal best/i })).toBeInTheDocument()
     // The list is still rendered and precedes the disclosure in document
     // order. "Bench Press" now matches twice once the form is open (the
@@ -226,7 +226,7 @@ describe('PersonalBests add-form disclosure — item 19', () => {
     api.get.mockResolvedValue([])
     renderPage()
     await screen.findByText('No historical PBs logged yet.')
-    expect(screen.getByRole('button', { name: /^Add(?! Personal)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Add$/ })).toBeInTheDocument()
   })
 })
 
@@ -235,7 +235,7 @@ describe('PersonalBests form (2026-10-03 review 1.5 / 3.4)', () => {
   async function openForm() {
     api.get.mockResolvedValue([])
     renderPage()
-    fireEvent.click(screen.getByRole('button', { name: /^Add(?! Personal)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }))
     fireEvent.click(screen.getByRole('button', { name: /add personal best/i }))
     return screen.getAllByRole('spinbutton')
   }
@@ -342,12 +342,21 @@ describe('PersonalBests top-3 comparison', () => {
     mockGets([bench], { sharing: false, top: {} })
     api.put.mockResolvedValue({ sharing: true, top: {} })
     renderPage()
-    const box = await screen.findByRole('checkbox', { name: /Include my bests in others' top 3/ })
+    const box = await screen.findByRole('checkbox', { name: /Share my lifts with other members/ })
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/personal-bests/top'))
     expect(box).not.toBeChecked()
     fireEvent.click(box)
     await waitFor(() => expect(api.put).toHaveBeenCalledWith('/personal-bests/sharing', { sharing: true }))
     expect(box).toBeChecked()
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+
+  it('hides the sharing toggle until there is a best, and offers an add button instead', async () => {
+    mockGets([], { sharing: false, top: {} })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a personal best' }))
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Weight (kg)')).toBeInTheDocument()
   })
 
   it('starts checked when the member already shares', async () => {

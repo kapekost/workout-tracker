@@ -28,7 +28,11 @@ const TAG_TO_GROUP = Object.fromEntries(
 export const allExercises = (plan) => Object.values(plan)
   .flatMap(d => d.exercises)
   .filter((ex, i, arr) => arr.findIndex(e => e.id === ex.id) === i)
-export const exerciseById = (plan) => Object.fromEntries(allExercises(plan).map(e => [e.id, e]))
+// Alternatives are included so sets logged under one still count toward its muscles.
+export const exerciseById = (plan) => {
+  const byId = Object.fromEntries(allExercises(plan).flatMap(e => e.altExercise ? [[e.altExercise.id, e.altExercise]] : []))
+  return { ...byId, ...Object.fromEntries(allExercises(plan).map(e => [e.id, e])) }
+}
 
 // All 22 exercises already list their primary muscle first, so direct/indirect
 // is positional. This map exists so a future plan edit that breaks that

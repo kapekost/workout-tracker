@@ -16,11 +16,11 @@ export default function SessionClock({ startMs, wakeLockHeld, color }) {
   }, [])
 
   return (
-    <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4 }}>
-      ACTIVE SESSION · {formatClock(elapsedSeconds(startMs, now))}
+    <Eyebrow color={color} size={type.size.sm} style={{ marginBottom: 4, whiteSpace: 'nowrap' }}>
+      {`ACTIVE · ${formatClock(elapsedSeconds(startMs, now))}`}
       {wakeLockHeld && (
         <span className="screen-on-marker" style={{ color: colors.muted }}>
-          {' '}<IconBolt size={icon.caption} /> SCREEN ON
+          {' · '}<IconBolt size={icon.caption} /> SCREEN ON
         </span>
       )}
     </Eyebrow>

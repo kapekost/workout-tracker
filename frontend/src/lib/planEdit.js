@@ -18,7 +18,16 @@ export function modifyOp(exercise, draft) {
   if (draft.sets !== exercise.sets) op.sets = draft.sets
   if (draft.repsLow !== exercise.repsLow) op.reps_low = draft.repsLow
   if (draft.repsHigh !== exercise.repsHigh) op.reps_high = draft.repsHigh
+  if ('altId' in draft && draft.altId !== (exercise.altExercise?.id ?? null)) op.alt_id = draft.altId
   return Object.keys(op).length > 2 ? op : null
+}
+
+// Every catalog exercise except the one being edited, by name: the alternative
+// may be anything, including an exercise that is also on another day.
+export function altCandidates(catalog, exercise) {
+  return catalog
+    .filter(c => c.exercise_id !== exercise.id)
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // Catalog entries not already anywhere in the plan, most shared muscles first.

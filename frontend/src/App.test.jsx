@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import App from './App'
+import { readFileSync } from 'node:fs'
 import { PLAN, CYCLE } from './data/workoutPlan'
 
 // api.js announces an expired session through a callback it hands out --
@@ -427,5 +428,33 @@ describe('the per-profile plan', () => {
     expect(await screen.findByText('Next up')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start Upper A' })).toBeInTheDocument()
     expect(api.get.mock.calls.filter(([p]) => p === '/plan')).toHaveLength(2)
+  })
+})
+
+describe('space reserved for the fixed bars', () => {
+  it('pads the page by the header\'s full height, safe-area padding included', async () => {
+    let notify
+    class FakeObserver {
+      constructor(cb) { notify = cb }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeObserver)
+    authenticated()
+    const { container } = render(<App />)
+    await screen.findByText(/Next up/i)
+
+    const header = container.firstChild.firstChild
+    // contentRect (71) excludes the 47px safe-area padding; the border box (118) does not.
+    header.getBoundingClientRect = () => ({ height: 118 })
+    act(() => notify([{ contentRect: { height: 71 } }]))
+
+    expect(header.nextElementSibling.style.paddingTop).toBe('118px')
+    vi.unstubAllGlobals()
+  })
+
+  it('leaves room under the page for the nav bar plus the home-indicator inset', () => {
+    const css = readFileSync('src/index.css', 'utf8')
+    expect(css).toMatch(/\.page-shell \{[^}]*padding:[^;]*calc\(6rem \+ env\(safe-area-inset-bottom\)\)/)
   })
 })

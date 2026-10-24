@@ -62,6 +62,23 @@ cd backend && .venv/bin/python -m pytest
 cd frontend && npm test
 ```
 
+## Mobile app (in progress)
+
+`mobile/` is an Expo (React Native) app with Expo Router. It is separate from the PWA and the
+backend, and nothing in the deployed image uses it. Add packages with `npx expo install`, so
+versions match the SDK.
+
+```bash
+cd mobile
+npm install
+npx expo start    # dev server
+npx expo lint
+npm test          # unit tests for the API client and auth store (Node 22.6+)
+```
+
+The app reads the backend origin from `EXPO_PUBLIC_API_URL` (no trailing slash), set in a
+git-ignored local env file or in the shell. The session cookie is kept in SecureStore.
+
 ## Deploy
 
 Shape of it: build elsewhere (arm64), stream the image to the deploy target

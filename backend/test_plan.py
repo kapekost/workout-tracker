@@ -282,9 +282,11 @@ def test_get_plan_matches_workoutplan_js_shape_for_seeded_profile(client):
 
     bench = upper_a["exercises"][0]
     assert set(bench.keys()) == {
-        "id", "name", "alt", "sets", "repsLow", "repsHigh",
+        "id", "name", "alt", "altExercise", "sets", "repsLow", "repsHigh",
         "bodyweight", "muscles", "ytUrl", "cues",
     }
+    assert bench["altExercise"]["id"] == "db_bench_press"
+    assert bench["altExercise"]["name"] == "Dumbbell Bench Press"
     seed_bench = plan_seed.DEFAULT_PLAN[0]["exercises"][0]
     assert bench["id"] == seed_bench["exercise_id"]
     assert bench["name"] == seed_bench["name"]
@@ -371,3 +373,22 @@ def test_create_session_rejects_a_day_key_not_in_the_profiles_plan(client):
     r = client.post("/api/sessions", json={"workout_day": "bogus_day"})
     assert r.status_code == 400
     assert "bogus_day" in r.json()["detail"]
+
+
+def test_v10_database_backfills_alt_id_only_for_untouched_seed_text(mainmod, seed_profile_id):
+    with mainmod.db() as conn:
+        conn.execute("UPDATE plan_exercises SET alt = 'my own note' WHERE exercise_id = 'bent_row'")
+        conn.execute("ALTER TABLE plan_exercises DROP COLUMN alt_id")
+        conn.execute("PRAGMA user_version = 10")
+        conn.commit()
+    mainmod.init()
+    mainmod.init()
+    with mainmod.db() as conn:
+        got = dict(conn.execute("SELECT exercise_id, alt_id FROM plan_exercises e JOIN plan_days d "
+                                "ON d.id = e.plan_day_id WHERE d.profile_id = ?",
+                                (seed_profile_id,)).fetchall())
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == mainmod.SCHEMA_VERSION
+    assert got["bench_press"] == "db_bench_press"
+    assert got["lat_pulldown"] == "pullup"
+    assert got["bent_row"] is None
+    assert got["ohp"] is None

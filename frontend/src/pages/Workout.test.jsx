@@ -86,6 +86,15 @@ describe('Workout page', () => {
     expect(finishBtn.compareDocumentPosition(exerciseTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('offers a Home link in the header and shows sets-done as "N of M" with a screen-reader label', async () => {
+    mockSession()
+    renderWorkout()
+    await screen.findByText(ex1.name)
+    expect(screen.getByRole('link', { name: /home/i })).toHaveAttribute('href', '/')
+    expect(screen.getAllByText(`0 of ${ex1.sets} sets`).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(`0 of ${ex1.sets}`).length).toBeGreaterThan(0)
+  })
+
   it('finishing from the header Finish control still calls the finish endpoint', async () => {
     mockSession()
     api.patch.mockResolvedValue({ id: 1, completed: 1, ended_at: '2026-07-09 11:00:00' })
@@ -739,6 +748,20 @@ describe('Workout: Log Set failure messages match what can actually happen', () 
     expect(await screen.findByText(/check the sets above/i)).toBeInTheDocument()
   })
 
+  it('a network failure leaves "Not saved — retry" on screen and relabels the button', async () => {
+    rejectPost(Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' }))
+    await logFirstSet()
+    expect(await screen.findByText('Not saved — retry')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /retry log set 1/i })).toBeInTheDocument()
+  })
+
+  it('a 4xx rejection shows no retry line, since retrying cannot succeed', async () => {
+    rejectPost(Object.assign(new Error('API POST → 400'), { status: 400 }))
+    await logFirstSet()
+    await screen.findByText(/server rejected it/i)
+    expect(screen.queryByText(/Not saved — retry/)).not.toBeInTheDocument()
+  })
+
   it('a 401 stays silent — the logout handler is already tearing the screen down', async () => {
     rejectPost(Object.assign(new Error('API POST → 401'), { status: 401 }))
     await logFirstSet()
@@ -879,5 +902,30 @@ describe('Workout: Log Set is safe to repeat (#339)', () => {
     const message = await screen.findByText(/set 1 logged/i)
     expect(message).toHaveAttribute('role', 'status')
     expect(message).toHaveAttribute('aria-live', 'polite')
+  })
+})
+
+describe('alternative exercise', () => {
+  const alt = { id: 'db_bench_press', name: 'Dumbbell Bench Press', bodyweight: false, muscles: ['Chest'], ytUrl: null, cues: [] }
+  beforeEach(() => { ex1.altExercise = alt; localStorage.clear() })
+  afterEach(() => { delete ex1.altExercise })
+
+  it('logs under the alternative after switching to it', async () => {
+    mockSession()
+    api.post.mockImplementation(async (path, body) => ({ id: 99, ...body }))
+    renderWorkout()
+    fireEvent.click(await screen.findByRole('button', { name: 'Dumbbell Bench Press' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Log Set 1/ }))
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(api.post.mock.calls[0][1].exercise_id).toBe('db_bench_press')
+    expect(api.post.mock.calls[0][1].exercise_name).toBe('Dumbbell Bench Press')
+  })
+
+  it('reopens on the alternative and locks the choice once its sets exist', async () => {
+    mockSession([{ id: 5, exercise_id: 'db_bench_press', exercise_name: 'Dumbbell Bench Press', set_number: 1, reps: 8, weight_kg: 30 }])
+    renderWorkout()
+    const altBtn = await screen.findByRole('button', { name: 'Dumbbell Bench Press' })
+    expect(altBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: ex1.name })).toBeDisabled()
   })
 })

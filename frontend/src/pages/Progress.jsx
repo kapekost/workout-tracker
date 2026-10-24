@@ -10,6 +10,18 @@ import StatPair from '../components/StatPair'
 import { colors, type, space, icon, font } from '../lib/theme'
 import { IconTrophy, IconArrowTrendingUp } from '../icons'
 
+// Y axis fitted to the data with round ticks: a step of 5, 10 or 25 kg, so the
+// labels read 30/40/50 rather than whatever Recharts divides the range into.
+export function fitTicks(weights) {
+  if (!weights.length) return undefined
+  const lo = Math.min(...weights), hi = Math.max(...weights)
+  const step = [5, 10, 25, 50].find(st => (hi - lo) / st <= 4) ?? 100
+  const start = Math.max(0, Math.floor((lo - step / 2) / step) * step)
+  const ticks = []
+  for (let t = start; ticks.length < 2 || ticks.at(-1) < hi; t += step) ticks.push(t)
+  return ticks
+}
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
@@ -27,6 +39,7 @@ export default function Progress() {
   const [exercises, setExercises] = useState([])
   const [selected, setSelected] = useState(null)
   const [data, setData] = useState([])
+  const ticks = fitTicks(data.map(d => d.weight))
   const [loading, setLoading] = useState(false)
   // Wave 1.1: two reads, two lies. A failed /progress left `exercises` empty and
   // the page said "No data yet. Complete a workout to see progress here."; a
@@ -34,14 +47,18 @@ export default function Progress() {
   // least 2 sessions to see a trend". Neither had been asked anything.
   const [listError, setListError] = useState(false)
   const [dataError, setDataError] = useState(false)
+  const [showAll, setShowAll] = useState(false)
 
   // Opens on a real chart instead of an empty screen: whichever exercise the
   // /progress response lists first (the same order the chip row renders) is
-  // auto-selected once the list loads. `s ?? …` leaves a user's own tap
-  // alone if one has already landed by the time this resolves.
+  // auto-selected once the list loads: the most recently trained exercise, by
+  // /progress's `last_date` (ISO dates sort as strings; ties keep API order).
+  // `s ?? …` leaves a user's own tap alone if one has already landed by the time
+  // this resolves.
   const loadList = useCallback(async () => {
     try {
-      const d = await api.get('/progress')
+      const d = [...await api.get('/progress')]
+        .sort((a, b) => (b.last_date || '').localeCompare(a.last_date || ''))
       setExercises(d)
       setSelected(s => s ?? d[0]?.exercise_id)
       setListError(false)
@@ -89,6 +106,16 @@ export default function Progress() {
   // there instead of computing a delta against a single point.
   const delta = data.length >= 2 ? data[data.length - 1].weight - data[0].weight : null
 
+  const chartLabel = data.length >= 2
+    ? `${selectedName}: ${data[0].weight} kg on ${data[0].date}, ${data[data.length - 1].weight} kg on ${data[data.length - 1].date}`
+    : undefined
+  // The PR session's dot is larger and green; the rest keep the accent dot.
+  const renderDot = ({ cx, cy, index, payload }) => {
+    const isPr = payload === prRow
+    return <circle key={index} cx={cx} cy={cy} r={isPr ? 6 : 4}
+      fill={isPr ? colors.success : colors.accent} stroke={colors.card} strokeWidth={2} />
+  }
+
   return (
     <div style={{ paddingTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
@@ -108,20 +135,12 @@ export default function Progress() {
         <LoadError what="your progress" onRetry={loadList} />
       ) : exercises.length === 0 ? <EmptyState title="No data yet." subtitle="Complete a workout to see progress here." /> : (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
-            {exercises.map(ex => (
-              <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)} selected={selected === ex.exercise_id}>
-                {ex.exercise_name}
-              </Chip>
-            ))}
-          </div>
-
           {selected && (
             <div>
               {pr && (
                 <div className="card" style={{ padding: `${space.xl}px ${space.xxl}px`, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <StatPair label="Personal Record" value={<><IconTrophy size={icon.body} /> {pr}<span style={{ fontSize: type.size.lg }}> kg</span></>} valueColor={colors.success} valueSize={type.size.display} />
+                    <StatPair label="Est. 1RM" value={<><IconTrophy size={icon.body} /> {pr}<span style={{ fontSize: type.size.lg }}> kg</span></>} valueColor={colors.success} valueSize={type.size.display} />
                     <StatPair label="Sessions" value={data.length} align="right" />
                   </div>
                   {prRow.estimated && (
@@ -154,21 +173,41 @@ export default function Progress() {
                     Log at least 2 sessions to see a trend
                   </div>
                 ) : (
+                  <div role="img" aria-label={chartLabel}>
                   <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={data} margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
                       <CartesianGrid stroke={colors.border} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={6} />
-                      <YAxis tick={{ fill: colors.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={42} unit="kg" />
+                      <XAxis dataKey="date" tick={{ fill: colors.muted, fontSize: type.size.sm }} axisLine={false} tickLine={false} tickMargin={6} />
+                      <YAxis domain={[ticks?.[0] ?? 0, ticks?.at(-1) ?? 'auto']} ticks={ticks} tick={{ fill: colors.muted, fontSize: type.size.sm }} axisLine={false} tickLine={false} width={42} unit="kg" />
                       <Tooltip content={<CustomTooltip />} />
                       <Line type="monotone" dataKey="weight" stroke={colors.accent} strokeWidth={2.5}
-                        dot={{ fill: colors.accent, r: 4, stroke: colors.card, strokeWidth: 2 }}
+                        dot={renderDot}
                         activeDot={{ r: 6, fill: colors.accent, stroke: colors.card, strokeWidth: 2 }} />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 )}
               </div>
             </div>
           )}
+
+          <div style={{ marginTop: 24 }}>
+            <div style={showAll
+              ? { display: 'flex', flexWrap: 'wrap', gap: 10 }
+              : { display: 'flex', gap: 10, overflowX: 'auto' }}>
+              {exercises.map(ex => (
+                <Chip key={ex.exercise_id} onClick={() => setSelected(ex.exercise_id)} selected={selected === ex.exercise_id}
+                  style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  {ex.exercise_name}
+                </Chip>
+              ))}
+            </div>
+            <button type="button" onClick={() => setShowAll(v => !v)} aria-expanded={showAll}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', minHeight: 44, padding: '0 4px',
+                color: colors.accent, fontSize: type.size.base, fontWeight: type.weight.semibold }}>
+              {showAll ? 'Show fewer' : `All ${exercises.length} exercises`}
+            </button>
+          </div>
         </>
       )}
     </div>

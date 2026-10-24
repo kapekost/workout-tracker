@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import TimerBar from './TimerBar'
 
 vi.mock('../lib/sound', () => ({ playBeep: vi.fn() }))
@@ -65,5 +65,31 @@ describe('TimerBar — #229 rest-controls-only relayout', () => {
     render(<TimerBar {...baseProps} restStartMs={null} paused={false} pausedRem={null} />)
     expect(screen.getByLabelText('subtract 30 seconds')).toHaveTextContent('-30s')
     expect(screen.getByLabelText('add 30 seconds')).toHaveTextContent('+30s')
+  })
+})
+
+describe('TimerBar a11y and visibility', () => {
+  it('idle: controls group is not dimmed, buttons are disabled', () => {
+    const { container } = render(<TimerBar {...baseProps} restStartMs={null} paused={false} pausedRem={null} />)
+    expect(container.querySelector('.timer-controls').getAttribute('style')).toBeNull()
+    expect(screen.getByLabelText('skip rest')).toBeDisabled()
+  })
+
+  it('announces "Rest over" in a status region once the countdown ends', () => {
+    render(<TimerBar {...baseProps} restStartMs={Date.now() - 91_000} paused={false} pausedRem={null} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Rest over')
+  })
+
+  it('rest ending while hidden signals at once and once more on return to visible', async () => {
+    const { playBeep } = await import('../lib/sound')
+    playBeep.mockClear()
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    render(<TimerBar {...baseProps} restStartMs={Date.now() - 91_000} paused={false} pausedRem={null} />)
+    expect(playBeep).toHaveBeenCalledTimes(1)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); document.dispatchEvent(new Event('visibilitychange')) })
+    expect(playBeep).toHaveBeenCalledTimes(2)
   })
 })
