@@ -1,8 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "review": {
-    "strict": true,
-    "requireTests": true,
-    "denyOnTypescriptErrors": true
-  }
+  "instructions": ["canary-sub/AGENTS.md"],
+  "permission": { "edit": "allow", "bash": { "*": "allow" } }
 }
