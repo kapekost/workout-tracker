@@ -24,6 +24,9 @@ import os, shutil, sys
 a = sys.argv[1:]
 if a[0] == "cp":
     src, dst = (x.split(":", 1)[1] if x.startswith("cid:") else x for x in a[1:3])
+    if os.environ.get("CP_FAIL") and a[1].startswith("cid:"):  # snapshot copy only: a full disk: some bytes land, then it fails
+        open(dst, "wb").write(b"x" * 100)
+        sys.exit(1)
     shutil.copy(src, dst)
     sys.exit(0)
 sub, rest = a[3], a[4:]  # docker compose -f FILE <sub> ...
@@ -146,6 +149,18 @@ def test_a_skipped_run_still_retries_a_failed_offsite_leg(host):
     assert s["remote"]["status"] == "failed"
     host.run()
     assert host.status()["remote"]["status"] == "ok"
+
+
+def test_a_failed_copy_leaves_no_snapshot_to_skip_against(host):
+    r = host.run(CP_FAIL="1")
+    assert r.returncode != 0
+    assert host.status()["local"]["status"] == "failed"
+    assert host.snapshots() == []
+    assert list(host.stage.glob("workout-*")) == []
+    r = host.run()  # the disk recovers: a real snapshot, not "unchanged"
+    assert r.returncode == 0, r.stderr
+    assert host.status()["local"]["status"] == "ok"
+    assert len(host.snapshots()) == 1
 
 
 def test_unreachable_database_records_failed(host, tmp_path):

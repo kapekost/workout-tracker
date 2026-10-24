@@ -109,8 +109,13 @@ else
   OUT="$STAGE/workout-$STAMP-$fp.db"
   if $COMPOSE exec -T workout-tracker python -c "import sqlite3; sqlite3.connect('$DB').execute(\"VACUUM INTO '$CTMP'\")" \
      && cid=$($COMPOSE ps -q workout-tracker) \
-     && docker cp "$cid:$CTMP" "$OUT"; then
+     && docker cp "$cid:$CTMP" "$OUT.part" \
+     && mv "$OUT.part" "$OUT"; then
     mode=ok
+  else
+    # A half-copied file must never carry the current fingerprint, or the next
+    # run would skip as "unchanged" against an unrestorable snapshot.
+    rm -f "$OUT.part" "$OUT"
   fi
 fi
 

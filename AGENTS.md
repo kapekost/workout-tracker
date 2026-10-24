@@ -550,7 +550,7 @@ It is never authorisation and never policy.
 **Not verified live:** the 409 flow, login, notes persistence across a reload, and the PWA
 update. The three 2026-10-03 auth fixes have only been code-inspected plus regression tests.
 
-**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual.
+**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups were manual until #422, which moves them to a daily host run (schedule installed after deploy).
 
 **Needs an owner call:** create a dedicated, spend-capped OpenRouter key for the reviewer (the
 model's process holds the current key). Steps are in `docs/orchestration/STATE.md`.
@@ -684,9 +684,9 @@ older snapshots remain safe in Drive and downloadable from the web UI,
 simply outside rclone's view.
 
 **The app is still in `Testing` publishing status, where Google expires
-refresh tokens after 7 days.** Backups are manual as of 2026-09-04 (the cron
-was removed, not just slowed), so an off-site copy succeeds only when
-`backup.sh` is run inside a 7-day window of the last re-authorization. Publishing
+refresh tokens after 7 days.** Backups were manual from 2026-09-04 (the cron
+was removed) until #422 brought a daily run back. Either way, an off-site copy succeeds only
+within 7 days of the last re-authorization. Publishing
 was deliberately deferred by the owner (#94) rather than pursued, because
 the consent screen still carries three restricted scopes from the old
 configuration and is shared project-wide with another co-located service's / CCR
