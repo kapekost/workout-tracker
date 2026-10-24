@@ -100,8 +100,10 @@ function Shell() {
   useLayoutEffect(() => {
     const el = headerRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(([entry]) => setHeaderHeight(entry.contentRect.height))
-    ro.observe(el)
+    // Border box, not entry.contentRect: the header's safe-area padding is
+    // part of the space it covers, and contentRect leaves it out.
+    const ro = new ResizeObserver(() => setHeaderHeight(el.getBoundingClientRect().height))
+    ro.observe(el, { box: 'border-box' })
     return () => ro.disconnect()
   }, [ready])
 
