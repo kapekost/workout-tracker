@@ -175,7 +175,10 @@ only because the owner happened to ask about it, not by anything in this file. H
   ```
   The merged claim is what actually prevents the collision, not the read in the bullet above: if
   `origin/main` already carries a fresh claim when yours is about to merge, another tick claimed
-  first — back off per the previous bullet. Never force-push to resolve this. Claim first, work second, always in
+  first — back off per the previous bullet. A merged PR has no atomic reject the way a push did, so
+  two ticks can still claim together: after your claim merges, fetch `origin/main` again and back off
+  if `## In-flight` holds a second fresh claim, the earlier timestamp winning. Never force-push to
+  resolve this. Claim first, work second, always in
   that order — a tick that starts executing before its claim has landed is exactly the bug this
   section exists to close.
 - **On completion** (shipped, or any stop condition), clear the claim as part of step 7's normal
@@ -435,7 +438,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    Needs-owner are the only sections that can grow it, so if either has, tighten it in the same
    commit rather than letting it ride.
    Orchestration docs reach `main` through a short-lived branch and PR like any docs change
-   (`DECISIONS.md` 2026-10-11). `orch-checkpoint.sh` takes a home-branch argument; always pass `none`,
+   (`DECISIONS.md` 2026-10-11). `orch-checkpoint.sh` (in the owner's `~/.claude/workflows/`, not this repo) takes a home-branch argument; always pass `none`,
    or it pushes to the retired branch.
 8. **Feedback review:** if this tick appended any `IMPROVEMENTS.md` entries, run
    `scripts/improvements_since_cursor.sh`, classify each (`[local]` → PR in this repo; `[template]` →
