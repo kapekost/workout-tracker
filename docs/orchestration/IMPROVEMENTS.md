@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 62 -->
+<!-- last-reviewed-count: 66 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -71,3 +71,6 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-24: Tick subagents have no Agent tool, so a skipped bot review (staff-engineer-reviewer pass) and /ux-review feature cannot be dispatched; the PLAYBOOK should say who runs them or allow the planner to self-check docs-only PRs.
 - [local] 2026-10-24: The Issue template for mobile parity lists features from memory (day cards, personal-best entry) that the web Home lacks; say 'match <web file>' once instead.
 - [local] 2026-10-24: A plan-only tick (#522, PR #544) ended with the checkpoint stage done, which closed the Issue although the screen was not built. Reopened by hand; a plan-only tick should end at a stage that leaves the Issue open.
+- [local] 2026-10-24: AGENTS.md documents a root .venv for tests but none exists; in a task worktree pytest is missing, and the only working interpreter was backend/.venv/bin/python (tests/reviewer needs it too). Say which one to use.
+- [local] 2026-10-24: orch-checkpoint stage done closes the Issue even when work remains (#535 still needs its kapekost-web PR); reopened by hand. Same cause as the plan-only #522 entry.
+- [unsure] 2026-10-24: macOS has no timeout command, so the documented short-watch pattern for gh pr checks --watch fails; and the secret-guard hook blocks any command naming the SSH key, so a tick cannot read the live version over SSH (the LAN health URL worked).

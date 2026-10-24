@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-24 (#535 review poster, workout-tracker half).**
+- Merged PR #547 (`957655c`) and deployed it (`/api/health` reports `957655c`; no schema change, no backup taken). A critical or major finding now blocks only when its line is on the diff and its snippet is a substring of that file's patch; otherwise it is listed under Deferred with its original severity and counted as minor. With no PR file list nothing blocks. The review prompt gained the snippet field only. 163 reviewer tests passed, actionlint clean.
+- The bot review was skipped (free-model daily limit), so the controller read the full diff. Its two follow-ups were already answered: the snippet has a minimum length and the PR body says Refs #535. The kapekost-web port is still to do, so #535 was reopened after the checkpoint closed it.
+- Housekeeping: reopened #522 (closed by the plan-only tick), commented on #422 that the backup strategy review is a decision request, merged PR #546 (STATE and IMPROVEMENTS only). Open PRs #520 and #541 claim a live SHA of `d00803d` that STATE did not carry; left to their owners.
+- Cost (output tokens per stage): reconcile 7114, pick 16988, claim 298, execute 9840, review 10643, ship 2724, deploy 2802, tail 0.
+
+---
+
 **Tick 2026-10-24 (#522 mobile Home, plan only).**
 - Merged PR #544 (`cce0a66`): plan `docs/superpowers/plans/2026-10-24-mobile-home-parity-522.md` (197 lines), linked from the Issue body, UI recommendation on the Issue. #422 not resumed: another session's review says the skip-when-unchanged flow works on the host and the daily-cron-or-manual choice is the owner's, so no manual backup this tick. #522 is mobile-only.
 - The plan reads "day cards" as the web Home behaviour (the web Home has no day-card list). It leaves out the Edit plan pill (route is #527) and the Export link (needs a file-share module and its own Issue). Both flagged on the Issue for the owner to overrule.
