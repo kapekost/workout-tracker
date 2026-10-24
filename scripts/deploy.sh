@@ -97,6 +97,28 @@ if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
   fi
 fi
 
+# The host's backup record, read once. Never fatal on its own: a missing file is "unknown".
+# shellcheck disable=SC2086
+backup_json="$(ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" "cat '$DEPLOY_APP_DIR/data/backup-status.json'" 2>/dev/null || true)"
+backup_age_h="$(python3 - "$backup_json" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+try:
+    local = json.loads(sys.argv[1])["local"]
+    # A failed run records its own time too; only a run that made a snapshot counts.
+    if local["status"] in ("ok", "skipped (unchanged)"):
+        at = datetime.strptime(local["at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        print(int((datetime.now(timezone.utc) - at).total_seconds() // 3600))
+except (ValueError, KeyError, TypeError):
+    pass
+PY
+)"
+if [[ -n "$backup_age_h" ]]; then
+  echo "==> last backup: ${backup_age_h}h ago"
+else
+  echo "==> last backup: unknown (no readable status file on the host)"
+fi
+
 # True when HEAD already holds everything the live commit shipped. Ancestry is
 # the fast path. A squash-merge leaves the live SHA (a branch commit) outside
 # main's history, so otherwise merge the live commit into HEAD and require that
@@ -142,6 +164,20 @@ if [[ "${DEPLOY_ALLOW_STALE:-0}" != "1" ]]; then
   if ! live_in_head "$live_full"; then
     echo "error: HEAD does not contain the live version $live_sha; deploying would drop its changes." >&2
     git -C "$ROOT" log --oneline HEAD.."$live_sha" | sed 's/^/         missing: /' >&2
+    exit 1
+  fi
+  # A schema bump is the deploy that re-running an old image cannot undo, so it needs a
+  # snapshot from the last day. Backups are manual, so nothing else takes one first.
+  # DEPLOY_ALLOW_STALE=1 (rollback, hotfix) skips this whole block, guard included.
+  schema_of() { git -C "$ROOT" show "$1:backend/main.py" | sed -n 's/^SCHEMA_VERSION = \([0-9]*\).*/\1/p'; }
+  live_schema="$(schema_of "$live_full")"
+  head_schema="$(schema_of HEAD)"
+  # An unreadable version on either side counts as a change: fail closed.
+  if [[ -z "$live_schema" || -z "$head_schema" || "$live_schema" != "$head_schema" ]] \
+     && [[ -z "$backup_age_h" || "$backup_age_h" -gt 24 ]] \
+     && [[ "${DEPLOY_ALLOW_OLD_BACKUP:-0}" != "1" ]]; then
+    echo "error: this deploy changes the schema version and the last backup is not from the last 24h." >&2
+    echo "       Run scripts/backup_remote.sh first, or re-run with DEPLOY_ALLOW_OLD_BACKUP=1." >&2
     exit 1
   fi
 fi
@@ -245,21 +281,15 @@ print(f"verified: version={actual}")
 PY
 
 # The backup posture used to arrive in that same payload. #86 trimmed
-# /api/health to {status, version} and moved the four last_backup_* keys to
-# GET /api/admin/backup-status, which needs an admin session — and this script
-# has none by design, since it runs where no browser has ever logged in.
-#
-# So read the file the app reads, straight off the host, and print it as it
-# stands. Never fatal: a chronically broken off-site leg was always a warning
-# here, never a reason to refuse a deploy, and forcing a backup before every
-# deploy would be worse than the problem. Printed raw
-# rather than interpreted, because "a run older than about 2 days is stale" is a
-# rule that has already had to move twice (#89, #422) and a second copy here
-# would be the copy nobody remembers to update.
+# /api/health to {status, version} and moved it to GET /api/admin/backup-status,
+# which needs an admin session this script does not have. So print the file the
+# app reads, as read before the build. Never fatal here: a broken off-site leg is
+# a warning, not a reason to refuse a deploy. Printed raw rather than interpreted,
+# so the stale rule stays in one place (BACKUP_STALE_AFTER_S in backend/main.py).
 echo "==> last backup, as recorded on the host"
-# shellcheck disable=SC2086
-if ! ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" \
-     "cat '$DEPLOY_APP_DIR/data/backup-status.json'" 2>/dev/null | sed 's/^/    /'; then
+if [[ -n "$backup_json" ]]; then
+  printf '%s\n' "$backup_json" | sed 's/^/    /'
+else
   echo "    (no status file yet; see docs/BACKUPS.md)"
 fi
 echo "    for the interpreted view: GET /api/admin/backup-status, as an admin"

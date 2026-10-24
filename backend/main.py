@@ -52,12 +52,12 @@ MERGE_MAX_ROWS = 100_000
 # inside the database being backed up (a restore used to drag stale heartbeats
 # back in with it), and there is no unauthenticated write endpoint to fence.
 BACKUP_STATUS_PATH = os.path.join(os.path.dirname(DB_PATH), "backup-status.json")
-# backup.sh runs daily on the host (#422), so an ok or skipped run older than
-# about 2 days means the schedule stopped: one missed run plus a day of slack.
-# The window is deliberately not tighter: a signal that is always red stops being
-# read, which is how three nights of failed off-site backups went unnoticed in
-# 2026-09. scripts/deploy.sh only prints the file and never fails on it.
-BACKUP_STALE_AFTER_S = 2 * 24 * 3600
+# Backups are manual, so an ok or skipped run older than 8 days is stale. A deployment
+# that installs a schedule sets BACKUP_STALE_AFTER_DAYS to about 2 (one missed run plus a
+# day of slack). The window is deliberately not tighter than the schedule: a signal that
+# is always red stops being read, which is how three nights of failed off-site backups
+# went unnoticed in 2026-09. scripts/deploy.sh only prints the file and never fails on it.
+BACKUP_STALE_AFTER_S = int(os.environ.get("BACKUP_STALE_AFTER_DAYS") or 8) * 24 * 3600
 # The local leg's status when the database was unchanged since the newest
 # snapshot, so no new file was written. Healthy, and not the same as "ok".
 BACKUP_SKIPPED_UNCHANGED = "skipped (unchanged)"
@@ -562,7 +562,7 @@ def _leg(raw, allowed):
     if not isinstance(at, str) or status not in allowed:
         return None, None
     if status in ("ok", BACKUP_SKIPPED_UNCHANGED):
-        # Only a run that went fine ages into "stale" (the schedule stopped).
+        # Only a run that went fine ages into "stale" (the last run is old).
         # A "failed" is already red, and an off-site "skipped" leg never ran;
         # relabelling either would drop the one detail that separates them
         # from a backup that simply got old.

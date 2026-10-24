@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Backup for the workout-tracker SQLite DB. Runs daily from cron on the Raspberry Pi
-# host (#422); it can still be run by hand. A run whose database fingerprint matches
-# the newest snapshot writes no new file and records "skipped (unchanged)". Only the
-# newest 2 local snapshots are kept; the off-site copy is best-effort.
+# Backup for the workout-tracker SQLite DB. Run by hand, and before a risky change
+# such as a schema migration; no schedule is installed. A run whose database
+# fingerprint matches the newest snapshot writes no new file and records "skipped
+# (unchanged)". Only the newest 2 local snapshots and the newest off-site object
+# are kept; the off-site copy is best-effort.
 # The snapshot (VACUUM INTO) is taken inside the container with `docker compose exec`
 # and copied out with `docker cp`: the container runs as root, so the WAL sidecar
 # files it creates cannot be opened by the host user. The image has Python but no
@@ -27,22 +28,18 @@ STATUS="$(dirname "$DB")/backup-status.json"
 # NOT /tmp: that's tmpfs, which wipes the local snapshots on every reboot.
 STAGE="${STAGE:-$HOME/backups}"
 REMOTE="${REMOTE:-gdrive:workout-tracker-backups}"
-# Empty = keep every off-site snapshot. Deliberate: the DB is ~185 KB, so a
-# year of weeklies is ~10 MB. Set e.g. REMOTE_KEEP_DAYS=180 to prune old ones.
-REMOTE_KEEP_DAYS="${REMOTE_KEEP_DAYS:-}"
 # Optional independent heartbeat (e.g. a healthchecks.io ping URL). Unused: #89
-# was closed because there was no schedule to alarm against. There is one again
-# since #422, so wiring an external check is now a one-line change. Until then
+# was closed because a manual backup has no schedule to alarm against. Until then
 # the result is: non-zero exit, stderr, and last_backup_status from
 # /api/admin/backup-status, which reports "failed" immediately, "skipped
-# (unchanged)" when nothing changed, or "stale" once the last run is more than
-# about 2 days old (the schedule stopped). Nothing fails a deploy over it. Note
+# (unchanged)" when nothing changed, or "stale" once the last run is older than
+# the app's threshold (BACKUP_STALE_AFTER_DAYS). Nothing fails a deploy over it. Note
 # that last_backup_status is the LOCAL leg only; the off-site one is reported
 # separately as last_backup_remote_status and never fails the run (#93).
 HEARTBEAT_URL="${HEARTBEAT_URL:-}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 CTMP="/tmp/workout-$STAMP.db"
-# A cheap content fingerprint of the live database (the file is ~170 KB), printed
+# A cheap content fingerprint of the live database (a small file), printed
 # by Python inside the container. It is part of each snapshot's file name, so the
 # newest snapshot always carries the fingerprint it was taken at.
 FINGERPRINT_PY='import hashlib, sqlite3, sys
@@ -138,10 +135,8 @@ if [ "$mode" != failed ]; then
   # It also runs when the local leg was skipped: copying a file Drive already
   # has is a no-op, and it retries an upload that failed on an earlier day.
   if rclone copy "$OUT" "$REMOTE"; then
+    uploaded=1
     remote_json="{\"status\":\"ok\",\"at\":\"$(now_utc)\",\"remote\":\"$REMOTE\"}"
-    if [ -n "$REMOTE_KEEP_DAYS" ]; then
-      rclone delete --min-age "${REMOTE_KEEP_DAYS}d" "$REMOTE" >/dev/null 2>&1 || true
-    fi
   else
     remote_json="{\"status\":\"failed\",\"at\":\"$(now_utc)\",\"remote\":\"$REMOTE\",\"error\":\"rclone copy failed\"}"
     echo "backup.sh: the snapshot is safe at $OUT, but copying it to $REMOTE failed" >&2
@@ -174,5 +169,16 @@ $COMPOSE exec -T workout-tracker python -c "import sqlite3; c = sqlite3.connect(
 # old manual-era names (no fingerprint) sort with them.
 ls -1 "$STAGE"/workout-*.db 2>/dev/null | sort -r | tail -n +3 \
   | while read -r old; do rm -f "$old"; done || true
+
+# Keep only the newest off-site object. The names sort by timestamp. Prune only
+# when the upload is listed, so a listing that came back empty or partial can never
+# delete the copy that was just made.
+if [ "${uploaded:-0}" = 1 ]; then
+  names=$(rclone lsf --files-only --include 'workout-*.db' "$REMOTE" 2>/dev/null | sort -r) || names=""
+  if printf '%s\n' "$names" | grep -qxF "$(basename "$OUT")"; then
+    printf '%s\n' "$names" | tail -n +2 \
+      | while read -r old; do rclone deletefile "$REMOTE/$old" >/dev/null 2>&1 || true; done || true
+  fi
+fi
 
 exit $status

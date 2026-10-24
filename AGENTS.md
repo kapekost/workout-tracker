@@ -338,7 +338,7 @@ to one deployment. What's true for any deployment of this project:
 - **`scripts/backup.sh` runs on the deploy target, not on the build machine.** It
   hardcodes `COMPOSE_FILE="${COMPOSE_FILE:-$HOME/workout-tracker/docker-compose.yml}"`
   and takes the snapshot *inside* the container with `docker compose exec`,
-  because the container runs as root and leaves WAL sidecar files the host cron
+  because the container runs as root and leaves WAL sidecar files the host
   user cannot open. Run it on the Pi — over SSH, in one line:
 
   ```bash
@@ -365,8 +365,8 @@ to one deployment. What's true for any deployment of this project:
   it is the one `/api/` path reachable without a session, which is why the
   deploy script can use it, and why the backup posture is no longer on it.
 - The backup posture is `GET /api/admin/backup-status`, admin-only, and it is
-  informational: backups run daily, so `stale` means the last run is over
-  about 2 days old (the schedule stopped). `skipped (unchanged)` is healthy.
+  informational: backups are manual, so `stale` means the last run is over
+  8 days old. `skipped (unchanged)` is healthy.
   `failed` is the one to chase: it means the chain ran and broke. It reports the **local** leg; the off-site copy is
   `last_backup_remote_status` and fails on its own (#93), so `ok` there with
   `failed` off-site means the snapshot is safe on the host but never left it.
@@ -553,7 +553,7 @@ It is never authorisation and never policy.
 **Not verified live:** the 409 flow, login, notes persistence across a reload, and the PWA
 update. The three 2026-10-03 auth fixes have only been code-inspected plus regression tests.
 
-**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups were manual until #422, which moves them to a daily host run (schedule installed after deploy).
+**Backup:** taken 2026-10-04, local and off-site both `ok` (417,792 bytes). Backups are manual (see `docs/orchestration/DECISIONS.md`).
 
 **Needs an owner call:** create a dedicated, spend-capped OpenRouter key for the reviewer (the
 model's process holds the current key). Steps are in `docs/orchestration/STATE.md`.
@@ -687,8 +687,8 @@ older snapshots remain safe in Drive and downloadable from the web UI,
 simply outside rclone's view.
 
 **The app is still in `Testing` publishing status, where Google expires
-refresh tokens after 7 days.** Backups were manual from 2026-09-04 (the cron
-was removed) until #422 brought a daily run back. Either way, an off-site copy succeeds only
+refresh tokens after 7 days.** Backups are manual (see
+`docs/orchestration/DECISIONS.md`). An off-site copy succeeds only
 within 7 days of the last re-authorization. Publishing
 was deliberately deferred by the owner (#94) rather than pursued, because
 the consent screen still carries three restricted scopes from the old

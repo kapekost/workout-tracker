@@ -792,6 +792,16 @@ threshold moves from 8 days to about 2, and `skipped (unchanged)` is a healthy l
 from `failed`. Installing the schedule is a host change: manual snapshot first, install, then confirm
 one scheduled run. No schema change.
 
+## 2026-10-24 — Backups stay manual; the schedule half of #422 is reversed
+
+Owner, after an expert review: no cron on the host. The app is lightly used, the off-site leg has
+a history of failing silently, and nobody reads the pull signal, so a schedule earned little. A
+backup is run by hand and before a risky change. Kept from #422: the fingerprint skip, the newest 2
+local snapshots and the partial-snapshot cleanup. Changed: the off-site copy now keeps only the
+newest object, which #422 promised but did not do, and `stale` returns to 8 days
+(`BACKUP_STALE_AFTER_DAYS` sets it for a deployment that installs a schedule). Reopen if the app
+moves to a cloud host: volume snapshots or continuous replication then replace this chain.
+
 ## 2026-10-24 (later) — Mobile UI PRs merge after a web-render review; the phone check waits for an emulator
 
 Owner: "merge what is pending for my review once we review the web version of them without me, until we

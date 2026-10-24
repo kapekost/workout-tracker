@@ -612,7 +612,7 @@ def test_the_backup_posture_is_admin_only(mainmod, anon_client, client, write_ba
     should not publish how long it has been since the database was last copied
     off the box, or whether that copy failed — and after #27 puts this behind a
     tunnel, /api/health is public in earnest."""
-    # Relative to "now", not a hardcoded date: BACKUP_STALE_AFTER_S is 2 days,
+    # Relative to "now", not a hardcoded date: BACKUP_STALE_AFTER_S is 8 days,
     # and a fixed past timestamp eventually crosses that threshold on its own
     # as real time passes, turning "ok" into "stale" for reasons that have
     # nothing to do with what the test is actually checking (seen for real,
