@@ -426,6 +426,12 @@ def test_a_blocker_whose_snippet_is_not_in_that_files_patch_cannot_request_chang
     assert built([gone]).event == "COMMENT"
 
 
+def test_a_snippet_too_short_or_without_a_word_character_confirms_nothing():
+    for snippet in ("+", "e", "@@", "+ +", "++"):
+        r = built([finding("critical", snippet=snippet, body="claim")])
+        assert r.event == "COMMENT" and r.comments == [], snippet
+
+
 def test_a_snippet_found_in_another_files_patch_does_not_count():
     patches = {"a.py": PATCH, "b.py": "@@ -1 +1 @@\n+other text"}
     r = pr.build(review([finding("critical", snippet="other text")]), patches, REPO)

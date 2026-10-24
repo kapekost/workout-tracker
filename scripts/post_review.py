@@ -137,11 +137,13 @@ def is_line(value):
 
 def confirmed(patch, line, snippet):
     """Whether a finding's claim can be checked against the diff: its line is a changed or
-    context line of the new file and its snippet, whitespace folded, is in the file's patch."""
+    context line of the new file and its snippet, whitespace folded, is in the file's patch.
+    A snippet shorter than 3 characters or without a word character (such as "+" or "@@")
+    would match any patch, so it confirms nothing."""
     if not is_line(line) or line not in commentable_lines(patch) or not isinstance(snippet, str):
         return False
     snippet = " ".join(snippet.split())
-    return bool(snippet) and snippet in " ".join(patch.split())
+    return len(snippet) >= 3 and re.search(r"\w", snippet) is not None and snippet in " ".join(patch.split())
 
 
 class Built(NamedTuple):
