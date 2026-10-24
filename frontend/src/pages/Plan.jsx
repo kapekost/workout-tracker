@@ -7,7 +7,7 @@ import LoadError from '../components/LoadError'
 import Toast from '../components/Toast'
 import { DAY_COLORS, DAY_COLOR_FALLBACK } from '../data/workoutPlan'
 import { useActiveSession } from '../lib/activeSession'
-import { modifyOp, planUpdateBody, rankSwapCandidates } from '../lib/planEdit'
+import { altCandidates, modifyOp, planUpdateBody, rankSwapCandidates } from '../lib/planEdit'
 import { usePlan } from '../lib/planContext'
 import { useConfirmWindow } from '../lib/useConfirmWindow'
 import { useToast } from '../lib/useToast'
@@ -59,6 +59,8 @@ export default function Plan() {
   const [busy, setBusy] = useState(false)
   // State lags a render, so a second tap in the same frame would still see busy=false.
   const inFlight = useRef(false)
+  // Set from the first request until one fails: the editor and the swap list both ask.
+  const catalogLoading = useRef(false)
 
   const days = cycle.map(id => plan[id]).filter(Boolean)
   // Controls wait for the open-workout read: an unanswered or failed read says
@@ -93,8 +95,9 @@ export default function Plan() {
   function startEdit(dayKey, ex) {
     setEdit({
       dayKey, ex, swapping: false, picked: null, showAll: false,
-      draft: { sets: ex.sets, repsLow: ex.repsLow, repsHigh: ex.repsHigh },
+      draft: { sets: ex.sets, repsLow: ex.repsLow, repsHigh: ex.repsHigh, altId: ex.altExercise?.id ?? null },
     })
+    if (catalog === null) loadCatalog()
   }
 
   // Reps from never passes reps to: moving one pulls the other along.
@@ -114,11 +117,14 @@ export default function Plan() {
   }
 
   async function loadCatalog() {
+    if (catalogLoading.current) return
+    catalogLoading.current = true
     setCatalogError(false)
     try {
       setCatalog(await api.get('/plan/catalog'))
     } catch {
       setCatalogError(true)
+      catalogLoading.current = false
     }
   }
 
@@ -210,6 +216,21 @@ export default function Plan() {
                         onChange={v => setDraft('repsLow', v)} />
                       <Stepper label="Reps to" value={edit.draft.repsHigh} min={1} max={50} disabled={busy}
                         onChange={v => setDraft('repsHigh', v)} />
+                      <label htmlFor={`alt-${ex.id}`} style={{ display: 'grid', gap: space.xs }}>
+                        <span style={{ color: colors.muted, fontSize: type.size.sm, fontWeight: type.weight.bold,
+                          letterSpacing: type.labelTracking, textTransform: 'uppercase' }}>Alternative</span>
+                        <select id={`alt-${ex.id}`} className="field" disabled={busy || catalog === null}
+                          value={edit.draft.altId ?? ''}
+                          onChange={e => setEdit(ed => ({ ...ed, draft: { ...ed.draft, altId: e.target.value || null } }))}>
+                          <option value="">None</option>
+                          {/* Keep the current alternative selectable while the catalog loads. */}
+                          {catalog === null && ex.altExercise && <option value={ex.altExercise.id}>{ex.altExercise.name}</option>}
+                          {(catalog ? altCandidates(catalog, ex) : []).map(c => (
+                            <option key={c.exercise_id} value={c.exercise_id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <p style={mutedText}>Switch to the alternative on the day; its sets are logged under its own name.</p>
                       <p style={mutedText}>Past workouts stay as logged.</p>
                       <button type="button" className="btn-primary" onClick={saveEdit} disabled={busy}>
                         {busy ? 'Saving…' : `Save for every ${day.name}`}
@@ -279,8 +300,11 @@ export default function Plan() {
         </p>
       )}
       {canEdit && (
-        <button type="button" className="btn-secondary" onClick={reset} disabled={busy}
-          style={{ width: '100%', marginTop: space.md, color: armedId === 'reset' ? colors.danger : colors.text }}>
+        <button type="button" className="tap-target" onClick={reset} disabled={busy}
+          style={{ display: 'block', margin: `${space.md}px auto 0`, background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: type.size.md, textDecoration: armedId === 'reset' ? 'none' : 'underline',
+            fontWeight: armedId === 'reset' ? type.weight.semibold : type.weight.regular,
+            color: armedId === 'reset' ? colors.danger : colors.muted }}>
           {armedId === 'reset' ? 'Tap again to reset your plan' : 'Reset to recommended'}
         </button>
       )}

@@ -16,6 +16,8 @@ static/
 # Manual review screenshots (frontend/e2e/review-shots.spec.js writes these on a
 # developer's machine; they are images of someone's training data)
 frontend/review-shots
+# UX review screens (scripts/ux_capture.sh); seeded data, but never commit them
+frontend/ux-shots/
 
 # Playwright test output (frontend/e2e — see playwright.config.js)
 frontend/test-results/

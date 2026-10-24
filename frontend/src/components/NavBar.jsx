@@ -28,7 +28,8 @@ export default function NavBar() {
   // TopBar.jsx drops its label and action on the same two paths -- keep the
   // two lists in step. This is presentation only: the gate that decides who
   // reaches which screen is App.jsx's route tables, not this.
-  if (pathname.startsWith('/login') || pathname.startsWith('/set-password')) return null
+  // The workout screen hides it too: TimerBar owns the bottom edge there.
+  if (pathname.startsWith('/login') || pathname.startsWith('/set-password') || pathname.startsWith('/workout')) return null
 
   return (
     <nav style={{

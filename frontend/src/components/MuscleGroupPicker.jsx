@@ -4,6 +4,7 @@ import { usePlan } from '../lib/planContext'
 import { bestDayForMuscle } from '../lib/muscles'
 import { colors, type, space, icon } from '../lib/theme'
 import Eyebrow from './Eyebrow'
+import DisclosureRow from './DisclosureRow'
 import DayIcon from './DayIcon'
 
 // Shown at the point of display, never in settings and never behind an icon.
@@ -28,7 +29,7 @@ const RING_HIGH = [212, 255, 63]   // --accent (#d4ff3f), the app's one accent
 // Distinct from the ramp so "never trained" is not confusable with "just
 // trained". Largely academic — an unknown ring renders fully empty anyway —
 // but the two must not collide.
-const RING_UNKNOWN = 'rgb(42, 42, 62)'
+const RING_UNKNOWN = colors.border
 
 // The unfilled track is a low-opacity step of the SAME ramp rather than an
 // unrelated neutral, so the meter reads as one object across its whole
@@ -107,6 +108,7 @@ export default function MuscleGroupPicker({
   groups, lastTrainedByDay = {}, activeSession = null, starting = false, onStart,
 }) {
   const [expandedId, setExpandedId] = useState(null)
+  const [open, setOpen] = useState(false)
   const { plan: PLAN, cycle: CYCLE } = usePlan()
   // A first-run install has groups.length > 0 (MUSCLE_GROUPS is fixed) but
   // every group's freshness is null — groupRecovery's own "not trained yet"
@@ -120,10 +122,8 @@ export default function MuscleGroupPicker({
   const bestDay = bestDayId ? PLAN[bestDayId] : null
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      <Eyebrow size={type.size.sm} style={{ marginBottom: 12 }}>
-        Muscle groups
-      </Eyebrow>
+    <DisclosureRow style={{ marginBottom: 24 }} isOpen={open} onToggle={() => setOpen(o => !o)}
+      header={<Eyebrow size={type.size.sm}>Muscle groups</Eyebrow>}>
 
       <div style={{ display: 'grid', gap: 8,
         gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
@@ -170,6 +170,6 @@ export default function MuscleGroupPicker({
       <p style={{ color: colors.muted2, fontSize: type.size.sm, marginTop: 12, lineHeight: 1.5 }}>
         {DISCLOSURE}
       </p>
-    </div>
+    </DisclosureRow>
   )
 }
