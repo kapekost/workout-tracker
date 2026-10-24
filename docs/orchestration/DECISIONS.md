@@ -8,6 +8,12 @@
 
 > **Note:** the former orchestration home branch is retired (2026-10-11). This file on `main` is
 > the source of truth. The old branch is kept as the tag `archive/orchestration-home-2026-10-11`.
+>
+> **Superseded by 2026-10-11 (the home-branch parts only):** 2026-08-30 "Concurrent-tick collisions"
+> (claims are now made on `main` through a short-lived branch and PR, not pushed to the branch),
+> 2026-09-04 "home branch stops merging" (the branch is gone; the backup parts of that entry are
+> a separate matter), and the 2026-10-03 entries "retry any classifier denial rule lives on the home
+> branch" and "Branch alignment" (their to-do lists about reconciling the branch are void).
 
 ## 2026-10-03 — A CI bot's PR approval is one more agent review, not a human in the loop
 
@@ -51,7 +57,7 @@ changes the default toward proceeding to deploy, not the care taken once there. 
 to deploy responsibly surfaced a real bug (#154/#155): #126's `APP_COMMIT`-required change had only
 ever been patched into `scripts/deploy.sh`'s own invocation, silently breaking `scripts/backup.sh`
 on every deploy since. Only found by actually operating the deployed thing — the same principle
-this instruction is asking for at the reporting level. Full record on the home branch's
+this instruction is asking for at the reporting level. Full record in the archive tag's
 `DECISIONS.md`, same date.
 
 ## 2026-09-06 — Any UI change gets a UI/UX review, and gets looked at in a browser
@@ -795,3 +801,20 @@ local snapshots and the partial-snapshot cleanup. Changed: the off-site copy now
 newest object, which #422 promised but did not do, and `stale` returns to 8 days
 (`BACKUP_STALE_AFTER_DAYS` sets it for a deployment that installs a schedule). Reopen if the app
 moves to a cloud host: volume snapshots or continuous replication then replace this chain.
+
+## 2026-10-24 (later) — Mobile UI PRs merge after a web-render review; the phone check waits for an emulator
+
+Owner: "merge what is pending for my review once we review the web version of them without me, until we
+can set up an emulator to continue locally on device." This relaxes the phone step of the verification rule
+in "The mobile app goes to full parity with the PWA; UI is verified by seeing it" above. A `mobile/` UI PR
+may merge after all of these: the web render seen in Chrome next to the PWA, a ux-visual, ux-flow and
+ux-mobile review from those screenshots, and green CI. The PR body states what was and was not seen. The
+Expo Go check on the owner's phone is deferred until an emulator or simulator exists, then run once as a
+catch-up pass over what merged meanwhile. Never merge from a worktree a preview server runs in.
+
+Standing approval for the mobile parity series #521 to #529 (spec
+`docs/superpowers/specs/2026-09-20-react-native-mobile-app.md`): its child issues need no fresh
+`approved` label. The agent still never adds the label.
+
+Deploy: "deploy once verified" (2026-10-22) is the owner's standing instruction. The agent deploys from
+`main` when the permission allow rule covers the deploy command, and otherwise reports and stops.

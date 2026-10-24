@@ -10,6 +10,11 @@
 
 ---
 
+**Docs reconcile 2026-10-24 (home-branch wording removed from PLAYBOOK).**
+- PLAYBOOK steps 1 and 2 and the "Claiming work" section had told a tick to read STATE, GUARDRAILS and DECISIONS from the home branch, `claude/workout-tracker-backlog-bu9qnw`, and to push claims straight to it. The branch was retired on 2026-10-11 (`DECISIONS.md`), so they now read from `origin/main` and claim through a short-lived branch and PR.
+- Incidents the removed text cited: on 2026-09-05 two ticks read `main`'s `DECISIONS.md`, found no standing approval and reported the accounts chain blocked, although the approval sat on the home branch (a merge conflict exposed 28 commits `main` had not seen). On 2026-09-13 PR #175 and two `copier update`s put policy into `main`'s PLAYBOOK and GUARDRAILS that never reached the home branch, and a first reconciliation that adopted `main`'s files wholesale reverted three home-branch refinements. Both were symptoms of two diverging sources, which one source on `main` removes.
+- The PLAYBOOK also said never to open a PR from the home branch, because merging it with auto-delete on would delete the branch that carried the claims. With no home branch that risk is gone.
+
 **Tick 2026-10-24 (#535 review poster, kapekost-web half).**
 - Merged kapekost-web PR #119 (`ed24caa`): the same change as #547. A critical or major finding blocks only when its line is on the diff and its snippet is in that file's patch; the review prompt gained the snippet field and AGENTS.md says so. Reviewer tests 164 passed (160 before, 6 new or changed failed first). Application CI on main for that SHA is green and kapekost.co.uk returns 200. There is no host deploy for the script, so merge on green is the end state.
 - The bot review was skipped (free-model daily limit), so the staff-engineer pass on the head commit stood in. #535 is now done in both repos.

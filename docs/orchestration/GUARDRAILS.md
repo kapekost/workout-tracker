@@ -56,8 +56,8 @@ the `approved` label itself. See "Approval is human-only" below.
   **BLOCKING**) *is* a concern: treat it exactly like red CI, fix it or answer it in the thread,
   never wave it through on the grounds that the PR looked fine to you.
 - **A screen is not verified by green CI.** A PR that adds or changes UI (the PWA or `mobile/`) is merged only
-  after the screens were seen rendering, and its body says what was and was not seen (`DECISIONS.md`
-  2026-10-24). Never merge from a worktree a dev server is running in: after a merge with `--delete-branch` the
+  after the screens were seen rendering, and its body says what was and was not seen. What counts as seen
+  until an emulator exists is in `DECISIONS.md` 2026-10-24 (later). Never merge from a worktree a dev server is running in: after a merge with `--delete-branch` the
   worktree has been found gone (cause not traced), which kills the server.
 - **Never force-push.** Never push directly to `main`.
 - Feature branch → PR. No direct commits to `main`.
