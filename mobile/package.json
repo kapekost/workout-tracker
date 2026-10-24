@@ -6,14 +6,14 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@tanstack/react-query": "^5.104.5",
-    "expo": "~58.0.17",
+    "expo": "~58.0.19",
     "expo-constants": "~58.0.13",
     "expo-font": "~58.0.9",
     "expo-haptics": "~58.0.7",
     "expo-keep-awake": "~58.0.3",
     "expo-linking": "~58.0.14",
     "expo-notifications": "~58.1.6",
-    "expo-router": "~58.0.25",
+    "expo-router": "~58.0.26",
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.11",
     "expo-status-bar": "~58.0.4",
@@ -32,10 +32,14 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "30.0.0",
     "@types/node": "^22.20.5",
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.12",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -44,7 +48,24 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'"
+    "test": "npm run test:unit && npm run test:ui",
+    "test:unit": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "test:ui": "jest"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "<rootDir>/src/**/*.test.tsx"
+    ],
+    "setupFiles": [
+      "<rootDir>/test/env.ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/test/fakeApi.ts"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    }
+  }
 }

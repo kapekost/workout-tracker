@@ -42,6 +42,7 @@ export default function LoginScreen() {
       <ThemedText size="title">Gym Tracker</ThemedText>
       <View style={{ gap: space.md }}>
         <TextInput
+          testID="login-username"
           accessibilityLabel="Username"
           placeholder="Username"
           placeholderTextColor={colors.muted}
@@ -55,6 +56,7 @@ export default function LoginScreen() {
           style={input}
         />
         <TextInput
+          testID="login-password"
           accessibilityLabel="Password"
           placeholder="Password"
           placeholderTextColor={colors.muted}
@@ -75,7 +77,7 @@ export default function LoginScreen() {
           {error}
         </ThemedText>
       ) : null}
-      <Button label="Log in" onPress={submit} disabled={submitting || !username.trim() || !password} />
+      <Button testID="login-submit" label="Log in" onPress={submit} disabled={submitting || !username.trim() || !password} />
     </KeyboardAvoidingView>
   );
 }
