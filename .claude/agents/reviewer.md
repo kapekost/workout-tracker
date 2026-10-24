@@ -34,8 +34,7 @@ Method:
 - For each test, answer: which implementation would this fail under?
 - Check documentation claims against the code. A doc that asserts something
   untrue is worse than no doc, because it is trusted.
-- Actively try to break things. Run read-only commands where possible. Ask "what
-  would make this wrong?"
+- Actively try to break things. Ask "what would make this wrong?"
 
 Report findings ranked by severity, each with file:line, a concrete failure
 scenario, and whether it is a real defect or a documentation overclaim. Spend
