@@ -21,11 +21,23 @@ npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
 ```
 
-Run lint and typecheck before declaring any task done.
+Before declaring any task done, run the same gate CI runs, from `mobile/`:
+
+```bash
+npx expo install --check && npx expo-doctor && npx tsc --noEmit && npx expo lint && npm test \
+  && npx expo export --platform ios --platform android --output-dir /tmp/mobile-export
+```
+
+## Tests
+
+- `src/**/*.test.ts` run with `node:test` (`npm run test:unit`): pure logic, no React Native.
+- `src/**/*.test.tsx` run with Jest, `jest-expo` and React Native Testing Library (`npm run test:ui`): screens and components. In RNTL 14 `render` and `fireEvent` are async, so `await` them.
+- The network is `test/fakeApi.ts`, a fake `fetch` whose replies copy what `backend/main.py` returns. Add a route there from the real endpoint's response; do not invent a shape the backend does not send.
+- Give every control an agent or Maestro flow must reach a `testID`, named `<screen>-<control>` (`login-submit`, `workout-log-set`).
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
+- Use **Expo Router** for all navigation. Routes live in `app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) in `src/`, and never put a test inside `app/`: it would become a route.
 - Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
 - Docs: https://docs.expo.dev/router/introduction.md
 
