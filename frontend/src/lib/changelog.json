@@ -1,4 +1,5 @@
 [
+  { "date": "2026-10-24", "text": "If a set fails to save because of a bad connection, it now stays on screen with Not saved — retry, and your weight and reps are kept so you can tap again." },
   { "date": "2026-10-23", "text": "Personal Bests can now show the top 3 from other members. It is off until you tick the box on that page, and others only ever see a number with no name." },
   { "date": "2026-10-22", "text": "The recommended plan's form cues now use plain sentences with no dashes. You get them on a new plan, or when you reset to the recommended plan from Home." },
   { "date": "2026-10-22", "text": "New Update with AI page on Plan: copy your plan and history with a ready prompt, paste your AI's reply back, preview the changes, then confirm." },
