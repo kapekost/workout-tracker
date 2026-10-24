@@ -1,0 +1,129 @@
+// Muscle taxonomy for the Home picker and the recovery estimate. Port of frontend/src/lib/muscles.js.
+//
+// The `muscles` arrays on plan exercises are form copy, not a taxonomy: they carry many tags at
+// inconsistent granularity (`Chest` and `Upper Chest` but no unified chest). Grouping by raw tag
+// would give a chip nobody thinks in, so this module maps them; the plan data stays untouched.
+//
+// Pure data and pure functions. No time, no network: recovery.ts owns the time arithmetic.
+import type { Exercise, Plan } from '../plan/plan.ts';
+
+export type MuscleGroup = { id: string; label: string; tags: string[] };
+
+// Legs split three ways because the plan's own `tag` strings already draw those lines.
+export const MUSCLE_GROUPS: MuscleGroup[] = [
+  { id: 'chest', label: 'Chest', tags: ['Chest', 'Upper Chest'] },
+  { id: 'back', label: 'Back', tags: ['Lats', 'Mid Back', 'Rhomboids', 'Traps', 'Spinal Erectors', 'Lower Back'] },
+  { id: 'shoulders', label: 'Shoulders', tags: ['Front Delt', 'Side Delt', 'Rear Delt'] },
+  { id: 'arms', label: 'Arms', tags: ['Biceps', 'Triceps', 'Triceps (Long Head)', 'Brachialis', 'Forearms'] },
+  { id: 'quads', label: 'Quads', tags: ['Quads', 'Hip Flexors'] },
+  { id: 'posterior', label: 'Hamstrings & Glutes', tags: ['Hamstrings', 'Glutes'] },
+  { id: 'calves', label: 'Calves', tags: ['Gastrocnemius', 'Soleus'] },
+];
+
+const TAG_TO_GROUP: Record<string, string> = Object.fromEntries(
+  MUSCLE_GROUPS.flatMap((g) => g.tags.map((t) => [t, g.id])),
+);
+
+type Plans = Plan['plan'];
+
+// An exercise on two days appears once.
+export const allExercises = (plan: Plans): Exercise[] =>
+  Object.values(plan)
+    .flatMap((d) => d.exercises)
+    .filter((ex, i, arr) => arr.findIndex((e) => e.id === ex.id) === i);
+
+// Alternatives are included so sets logged under one still count toward its muscles.
+export function exerciseById(plan: Plans): Record<string, Exercise> {
+  const all = allExercises(plan);
+  const alts = Object.fromEntries(all.flatMap((e) => (e.altExercise ? [[e.altExercise.id, e.altExercise]] : [])));
+  return { ...alts, ...Object.fromEntries(all.map((e) => [e.id, e])) };
+}
+
+// Recovery time constants key off MOVEMENT PATTERN, not muscle size. Dourado et al. (2023)
+// compared knee extension against leg press in the same subjects on the same muscle: 24h vs 48h to
+// recover peak torque. Nothing supports "small muscles recover faster".
+export const PATTERN_TAU: Record<string, number> = {
+  isolation: 12, // anchored to Dourado's 24h single-joint recovery
+  compound_upper: 18, // INTERPOLATED, no study measures this directly
+  compound_lower: 24, // anchored to Dourado's 48h multi-joint recovery
+};
+
+export const EXERCISE_PATTERN: Record<string, string> = {
+  tricep_pushdown: 'isolation', db_curl: 'isolation', hammer_curl: 'isolation',
+  skull_crusher: 'isolation', lateral_raise: 'isolation', leg_curl: 'isolation',
+  leg_ext: 'isolation', standing_calf: 'isolation', seated_calf: 'isolation',
+  cable_fly: 'isolation', face_pull: 'isolation', ez_bar_curl: 'isolation',
+  incline_db_curl: 'isolation', overhead_tricep_ext: 'isolation', bench_dip: 'isolation',
+  leg_press_calf: 'isolation', single_leg_calf_raise: 'isolation',
+
+  bench_press: 'compound_upper', incline_press: 'compound_upper',
+  ohp: 'compound_upper', bent_row: 'compound_upper', cable_row: 'compound_upper',
+  lat_pulldown: 'compound_upper', pullup: 'compound_upper',
+  db_bench_press: 'compound_upper', chest_supported_row: 'compound_upper',
+  one_arm_row: 'compound_upper', db_shoulder_press: 'compound_upper',
+
+  back_squat: 'compound_lower', deadlift: 'compound_lower', rdl: 'compound_lower',
+  leg_press: 'compound_lower', bss: 'compound_lower', hip_thrust: 'compound_lower',
+  goblet_squat: 'compound_lower', walking_lunge: 'compound_lower', glute_bridge: 'compound_lower',
+};
+
+// Unclassified exercises get the LONGEST tau on purpose: the estimate then reads as more recently
+// trained, never fresher. The error budget only tolerates overstating how recently, not freshness.
+export function tauFor(exerciseId: string): number {
+  return PATTERN_TAU[EXERCISE_PATTERN[exerciseId]] ?? PATTERN_TAU.compound_lower;
+}
+
+// Direct x1.0, indirect x0.5: two tiers, not three (Pelland et al. 2025 found indirect-as-0.5 best
+// predicts adaptation). The plan lists the primary muscle first, so direct is positional.
+//
+// An exercise contributes to a group ONCE, at the max weight among its tags in that group:
+// cable_row lists Mid Back / Rhomboids / Lats, all `back`, and summing would triple-count one row.
+export function groupWeightsFor(exercise: Pick<Exercise, 'muscles'> | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!exercise?.muscles) return out;
+  exercise.muscles.forEach((tag, i) => {
+    const groupId = TAG_TO_GROUP[tag];
+    if (!groupId) return;
+    out[groupId] = Math.max(out[groupId] ?? 0, i === 0 ? 1.0 : 0.5);
+  });
+  return out;
+}
+
+// Fractional sets each plan day gives each muscle group.
+export function groupSetsForDay(dayId: string, plan: Plans): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const ex of plan[dayId]?.exercises ?? []) {
+    for (const [groupId, weight] of Object.entries(groupWeightsFor(ex))) {
+      out[groupId] = (out[groupId] ?? 0) + ex.sets * weight;
+    }
+  }
+  return out;
+}
+
+// An older ISO date sorts first; a never-trained day (null) beats any date. False on a genuine tie
+// so the caller keeps its incumbent, which makes cycle order the final deterministic fallback.
+function isMoreRested(candidate: string | null, incumbent: string | null): boolean {
+  if (candidate === null && incumbent === null) return false;
+  if (candidate === null) return true;
+  if (incumbent === null) return false;
+  return candidate < incumbent;
+}
+
+// Which plan day trains this group most? Ties break toward the more rested day, which couples the
+// picker to the recovery estimate.
+export function bestDayForMuscle(
+  groupId: string,
+  lastTrainedByDay: Record<string, string> = {},
+  plan: Plans = {},
+  cycle: string[] = [],
+): string | null {
+  let best: { dayId: string; score: number; last: string | null } | null = null;
+  for (const dayId of cycle) {
+    const score = groupSetsForDay(dayId, plan)[groupId] ?? 0;
+    const last = lastTrainedByDay[dayId] ?? null;
+    if (best === null || score > best.score || (score === best.score && isMoreRested(last, best.last))) {
+      best = { dayId, score, last };
+    }
+  }
+  return best && best.score > 0 ? best.dayId : null;
+}

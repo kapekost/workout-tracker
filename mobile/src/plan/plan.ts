@@ -12,6 +12,8 @@ export type Exercise = {
   muscles: string[];
   ytUrl: string | null;
   cues: string[];
+  // The substitute the plan offers; sets logged under it still count toward recovery.
+  altExercise?: Exercise | null;
 };
 
 export type PlanDay = {
