@@ -342,6 +342,10 @@ to one deployment. What's true for any deployment of this project:
   ssh $DEPLOY_SSH_OPTS "$DEPLOY_HOST" "cd '$DEPLOY_APP_DIR' && bash scripts/backup.sh"
   ```
 
+  An agent that cannot read `AGENTS.local.md` (the project settings deny it, on purpose, since it can hold
+  keys) runs `bash scripts/backup_remote.sh` instead; it does the same over SSH. Allow it and
+  `bash scripts/deploy.sh` by exact command in `.claude/settings.local.json`; neither needs the file opened.
+
   Run from your laptop it fails with `compose file .../docker-compose.yml: no such
   file or directory`, then `no workout-tracker container to write ... into` —
   which reads like a broken deployment and is not one. It exits non-zero, so in an
