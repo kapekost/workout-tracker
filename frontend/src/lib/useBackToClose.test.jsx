@@ -28,6 +28,15 @@ describe('useBackToClose', () => {
     expect(back).toHaveBeenCalledTimes(1)
   })
 
+  it('stops listening once unmounted', () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+    vi.spyOn(history, 'back').mockImplementation(() => {})
+    render(<Probe onClose={onClose} />).unmount()
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')) })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('pushes once and never goes back under the StrictMode double mount', () => {
     vi.useFakeTimers()
     const onClose = vi.fn(), push = vi.spyOn(history, 'pushState'), back = vi.spyOn(history, 'back').mockImplementation(() => {})
