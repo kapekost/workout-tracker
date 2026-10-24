@@ -22,7 +22,7 @@ const day: PlanDay = { id: 'upper_a', name: 'Upper A', tag: null, icon: null, ex
 
 type Call = { method: string; path: string; body?: unknown };
 
-function setup(respond: (c: Call) => unknown = () => ({ id: 7 })) {
+function setup(respond: (c: Call) => unknown = () => ({ id: 7 }), now: () => number = () => 1_000_000) {
   const calls: Call[] = [];
   const handle = async (method: string, path: string, body?: unknown) => {
     const call = { method, path, body };
@@ -35,7 +35,7 @@ function setup(respond: (c: Call) => unknown = () => ({ id: 7 })) {
     get: (async (p: string) => handle('GET', p)) as never,
     post: (async (p: string, b?: unknown) => handle('POST', p, b)) as never,
     patch: (async (p: string, b?: unknown) => handle('PATCH', p, b)) as never,
-  });
+  }, now);
   return { store, calls };
 }
 
@@ -188,4 +188,63 @@ test('set input: whole reps of 1 or more, weight 0 to 1000 with a comma accepted
 test('an empty weight is allowed for a bodyweight exercise only', () => {
   assert.deepEqual(parseSetInput('12', '', true), { reps: 12, weightKg: 0 });
   assert.ok('error' in parseSetInput('12', '', false));
+});
+
+test('logging a set starts a 90 second rest from the clock', async () => {
+  const { store } = setup(undefined, () => 5_000);
+  await s(store).start(day);
+  assert.equal(s(store).rest, null);
+  await s(store).logSet(8, 60);
+
+  assert.deepEqual(s(store).rest, { endsAtMs: 5_000 + 90_000 });
+});
+
+test('a set that failed to save starts no rest', async () => {
+  const { store } = setup((c) => (c.path.endsWith('/sets') ? new TypeError('Network request failed') : { id: 7 }));
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+
+  assert.equal(s(store).rest, null);
+});
+
+test('skip ends the rest, adjust moves it, and the next set restarts it', async () => {
+  let t = 0;
+  const { store } = setup(undefined, () => t);
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+  s(store).adjustRest(30);
+  assert.equal(s(store).rest?.endsAtMs, 120_000);
+
+  s(store).skipRest();
+  assert.equal(s(store).rest, null);
+  s(store).adjustRest(30);
+  assert.equal(s(store).rest, null);
+
+  t = 200_000;
+  await s(store).logSet(8, 60);
+  assert.equal(s(store).rest?.endsAtMs, 290_000);
+});
+
+test('adjusting a rest down to nothing ends it', async () => {
+  const { store } = setup(undefined, () => 0);
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+  s(store).adjustRest(-30);
+  s(store).adjustRest(-30);
+  s(store).adjustRest(-30);
+
+  assert.equal(s(store).rest, null);
+});
+
+test('finish and reset clear the rest', async () => {
+  const { store } = setup();
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+  await s(store).finish();
+  assert.equal(s(store).rest, null);
+
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+  s(store).reset();
+  assert.equal(s(store).rest, null);
 });

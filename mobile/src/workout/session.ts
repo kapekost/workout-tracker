@@ -5,6 +5,7 @@ import { createStore } from 'zustand/vanilla';
 
 import { ApiError } from '../api/client.ts';
 import type { Exercise, PlanDay } from '../plan/plan.ts';
+import { adjustRest, startRest, type Rest } from './rest.ts';
 
 export type LoggedSet = { exerciseId: string; setNumber: number; reps: number; weightKg: number };
 
@@ -16,10 +17,14 @@ export type WorkoutState = {
   error: string | null;
   // The server already has an open workout; resume() picks it up.
   conflict: boolean;
+  // Set when a set is logged; the screen counts down to it.
+  rest: Rest | null;
   start(day: PlanDay): Promise<void>;
   resume(days: PlanDay[]): Promise<void>;
   logSet(reps: number, weightKg: number): Promise<void>;
   nextExercise(): void;
+  skipRest(): void;
+  adjustRest(deltaSec: number): void;
   finish(): Promise<void>;
   reset(): void;
 };
@@ -62,7 +67,7 @@ export function parseSetInput(
 const message = (err: unknown, fallback?: string) =>
   err instanceof ApiError ? err.detail ?? fallback ?? TRY_AGAIN : TRY_AGAIN;
 
-export function createWorkoutStore(api: Api) {
+export function createWorkoutStore(api: Api, now: () => number = Date.now) {
   return createStore<WorkoutState>()((set, get) => {
     // One request at a time, so a double tap cannot log a set twice.
     async function run(work: () => Promise<void>, onError?: (err: unknown) => Partial<WorkoutState>) {
@@ -82,6 +87,7 @@ export function createWorkoutStore(api: Api) {
       busy: false,
       error: null,
       conflict: false,
+      rest: null,
 
       start: (day) =>
         run(
@@ -131,7 +137,10 @@ export function createWorkoutStore(api: Api) {
             // Fixed for this set, so a retry after a lost response returns the stored set.
             client_id: `${active.id}:${exercise.id}:${setNumber}`,
           });
-          set({ active: { ...active, sets: [...active.sets, { exerciseId: exercise.id, setNumber, reps, weightKg }] } });
+          set({
+            active: { ...active, sets: [...active.sets, { exerciseId: exercise.id, setNumber, reps, weightKg }] },
+            rest: startRest(now()),
+          });
         }),
 
       nextExercise() {
@@ -141,15 +150,22 @@ export function createWorkoutStore(api: Api) {
         }
       },
 
+      skipRest: () => set({ rest: null }),
+
+      adjustRest(deltaSec) {
+        const { rest } = get();
+        if (rest) set({ rest: adjustRest(rest, deltaSec, now()) });
+      },
+
       finish: () =>
         run(async () => {
           const { active } = get();
           if (!active) return;
           await api.patch(`/sessions/${active.id}`, { completed: true });
-          set({ active: null });
+          set({ active: null, rest: null });
         }),
 
-      reset: () => set({ active: null, busy: false, error: null, conflict: false }),
+      reset: () => set({ active: null, busy: false, error: null, conflict: false, rest: null }),
     };
   });
 }
