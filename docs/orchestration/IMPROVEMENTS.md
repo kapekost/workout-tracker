@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 60 -->
+<!-- last-reviewed-count: 62 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -68,3 +68,5 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-24: The changelog check reads the PR body from the event payload; a body edit and a push seconds apart leave a red check a re-run cannot clear. Put 'Changelog: none' in the PR body before the first push, or re-save the description.
 - [unsure] 2026-10-24: Auto mode classifier denied scripts/deploy.sh (2026-10-24, #422) with no reason, against the 'deploy once verified' decision. An autoMode.allow rule for it may be missing.
 - [local] 2026-10-24: When opencode review jobs are skipped (free limit), a staff-engineer-reviewer pass is due but a tick subagent cannot spawn one; the code-review skill was the substitute. Say whether that is acceptable.
+- [local] 2026-10-24: Tick subagents have no Agent tool, so a skipped bot review (staff-engineer-reviewer pass) and /ux-review feature cannot be dispatched; the PLAYBOOK should say who runs them or allow the planner to self-check docs-only PRs.
+- [local] 2026-10-24: The Issue template for mobile parity lists features from memory (day cards, personal-best entry) that the web Home lacks; say 'match <web file>' once instead.

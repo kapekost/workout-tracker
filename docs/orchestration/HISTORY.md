@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-24 (#522 mobile Home, plan only).**
+- Merged PR #544 (`cce0a66`): plan `docs/superpowers/plans/2026-10-24-mobile-home-parity-522.md` (197 lines), linked from the Issue body, UI recommendation on the Issue. #422 not resumed: another session's review says the skip-when-unchanged flow works on the host and the daily-cron-or-manual choice is the owner's, so no manual backup this tick. #522 is mobile-only.
+- The plan reads "day cards" as the web Home behaviour (the web Home has no day-card list). It leaves out the Edit plan pill (route is #527) and the Export link (needs a file-share module and its own Issue). Both flagged on the Issue for the owner to overrule.
+- The bot review was skipped on #544 (free-model daily limit); the plan's claims were checked against source by the planner and the docs-only PR merged on green. `/ux-review feature 522` was not run (no Agent tool in the subagent); the owner can rerun it before execution.
+- Cost (output tokens per stage): reconcile 4766, pick 11024, claim 300, execute 19859, tail 0.
+
+---
+
 **Tick 2026-10-24 (#422 daily backup, skip when unchanged, keep newest 2).**
 - Merged PR #542 (`72c04df`). `backup.sh` puts a content fingerprint in each snapshot name, skips when the newest matches (`local: skipped (unchanged)`), keeps the newest 2, and the stale threshold is 2 days. Backend 517 passed; new `test_backup_status.py` 11 passed, run against the real script with docker and rclone shims. A manual host snapshot was taken with the old script.
 - Review caught a real bug: a failed `docker cp` could leave a truncated file carrying the current fingerprint, so later runs reported a healthy skip. Fixed by copying to a `.part` file and removing it on failure. The changelog check went red twice on a stale PR body; fixed by re-saving the description.
