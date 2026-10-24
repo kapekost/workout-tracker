@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 66 -->
+<!-- last-reviewed-count: 69 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -74,3 +74,6 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-24: AGENTS.md documents a root .venv for tests but none exists; in a task worktree pytest is missing, and the only working interpreter was backend/.venv/bin/python (tests/reviewer needs it too). Say which one to use.
 - [local] 2026-10-24: orch-checkpoint stage done closes the Issue even when work remains (#535 still needs its kapekost-web PR); reopened by hand. Same cause as the plan-only #522 entry.
 - [unsure] 2026-10-24: macOS has no timeout command, so the documented short-watch pattern for gh pr checks --watch fails; and the secret-guard hook blocks any command naming the SSH key, so a tick cannot read the live version over SSH (the LAN health URL worked).
+- [local] 2026-10-24: A cross-repo port Issue (#535 kapekost-web half) gets task text naming the workout-tracker repo for the worktree, PR and 'Closes #N'; plain gh pr view 119 there hits an unrelated merged PR. Name the target repo in the execute, ship and deploy tasks.
+- [local] 2026-10-24: The execute task said both 'merge and close the issue' and 'draft only, do not merge'; the executor followed draft only and ship merged later. Drop the merge line from the execute task.
+- [local] 2026-10-24: A worktree of kapekost-web has no pytest in python3; tests/reviewer needs the workout-tracker backend/.venv interpreter (same as the 2026-10-24 .venv entry).
