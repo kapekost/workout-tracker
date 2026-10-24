@@ -774,3 +774,14 @@ its client script) next to the PWA, reviewed by the UX agents from screenshots, 
 Expo Go. The PR says what was and was not seen. Never merge from a worktree a preview server is running in:
 after every `gh pr merge --delete-branch` run from a worktree, that worktree was gone (the mechanism was not traced), and it crashed the owner's running app. CI for
 `mobile/` is the owner's, with another agent.
+
+## 2026-10-22 — Daily database backup, skipped when unchanged, newest 2 kept (#422)
+
+Owner: code is in GitHub, so the backup is about `workouts.db`. One run a day on the host, nothing
+written when the database did not change, only the newest 2 local snapshots kept. This reverses the
+2026-09-04 "manual, no cron" choice, which was made because the app is lightly used and a schedule
+cost more than it earned. Skipping unchanged runs and pruning to 2 remove that cost. Each changed
+run is a full `VACUUM INTO` snapshot (~170 KB), no deltas. The chain order is unchanged. The `stale`
+threshold moves from 8 days to about 2, and `skipped (unchanged)` is a healthy local status distinct
+from `failed`. Installing the schedule is a host change: manual snapshot first, install, then confirm
+one scheduled run. No schema change.
