@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { ApiError } from '../api/client.ts';
 import type { Exercise, PlanDay } from '../plan/plan.ts';
-import { createWorkoutStore, currentExercise, nextSetNumber, parseSetInput } from './session.ts';
+import { createWorkoutStore, currentExercise, keepAwakeChange, nextSetNumber, parseSetInput } from './session.ts';
 
 const ex = (id: string, over: Partial<Exercise> = {}): Exercise => ({
   id,
@@ -22,7 +22,11 @@ const day: PlanDay = { id: 'upper_a', name: 'Upper A', tag: null, icon: null, ex
 
 type Call = { method: string; path: string; body?: unknown };
 
-function setup(respond: (c: Call) => unknown = () => ({ id: 7 }), now: () => number = () => 1_000_000) {
+function setup(
+  respond: (c: Call) => unknown = () => ({ id: 7 }),
+  now: () => number = () => 1_000_000,
+  onSetLogged?: () => void,
+) {
   const calls: Call[] = [];
   const handle = async (method: string, path: string, body?: unknown) => {
     const call = { method, path, body };
@@ -35,7 +39,7 @@ function setup(respond: (c: Call) => unknown = () => ({ id: 7 }), now: () => num
     get: (async (p: string) => handle('GET', p)) as never,
     post: (async (p: string, b?: unknown) => handle('POST', p, b)) as never,
     patch: (async (p: string, b?: unknown) => handle('PATCH', p, b)) as never,
-  }, now);
+  }, now, onSetLogged);
   return { store, calls };
 }
 
@@ -247,4 +251,59 @@ test('finish and reset clear the rest', async () => {
   await s(store).logSet(8, 60);
   s(store).reset();
   assert.equal(s(store).rest, null);
+});
+
+test('feedback runs once after a saved set, not after a failed one', async () => {
+  let buzzes = 0;
+  let fail = true;
+  const { store } = setup((c) => (c.path.endsWith('/sets') && fail ? new TypeError('Network request failed') : { id: 7 }), undefined, () => buzzes++);
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+  assert.equal(buzzes, 0);
+
+  fail = false;
+  await s(store).logSet(8, 60);
+  assert.equal(buzzes, 1);
+});
+
+test('a feedback callback that throws does not fail or undo the logged set', async () => {
+  const { store } = setup(undefined, undefined, () => {
+    throw new Error('no haptic engine');
+  });
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+
+  assert.equal(s(store).active?.sets.length, 1);
+  assert.equal(s(store).error, null);
+});
+
+test('the screen is kept awake from the start of a workout to its end, and only then', async () => {
+  const { store } = setup();
+  const changes: (string | null)[] = [];
+  store.subscribe((state, prev) => changes.push(keepAwakeChange(prev.active, state.active)));
+  await s(store).start(day);
+  await s(store).logSet(8, 60);
+  s(store).nextExercise();
+  await s(store).finish();
+
+  assert.deepEqual(changes.filter(Boolean), ['on', 'off']);
+});
+
+test('logging out mid-workout releases the screen too', async () => {
+  const { store } = setup();
+  const changes: (string | null)[] = [];
+  await s(store).start(day);
+  store.subscribe((state, prev) => changes.push(keepAwakeChange(prev.active, state.active)));
+  s(store).reset();
+
+  assert.deepEqual(changes.filter(Boolean), ['off']);
+});
+
+test('keepAwakeChange is null while a workout stays open or stays closed', () => {
+  const a = { id: 1, day, exerciseIndex: 0, sets: [] };
+
+  assert.equal(keepAwakeChange(null, null), null);
+  assert.equal(keepAwakeChange(a, { ...a, exerciseIndex: 1 }), null);
+  assert.equal(keepAwakeChange(null, a), 'on');
+  assert.equal(keepAwakeChange(a, null), 'off');
 });

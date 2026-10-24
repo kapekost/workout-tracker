@@ -67,7 +67,16 @@ export function parseSetInput(
 const message = (err: unknown, fallback?: string) =>
   err instanceof ApiError ? err.detail ?? fallback ?? TRY_AGAIN : TRY_AGAIN;
 
-export function createWorkoutStore(api: Api, now: () => number = Date.now) {
+// Whether the screen should be kept awake changes only when a workout starts or ends.
+export function keepAwakeChange(prev: Active | null, next: Active | null): 'on' | 'off' | null {
+  if (!prev && next) return 'on';
+  if (prev && !next) return 'off';
+  return null;
+}
+
+// `onSetLogged` runs after a set has been saved (haptic feedback in the app). It cannot fail the
+// log: the set is already on the server.
+export function createWorkoutStore(api: Api, now: () => number = Date.now, onSetLogged?: () => void) {
   return createStore<WorkoutState>()((set, get) => {
     // One request at a time, so a double tap cannot log a set twice.
     async function run(work: () => Promise<void>, onError?: (err: unknown) => Partial<WorkoutState>) {
@@ -141,6 +150,11 @@ export function createWorkoutStore(api: Api, now: () => number = Date.now) {
             active: { ...active, sets: [...active.sets, { exerciseId: exercise.id, setNumber, reps, weightKg }] },
             rest: startRest(now()),
           });
+          try {
+            onSetLogged?.();
+          } catch {
+            // feedback is optional
+          }
         }),
 
       nextExercise() {
