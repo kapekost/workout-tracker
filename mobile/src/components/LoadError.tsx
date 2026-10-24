@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import { colors, radius, space } from '../theme/tokens';
+import { colors, fontSize, radius, space } from '../theme/tokens';
 import { Button } from './Button';
 import { Eyebrow } from './Eyebrow';
 import { ThemedText } from './ThemedText';
@@ -43,7 +43,10 @@ export function LoadErrorHeading({ children }: { children: string }) {
       <Eyebrow color="danger" size="base" style={{ marginBottom: space.xs }}>
         Couldn&apos;t load
       </Eyebrow>
-      <ThemedText size="title" weight="bold" style={{ lineHeight: 31 }}>
+      <ThemedText
+        size="title"
+        weight="bold"
+        style={{ lineHeight: fontSize.title * 1.1, letterSpacing: -fontSize.title * 0.01 }}>
         {children}
       </ThemedText>
     </View>

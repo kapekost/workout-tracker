@@ -2,7 +2,7 @@ import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Pressable, View } from 'react-native';
 
 import { IconNavHistory, IconNavHome, IconNavProgress } from '../icons';
-import { colors, icon, space } from '../theme/tokens';
+import { colors, fontFamily, icon, space } from '../theme/tokens';
 import { Eyebrow } from './Eyebrow';
 
 // The bar's height above the safe area: the top padding plus a 48 tap target.
@@ -19,6 +19,7 @@ const TABS = {
 export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   return (
     <View
+      accessibilityRole="tablist"
       style={{
         flexDirection: 'row',
         backgroundColor: colors.card,
@@ -42,8 +43,20 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
               if (!active && !event.defaultPrevented) navigateToTab(route.key);
             }}
             style={{ flex: 1, minHeight: 48, alignItems: 'center', gap: 3, paddingVertical: space.xs }}>
+            {/* Colour alone is a weak state cue, so the active tab also gets a bar. */}
+            <View
+              style={{
+                position: 'absolute',
+                top: -space.sm,
+                width: 28,
+                height: 2,
+                backgroundColor: active ? colors.accent : 'transparent',
+              }}
+            />
             <tab.Icon size={icon.nav} active={active} />
-            <Eyebrow color={active ? 'accent' : 'muted'}>{tab.label}</Eyebrow>
+            <Eyebrow color={active ? 'accent' : 'muted'} style={{ fontFamily: fontFamily('semibold') }}>
+              {tab.label}
+            </Eyebrow>
           </Pressable>
         );
       })}

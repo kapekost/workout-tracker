@@ -37,7 +37,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1, justifyContent: 'center', padding: space.xxxl, gap: space.xl }}>
       <ThemedText size="title">Gym Tracker</ThemedText>
       <View style={{ gap: space.md }}>
@@ -48,6 +48,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           textContentType="username"
+          autoComplete="username"
           returnKeyType="next"
           value={username}
           onChangeText={setUsername}
@@ -61,6 +62,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           textContentType="password"
+          autoComplete="current-password"
           returnKeyType="go"
           value={password}
           onChangeText={setPassword}

@@ -17,7 +17,7 @@ export default function HomeScreen() {
       </ThemedText>
       <ThemedText color="muted">Signed in as {profile?.username}</ThemedText>
       <Button label="Start workout" onPress={() => router.push('/workout')} />
-      <Button label="Exercises" onPress={() => router.push('/exercises')} />
+      <Button variant="secondary" label="Exercises" onPress={() => router.push('/exercises')} />
     </View>
   );
 }

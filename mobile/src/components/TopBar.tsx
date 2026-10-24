@@ -33,25 +33,32 @@ export function TopBar() {
         <View style={{ flexShrink: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <IconBarbell size={icon.header} />
-            <ThemedText weight="bold" style={{ letterSpacing: labelSpacing(fontSize.body) }}>
+            <ThemedText accessibilityRole="header" weight="bold" style={{ letterSpacing: labelSpacing(fontSize.body) }}>
               Gym Tracker
             </ThemedText>
           </View>
-          <ThemedText mono color="muted2" size="xs">
-            v {Constants.expoConfig?.version}
-          </ThemedText>
+          {Constants.expoConfig?.version ? (
+            <ThemedText mono color="muted2" size="xs">
+              v {Constants.expoConfig.version}
+            </ThemedText>
+          ) : null}
         </View>
         {profile ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.smd, flexShrink: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 }}>
-              {profile.icon ? <ThemedText size="md">{profile.icon}</ThemedText> : <IconUser size={icon.caption} />}
+              {profile.icon ? (
+                <ThemedText size="md" accessible={false}>
+                  {profile.icon}
+                </ThemedText>
+              ) : <IconUser size={icon.caption} />}
               <ThemedText size="md" numberOfLines={1} style={{ flexShrink: 1 }}>
                 {profile.username}
               </ThemedText>
             </View>
             <Pressable
               accessibilityRole="button"
-              onPress={logout}
+              hitSlop={space.md}
+              onPress={() => logout().catch(() => {})}
               style={(s) => ({ minHeight: 44, justifyContent: 'center', opacity: s.pressed ? 0.7 : 1 })}>
               <ThemedText size="md" color="muted" weight="semibold">
                 Log out

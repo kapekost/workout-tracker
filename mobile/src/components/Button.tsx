@@ -27,6 +27,8 @@ export function Button({ label, variant = 'primary', disabled, style, ...rest }:
       {...rest}>
       <ThemedText
         size="body"
+        // The PWA's primary button is 1rem, an off-scale size.
+        style={primary ? { fontSize: 16 } : undefined}
         color={primary ? 'bg' : 'textSecondary'}
         weight={primary ? 'bold' : 'semibold'}>
         {label}

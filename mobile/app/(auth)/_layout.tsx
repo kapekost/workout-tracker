@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
 
+import { SafeFrame } from '@/src/components/SafeFrame';
+
 export default function AuthLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <SafeFrame><Stack screenOptions={{ headerShown: false }} /></SafeFrame>;
 }

@@ -25,7 +25,7 @@ export function Chip({ children, color = colors.accent, selected, size = 'md', o
     paddingVertical: 5,
     paddingHorizontal: 14,
     borderRadius: radius.pill,
-    borderWidth: 1,
+    borderWidth: isToggle ? 1 : 0,
     backgroundColor: visual.backgroundColor,
     borderColor: visual.borderColor,
     alignItems: 'center',

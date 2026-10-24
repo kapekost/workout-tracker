@@ -46,6 +46,11 @@ export default function RootLayout() {
     authStore.getState().restore();
   }, []);
 
+  // The cache is keyed without the profile, so the next member must not see the last one's data.
+  useEffect(() => {
+    if (group !== 'app') queryClient.clear();
+  }, [group]);
+
   useEffect(() => {
     if (group !== 'loading' && fontsReady) SplashScreen.hideAsync();
   }, [group, fontsReady]);
@@ -56,7 +61,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={navTheme}>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
           <Stack.Protected guard={group === 'app'}>
             <Stack.Screen name="(app)" />
           </Stack.Protected>
