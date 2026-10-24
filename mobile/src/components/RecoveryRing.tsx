@@ -29,7 +29,7 @@ export function RecoveryRing({ freshness, size = 44 }: Props) {
   const circumference = 2 * Math.PI * r;
   const filled = freshness === null ? 0 : Math.max(0, Math.min(1, freshness));
   return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }} accessibilityElementsHidden>
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }} aria-hidden>
       <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors.accentWash} strokeWidth={stroke} />
       <Circle
         cx={size / 2}

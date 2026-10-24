@@ -12,6 +12,7 @@ import { MuscleGroupPicker } from '@/src/components/MuscleGroupPicker';
 import { ResumeBanner } from '@/src/components/ResumeBanner';
 import { Skeleton } from '@/src/components/Skeleton';
 import { ThemedText } from '@/src/components/ThemedText';
+import { NAV_BAR_HEIGHT } from '@/src/components/TabBar';
 import { Toast } from '@/src/components/Toast';
 import {
   displayDay,
@@ -114,7 +115,7 @@ export default function HomeScreen() {
     await sessions.refetch();
   }
 
-  const groups = recency.data ? groupRecovery(recency.data, now, exerciseById(PLAN)) : [];
+  const groups = recency.data && !recency.isError ? groupRecovery(recency.data, now, exerciseById(PLAN)) : [];
 
   return (
     <View style={{ flex: 1 }}>
@@ -165,7 +166,7 @@ export default function HomeScreen() {
 
         <ExercisePreview exercises={shown.exercises} color={color} />
 
-        {recency.data ? (
+        {recency.data && !recency.isError ? (
           <MuscleGroupPicker
             groups={groups}
             lastTrainedByDay={lastTrainedByDay(rows, CYCLE)}
@@ -232,7 +233,7 @@ export default function HomeScreen() {
           </ThemedText>
         </Pressable>
       </ScrollView>
-      <Toast toast={toast} />
+      <Toast toast={toast} bottom={NAV_BAR_HEIGHT + space.md} />
     </View>
   );
 }

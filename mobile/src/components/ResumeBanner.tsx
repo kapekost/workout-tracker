@@ -44,19 +44,39 @@ export function ResumeBanner({ session, plan, now, onResume, onDiscard }: Props)
     }
   }
 
+  const bar = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.sm,
+    minHeight: 60,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  } as const;
+
+  // The confirm step takes the whole bar: beside the title it left the name a few characters wide
+  // at 320 px.
+  if (confirming) {
+    return (
+      <View style={bar}>
+        <ThemedText size="md" weight="semibold" color="textSecondary" style={{ flex: 1 }}>
+          Discard {name}?
+        </ThemedText>
+        <Pressable accessibilityRole="button" accessibilityLabel="Confirm discard" disabled={busy} onPress={discard} style={TARGET}>
+          <IconCheck size={icon.body} color={colors.danger} />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cancel discard" disabled={busy} onPress={() => setConfirming(false)} style={TARGET}>
+          <IconXMark size={icon.body} color={colors.muted} />
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: space.md,
-        paddingHorizontal: space.xl,
-        paddingVertical: space.sm,
-        backgroundColor: colors.card,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: colors.border,
-      }}>
+    <View style={bar}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Resume ${name}, in progress ${elapsedLabel(session.created_at, now)}`}
@@ -76,23 +96,9 @@ export function ResumeBanner({ session, plan, now, onResume, onDiscard }: Props)
           Resume ›
         </ThemedText>
       </Pressable>
-      {confirming ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <ThemedText size="sm" color="muted">
-            Discard?
-          </ThemedText>
-          <Pressable accessibilityRole="button" accessibilityLabel="Confirm discard" disabled={busy} onPress={discard} style={TARGET}>
-            <IconCheck size={icon.body} color={colors.danger} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel discard" disabled={busy} onPress={() => setConfirming(false)} style={TARGET}>
-            <IconXMark size={icon.body} color={colors.muted} />
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable accessibilityRole="button" accessibilityLabel="Discard session" onPress={() => setConfirming(true)} style={TARGET}>
-          <IconTrash size={icon.body} color={colors.muted} />
-        </Pressable>
-      )}
+      <Pressable accessibilityRole="button" accessibilityLabel="Discard session" onPress={() => setConfirming(true)} style={TARGET}>
+        <IconTrash size={icon.body} color={colors.muted} />
+      </Pressable>
     </View>
   );
 }
