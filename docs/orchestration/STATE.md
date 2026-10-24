@@ -58,7 +58,7 @@
 (none — runner proceeds normally)
 
 ## In-flight
-- **#422** — claimed 2026-10-24T12:00:00Z, live session. Checkpoint: reviewed @ 2026-10-24T14:24:02Z (PR #542, branch chore/backup-daily-422).
+- **#422** — claimed 2026-10-24T12:00:00Z, live session. Checkpoint: merged @ 2026-10-24T14:28:47Z (PR #542, sha 72c04dfaef34f25e1fa729843bd5fc8058d3827c).
 
 ## Needs owner
 - **Review bot: credits are in (owner, 2026-10-10).** A full-prompt run returned a valid verdict from cohere, so reviews should stop skipping. #296 tracks the live check of the signature line, stealth discovery and openrouter/free; read the first real review of the next PR and record it there.
