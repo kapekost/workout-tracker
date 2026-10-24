@@ -1,6 +1,6 @@
 # Improvements Log
 
-<!-- last-reviewed-count: 69 -->
+<!-- last-reviewed-count: 74 -->
 
 Append one line per entry via `scripts/append_improvement.sh <local|template|unsure> "<note>"` — do
 not edit this file by hand except to resolve a conflict. Reviewed automatically at the end of any
@@ -77,3 +77,8 @@ not edit this file by hand except to resolve a conflict. Reviewed automatically 
 - [local] 2026-10-24: A cross-repo port Issue (#535 kapekost-web half) gets task text naming the workout-tracker repo for the worktree, PR and 'Closes #N'; plain gh pr view 119 there hits an unrelated merged PR. Name the target repo in the execute, ship and deploy tasks.
 - [local] 2026-10-24: The execute task said both 'merge and close the issue' and 'draft only, do not merge'; the executor followed draft only and ship merged later. Drop the merge line from the execute task.
 - [local] 2026-10-24: A worktree of kapekost-web has no pytest in python3; tests/reviewer needs the workout-tracker backend/.venv interpreter (same as the 2026-10-24 .venv entry).
+- [local] 2026-10-24: Seeing mobile screens needs a throwaway SecureStore stub, a cookie-injecting proxy and web.output=single in app.json; none is kept in the repo, so each mobile UI check rebuilds them. A mock-API preview script under scripts/ would fix it (#522).
+- [local] 2026-10-24: The mobile UI review rule asks for ux-visual, ux-flow and ux-mobile and a staff-engineer pass, but tick steps have no subagent tool, so they ran as self-review. Either give the step a subagent tool or let the rule name the self-review as enough (#522).
+- [local] 2026-10-24: PLAYBOOK step 6 has no note for a branch that falls behind main on the same file; with force-push banned the fix is a merge commit of origin/main (#522, #557 touched home.tsx).
+- [local] 2026-10-24: The deploy step asks for live version == merge SHA, which cannot hold for a mobile-only PR. It should compare backend, frontend, Dockerfile and bootstrap script between the live version and the merge SHA instead (#522).
+- [local] 2026-10-24: gh pr checks --watch can pass the 2-minute tool limit when the bot review job runs (over 3 minutes); poll in short loops instead (#522).

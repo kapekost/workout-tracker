@@ -10,6 +10,16 @@
 
 ---
 
+**Tick 2026-10-24 (#522 mobile Home parity).**
+- Merged PR #558 (`210cf4b`, squash, green CI including the new mobile CI job). Mobile Home now has the recovery port, home logic, four components and a resume banner with a two-step discard. Local checks: mobile tests 123 + 3, tsc and lint clean; the recovery port equals the web originals on a recorded recency response (19 comparisons).
+- Seen on Expo web in Chrome next to the PWA at 390 and 320 px for every plan state, plus the "Choose another day" link before merge. Not seen: the phone check, larger text sizes, a few toasts (`DECISIONS.md` 2026-10-24 later). The ux-visual, ux-flow and ux-mobile rubrics were run by hand because the step had no subagent tool; the bot review was skipped for the free-model limit, so the two orchestrate-tick code reviews stood in. One merge conflict with #557 in `home.tsx` was resolved with a merge commit, no force-push.
+- Deploy skipped: the PR touches only `mobile/`, and `git diff 8653fc8 origin/main -- backend frontend Dockerfile scripts/bootstrap_owner.py` is empty; live `/api/health` stays `8653fc8`.
+- Open gaps for the next mobile Home work: no Edit plan pill or Export my data entry (Edit plan belongs to #527, export has no issue); `QueryClient` keeps 3 retries so a failing `/sessions` shows the skeleton for about 11 s; literal sizes outside the tokens file, mostly copied from the PWA.
+- Improvements logged: five `[local]` entries (mobile preview recipe, subagent-less review step, branch-behind-main note, mobile-only deploy check, long `gh pr checks --watch`). Not yet turned into PRs.
+- Cost (output tokens per stage): reconcile 0, pick 6468, claim 258, execute 87363, review 54948, ship 18595, deploy 2981, tail 0.
+
+---
+
 **Docs reconcile 2026-10-24 (home-branch wording removed from PLAYBOOK).**
 - PLAYBOOK steps 1 and 2 and the "Claiming work" section had told a tick to read STATE, GUARDRAILS and DECISIONS from the home branch, `claude/workout-tracker-backlog-bu9qnw`, and to push claims straight to it. The branch was retired on 2026-10-11 (`DECISIONS.md`), so they now read from `origin/main` and claim through a short-lived branch and PR.
 - Incidents the removed text cited: on 2026-09-05 two ticks read `main`'s `DECISIONS.md`, found no standing approval and reported the accounts chain blocked, although the approval sat on the home branch (a merge conflict exposed 28 commits `main` had not seen). On 2026-09-13 PR #175 and two `copier update`s put policy into `main`'s PLAYBOOK and GUARDRAILS that never reached the home branch, and a first reconciliation that adopted `main`'s files wholesale reverted three home-branch refinements. Both were symptoms of two diverging sources, which one source on `main` removes.
