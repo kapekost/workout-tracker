@@ -471,6 +471,8 @@ Hard rules:
 - Do not express anything as a recovery percentage, a "readiness" score, or any other numeric
   confidence/fatigue score. Plain language only.
 - Do not invent training history, personal bests, or notes that were not in the data you were given.
+- A recent session whose workout_day is "extra" was logged outside the plan. It is real training
+  history, but it is not a plan day: never use "extra" as a day_key.
 - If you don't have a specific, evidence-based reason to change a day, leave that day out of
   day_updates entirely rather than making a change to justify including it.
 - Output nothing but the JSON object. It will be parsed by a program, not read by a person first —
@@ -1404,6 +1406,7 @@ def add_plan_day(body: PlanDayIn, profile_id: int = Depends(acting_profile_id)):
         used = {r[0] for r in conn.execute(
             "SELECT day_key FROM plan_days WHERE profile_id = ? "
             "UNION SELECT workout_day FROM sessions WHERE profile_id = ?", (profile_id, profile_id))}
+        used.add(EXTRA_DAY)
         base = _day_slug(body.name)
         key, n = base, 1
         while key in used:
@@ -1467,18 +1470,26 @@ def get_plan_catalog(profile_id: int = Depends(acting_profile_id)):
     """The exercises the plan editor may swap in (plan_seed.EXERCISE_CATALOG)."""
     return plan_seed.EXERCISE_CATALOG
 
+EXTRA_DAY = "extra"  # stable workout_day for a session logged outside the plan
+
+def _open_session_exists(conn, profile_id, day, exclude_id=None):
+    """An open session of the same kind: planned days share one slot, `extra` has its own."""
+    return conn.execute(
+        "SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0 AND id IS NOT ? "
+        "AND (workout_day = ?) = ?",
+        (profile_id, exclude_id, EXTRA_DAY, day == EXTRA_DAY)).fetchone()
+
 @app.post("/api/sessions")
 def create_session(s: SessionIn, profile_id: int = Depends(acting_profile_id)):
     with db() as conn:
         # Take the write lock before the checks, or two simultaneous starts both pass the open-session
         # check and a day removal can slip in between the day check and the insert.
         conn.execute("BEGIN IMMEDIATE")
-        if not conn.execute(
+        if s.workout_day != EXTRA_DAY and not conn.execute(
             "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
             (profile_id, s.workout_day)).fetchone():
             raise HTTPException(400, f"unknown workout day '{s.workout_day}'")
-        if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0",
-                        (profile_id,)).fetchone():
+        if _open_session_exists(conn, profile_id, s.workout_day):
             raise HTTPException(409, "a workout is already in progress")
         cur = conn.execute("INSERT INTO sessions (date, workout_day, profile_id) VALUES (?, ?, ?)",
                            (datetime.now().strftime("%Y-%m-%d"), s.workout_day, profile_id))
@@ -1510,8 +1521,9 @@ def patch_session(sid: int, p: SessionPatch, profile_id: int = Depends(acting_pr
     with db() as conn:
         # 404 (not 403) when the session belongs to another profile — its
         # existence is not the caller's business (#110).
-        if not conn.execute("SELECT 1 FROM sessions WHERE id = ? AND profile_id = ?",
-                            (sid, profile_id)).fetchone():
+        session = conn.execute("SELECT workout_day FROM sessions WHERE id = ? AND profile_id = ?",
+                               (sid, profile_id)).fetchone()
+        if not session:
             raise HTTPException(404)
         if p.completed is not None:
             if p.completed:
@@ -1521,8 +1533,7 @@ def patch_session(sid: int, p: SessionPatch, profile_id: int = Depends(acting_pr
                     (sid,))
             else:
                 conn.execute("BEGIN IMMEDIATE")
-                if conn.execute("SELECT 1 FROM sessions WHERE profile_id = ? AND completed = 0 AND id != ?",
-                                (profile_id, sid)).fetchone():
+                if _open_session_exists(conn, profile_id, session["workout_day"], exclude_id=sid):
                     raise HTTPException(409, "a workout is already in progress")
                 conn.execute("UPDATE sessions SET completed = 0 WHERE id = ?", (sid,))
         conn.commit()
@@ -2201,7 +2212,7 @@ def _import_merge(conn, env, profile_id, cur_version, env_version) -> dict:
             # updates Phase 1 (spec §1.5) — model_validate above no longer
             # rejects an unknown day key on its own, so check it here the same
             # way create_session does, against the caller's own plan_days.
-            if not conn.execute(
+            if row.get("workout_day") != EXTRA_DAY and not conn.execute(
                 "SELECT 1 FROM plan_days WHERE profile_id = ? AND day_key = ?",
                 (profile_id, row.get("workout_day"))).fetchone():
                 raise ValueError(f"unknown workout day '{row.get('workout_day')}'")
