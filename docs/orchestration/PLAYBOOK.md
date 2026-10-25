@@ -366,7 +366,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    is why delegation stays limited to large mechanical steps.
    **Order: test, merge, deploy.** Merge comes first, so test well before it: run the full suites and
    the app locally against a throwaway database (see AGENTS.md "Running the whole app locally"), and
-   drive the changed flow in the browser. Deploy from `main` after the merge if the permission allow rule covers the deploy command, then check the live URL; otherwise report and stop (`DECISIONS.md` 2026-10-22, 2026-10-24).
+   drive the changed flow in the browser. Deploy from `main` after the merge if the permission allow rule covers the deploy command, then check the live URL. Do not require the live version to equal the merge SHA: a PR that touches only `mobile/`, docs or tooling never changes it. Compare `git diff <live>..<merge> -- backend frontend Dockerfile scripts/bootstrap_owner.py` and skip the deploy when that is empty; otherwise report and stop (`DECISIONS.md` 2026-10-22, 2026-10-24).
 6. **PR:** if the change is visible to the user, add one `{date, text}` entry in plain language to
    `frontend/src/lib/changelog.json` in the same PR; it feeds the "What's new" popup. CI fails an app-code PR
    without one; a refactor with no visible effect says `Changelog: none` on its own line in the PR body, with
@@ -395,6 +395,7 @@ only because the owner happened to ask about it, not by anything in this file. H
    If the base branch moved since the PR opened and it now conflicts, resolve by hand — read both
    sides' intent, never blindly take one side or force through — then re-run local verification before
    pushing the merge commit.
+   If the base moved without a conflict (for example CI for `mobile/` landed), merge `main` into the branch (never force-push) and re-run the checks before merging.
    After the merge, confirm it with `gh pr view <PR> --json state` rather than the exit code of
    `gh pr merge`, which can print a misleading "main is already used by worktree" error from inside a
    worktree although the merge succeeded. Then run `bash scripts/task_cleanup.sh <issue-number|worktree-name> [branch]` from
