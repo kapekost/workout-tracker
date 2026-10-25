@@ -33,6 +33,7 @@ npx expo install --check && npx expo-doctor && npx tsc --noEmit && npx expo lint
 - `src/**/*.test.ts` run with `node:test` (`npm run test:unit`): pure logic, no React Native.
 - `src/**/*.test.tsx` run with Jest, `jest-expo` and React Native Testing Library (`npm run test:ui`): screens and components. In RNTL 14 `render` and `fireEvent` are async, so `await` them.
 - The network is `test/fakeApi.ts`, a fake `fetch` whose replies copy what `backend/main.py` returns. Add a route there from the real endpoint's response; do not invent a shape the backend does not send.
+- `src/contract/contract.test.ts` runs the app's real API client and stores against the real backend (`npm run test:contract`), and is skipped unless `CONTRACT_API_URL` and `CONTRACT_PASSWORD` are set. CI does that on a throwaway database (`.github/workflows/mobile-contract.yml`); `bash scripts/mobile_drive.sh start` gives a server and login locally. When the fake API and the real backend disagree, this is the test that says which is right: change the fake to match.
 - Give every control an agent or Maestro flow must reach a `testID`, named `<screen>-<control>` (`login-submit`, `workout-log-set`).
 
 ## Driving the app on a phone

@@ -79,16 +79,7 @@ start() {
   wait_for "http://$ip:$api_port/api/health" "$api_job" "$api_port"
   record "$api_port" "$api_job"
 
-  (cd "$root" && DATABASE_URL="$db" PASSWORD="$password" backend/.venv/bin/python - <<'PY'
-import os, sys
-sys.path.insert(0, 'backend')
-import main
-with main.db() as conn:
-    conn.execute("UPDATE profiles SET password_hash = ? WHERE username = 'kapekost'",
-                 (main.hash_password(os.environ['PASSWORD']),))
-    conn.commit()
-PY
-  )
+  DATABASE_URL="$db" PASSWORD="$password" "$root/backend/.venv/bin/python" "$root/scripts/set_dev_password.py"
 
   (cd "$root/mobile" && EXPO_PUBLIC_API_URL="http://$ip:$api_port" REACT_NATIVE_PACKAGER_HOSTNAME="$ip" \
     EXPO_NO_TELEMETRY=1 exec npx expo start --lan --port "$metro_port") >"$state/expo.log" 2>&1 </dev/null &
