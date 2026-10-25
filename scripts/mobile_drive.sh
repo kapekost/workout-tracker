@@ -5,12 +5,13 @@
 #   bash scripts/mobile_drive.sh start   # backend + Expo dev server, prints login and the open command
 #   bash scripts/mobile_drive.sh stop    # stops both and deletes the throwaway database
 #
-# Needs backend/.venv and mobile/node_modules (see AGENTS.md). Override with LAN_IP, API_PORT, METRO_PORT.
+# Needs backend/.venv and mobile/node_modules (see AGENTS.md). Override with LAN_IP, API_PORT,
+# METRO_PORT, and MOBILE_DRIVE_BASE (the directory that holds the wt-mobile-drive state folder).
 # Both servers speak plain HTTP on the LAN: run it on a trusted network only, and stop it when done.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-state=${MOBILE_DRIVE_STATE:-${TMPDIR:-/tmp}/wt-mobile-drive}
+state=${MOBILE_DRIVE_BASE:-${TMPDIR:-/tmp}}/wt-mobile-drive
 api_port=${API_PORT:-8083}
 metro_port=${METRO_PORT:-8082}
 ip=${LAN_IP:-$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')}
@@ -18,22 +19,29 @@ ok=0
 
 listening() { lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | head -1 || true; }
 
-# Wait for a URL to answer, failing fast if the server we started has already exited.
-wait_for() { # url pid
+# Wait for a URL to answer, failing fast if the server we started has already exited. On a
+# timeout, also stop whatever listens on the port: npx is a wrapper, so its pid is not the server's.
+wait_for() { # url pid port
   local _
   for _ in $(seq 1 60); do
     curl -fs "$1" >/dev/null 2>&1 && return 0
     kill -0 "$2" 2>/dev/null || { echo "server exited early:" >&2; tail -n 5 "$state"/*.log >&2; return 1; }
     sleep 1
   done
-  kill "$2" 2>/dev/null || true
+  kill "$2" "$(listening "$3")" 2>/dev/null || true
   echo "timed out waiting for $1:" >&2
   tail -n 5 "$state"/*.log >&2
   return 1
 }
 
-# Remember the pid that listens on a port. The ports were free before start, so it is ours.
-record() { echo "$1 $(listening "$1")" >>"$state/pids"; }
+# Remember the pid that listens on a port. The ports were free before start, so it is ours. If it
+# cannot be seen, stop the server we launched rather than leave one that stop cannot find.
+record() { # port pid
+  local listener
+  listener=$(listening "$1")
+  [ -n "$listener" ] || { kill "$2" 2>/dev/null || true; echo "no listener found on port $1" >&2; return 1; }
+  echo "$1 $listener" >>"$state/pids"
+}
 
 stop() {
   local port pid
@@ -57,7 +65,7 @@ start() {
 
   # A private directory that must not exist yet, so nobody can pre-create it or swap it for a link.
   umask 077
-  mkdir "$state" || { echo "$state exists; run stop first" >&2; exit 1; }
+  mkdir "$state" || { echo "cannot create $state (already running? run stop first)" >&2; exit 1; }
   trap '[ "$ok" = 1 ] || stop' EXIT
 
   local password db="$state/drive.db"
@@ -67,8 +75,9 @@ start() {
   # caller's output open after start returns.
   (cd "$root/backend" && DATABASE_URL="$db" exec .venv/bin/python -m uvicorn main:app \
     --host "$ip" --port "$api_port") >"$state/backend.log" 2>&1 </dev/null &
-  wait_for "http://$ip:$api_port/api/health" $!
-  record "$api_port"
+  api_job=$!
+  wait_for "http://$ip:$api_port/api/health" "$api_job" "$api_port"
+  record "$api_port" "$api_job"
 
   (cd "$root" && DATABASE_URL="$db" PASSWORD="$password" backend/.venv/bin/python - <<'PY'
 import os, sys
@@ -83,8 +92,9 @@ PY
 
   (cd "$root/mobile" && EXPO_PUBLIC_API_URL="http://$ip:$api_port" REACT_NATIVE_PACKAGER_HOSTNAME="$ip" \
     EXPO_NO_TELEMETRY=1 exec npx expo start --lan --port "$metro_port") >"$state/expo.log" 2>&1 </dev/null &
-  wait_for "http://$ip:$metro_port/status" $!
-  record "$metro_port"
+  metro_job=$!
+  wait_for "http://$ip:$metro_port/status" "$metro_job" "$metro_port"
+  record "$metro_port" "$metro_job"
   ok=1
 
   cat <<EOF
