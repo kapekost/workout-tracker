@@ -54,7 +54,7 @@ jobs:
             curl -fs http://127.0.0.1:8000/api/health >/dev/null && break
             sleep 1
           done
-          curl -fs http://127.0.0.1:8000/api/health
+          curl -fs http://127.0.0.1:8000/api/health || { echo "the backend did not start"; exit 1; }
           PASSWORD="$password" python scripts/set_dev_password.py
           cd mobile
           CONTRACT_API_URL=http://127.0.0.1:8000 CONTRACT_PASSWORD="$password" npm run test:contract

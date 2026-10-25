@@ -12,7 +12,7 @@ import { createWorkoutStore } from '../workout/session.ts';
 
 const baseUrl = process.env.CONTRACT_API_URL;
 const password = process.env.CONTRACT_PASSWORD ?? '';
-const skip = baseUrl ? false : 'set CONTRACT_API_URL and CONTRACT_PASSWORD (see mobile/AGENTS.md)';
+const skip = baseUrl && password ? false : 'set CONTRACT_API_URL and CONTRACT_PASSWORD (see mobile/AGENTS.md)';
 
 function memoryStore() {
   const store = {
@@ -44,7 +44,11 @@ type SessionDetail = {
 
 test('mobile client against the real backend', { skip }, async (t) => {
   const { api, store, auth, unauthorized } = app();
-  let plan: Plan;
+  let plan: Plan | undefined;
+  const firstDay = () => {
+    assert.ok(plan, 'the plan test failed or did not run, so this test cannot start a workout');
+    return planDays(plan)[0];
+  };
 
   await t.test('a wrong password is a 401 with the server message, and stays signed out', async () => {
     await assert.rejects(
@@ -54,7 +58,8 @@ test('mobile client against the real backend', { skip }, async (t) => {
     await auth.getState().login('kapekost', 'not the password');
     assert.notEqual(auth.getState().status, 'signedIn');
     assert.ok(auth.getState().error);
-    assert.equal(store.value, null);
+    // A boolean, so a failure never prints the cookie into a log.
+    assert.ok(store.value === null, 'the session cookie is still stored');
   });
 
   await t.test('login keeps the session cookie from Set-Cookie and /auth/me accepts it', async () => {
@@ -67,10 +72,10 @@ test('mobile client against the real backend', { skip }, async (t) => {
   });
 
   await t.test('the plan has the shape the screens read', async () => {
-    plan = await api.get<Plan>('/plan');
-    assert.ok(plan.cycle.length > 0);
-    for (const key of plan.cycle) assert.ok(plan.plan[key], `cycle names a day the plan lacks: ${key}`);
-    for (const day of planDays(plan)) {
+    const fetched = await api.get<Plan>('/plan');
+    assert.ok(fetched.cycle.length > 0);
+    for (const key of fetched.cycle) assert.ok(fetched.plan[key], `cycle names a day the plan lacks: ${key}`);
+    for (const day of planDays(fetched)) {
       assert.ok(day.exercises.length > 0);
       for (const e of day.exercises) {
         assert.equal(typeof e.id, 'string');
@@ -78,11 +83,12 @@ test('mobile client against the real backend', { skip }, async (t) => {
         assert.ok(Number.isInteger(e.sets) && e.repsLow <= e.repsHigh);
       }
     }
+    plan = fetched;
   });
 
   await t.test('start, log two sets, retry one, finish', async () => {
     const workout = createWorkoutStore(api);
-    await workout.getState().start(planDays(plan)[0]);
+    await workout.getState().start(firstDay());
     const active = workout.getState().active;
     assert.ok(active, `start failed: ${workout.getState().error}`);
 
@@ -104,7 +110,7 @@ test('mobile client against the real backend', { skip }, async (t) => {
 
     const detail = await api.get<SessionDetail>(`/sessions/${active.id}`);
     assert.deepEqual(
-      detail.sets.map((s) => [s.set_number, s.reps, s.weight_kg]),
+      [...detail.sets].sort((a, b) => a.set_number - b.set_number).map((s) => [s.set_number, s.reps, s.weight_kg]),
       [[1, 8, 60], [2, 8, 62.5]],
     );
 
@@ -116,13 +122,17 @@ test('mobile client against the real backend', { skip }, async (t) => {
   await t.test('a second start while one is open is a 409 the store reports as a conflict', async () => {
     const first = createWorkoutStore(api);
     const second = createWorkoutStore(api);
-    const day = planDays(plan)[0];
+    const day = firstDay();
     await first.getState().start(day);
-    assert.ok(first.getState().active, `start failed: ${first.getState().error}`);
-    await second.getState().start(day);
-    assert.equal(second.getState().conflict, true);
-    assert.equal(second.getState().active, null);
-    await first.getState().finish();
+    try {
+      assert.ok(first.getState().active, `start failed: ${first.getState().error}`);
+      await second.getState().start(day);
+      assert.equal(second.getState().conflict, true);
+      assert.equal(second.getState().active, null);
+    } finally {
+      // Never leave a workout open for the next test or the next run on the same database.
+      await first.getState().finish();
+    }
   });
 
   await t.test('without a session a data request is a 401 and the app is told', async () => {
@@ -136,7 +146,8 @@ test('mobile client against the real backend', { skip }, async (t) => {
     assert.ok(oldCookie);
     await auth.getState().logout();
     assert.equal(auth.getState().status, 'signedOut');
-    assert.equal(store.value, null);
+    // A boolean, so a failure never prints the cookie into a log.
+    assert.ok(store.value === null, 'the session cookie is still stored');
     assert.equal(unauthorized.length, 0);
     // The old cookie, sent by hand, must no longer be a session.
     const replay = memoryStore();
