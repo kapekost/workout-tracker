@@ -50,6 +50,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
 # dependencies at all. openssh-client is here because this repo's deploy/backup scripts
 # shell out to ssh.
 RUN apk add --no-cache \
+      ast-grep \
       bash \
       curl \
       git \
