@@ -50,7 +50,8 @@
     "lint": "expo lint",
     "test": "npm run test:unit && npm run test:ui",
     "test:unit": "node --experimental-strip-types --test 'src/**/*.test.ts'",
-    "test:ui": "jest"
+    "test:ui": "jest",
+    "test:contract": "node --experimental-strip-types --test src/contract/contract.test.ts"
   },
   "private": true,
   "jest": {
