@@ -45,7 +45,8 @@ bash scripts/mobile_drive.sh stop    # stops both and deletes the throwaway data
 ```
 
 - The phone and the machine must share a Wi-Fi network, and the phone's Expo Go must support this SDK (the Play Store copy can lag a major version).
-- It needs `backend/.venv` and `mobile/node_modules` in the same checkout. Another session may already hold port 8081 or 8000; the script uses 8082 and its own LAN address, and `stop` only touches its own processes.
+- Both servers listen on the machine's LAN address over plain HTTP, and the login and session cookie cross the network unencrypted. Use it on a trusted private network only, never guest or public Wi-Fi, and stop it when finished. It is a throwaway database with a random password per run.
+- It needs `backend/.venv` and `mobile/node_modules` in the same checkout. It refuses to start when its ports (8083 and 8082 by default; set `API_PORT` and `METRO_PORT`) are taken, and `stop` signals only the pids it recorded.
 - Loop: `agent-device open ...` (printed by `start`), `snapshot -i`, then `fill`, `press`, `wait`. Refs go stale when the keyboard opens, so snapshot again. Decline Android's save-password prompt.
 
 ## Navigation & Routing
