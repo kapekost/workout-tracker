@@ -196,6 +196,12 @@ Frontend needs Node; backend needs Python 3.11+ and pip. If this machine's
 shell doesn't have them on `PATH`, check `AGENTS.local.md` for known-good
 paths before re-discovering them.
 
+For changes that touch many call sites (porting web components to `mobile/`, renaming an API
+client function, swapping a library), prefer `ast-grep` over text search when it is installed:
+it matches syntax, so `ast-grep run -p 'fetchJson($$$)' -l tsx` skips strings and comments.
+Use `rg` for literals. Review the matches first, run `--rewrite` only on a clean branch, and
+read the diff before committing.
+
 The frontend tests need Node 22.22.2 or newer, because jsdom 30 does. On an older Node every
 test file fails to start with a `bind` error from undici and vitest reports "no tests". CI pins
 22.22.2. Without upgrading Node, `npx -y node@22.22.2 ./node_modules/vitest/vitest.mjs run` works.
