@@ -10,6 +10,12 @@
 
 ---
 
+**Session 2026-10-25, later (contract tests, then paused).**
+- Merged #581: the app's real API client, auth store and workout store run against the real backend on a throwaway database (`mobile/src/contract/contract.test.ts`, `.github/workflows/mobile-contract.yml`, one shared `scripts/set_dev_password.py`). Two independent reviews (engineering, security); the review bot produced no verdict (all four free models ended without JSON). Mutation-checked locally (not repeated by CI): renaming the backend session cookie fails 6 of 8.
+- Owner paused the rest of the verification path: the mobile app moves to its own project and the work continues after the split. #559 carries the resume list and the list of pieces coupled to this repo; STATE "Needs owner" carries the two decisions for the split.
+
+---
+
 **Session 2026-10-25 (mobile verification path, #559).**
 - Researched how an agent can verify the Expo app without Xcode (EAS cloud simulator is a gated preview, iPhone automation needs Xcode in every route found, MSW does not run under jest-expo without a growing transform list). Findings and the ordered plan are in #559.
 - Merged #557 (mobile CI job, Jest + React Native Testing Library with a fake API, testIDs, `mobile/AGENTS.md` fixes) and #579 (`scripts/mobile_drive.sh`), each after two strict review rounds (engineering and security). The review caught a tracked `enabledPlugins` line for the Expo plugin, which would start a remote MCP server for every contributor of a public repo; it was removed and the plugin stays enabled per user.
