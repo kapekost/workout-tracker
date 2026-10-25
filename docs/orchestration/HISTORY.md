@@ -10,6 +10,14 @@
 
 ---
 
+**Session 2026-10-25 (mobile verification path, #559).**
+- Researched how an agent can verify the Expo app without Xcode (EAS cloud simulator is a gated preview, iPhone automation needs Xcode in every route found, MSW does not run under jest-expo without a growing transform list). Findings and the ordered plan are in #559.
+- Merged #557 (mobile CI job, Jest + React Native Testing Library with a fake API, testIDs, `mobile/AGENTS.md` fixes) and #579 (`scripts/mobile_drive.sh`), each after two strict review rounds (engineering and security). The review caught a tracked `enabledPlugins` line for the Expo plugin, which would start a remote MCP server for every contributor of a public repo; it was removed and the plugin stays enabled per user.
+- Drove the app on the owner's physical Android phone over USB with `agent-device`: login, start a workout, log a set, rest timer, against a throwaway backend (never the real database). Expo Go on the phone was SDK 54 and refused the SDK 58 app until updated from the Play Store.
+- Not done: contract CI job, Maestro flows, iPhone manual checklist, `eas init`, Apple membership (all in #559).
+
+---
+
 **Tick 2026-10-25 (#552 extra logging 1/3, backend).**
 - Merged PR #566 (`b98547b`, squash, green CI). `workout_day` "extra" skips the plan-day check and has its own open-session slot beside the planned one; create and reopen apply the rule per kind, merge import accepts it, a new plan day cannot take the key, and the AI plan export prompt names it. No schema change. 538 backend tests pass; 10 of the 11 new ones failed first.
 - Bot review (`cohere/north-mini-code:free`) posted a "critical": planned sessions could overlap. False; planned days share one slot as before and `test_planned_start_still_409_when_planned_open` asserts it.
