@@ -10,6 +10,14 @@
 
 ---
 
+**Tick 2026-10-25 (#552 extra logging 1/3, backend).**
+- Merged PR #566 (`b98547b`, squash, green CI). `workout_day` "extra" skips the plan-day check and has its own open-session slot beside the planned one; create and reopen apply the rule per kind, merge import accepts it, a new plan day cannot take the key, and the AI plan export prompt names it. No schema change. 538 backend tests pass; 10 of the 11 new ones failed first.
+- Bot review (`cohere/north-mini-code:free`) posted a "critical": planned sessions could overlap. False; planned days share one slot as before and `test_planned_start_still_409_when_planned_open` asserts it.
+- Deployed from the shared checkout (detached at `origin/main`, branch restored afterwards) because `deploy.sh` needs the gitignored `AGENTS.local.md` and a worktree has none. `/api/health` reports `b98547b`. Not driven behind the login.
+- Unblocks #553 (frontend).
+
+---
+
 **Tick 2026-10-24 (#522 mobile Home parity).**
 - Merged PR #558 (`210cf4b`, squash, green CI including the new mobile CI job). Mobile Home now has the recovery port, home logic, four components and a resume banner with a two-step discard. Local checks: mobile tests 123 + 3, tsc and lint clean; the recovery port equals the web originals on a recorded recency response (19 comparisons).
 - Seen on Expo web in Chrome next to the PWA at 390 and 320 px for every plan state, plus the "Choose another day" link before merge. Not seen: the phone check, larger text sizes, a few toasts (`DECISIONS.md` 2026-10-24 later). The ux-visual, ux-flow and ux-mobile rubrics were run by hand because the step had no subagent tool; the bot review was skipped for the free-model limit, so the two orchestrate-tick code reviews stood in. One merge conflict with #557 in `home.tsx` was resolved with a merge commit, no force-push.
