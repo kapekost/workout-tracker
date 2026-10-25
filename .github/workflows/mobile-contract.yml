@@ -1,0 +1,64 @@
+name: Mobile contract tests
+
+# The mobile app's API client and stores against the real backend on a throwaway database, so a
+# change on either side that the screen tests' fake API cannot see fails here.
+
+on:
+  push:
+    branches: [main]
+    paths: ['mobile/**', 'backend/**', 'scripts/set_dev_password.py', '.github/workflows/mobile-contract.yml']
+  pull_request:
+    paths: ['mobile/**', 'backend/**', 'scripts/set_dev_password.py', '.github/workflows/mobile-contract.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.14'  # keep in step with the Dockerfile's base image
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - run: pip install -r backend/requirements.txt
+      - run: npm ci
+        working-directory: mobile
+
+      - name: Start the backend on a throwaway database and run the contract tests
+        env:
+          DATABASE_URL: ${{ runner.temp }}/contract.db
+        run: |
+          password="contract-$(openssl rand -hex 12)"
+          echo "::add-mask::$password"
+          (cd backend && exec python -m uvicorn main:app --host 127.0.0.1 --port 8000) \
+            >"$RUNNER_TEMP/backend.log" 2>&1 </dev/null &
+          for _ in $(seq 1 30); do
+            curl -fs http://127.0.0.1:8000/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -fs http://127.0.0.1:8000/api/health || { echo "the backend did not start"; exit 1; }
+          PASSWORD="$password" python scripts/set_dev_password.py
+          cd mobile
+          CONTRACT_API_URL=http://127.0.0.1:8000 CONTRACT_PASSWORD="$password" npm run test:contract
+
+      - name: Backend log
+        if: failure()
+        run: cat "$RUNNER_TEMP/backend.log"
