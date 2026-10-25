@@ -35,6 +35,19 @@ npx expo install --check && npx expo-doctor && npx tsc --noEmit && npx expo lint
 - The network is `test/fakeApi.ts`, a fake `fetch` whose replies copy what `backend/main.py` returns. Add a route there from the real endpoint's response; do not invent a shape the backend does not send.
 - Give every control an agent or Maestro flow must reach a `testID`, named `<screen>-<control>` (`login-submit`, `workout-log-set`).
 
+## Driving the app on a phone
+
+An agent can see and tap the app on an Android phone over USB debugging, with `adb` and `agent-device` (`npx agent-device`). iPhones cannot be driven without Xcode, so they stay a manual check.
+
+```bash
+bash scripts/mobile_drive.sh start   # throwaway backend + Expo dev server on the LAN, prints a login and the open command
+bash scripts/mobile_drive.sh stop    # stops both and deletes the throwaway database
+```
+
+- The phone and the machine must share a Wi-Fi network, and the phone's Expo Go must support this SDK (the Play Store copy can lag a major version).
+- It needs `backend/.venv` and `mobile/node_modules` in the same checkout. Another session may already hold port 8081 or 8000; the script uses 8082 and its own LAN address, and `stop` only touches its own processes.
+- Loop: `agent-device open ...` (printed by `start`), `snapshot -i`, then `fill`, `press`, `wait`. Refs go stale when the keyboard opens, so snapshot again. Decline Android's save-password prompt.
+
 ## Navigation & Routing
 
 - Use **Expo Router** for all navigation. Routes live in `app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) in `src/`, and never put a test inside `app/`: it would become a route.
