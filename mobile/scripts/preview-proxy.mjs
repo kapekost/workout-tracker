@@ -43,4 +43,4 @@ http.createServer(async (req, res) => {
   });
   res.writeHead(upstream.status, { ...cors, 'Content-Type': upstream.headers.get('content-type') ?? 'text/plain' });
   res.end(Buffer.from(await upstream.arrayBuffer()));
-}).listen(port, () => console.log(`preview proxy on :${port}, compare page at /compare`));
+}).listen(port, '127.0.0.1', () => console.log(`preview proxy on :${port}, compare page at /compare`));
