@@ -120,7 +120,7 @@ DEFAULT_PLAN = [
                     "Elbows pinned tight to sides",
                     "Slight forward hinge at hips",
                     "Full extension at bottom, squeeze",
-                    "2 sec slow return. Feel the stretch",
+                    "2 sec slow return",
                     "Don't let elbows flare or drift forward",
                 ],
             },
@@ -259,10 +259,10 @@ DEFAULT_PLAN = [
                 "muscles": ["Upper Chest", "Front Delt", "Triceps"],
                 "yt_url": "https://www.youtube.com/results?search_query=incline+dumbbell+press+form+tutorial",
                 "cues": [
-                    "30° bench hits more chest than 45°",
+                    "Bench at 30-45°",
                     "DB at chest height, neutral or angled grip",
-                    "Press slightly inward at top for chest squeeze",
-                    "Full stretch at bottom. Feel it in upper chest",
+                    "Press slightly inward at top",
+                    "Full stretch at bottom",
                     "2-3 sec descent, controlled",
                 ],
             },
@@ -317,7 +317,7 @@ DEFAULT_PLAN = [
                     "Raise to shoulder height, no higher needed",
                     "Lead with elbows, pinky slightly higher than thumb",
                     "No momentum. Strict and slow",
-                    "Feel the side delt, not traps",
+                    "Shoulders down, no shrugging",
                 ],
             },
             {
@@ -335,7 +335,7 @@ DEFAULT_PLAN = [
                     "Elbows stay pinned to sides",
                     "Full ROM, full extension at bottom",
                     "Squeeze at peak, no swinging",
-                    "Alternating or simultaneous, both effective",
+                    "Alternating or simultaneous",
                 ],
             },
             {
@@ -361,7 +361,7 @@ DEFAULT_PLAN = [
     {
         "day_key": "lower_b",
         "name": "Lower B",
-        "tag": "Posterior Chain · Glutes · Power",
+        "tag": "Posterior Chain · Glutes",
         "icon": "lower",
         "exercises": [
             {
@@ -395,7 +395,7 @@ DEFAULT_PLAN = [
                 "cues": [
                     "Front foot far enough forward. Don't tip",
                     "Rear foot on bench, top of foot down",
-                    "Slight forward torso lean to engage more glute",
+                    "Slight forward torso lean",
                     "Front knee tracks over toes. No caving",
                     "2 sec descent, explosive drive up",
                 ],
@@ -433,7 +433,7 @@ DEFAULT_PLAN = [
                     "Full extension at top. Squeeze quads hard",
                     "1-2 sec hold at peak contraction",
                     "Controlled slow descent",
-                    "Toes slightly out targets outer quad",
+                    "Toes pointing up, feet relaxed",
                 ],
             },
             {
@@ -451,7 +451,6 @@ DEFAULT_PLAN = [
                     "Full stretch, heels as low as possible",
                     "Rise onto ball of foot, hold 1-2 sec",
                     "Slow controlled descent",
-                    "Seated = more soleus activation than standing",
                 ],
             },
         ],
