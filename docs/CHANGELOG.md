@@ -7,11 +7,10 @@ runbook, and backlog live in [AGENTS.md](../AGENTS.md); this file is history.
 
 - **Schema v10**: `profiles.share_bests INTEGER NOT NULL DEFAULT 0`. Nothing is shared until a member ticks the box.
 - `PUT /api/personal-bests/sharing` sets the caller's flag. `GET /api/personal-bests/top` returns `{sharing, top}`: for each exercise the caller has a best in, the three highest est. 1RMs among other opted-in members (`best_single`, so a real single is itself), only when at least 3 members have one. No ids, names or dates. Both answer `no-store`.
-- Personal Bests shows a checkbox and one muted line per exercise, "Other members\' top 3: ... kg est. 1RM". A member who has not opted in still sees the line.
+- Personal Bests shows a checkbox and one muted line per exercise, "Other members' top 3: ... kg est. 1RM". A member who has not opted in still sees the line.
 - A whole-database restore resets every `share_bests` to 0 so an old or edited backup cannot opt anyone back in.
 - With few members the line is absent in production; that is correct, not a failed deploy.
-
-Sandbox models no longer hold a GitHub token (2026-10-27).
+- Sandbox models no longer hold a GitHub token (2026-10-27).
 
 ## 2026-10-22 — AI plan updates: export and paste-back screen (`#223`; live `d463748`)
 
