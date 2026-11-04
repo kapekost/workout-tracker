@@ -1,5 +1,7 @@
 # Public access via Cloudflare Tunnel — design
 
+> **Superseded (2026-11-04):** never built. No tunnel, Cloudflare Access or `cloudflared` service exists (checked on the Pi); the owner does not use Cloudflare. Kept as history only.
+
 **Date:** 2026-08-31
 **Status:** Drafted this tick from owner Q&A already recorded in `docs/orchestration/DECISIONS.md`
 (2026-08-30 entry for #27). **Treat this one with more caution than a typical spec before acting on
