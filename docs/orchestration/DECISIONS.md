@@ -317,6 +317,8 @@ before writing) worth considering together.
 
 ## 2026-08-30 — #27 direction: keep the Pi, Cloudflare Tunnel, Home Assistant safety is a hard requirement
 
+> **Superseded 2026-11-04:** the Cloudflare Tunnel was never built and the owner does not use Cloudflare. Public access is undecided; the Pi-and-Home-Assistant safety constraint below still holds.
+
 Owner decided against migrating off the Raspberry Pi — public exposure goes through something
 like Cloudflare Tunnel instead (SSL, no VPN). Explicit constraint: the Pi's home network also
 runs Home Assistant, so whatever ships must be scoped tightly to this app's own service/port, not

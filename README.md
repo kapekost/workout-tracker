@@ -5,8 +5,8 @@ form cues for a 4-day Upper/Lower split (Upper A → Lower A → Upper B → Low
 
 A multi-profile app with login: every account has its own sessions, sets and plan
 behind a session cookie, and sign-in is by invitation only. It runs as a single
-Docker container, currently hosted on a Raspberry Pi 3 B+ at home. Public access
-through a Cloudflare Tunnel is the chosen direction, pending a security review.
+Docker container, currently hosted on a Raspberry Pi 3 B+ at home, reached over
+Tailscale. Public access is undecided (no Cloudflare Tunnel is set up).
 Cloud hosting and a wider multi-user rollout are planned, not current state;
 access stays invite-only until the mobile app ships.
 **Ops truth lives in [AGENTS.md](AGENTS.md)** (generic) **and
