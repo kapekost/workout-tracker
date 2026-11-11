@@ -31,7 +31,7 @@ RUN npm run build
 # never compiles (gcc alone was ~150 MB of dead weight on the 1 GB Pi). Re-verify
 # this holds on any future base-image bump: CI never builds this Dockerfile, so a
 # missing wheel shows up only as a real build failure here, never as a red check.
-FROM python:3.14-slim
+FROM python:3.15-slim
 ARG APP_COMMIT
 ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /app
